@@ -1,0 +1,15 @@
+.gcloudignore
+.git
+.gitignore
+.github
+node_modules
+vendor
+.env
+.env.*
+storage/logs
+storage/framework
+public/hot
+public/build
+bootstrap/cache
+*.sqlite
+*.sqlite-journal

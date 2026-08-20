@@ -1,0 +1,25 @@
+openapi: 3.1.0
+info:
+  title: Task Hub API
+  version: 1.0.0
+paths:
+  /api/v1/capabilities:
+    get:
+      summary: Discover server and MCP compatibility
+      responses:
+        '200': { description: Capabilities returned }
+  /api/v1/agent-runs/{run_id}/handoff:
+    post:
+      summary: Atomically submit structured handoff and verification evidence
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Run moved to needs_review }
+  /mcp:
+    post:
+      summary: Versioned Model Context Protocol endpoint
+      responses:
+        '200': { description: JSON-RPC response }

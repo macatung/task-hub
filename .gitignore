@@ -1,9 +1,10 @@
 /node_modules
-/public/hot
-/public/storage
-/public/build
-/storage/*.key
-/vendor
+/apps/hub/node_modules/
+/apps/hub/public/hot
+/apps/hub/public/storage
+/apps/hub/public/build
+/apps/hub/storage/*.key
+/apps/hub/vendor
 .env
 .env.backup
 .env.production
@@ -24,15 +25,15 @@ dist-ssr
 *key.json
 *.key
 *.pem
-/database/*.sqlite
-/database/*.sqlite-journal
+/apps/hub/database/*.sqlite
+/apps/hub/database/*.sqlite-journal
 *.stackdump
 
 # Desktop app build artifacts
-/desktop/node_modules/
-/desktop/dist/
-/desktop/dist-electron/
-/desktop/release/
+/apps/desktop/node_modules/
+/apps/desktop/dist/
+/apps/desktop/dist-electron/
+/apps/desktop/release/
 
 # Agent artifacts & test reports
 /.agents/
