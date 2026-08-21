@@ -75,10 +75,10 @@ $registerApiRoutes = function () {
     Route::post('/tasks/work-items/{task}/approve', [ApiAgentRunController::class, 'approve']);
     Route::post('/tasks/work-items/{task}/reject', [ApiAgentRunController::class, 'reject']);
     Route::post('/tasks/github/webhook', [ApiAgentRunController::class, 'githubWebhook']);
-    Route::get('/tasks/agent-runs', [ApiAgentRunController::class, 'index'])->middleware('auth');
-    Route::post('/tasks/agent-runs', [ApiAgentRunController::class, 'store'])->middleware('auth');
-    Route::get('/tasks/agent-runs/{agentRun}', [ApiAgentRunController::class, 'show'])->middleware('auth');
-    Route::patch('/tasks/agent-runs/{agentRun}', [ApiAgentRunController::class, 'update'])->middleware('auth');
+    Route::get('/tasks/agent-runs', [ApiAgentRunController::class, 'index']);
+    Route::post('/tasks/agent-runs', [ApiAgentRunController::class, 'store']);
+    Route::get('/tasks/agent-runs/{agentRun}', [ApiAgentRunController::class, 'show']);
+    Route::patch('/tasks/agent-runs/{agentRun}', [ApiAgentRunController::class, 'update']);
     Route::post('/tasks/agent-runs/{agentRun}/events', [ApiAgentRunController::class, 'event']);
     Route::post('/tasks/agent-runs/{agentRun}/evidence', [ApiAgentRunController::class, 'evidence']);
     Route::post('/tasks/agent-runs/{agentRun}/handoff', [ApiAgentRunController::class, 'handoff']);

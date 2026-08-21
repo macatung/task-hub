@@ -51,12 +51,20 @@ class ApiAgentRunController extends Controller
 
         $task = !empty($validated['task_id']) ? Task::with('project.workspace')->findOrFail($validated['task_id']) : null;
         $workspace = $task?->project?->workspace;
-        if ($request->user()) $workspace = app(WorkspaceContext::class)->resolve($request);
-        if ($task?->project && $workspace && (int) $task->project->workspace_id !== (int) $workspace->id) abort(403, 'Task does not belong to the selected workspace.');
+        if ($request->user()) {
+            $resolved = app(WorkspaceContext::class)->resolve($request, false);
+            if ($resolved) {
+                $workspace = $resolved;
+            }
+        }
+        $workspace ??= ($task?->workspace ?? \App\Models\Workspace::first());
+        if ($task?->project && $task->project->workspace_id && $workspace && (int) $task->project->workspace_id !== (int) $workspace->id) {
+            abort(403, 'Task does not belong to the selected workspace.');
+        }
         $context = $validated['context'] ?? $contextService->build($task, $validated);
         $instruction = $validated['instruction'] ?? [];
 
-        $run = DB::transaction(function () use ($validated, $context, $instruction, $contextService, $task) {
+        $run = DB::transaction(function () use ($validated, $context, $instruction, $contextService, $task, $workspace) {
             $run = AgentRun::create([
                 'task_id' => $task?->id,
                 'workspace_id' => $workspace?->id,

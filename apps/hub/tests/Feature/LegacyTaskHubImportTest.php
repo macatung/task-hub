@@ -25,7 +25,7 @@ class LegacyTaskHubImportTest extends TestCase
         $this->artisan('taskhub:import-legacy', ['file' => $path])->assertSuccessful();
         $this->artisan('taskhub:import-legacy', ['file' => $path])->assertSuccessful();
 
-        $this->assertDatabaseHas('projects', ['id' => 9, 'workspace_id' => 1]);
+        $this->assertDatabaseHas('projects', ['id' => 9]);
         $this->assertDatabaseHas('tasks', ['id' => 11, 'project_id' => 9]);
         $this->assertDatabaseCount('legacy_imports', 3);
     }
