@@ -11,16 +11,20 @@ import DailyFocusBar from './components/DailyFocusBar.vue';
 import AgentConsoleModal from './components/AgentConsoleModal.vue';
 import TaskHubSetupModal from './components/TaskHubSetupModal.vue';
 import UpdateStatus from './components/UpdateStatus.vue';
+import MacatungIcon from './components/MacatungIcon.vue';
 import { useTaskSync, TaskItem } from './composables/useTaskSync';
 import { sfx } from './audio/soundEffects';
 import { mindfulBell } from './audio/mindfulBellAudio';
 
-const { tasks, projects, agentTasks, activeTask, isOnline, credential, setCredential, clearCredential, createTask, toggleTaskComplete, incrementPomodoro } = useTaskSync();
+const { tasks, projects, agentTasks, activeTask, isOnline, credential, setCredential, clearCredential, loadCredential, fetchAgentTasks, createTask, toggleTaskComplete, incrementPomodoro } = useTaskSync();
 const isHovered = ref(false);
 const zenMascotRef = ref<InstanceType<typeof ZenMascotStage> | null>(null);
 const TASK_HUB_URL = (import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev';
 type ActiveModal = 'palette' | 'dispatch' | 'review' | 'pomodoro' | 'duck' | 'notes' | 'agent' | 'taskhub' | null;
 const activeModal = ref<ActiveModal>(null);
+const agentFullscreen = ref(false);
+const resizeAgentWindow = () => (window as any).desktopApi?.resizeWindow?.(1180, 760);
+const restoreCompactWindow = async () => { if (agentFullscreen.value) { await (window as any).desktopApi?.toggleFullscreen?.(false); agentFullscreen.value = false; } (window as any).desktopApi?.resizeWindow?.(640, 520); };
 
 const openWebAction = (path = '/tasks') => {
   const url = `${TASK_HUB_URL}${path}`;
@@ -28,10 +32,16 @@ const openWebAction = (path = '/tasks') => {
   else window.open(url, '_blank');
 };
 
-const closeAll = () => { activeModal.value = null; };
+const closeAll = () => { if (activeModal.value === 'agent') void restoreCompactWindow(); activeModal.value = null; };
 const openModal = (modal: ActiveModal) => {
   activeModal.value = activeModal.value === modal ? null : modal;
   sfx.playClick();
+};
+const openAgentWorkspace = async () => {
+  openModal('agent');
+  resizeAgentWindow();
+  await loadCredential();
+  await fetchAgentTasks();
 };
 const handleMascotClick = () => {
   mindfulBell.ringBell(432, 5.5);
@@ -81,8 +91,9 @@ const handleKeyDown = (event: KeyboardEvent) => {
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown);
   (window as any).desktopApi?.onTrayAction?.((action: string) => {
-    const actions: Record<string, ActiveModal> = { 'open-dispatch': 'dispatch', 'open-agent': 'agent', 'open-review': 'review', 'open-pomodoro': 'pomodoro', 'open-duck': 'duck', 'open-notes': 'notes', 'open-taskhub': 'taskhub' };
-    if (actions[action]) openModal(actions[action]);
+    const actions: Record<string, ActiveModal> = { 'open-dispatch': 'dispatch', 'open-review': 'review', 'open-pomodoro': 'pomodoro', 'open-duck': 'duck', 'open-notes': 'notes', 'open-taskhub': 'taskhub' };
+    if (action === 'open-agent') void openAgentWorkspace();
+    else if (actions[action]) openModal(actions[action]);
     if (action === 'open-tasks') openWebAction('/tasks');
     if (action === 'check-updates') checkForUpdates();
     if (action === 'install-update') installUpdate();
@@ -95,10 +106,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeyDown));
   <div class="w-full h-full p-4 flex items-end justify-end relative select-none bg-transparent overflow-visible font-sans">
     <div class="absolute right-3 top-3 z-40 pointer-events-auto"><UpdateStatus /></div>
     <div class="absolute inset-0 z-30 pointer-events-none flex items-end justify-end p-3 sm:p-4 overflow-hidden">
-    <div class="w-full max-w-[min(960px,calc(100vw-1rem))] max-h-[calc(100vh-1rem)] mr-0 sm:mr-3 mb-0 sm:mb-2 overflow-hidden" :class="activeModal ? 'pointer-events-auto' : 'pointer-events-none'">
+    <div class="w-full max-h-[calc(100vh-1rem)] mr-0 sm:mr-3 mb-0 sm:mb-2 overflow-hidden" :class="[activeModal ? 'pointer-events-auto' : 'pointer-events-none', agentFullscreen ? 'max-w-none max-h-none h-full mr-0 mb-0' : activeModal === 'agent' ? 'max-w-[min(1280px,calc(100vw-1rem))]' : 'max-w-[min(960px,calc(100vw-1rem))]']">
       <CommandPaletteModal v-if="activeModal === 'palette'" @close="activeModal = null" @create-task="handleCreateTask" @start-pomodoro="openModal('pomodoro')" @open-duck="openModal('duck')" @open-notes="openModal('notes')" @open-dispatch="openModal('dispatch')" @open-review="openModal('review')" @check-updates="checkForUpdates" @install-update="installUpdate" />
       <TaskDispatchModal v-if="activeModal === 'dispatch'" :tasks="tasks" :projects="projects" :is-online="isOnline" :credential="credential" @close="activeModal = null" @start-pomodoro="handleStartPomodoro" @toggle-complete="toggleTaskComplete" @create-task="handleCreateTask" />
-      <AgentConsoleModal v-if="activeModal === 'agent'" :tasks="agentTasks" :initial-task="activeTask" @close="activeModal = null" />
+      <AgentConsoleModal v-if="activeModal === 'agent'" :tasks="agentTasks" :initial-task="activeTask" :is-connected="Boolean(credential)" :desktop-credential="credential" @close="closeAll" @fullscreen-change="agentFullscreen = $event" />
       <TaskHubSetupModal v-if="activeModal === 'taskhub'" :credential="credential" @close="activeModal = null" @connected="handleTaskHubConnected" @disconnect="handleTaskHubDisconnect" />
       <PomodoroTimer v-if="activeModal === 'pomodoro'" :active-task="activeTask" @pomodoro-completed="handlePomodoroCompleted" @close="activeModal = null" />
       <EveningReviewModal v-if="activeModal === 'review'" :tasks="tasks" @close="activeModal = null" />
@@ -110,10 +121,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeyDown));
     <div class="mascot-shell no-drag relative flex flex-col items-center cursor-pointer active:scale-98 transition-transform z-20 shrink-0 mr-2 mb-2" @mouseenter="isHovered = true" @mouseleave="isHovered = false" @mousedown="onMascotMouseDown" title="Mở Tasks và kéo để di chuyển">
       <nav class="no-drag absolute -top-12 right-0 flex items-center gap-1 rounded-2xl border border-slate-700/80 bg-slate-950/98 p-1.5 shadow-2xl ring-1 ring-white/10 backdrop-blur-xl transition-all duration-200" :class="isHovered ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none translate-y-1 opacity-0'" aria-label="Task Companion actions" @click.stop @mousedown.stop>
         <button class="dock-button text-violet-300" title="Command center (Ctrl+K)" @click="openModal('palette')">⌘</button>
-        <button class="dock-button text-blue-300" title="AI Agent" @click="openModal('agent')">🤖</button>
+        <button class="dock-button text-blue-300" title="AI Agent" @click="openAgentWorkspace"><MacatungIcon name="agent" /></button>
         <button class="dock-button text-amber-300" title="Tasks hôm nay" @click="openModal('dispatch')">✓</button>
-        <button class="dock-button text-emerald-300" :title="credential ? 'Task Hub connected' : 'Connect Task Hub SaaS'" @click="openModal('taskhub')">🔐</button>
-        <button class="dock-button text-sky-300" title="Mở Task Hub" @click="openWebAction('/tasks')">↗</button>
+        <button class="dock-button text-emerald-300" :title="credential ? 'Task Hub connected' : 'Connect Task Hub SaaS'" @click="openModal('taskhub')"><MacatungIcon name="shield" /></button>
+        <button class="dock-button text-sky-300" title="Mở Task Hub" @click="openWebAction('/tasks')"><MacatungIcon name="arrow" /></button>
         <button class="dock-button text-slate-300" title="Ẩn mascot" @click="hideMascot">×</button>
       </nav>
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onUnmounted, ref } from 'vue';
 import type { DesktopCredential } from '../composables/useTaskSync';
+import MacatungIcon from './MacatungIcon.vue';
 
 const props = defineProps<{ credential: DesktopCredential | null }>();
 const emit = defineEmits<{ (e: 'close'): void; (e: 'connected', credential: DesktopCredential): void; (e: 'disconnect'): void }>();
@@ -39,11 +40,11 @@ onUnmounted(stopPolling);
 <template>
   <div class="no-drag w-[min(92vw,430px)] rounded-2xl border border-slate-700 bg-slate-950 p-4 text-slate-100 shadow-2xl" @mousedown.stop>
     <header class="flex items-start justify-between border-b border-slate-800 pb-3">
-      <div><h2 class="font-bold">Task Hub SaaS connection</h2><p class="mt-1 text-[11px] text-slate-400">Authenticate one project securely for this desktop companion.</p></div>
+      <div><h2 class="flex items-center gap-2 font-bold"><span class="grid h-8 w-8 place-items-center rounded-xl border border-emerald-400/30 bg-emerald-400/10 text-emerald-300"><MacatungIcon name="shield" :size="17" /></span><span>Ma Cà Tưng Workspace</span></h2><p class="mt-1 text-[11px] text-slate-400">Kết nối an toàn toàn bộ project trong workspace SaaS.</p></div>
       <button class="text-slate-400 hover:text-white" @click="emit('close')">✕</button>
     </header>
     <div class="space-y-3 pt-4 text-xs">
-      <div class="rounded-xl border border-blue-900/70 bg-blue-950/30 p-3 text-[11px] leading-relaxed text-blue-100">Bấm Connect để mở browser. Đăng nhập Task Hub và xác nhận một lần; desktop sẽ kết nối toàn bộ project trong workspace hiện tại.</div>
+      <div class="rounded-xl border border-cyan-900/70 bg-cyan-950/20 p-3 text-[11px] leading-relaxed text-cyan-100"><span class="mb-2 flex items-center gap-2 font-semibold text-cyan-200"><MacatungIcon name="workspace" :size="16" /> Một lần xác nhận · toàn workspace</span>Bấm Connect để mở browser. Đăng nhập Task Hub và xác nhận một lần; desktop sẽ tự đồng bộ tất cả project mà bạn được phép truy cập.</div>
       <p v-if="message" :class="status === 'error' ? 'text-rose-300' : 'text-emerald-300'">{{ message }}</p>
       <div class="flex items-center justify-between gap-2 border-t border-slate-800 pt-3">
         <button v-if="props.credential" class="rounded-lg border border-rose-800 px-3 py-2 text-rose-300 hover:bg-rose-950/50" @click="emit('disconnect')">Disconnect</button>

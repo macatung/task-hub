@@ -13,7 +13,7 @@ class ProjectDocument extends Model
 
     public const TYPES = ['brief', 'prd', 'architecture', 'adr', 'design', 'api_contract', 'coding_standard', 'qa_plan', 'release_runbook', 'decision_log', 'risk_log', 'changelog', 'other'];
 
-    protected $fillable = ['project_id', 'workspace_id', 'document_type', 'title', 'url', 'repository_path', 'version', 'content_hash', 'status', 'owner', 'access_level', 'tags', 'source_updated_at', 'last_verified_at'];
+    protected $fillable = ['project_id', 'workspace_id', 'document_type', 'title', 'url', 'repository_path', 'version', 'content', 'content_hash', 'status', 'owner', 'access_level', 'tags', 'source_updated_at', 'last_verified_at'];
 
     protected $casts = ['tags' => 'array', 'source_updated_at' => 'datetime', 'last_verified_at' => 'datetime'];
 

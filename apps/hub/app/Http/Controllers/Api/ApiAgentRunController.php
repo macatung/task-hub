@@ -46,7 +46,8 @@ class ApiAgentRunController extends Controller
             'run_type' => 'nullable|string|max:30',
             'instruction' => 'nullable|array',
             'context' => 'nullable|array',
-            'execution_mode' => 'nullable|in:desktop,server',
+            // Agent execution is local-only in the current product phase.
+            'execution_mode' => 'nullable|in:desktop',
         ]);
 
         $task = !empty($validated['task_id']) ? Task::with('project.workspace')->findOrFail($validated['task_id']) : null;

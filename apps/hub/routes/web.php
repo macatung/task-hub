@@ -99,6 +99,7 @@ $registerApiRoutes = function () {
     Route::get('/projects/{project}/documents', [ApiProjectDocumentController::class, 'index']);
     Route::post('/projects/{project}/documents', [ApiProjectDocumentController::class, 'store']);
     Route::post('/projects/{project}/documents/import-manifest', [ApiProjectDocumentController::class, 'importManifest']);
+    Route::post('/projects/{project}/documents/import-generated', [ApiProjectDocumentController::class, 'importGenerated']);
     Route::get('/projects/{project}/documents/manifest-template', [ApiProjectDocumentController::class, 'manifestTemplate']);
     Route::patch('/projects/documents/{document}', [ApiProjectDocumentController::class, 'update']);
     Route::delete('/projects/documents/{document}', [ApiProjectDocumentController::class, 'destroy']);

@@ -92,7 +92,7 @@ export interface TaskItem {
 export interface AgentRunItem {
   id: number;
   provider: string;
-  execution_mode?: 'desktop' | 'server';
+  execution_mode?: 'desktop';
   runner_id?: number | null;
   agent_session_id?: string;
   status: string;
@@ -543,14 +543,12 @@ const loadAgentRuns = async (taskId: number) => {
   }
 };
 
-const startAgentRun = async (provider: string, executionMode: 'desktop' | 'server' = 'desktop') => {
+const startAgentRun = async (provider: string) => {
   if (!selectedTask.value) return;
   try {
-    const res = await axios.post('/api/tasks/agent-runs', { task_id: selectedTask.value.id, provider, execution_mode: executionMode });
+    const res = await axios.post('/api/tasks/agent-runs', { task_id: selectedTask.value.id, provider, execution_mode: 'desktop' });
     selectedAgentRuns.value.unshift(res.data.data);
-    agentRunFeedback.value = executionMode === 'server'
-      ? `${provider} queued on the server runner. It will start when a runner is online.`
-      : `Created a ${provider} run. The agent can retrieve its Context Pack from Task Hub.`;
+    agentRunFeedback.value = `Created a local ${provider} run. Open Task Companion to execute it with the agent installed on your machine.`;
   } catch (err: any) {
     agentRunFeedback.value = err.response?.data?.message || 'Unable to create agent run.';
   }
@@ -3973,11 +3971,8 @@ onUnmounted(() => {
                 <span v-if="isAgentRunsLoading" class="text-[10px] text-slate-500">Loading…</span>
               </div>
               <div class="grid grid-cols-2 gap-1.5">
-                <button v-for="provider in ['codex', 'claude_code', 'antigravity']" :key="`desktop-${provider}`" @click="startAgentRun(provider, 'desktop')" class="rounded-lg border px-2 py-2 text-[10px] font-bold cursor-pointer hover:border-blue-500" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-200' : 'border-slate-300 bg-white text-slate-800'">
-                  {{ provider === 'claude_code' ? 'Desktop Claude' : provider === 'antigravity' ? 'Desktop Antigravity' : 'Desktop Codex' }}
-                </button>
-                <button v-for="provider in ['codex', 'claude_code', 'antigravity']" :key="`server-${provider}`" @click="startAgentRun(provider, 'server')" class="rounded-lg border border-emerald-400/50 bg-emerald-500/10 px-2 py-2 text-[10px] font-bold text-emerald-700 cursor-pointer hover:border-emerald-500 dark:text-emerald-300">
-                  {{ provider === 'claude_code' ? 'Server Claude' : provider === 'antigravity' ? 'Server Antigravity' : 'Server Codex' }}
+                <button v-for="provider in ['codex', 'claude_code', 'antigravity']" :key="`local-${provider}`" @click="startAgentRun(provider)" class="rounded-lg border px-2 py-2 text-[10px] font-bold cursor-pointer hover:border-blue-500" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-200' : 'border-slate-300 bg-white text-slate-800'">
+                  {{ provider === 'claude_code' ? 'Local Claude' : provider === 'antigravity' ? 'Local Antigravity' : 'Local Codex' }}
                 </button>
               </div>
               <p v-if="agentRunFeedback" class="text-[11px] leading-relaxed text-blue-600 dark:text-blue-300">{{ agentRunFeedback }}</p>

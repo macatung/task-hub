@@ -51,6 +51,12 @@ class TaskHubContextPackService
                 'finished_at' => $run->finished_at?->toIso8601String(),
             ])->values()->all() : [],
             'project_knowledge' => $task && $project ? app(ProjectKnowledgeService::class)->documentsForTask($task) : [],
+            'project_document_contents' => $task && $project ? app(ProjectKnowledgeService::class)->documentContentsForTask($task) : [],
+            'document_standard' => [
+                'version' => ProjectKnowledgeService::STANDARD_VERSION,
+                'manifest_path' => 'docs/PROJECT_DOCUMENTS.md',
+                'required_core_types' => ProjectKnowledgeService::CORE_TYPES,
+            ],
         ];
 
         $pack['context_hash'] = hash('sha256', json_encode($pack, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));

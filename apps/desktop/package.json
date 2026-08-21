@@ -6,6 +6,7 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
+    "postinstall": "electron-rebuild -f -w node-pty",
     "build": "vue-tsc --noEmit && vite build && electron-builder --win",
     "build:vue": "vite build",
     "build:win": "npm run build",
@@ -28,6 +29,7 @@
     "vue": "^3.5.13"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.7.2",
     "@tailwindcss/postcss": "^4.3.3",
     "@tailwindcss/vite": "^4.0.0",
     "@vitejs/plugin-vue": "^5.2.1",

@@ -21,7 +21,9 @@ class WorkspaceCredentialController extends Controller
     public function store(Request $request, Workspace $workspace, CredentialVaultService $vault)
     {
         $this->workspace($request, $workspace)->authorizeRole($request, ['owner', 'admin']);
-        $data = $request->validate(['provider' => 'required|in:github,codex,claude_code,antigravity', 'secret' => 'required|string|max:10000', 'project_id' => 'nullable|integer|exists:projects,id']);
+        // Model/provider credentials stay on the user's machine. Hub only
+        // stores server-side integration credentials such as GitHub.
+        $data = $request->validate(['provider' => 'required|in:github', 'secret' => 'required|string|max:10000', 'project_id' => 'nullable|integer|exists:projects,id']);
         $project = !empty($data['project_id']) ? Project::where('workspace_id', $workspace->id)->findOrFail($data['project_id']) : null;
         $credential = $vault->put($workspace, $project, $data['provider'], $data['secret']);
         return response()->json(['success' => true, 'data' => $vault->publicView($credential)], 201);

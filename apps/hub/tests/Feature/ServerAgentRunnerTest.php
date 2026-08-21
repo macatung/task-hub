@@ -13,6 +13,14 @@ class ServerAgentRunnerTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // The server runner is deferred in production, but these contract
+        // tests remain enabled as coverage for the future opt-in release.
+        config(['services.task_hub.server_runner_enabled' => true]);
+    }
+
     public function test_runner_registration_issues_a_token_once_and_heartbeat_is_authenticated(): void
     {
         config(['services.task_hub.runner_registration_token' => 'bootstrap-secret']);

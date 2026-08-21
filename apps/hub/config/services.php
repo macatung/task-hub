@@ -30,6 +30,7 @@ return [
     'task_hub' => [
         'repository' => env('TASK_HUB_REPOSITORY'),
         'runner_registration_token' => env('TASK_HUB_RUNNER_REGISTRATION_TOKEN'),
+        'server_runner_enabled' => filter_var(env('TASK_HUB_SERVER_RUNNER_ENABLED', false), FILTER_VALIDATE_BOOL),
     ],
 
 ];

@@ -16,6 +16,19 @@ class TaskHubAgentWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_agent_runs_are_local_desktop_only_in_current_release(): void
+    {
+        $this->postJson('/api/tasks/agent-runs', [
+            'provider' => 'codex',
+            'execution_mode' => 'server',
+        ])->assertStatus(422)->assertJsonValidationErrors(['execution_mode']);
+
+        $this->postJson('/api/tasks/agent-runs', [
+            'provider' => 'codex',
+            'execution_mode' => 'desktop',
+        ])->assertCreated()->assertJsonPath('data.execution_mode', 'desktop');
+    }
+
     public function test_agent_run_receives_context_and_can_attach_evidence(): void
     {
         $task = Task::create([
@@ -126,9 +139,13 @@ class TaskHubAgentWorkflowTest extends TestCase
 
         $context = $this->getJson('/api/tasks/context-pack?task_id=' . $task->id)->assertOk();
         $context->assertJsonPath('data.project_knowledge.0.type', 'brief')
-            ->assertJsonPath('data.project_knowledge.0.required_for_task', true);
+            ->assertJsonPath('data.project_knowledge.0.required_for_task', true)
+            ->assertJsonPath('data.document_standard.version', 'task-hub-docs-v1')
+            ->assertJsonPath('data.document_standard.manifest_path', 'docs/PROJECT_DOCUMENTS.md')
+            ->assertJsonPath('data.document_standard.required_core_types.1', 'prd');
         $this->getJson('/api/projects/' . $project->id . '/documents')->assertOk()
             ->assertJsonPath('data.summary.total', 2)
+            ->assertJsonPath('data.summary.standard_version', 'task-hub-docs-v1')
             ->assertJsonPath('data.summary.missing_core.0', 'prd');
     }
 

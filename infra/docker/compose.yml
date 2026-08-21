@@ -35,25 +35,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
-  runner:
-    build:
-      context: ../../apps/runner
-      dockerfile: Dockerfile
-    environment:
-      TASK_HUB_URL: http://hub:8080
-      TASK_HUB_RUNNER_REGISTRATION_TOKEN: ${TASK_HUB_RUNNER_REGISTRATION_TOKEN:?set TASK_HUB_RUNNER_REGISTRATION_TOKEN}
-      RUNNER_NAME: ${RUNNER_NAME:-task-hub-runner}
-      RUNNER_PROVIDERS: ${RUNNER_PROVIDERS:-codex,claude_code,antigravity}
-    depends_on:
-      hub:
-        condition: service_started
-    read_only: true
-    tmpfs:
-      - /tmp
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
-    mem_limit: ${RUNNER_MEMORY_LIMIT:-2g}
-    cpus: ${RUNNER_CPUS:-2}
   postgres:
     image: postgres:16-alpine
     environment:

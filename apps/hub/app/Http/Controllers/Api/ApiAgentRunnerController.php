@@ -16,8 +16,14 @@ class ApiAgentRunnerController extends Controller
 {
     private const PROVIDERS = ['codex', 'claude_code', 'antigravity'];
 
+    private function ensureEnabled(): void
+    {
+        abort_unless((bool) config('services.task_hub.server_runner_enabled'), 404, 'Server-side agent runners are disabled in this release.');
+    }
+
     public function register(Request $request)
     {
+        $this->ensureEnabled();
         $bootstrap = (string) $request->header('X-Task-Hub-Runner-Registration');
         $expected = (string) (config('services.task_hub.runner_registration_token') ?: env('TASK_HUB_RUNNER_REGISTRATION_TOKEN'));
         if ($expected === '' || !hash_equals($expected, $bootstrap)) return response()->json(['message' => 'Invalid runner registration token.'], 401);
@@ -35,12 +41,14 @@ class ApiAgentRunnerController extends Controller
 
     public function index(Request $request)
     {
+        $this->ensureEnabled();
         $this->runner($request);
         return response()->json(['success' => true, 'data' => AgentRunner::latest()->get()]);
     }
 
     public function heartbeat(Request $request, AgentRunner $agentRunner)
     {
+        $this->ensureEnabled();
         $this->runner($request, $agentRunner);
         $data = $request->validate(['status' => 'nullable|in:online,busy,offline', 'capabilities' => 'nullable|array', 'metadata' => 'nullable|array']);
         $agentRunner->update(array_merge($data, ['last_heartbeat_at' => now(), 'status' => $data['status'] ?? 'online']));
@@ -49,6 +57,7 @@ class ApiAgentRunnerController extends Controller
 
     public function revoke(Request $request, AgentRunner $agentRunner)
     {
+        $this->ensureEnabled();
         $this->runner($request, $agentRunner, true);
         $agentRunner->update(['status' => 'revoked', 'revoked_at' => now()]);
         return response()->json(['success' => true, 'data' => $agentRunner->fresh()]);
@@ -56,6 +65,7 @@ class ApiAgentRunnerController extends Controller
 
     public function claim(Request $request, AgentRunner $agentRunner)
     {
+        $this->ensureEnabled();
         $this->runner($request, $agentRunner);
         $provider = $request->string('provider')->toString();
         if (!in_array($provider, self::PROVIDERS, true)) return response()->json(['message' => 'Unsupported provider.'], 422);
@@ -81,6 +91,7 @@ class ApiAgentRunnerController extends Controller
 
     public function event(Request $request, AgentRun $agentRun)
     {
+        $this->ensureEnabled();
         $this->runnerForRun($request, $agentRun);
         $data = $request->validate(['event_id' => 'required|uuid', 'event_type' => 'required|string|max:60', 'status' => 'nullable|string|max:30', 'payload' => 'nullable|array']);
         if (AgentRunEvent::where('event_id', $data['event_id'])->exists()) return response()->json(['success' => true, 'duplicate' => true]);
@@ -94,6 +105,7 @@ class ApiAgentRunnerController extends Controller
 
     public function log(Request $request, AgentRun $agentRun)
     {
+        $this->ensureEnabled();
         $this->runnerForRun($request, $agentRun);
         $data = $request->validate(['sequence' => 'required|integer|min:0', 'stream' => 'nullable|in:stdout,stderr,system', 'content' => 'required|string|max:50000']);
         $content = preg_replace('/(authorization\s*:\s*bearer\s+)[^\s,;]+/i', '$1[REDACTED]', $data['content']);
@@ -105,6 +117,7 @@ class ApiAgentRunnerController extends Controller
 
     public function cancel(Request $request, AgentRun $agentRun)
     {
+        $this->ensureEnabled();
         $this->runnerForRun($request, $agentRun);
         if (in_array($agentRun->status, ['verified', 'failed', 'cancelled'], true)) return response()->json(['success' => true, 'data' => $agentRun]);
         $agentRun->update(['cancel_requested_at' => now()]);
@@ -113,6 +126,7 @@ class ApiAgentRunnerController extends Controller
 
     public function credential(Request $request, AgentRunner $agentRunner, AgentRun $agentRun, CredentialVaultService $vault)
     {
+        $this->ensureEnabled();
         $this->runner($request, $agentRunner);
         abort_unless((int) $agentRun->runner_id === (int) $agentRunner->id, 403);
         $provider = $request->string('provider')->toString();

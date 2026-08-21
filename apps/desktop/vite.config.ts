@@ -10,6 +10,13 @@ export default defineConfig({
     electron({
       main: {
         entry: 'electron/main.ts',
+        vite: {
+          build: {
+            rollupOptions: {
+              external: ['node-pty'],
+            },
+          },
+        },
       },
       preload: {
         input: path.join(__dirname, 'electron/preload.ts'),
@@ -20,6 +27,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+    },
+  },
+  build: {
+    rollupOptions: {
+      // node-pty loads a platform/ABI-specific .node file at runtime.
+      // Bundling it makes Rollup rewrite the dynamic require and breaks Electron.
+      external: ['node-pty'],
     },
   },
 });

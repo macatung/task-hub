@@ -14,17 +14,22 @@ Task Hub is an open-source execution workspace for product teams and AI coding a
 ```bash
 cp apps/hub/.env.example apps/hub/.env
 # Set APP_KEY, POSTGRES_PASSWORD and GitHub OAuth credentials.
-# Managed SaaS runners receive scoped credentials per run; do not configure a
-# global GitHub token for the runner.
+# Task Companion executes Codex, Claude Code and Antigravity locally using the
+# user's existing local installation and account. Hub does not need model API
+# keys for these agents.
 docker compose -f infra/docker/compose.yml up -d --build
 docker compose -f infra/docker/compose.yml exec hub php artisan migrate --force
 ```
 
 Open `http://localhost:8080`. Configure the Desktop app with this base URL; it verifies `/api/v1/capabilities` before device pairing.
 
-## Server agent runner
+## Local agent execution
 
-The managed `runner` service leases `execution_mode=server` agent runs, creates an isolated worktree, and runs headless Codex or Claude Code. GitHub credentials are connected from Workspace Integrations and delivered only as scoped, short-lived run credentials. `TASK_HUB_RUNNER_REGISTRATION_TOKEN` is an internal platform-enrollment setting and is not part of customer setup. Antigravity is reported as `external_only` unless a compatible headless `agy` executable is installed; use Task Companion Desktop for the normal GUI flow.
+The current release is desktop-only for agent execution. Task Companion checks
+the local Codex, Claude Code or Antigravity installation, creates an isolated
+worktree, starts the local agent, and reports lifecycle/evidence back to Hub.
+The server-side runner code and contracts remain reserved for a later release
+and are disabled by default.
 
 ## Compatibility
 
