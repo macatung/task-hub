@@ -73,7 +73,7 @@ class TaskController extends Controller
             "completion_rate" => $tasks->count() > 0 ? round(($tasks->where("status", "done")->count() / $tasks->count()) * 100) : 0,
         ];
 
-        return Inertia::render("Hub/Index", [
+        return Inertia::render("Tasks/Index", [
             "tasks" => $tasks,
             "projects" => $projects,
             "sprints" => $sprints,
