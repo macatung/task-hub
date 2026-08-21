@@ -14,9 +14,10 @@ use App\Http\Controllers\GithubAuthController;
 use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
 
-// Hub Web Views
-Route::get('/', [TaskController::class, 'index'])->name('hub.index');
+// Hub SaaS Web Views
+Route::get('/', [TaskController::class, 'landing'])->name('hub.landing');
 Route::get('/tasks', [TaskController::class, 'index'])->name('tasks.index');
+Route::get('/workspace', [TaskController::class, 'index'])->name('tasks.workspace');
 
 // GitHub OAuth identity and authorization
 Route::get('/auth/github', [GithubAuthController::class, 'redirect'])->name('auth.github');

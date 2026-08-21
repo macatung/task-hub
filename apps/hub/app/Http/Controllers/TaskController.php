@@ -6,17 +6,63 @@ use App\Models\Task;
 use App\Models\Project;
 use App\Models\Sprint;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Carbon\Carbon;
 
 class TaskController extends Controller
 {
+    /**
+     * SaaS Public Landing Page.
+     * If user is already authenticated, redirects straight to /tasks workspace.
+     */
+    public function landing(Request $request)
+    {
+        if (Auth::check()) {
+            return redirect()->route('tasks.index');
+        }
+
+        $date = Carbon::today()->toDateString();
+        $tasks = Task::with('project')->take(5)->get();
+        $projects = Project::withCount('tasks')->take(4)->get();
+
+        $stats = [
+            "total" => Task::count(),
+            "todo" => Task::where("status", "todo")->count(),
+            "in_progress" => Task::where("status", "in_progress")->count(),
+            "review" => Task::where("status", "review")->count(),
+            "done" => Task::where("status", "done")->count(),
+        ];
+
+        return Inertia::render("Hub/Index", [
+            "tasks" => $tasks,
+            "projects" => $projects,
+            "stats" => $stats,
+            "selectedDate" => $date,
+        ]);
+    }
+
+    /**
+     * SaaS App Task & Scrum Workspace.
+     * Requires GitHub Authentication.
+     */
     public function index(Request $request)
     {
+        if (!Auth::check()) {
+            $request->session()->put('github_oauth_intended', $request->fullUrl());
+            return redirect('/auth/github')->with('info', 'Vui lòng đăng nhập bằng GitHub để truy cập Task Hub Workspace.');
+        }
+
+        $user = $request->user();
         $date = $request->query("date", Carbon::today()->toDateString());
         $projectId = $request->query("project_id");
         
-        $query = Task::with(['project', 'sprint', 'epic', 'documents']);
+        $query = Task::with(['project', 'sprint', 'epic', 'documents'])
+            ->where(function ($q) use ($user) {
+                $q->whereHas('project', function ($pq) use ($user) {
+                    $pq->where('user_id', $user->id)->orWhereNull('user_id');
+                })->orWhereNull('project_id');
+            });
 
         if ($projectId && $projectId !== 'all') {
             if ($projectId === 'unassigned') {
@@ -31,14 +77,21 @@ class TaskController extends Controller
             ->orderBy("created_at", "desc")
             ->get();
 
-        $projects = Project::select('id', 'title', 'slug', 'key', 'category', 'type', 'color', 'description', 'github_repository', 'github_default_branch')
+        $projects = Project::where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)->orWhereNull('user_id');
+            })
+            ->select('id', 'title', 'slug', 'key', 'category', 'type', 'color', 'description', 'github_repository', 'github_default_branch')
             ->withCount('tasks')
             ->orderBy('title')
             ->get();
 
         $sprintsQuery = Sprint::with(['tasks' => function ($q) {
             $q->select('id', 'sprint_id', 'status', 'story_points');
-        }]);
+        }])->where(function ($q) use ($user) {
+            $q->whereHas('project', function ($pq) use ($user) {
+                $pq->where('user_id', $user->id)->orWhereNull('user_id');
+            })->orWhereNull('project_id');
+        });
 
         if ($projectId && $projectId !== 'all' && $projectId !== 'unassigned') {
             $sprintsQuery->where('project_id', $projectId);

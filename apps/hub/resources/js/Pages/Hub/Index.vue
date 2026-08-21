@@ -1,17 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { usePage, router, Head } from '@inertiajs/vue3';
-
-type Project = { id: number; title: string; key?: string | null; tasks_count?: number };
-type Task = {
-  id: number;
-  issue_key?: string | null;
-  title: string;
-  status: 'todo' | 'in_progress' | 'review' | 'done';
-  priority: string;
-  project?: Project | null;
-  due_date?: string | null;
-};
+import { computed } from 'vue';
+import { usePage, Head } from '@inertiajs/vue3';
 
 interface UserAuth {
   id: number;
@@ -28,78 +17,75 @@ interface PageProps {
   [key: string]: any;
 }
 
-const props = defineProps<{
-  tasks: Task[];
-  projects: Project[];
-  stats: Record<string, number>;
-  selectedDate: string;
+defineProps<{
+  stats?: Record<string, number>;
+  selectedDate?: string;
 }>();
 
 const page = usePage<PageProps>();
 const user = computed(() => page.props.auth?.user ?? null);
 const flash = computed(() => page.props.flash ?? {});
-
-const dismissedFlash = ref(false);
-
-const filter = ref<'all' | Task['status']>('all');
-const visibleTasks = computed(() =>
-  filter.value === 'all' ? props.tasks : props.tasks.filter(task => task.status === filter.value)
-);
-
-const statusLabel = (status: Task['status']) =>
-  ({ todo: 'To do', in_progress: 'In progress', review: 'In review', done: 'Done' }[status] || status);
-
-const setFilter = (value: 'all' | Task['status']) => {
-  filter.value = value;
-};
-
-const filterOptions: Array<'all' | Task['status']> = ['all', 'todo', 'in_progress', 'review', 'done'];
-
-const logout = () => {
-  router.post('/auth/github/logout');
-};
 </script>
 
 <template>
-  <Head title="Task Hub — AI Agent Execution Workspace" />
+  <Head title="Task Hub — AI-Native Task Engine for Engineering Teams" />
 
-  <main class="min-h-screen bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-slate-950 font-sans">
-    <!-- Header -->
-    <header class="border-b border-slate-800 bg-slate-950/95 px-6 py-3.5 sticky top-0 z-40 backdrop-blur">
-      <div class="mx-auto flex max-w-6xl items-center justify-between gap-4">
-        <a href="/" class="flex items-center gap-2.5 text-lg font-bold tracking-tight text-white hover:text-emerald-400 transition-colors">
-          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+  <div class="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-slate-950 overflow-x-hidden">
+    <!-- Ambient Background Glows -->
+    <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+      <div class="absolute -top-40 left-1/2 -translate-x-1/2 h-[500px] w-[900px] rounded-full bg-gradient-to-tr from-emerald-600/20 via-teal-500/15 to-blue-600/10 blur-[130px]" />
+      <div class="absolute top-[600px] -left-40 h-[400px] w-[600px] rounded-full bg-gradient-to-br from-blue-600/15 to-purple-600/10 blur-[120px]" />
+      <div class="absolute bottom-10 -right-40 h-[500px] w-[700px] rounded-full bg-gradient-to-tl from-emerald-600/15 to-cyan-500/10 blur-[140px]" />
+    </div>
+
+    <!-- Sticky Navigation Header -->
+    <header class="sticky top-0 z-50 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-md">
+      <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <a href="/" class="flex items-center gap-3 group">
+          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-md shadow-emerald-500/20 text-slate-950 font-black text-lg group-hover:scale-105 transition-transform">
             ⚡
           </div>
-          <span>Task Hub</span>
+          <div class="flex items-center gap-2">
+            <span class="text-xl font-bold tracking-tight text-white group-hover:text-emerald-400 transition-colors">Task Hub</span>
+            <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">SaaS</span>
+          </div>
         </a>
 
-        <!-- User Authentication Header Bar -->
-        <div class="flex items-center gap-3 text-sm">
-          <template v-if="user">
-            <div class="flex items-center gap-2.5 rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-1.5 shadow-sm">
-              <img
-                v-if="user.github_avatar_url"
-                :src="user.github_avatar_url"
-                :alt="user.github_login || user.name"
-                class="h-6 w-6 rounded-full ring-1 ring-emerald-400/30"
-              />
-              <span class="text-xs font-semibold text-slate-200">
-                @{{ user.github_login || user.name }}
-              </span>
-            </div>
-            <button
-              @click="logout"
-              class="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
-            >
-              Đăng xuất
-            </button>
-          </template>
+        <!-- Nav Links -->
+        <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
+          <a href="#features" class="hover:text-white transition-colors">Features</a>
+          <a href="#agent-workflow" class="hover:text-white transition-colors">Agent Workflow</a>
+          <a href="#mcp" class="hover:text-white transition-colors">MCP Protocol</a>
+          <a href="#architecture" class="hover:text-white transition-colors">Architecture</a>
+        </nav>
 
+        <!-- Action / Auth -->
+        <div class="flex items-center gap-4">
+          <a
+            href="https://github.com/macatung/task-hub"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="hidden sm:flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-700 hover:text-white transition-all"
+          >
+            <svg class="h-4 w-4 fill-current" viewBox="0 0 24 24">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+            </svg>
+            <span>GitHub</span>
+          </a>
+
+          <template v-if="user">
+            <a
+              href="/tasks"
+              class="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-emerald-500/25 hover:from-emerald-400 hover:to-teal-400 transition-all cursor-pointer"
+            >
+              <span>Vào Workspace</span>
+              <span>→</span>
+            </a>
+          </template>
           <template v-else>
             <a
               href="/auth/github"
-              class="flex items-center gap-2 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white shadow-md shadow-emerald-950/50 hover:bg-emerald-500 active:scale-95 transition-all"
+              class="flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-emerald-500/25 hover:bg-emerald-400 active:scale-95 transition-all cursor-pointer"
             >
               <svg class="h-4 w-4 fill-current" viewBox="0 0 24 24">
                 <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
@@ -111,126 +97,323 @@ const logout = () => {
       </div>
     </header>
 
-    <!-- Flash Messages -->
-    <div v-if="!dismissedFlash && (flash.error || flash.success)" class="mx-auto max-w-6xl px-6 pt-6">
-      <div
-        v-if="flash.error"
-        class="flex items-center justify-between rounded-xl border border-red-500/30 bg-red-950/40 p-4 text-sm text-red-200 backdrop-blur"
-      >
-        <div class="flex items-center gap-3">
-          <span class="text-base">⚠️</span>
-          <span>{{ flash.error }}</span>
-        </div>
-        <button @click="dismissedFlash = true" class="text-xs text-red-400 hover:text-red-200">✕ Đóng</button>
-      </div>
-
-      <div
-        v-if="flash.success"
-        class="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-4 text-sm text-emerald-200 backdrop-blur"
-      >
-        <div class="flex items-center gap-3">
-          <span class="text-base">✓</span>
-          <span>{{ flash.success }}</span>
-        </div>
-        <button @click="dismissedFlash = true" class="text-xs text-emerald-400 hover:text-emerald-200">✕ Đóng</button>
+    <!-- Flash message alerts if present -->
+    <div v-if="flash.error" class="relative z-10 mx-auto max-w-5xl px-6 pt-4">
+      <div class="rounded-xl border border-red-500/30 bg-red-950/60 p-4 text-xs text-red-200 backdrop-blur">
+        ⚠️ {{ flash.error }}
       </div>
     </div>
 
-    <!-- Content Area -->
-    <section class="mx-auto max-w-6xl px-6 py-10">
-      <p class="text-sm font-medium text-emerald-400 tracking-wide uppercase">Execution workspace</p>
-      
-      <div class="mt-2 flex flex-wrap items-end justify-between gap-5">
-        <div>
-          <h1 class="text-3xl font-semibold tracking-tight">Build with context. Review with evidence.</h1>
-          <p class="mt-2 max-w-2xl text-slate-400 leading-relaxed">
-            Task Hub connects project planning, GitHub delivery context, and supervised AI-agent handoffs in one auditable workflow.
-          </p>
-        </div>
-        <p class="text-sm text-slate-500">Updated {{ selectedDate }}</p>
+    <!-- HERO SECTION -->
+    <section class="relative z-10 mx-auto max-w-6xl px-6 pt-20 pb-24 text-center">
+      <!-- Top Announcement Pill -->
+      <div class="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-300 shadow-inner">
+        <span>🚀</span>
+        <span>Task Hub 1.0 — Supervised AI-Native Execution Engine</span>
       </div>
 
-      <!-- Stats Grid -->
-      <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <article
-          v-for="item in [
-            { label: 'All tasks', value: stats.total },
-            { label: 'To do', value: stats.todo },
-            { label: 'In progress', value: stats.in_progress },
-            { label: 'In review', value: stats.review },
-            { label: 'Completed', value: stats.done },
-          ]"
-          :key="item.label"
-          class="rounded-xl border border-slate-800 bg-slate-900/60 p-4 hover:border-slate-700 transition-colors"
+      <!-- Main Headline -->
+      <h1 class="mt-8 text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white leading-[1.1]">
+        Build with Context.<br />
+        <span class="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
+          Ship with Evidence.
+        </span>
+      </h1>
+
+      <!-- Subtitle -->
+      <p class="mx-auto mt-6 max-w-3xl text-base sm:text-lg md:text-xl text-slate-400 leading-relaxed font-normal">
+        The SaaS task management platform built specifically for engineering teams working alongside autonomous AI coding agents. Link GitHub repositories, groom backlogs, deliver rich context packs, and enforce supervised handoffs with auditable test evidence.
+      </p>
+
+      <!-- CTA Button Group -->
+      <div class="mt-10 flex flex-wrap items-center justify-center gap-4">
+        <a
+          href="/auth/github"
+          class="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-7 py-4 text-sm font-bold text-slate-950 shadow-xl shadow-emerald-500/30 hover:from-emerald-400 hover:to-teal-400 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
         >
-          <p class="text-sm text-slate-400">{{ item.label }}</p>
-          <p class="mt-2 text-2xl font-semibold text-white">{{ item.value || 0 }}</p>
-        </article>
+          <svg class="h-5 w-5 fill-current" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+          </svg>
+          <span>Start Free with GitHub</span>
+        </a>
+        <a
+          href="/tasks"
+          class="flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-900/80 px-6 py-4 text-sm font-semibold text-slate-200 hover:border-slate-600 hover:bg-slate-800 hover:text-white transition-all"
+        >
+          <span>Explore Workspace</span>
+          <span>→</span>
+        </a>
       </div>
 
-      <!-- Projects and Tasks Grid -->
-      <section class="mt-10 grid gap-6 lg:grid-cols-[1fr_2fr]">
-        <!-- Projects Sidebar -->
-        <aside class="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-          <h2 class="font-semibold text-white">Projects</h2>
-          <p class="mt-1 text-sm text-slate-400">GitHub-linked workspaces and delivery context.</p>
-          
-          <ul class="mt-4 divide-y divide-slate-800">
-            <li v-for="project in projects" :key="project.id" class="py-3">
-              <p class="font-medium text-slate-200">{{ project.title }}</p>
-              <p class="mt-1 text-xs text-slate-500">
-                {{ project.key || 'No project key' }} · {{ project.tasks_count || 0 }} tasks
-              </p>
-            </li>
-            <li v-if="!projects.length" class="py-4 text-sm text-slate-500">
-              No projects yet. Connect GitHub to create your first project.
-            </li>
-          </ul>
-        </aside>
+      <p class="mt-4 text-xs text-slate-500 font-medium">
+        Free forever for open source & developers · 1-click GitHub OAuth authorization
+      </p>
 
-        <!-- Work Items Section -->
-        <section class="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 class="font-semibold text-white">Work items</h2>
-              <p class="mt-1 text-sm text-slate-400">Use the Desktop workspace to start a supervised agent run.</p>
+      <!-- Interactive SaaS Workspace Preview Mockup -->
+      <div class="mt-16 overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900/60 p-2 sm:p-4 shadow-2xl backdrop-blur-xl ring-1 ring-white/10">
+        <!-- Mockup Header Bar -->
+        <div class="flex items-center justify-between rounded-xl border border-slate-800/60 bg-slate-950/80 px-4 py-3">
+          <div class="flex items-center gap-2">
+            <div class="h-3 w-3 rounded-full bg-red-500/80"></div>
+            <div class="h-3 w-3 rounded-full bg-yellow-500/80"></div>
+            <div class="h-3 w-3 rounded-full bg-emerald-500/80"></div>
+            <span class="ml-2 text-xs font-mono text-slate-500">task-hub.macatung.dev/tasks</span>
+          </div>
+          <div class="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-400">
+            <span class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span>Agent Run Active: Antigravity IDE</span>
+          </div>
+        </div>
+
+        <!-- Mockup Kanban Grid -->
+        <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-left">
+          <!-- Column 1: Backlog / To Do -->
+          <div class="rounded-xl border border-slate-800/60 bg-slate-950/50 p-3.5">
+            <div class="flex items-center justify-between text-xs font-bold text-slate-400 pb-2 border-b border-slate-800/60">
+              <span class="flex items-center gap-1.5">
+                <span class="h-2 w-2 rounded-full bg-slate-500"></span>
+                <span>TO DO</span>
+              </span>
+              <span class="rounded bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-400">3</span>
             </div>
-            
-            <div class="flex gap-1 rounded-lg bg-slate-950 p-1 border border-slate-800">
-              <button
-                v-for="option in filterOptions"
-                :key="option"
-                class="rounded px-2.5 py-1 text-xs font-medium capitalize transition-colors"
-                :class="filter === option ? 'bg-slate-800 text-emerald-400 shadow-xs' : 'text-slate-400 hover:text-white'"
-                @click="setFilter(option)"
-              >
-                {{ option === 'in_progress' ? 'in progress' : option }}
-              </button>
+            <div class="mt-3 space-y-2">
+              <div class="rounded-lg border border-slate-800 bg-slate-900/80 p-3 shadow-xs">
+                <p class="text-xs font-semibold text-slate-200">Refactor OAuth state handler</p>
+                <div class="mt-2 flex items-center justify-between text-[10px] text-slate-400">
+                  <span class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-emerald-400">HUB-102</span>
+                  <span class="rounded-full bg-blue-500/10 px-2 py-0.5 text-blue-400 font-semibold">3 SP</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <ul class="mt-4 divide-y divide-slate-800">
-            <li
-              v-for="task in visibleTasks"
-              :key="task.id"
-              class="flex flex-wrap items-center justify-between gap-3 py-3 hover:bg-slate-900/40 rounded-lg px-2 -mx-2 transition-colors"
-            >
-              <div>
-                <p class="font-medium text-slate-200">{{ task.title }}</p>
-                <p class="mt-1 text-xs text-slate-500">
-                  {{ task.issue_key || `Task #${task.id}` }} · {{ task.project?.title || 'Unassigned' }} · {{ task.priority }} priority
-                </p>
-              </div>
-              <span class="rounded-full border border-slate-700 bg-slate-800/60 px-2.5 py-1 text-xs text-slate-300">
-                {{ statusLabel(task.status) }}
+          <!-- Column 2: In Progress -->
+          <div class="rounded-xl border border-slate-800/60 bg-slate-950/50 p-3.5">
+            <div class="flex items-center justify-between text-xs font-bold text-blue-400 pb-2 border-b border-slate-800/60">
+              <span class="flex items-center gap-1.5">
+                <span class="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
+                <span>IN PROGRESS</span>
               </span>
-            </li>
-            <li v-if="!visibleTasks.length" class="py-8 text-center text-sm text-slate-500">
-              No work items in this view.
-            </li>
-          </ul>
-        </section>
-      </section>
+              <span class="rounded bg-blue-950/60 px-1.5 py-0.5 text-[10px] text-blue-300">1</span>
+            </div>
+            <div class="mt-3 space-y-2">
+              <div class="rounded-lg border border-blue-500/40 bg-blue-950/20 p-3 shadow-md shadow-blue-950/30 ring-1 ring-blue-500/20">
+                <p class="text-xs font-semibold text-white">Bi-directional GitHub Webhook Sync</p>
+                <div class="mt-2 flex items-center gap-1.5 text-[10px] text-slate-400">
+                  <span class="font-mono text-cyan-400">🤖 Agent: Claude / Antigravity</span>
+                </div>
+                <div class="mt-2.5 flex items-center justify-between text-[10px]">
+                  <span class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-emerald-400">HUB-88</span>
+                  <span class="text-xs text-amber-400 font-bold">⚡ Branch: feat/sync</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 3: In Review -->
+          <div class="rounded-xl border border-slate-800/60 bg-slate-950/50 p-3.5">
+            <div class="flex items-center justify-between text-xs font-bold text-purple-400 pb-2 border-b border-slate-800/60">
+              <span class="flex items-center gap-1.5">
+                <span class="h-2 w-2 rounded-full bg-purple-500"></span>
+                <span>IN REVIEW</span>
+              </span>
+              <span class="rounded bg-purple-950/60 px-1.5 py-0.5 text-[10px] text-purple-300">1</span>
+            </div>
+            <div class="mt-3 space-y-2">
+              <div class="rounded-lg border border-purple-500/30 bg-purple-950/20 p-3 shadow-xs">
+                <p class="text-xs font-semibold text-slate-200">MCP Protocol 2024-11-05 Tool Support</p>
+                <div class="mt-2 flex items-center gap-1 text-[10px] text-emerald-400 font-medium">
+                  <span>✓ 14/14 Tests Passed</span>
+                </div>
+                <div class="mt-2 flex items-center justify-between text-[10px]">
+                  <span class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-emerald-400">HUB-94</span>
+                  <span class="rounded bg-purple-500/20 px-1.5 py-0.5 text-purple-300 font-semibold">Evidence Attached</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 4: Done -->
+          <div class="rounded-xl border border-slate-800/60 bg-slate-950/50 p-3.5">
+            <div class="flex items-center justify-between text-xs font-bold text-emerald-400 pb-2 border-b border-slate-800/60">
+              <span class="flex items-center gap-1.5">
+                <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                <span>COMPLETED</span>
+              </span>
+              <span class="rounded bg-emerald-950/60 px-1.5 py-0.5 text-[10px] text-emerald-300">12</span>
+            </div>
+            <div class="mt-3 space-y-2">
+              <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-3 opacity-80">
+                <p class="text-xs font-semibold text-slate-300 line-through">Docker Multi-Stage Cloud Run Deployment</p>
+                <div class="mt-2 flex items-center justify-between text-[10px] text-slate-500">
+                  <span class="font-mono">HUB-79</span>
+                  <span class="text-emerald-400 font-bold">✓ Merged</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
-  </main>
+
+    <!-- CORE FEATURES BENTO GRID -->
+    <section id="features" class="relative z-10 border-t border-slate-800/80 bg-slate-900/30 py-24">
+      <div class="mx-auto max-w-6xl px-6">
+        <div class="text-center">
+          <p class="text-xs font-bold tracking-wider uppercase text-emerald-400">Supercharged Architecture</p>
+          <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+            Everything your team needs to supervise AI coding agents
+          </h2>
+          <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base text-slate-400 leading-relaxed">
+            Eliminate loose prompts and unverified PRs. Task Hub provides the deterministic contract between humans and autonomous coding agents.
+          </p>
+        </div>
+
+        <div class="mt-16 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <!-- Feature 1 -->
+          <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-6 hover:border-emerald-500/50 hover:bg-slate-900/60 transition-all">
+            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-2xl text-emerald-400 group-hover:scale-110 transition-transform">
+              🤖
+            </div>
+            <h3 class="mt-5 text-lg font-bold text-white">Supervised Agent Execution</h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
+              Enforce strict handoff contracts. Agents receive structured context packs and must attach verifiable test logs before requesting human review.
+            </p>
+          </div>
+
+          <!-- Feature 2 -->
+          <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-6 hover:border-teal-500/50 hover:bg-slate-900/60 transition-all">
+            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-500/10 border border-teal-500/20 text-2xl text-teal-400 group-hover:scale-110 transition-transform">
+              🔄
+            </div>
+            <h3 class="mt-5 text-lg font-bold text-white">Bi-Directional GitHub Sync</h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
+              1-click connect your GitHub repositories. Automatically sync branches, commits, pull requests, issues, and real-time webhook status updates.
+            </p>
+          </div>
+
+          <!-- Feature 3 -->
+          <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-6 hover:border-cyan-500/50 hover:bg-slate-900/60 transition-all">
+            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-2xl text-cyan-400 group-hover:scale-110 transition-transform">
+              🔌
+            </div>
+            <h3 class="mt-5 text-lg font-bold text-white">Native MCP Server Endpoint</h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
+              Seamlessly integrates with Google Antigravity, Claude Code, Cursor, and Codex via standard JSON-RPC 2.0 Model Context Protocol.
+            </p>
+          </div>
+
+          <!-- Feature 4 -->
+          <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-6 hover:border-blue-500/50 hover:bg-slate-900/60 transition-all">
+            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/10 border border-blue-500/20 text-2xl text-blue-400 group-hover:scale-110 transition-transform">
+              📊
+            </div>
+            <h3 class="mt-5 text-lg font-bold text-white">Agile Scrum & Kanban Board</h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
+              Backlog grooming, Story Points estimation, sprint velocity calculation, and smooth drag-and-drop state transitions.
+            </p>
+          </div>
+
+          <!-- Feature 5 -->
+          <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-6 hover:border-purple-500/50 hover:bg-slate-900/60 transition-all">
+            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20 text-2xl text-purple-400 group-hover:scale-110 transition-transform">
+              📄
+            </div>
+            <h3 class="mt-5 text-lg font-bold text-white">Project Knowledge Registry</h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
+              Manage specifications, architecture RFCs, and release logs. Automatically deliver required documents to agents on task dispatch.
+            </p>
+          </div>
+
+          <!-- Feature 6 -->
+          <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-6 hover:border-amber-500/50 hover:bg-slate-900/60 transition-all">
+            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-2xl text-amber-400 group-hover:scale-110 transition-transform">
+              🧘
+            </div>
+            <h3 class="mt-5 text-lg font-bold text-white">Mindful Focus & Pomodoro</h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
+              Built-in Pomodoro cycles, breathing pacers, and Theravāda mindfulness reflections to maintain peak engineering focus during long coding sprints.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- WORKFLOW 3-STEP SECTION -->
+    <section id="agent-workflow" class="relative z-10 py-24">
+      <div class="mx-auto max-w-6xl px-6">
+        <div class="text-center">
+          <p class="text-xs font-bold tracking-wider uppercase text-emerald-400">Deterministic Pipeline</p>
+          <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+            How Task Hub coordinates human intent & AI execution
+          </h2>
+        </div>
+
+        <div class="mt-16 grid gap-8 md:grid-cols-3 text-left">
+          <div class="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 relative">
+            <span class="text-3xl font-black text-emerald-500/40">01</span>
+            <h3 class="mt-4 text-base font-bold text-white">Connect & Plan</h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
+              Sign in with GitHub and link your project repositories. Define clear Acceptance Criteria and Definition of Done for each task.
+            </p>
+          </div>
+
+          <div class="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 relative">
+            <span class="text-3xl font-black text-blue-500/40">02</span>
+            <h3 class="mt-4 text-base font-bold text-white">Dispatch to Agent</h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
+              AI agents connect via native MCP. They fetch the exact task context pack, git branch constraints, and test execution rules.
+            </p>
+          </div>
+
+          <div class="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 relative">
+            <span class="text-3xl font-black text-purple-500/40">03</span>
+            <h3 class="mt-4 text-base font-bold text-white">Review Evidence & Merge</h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
+              Agents submit structured handoffs with automated test results. Humans review the evidence and approve deterministic merges.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BOTTOM CTA BANNER -->
+    <section class="relative z-10 border-t border-slate-800/80 bg-gradient-to-b from-slate-950 to-slate-900 py-20 text-center">
+      <div class="mx-auto max-w-4xl px-6">
+        <h2 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
+          Ready to supervise AI coding agents with total confidence?
+        </h2>
+        <p class="mt-4 text-base sm:text-lg text-slate-400">
+          Join engineers using Task Hub to coordinate AI agent handoffs and ship clean, verified code.
+        </p>
+
+        <div class="mt-8 flex justify-center">
+          <a
+            href="/auth/github"
+            class="flex items-center gap-3 rounded-2xl bg-emerald-500 px-8 py-4 text-sm font-bold text-slate-950 shadow-xl shadow-emerald-500/30 hover:bg-emerald-400 active:scale-95 transition-all cursor-pointer"
+          >
+            <svg class="h-5 w-5 fill-current" viewBox="0 0 24 24">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+            </svg>
+            <span>Get Started with GitHub OAuth</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-slate-800/80 bg-slate-950 px-6 py-12 text-xs text-slate-500">
+      <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-2.5">
+          <div class="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 font-bold">⚡</div>
+          <span class="font-bold text-slate-300">Task Hub</span>
+          <span>· Open Source & Supervised AI Workspace</span>
+        </div>
+        <p>© 2026 Macatung Dev. Released under the MIT License.</p>
+      </div>
+    </footer>
+  </div>
 </template>
