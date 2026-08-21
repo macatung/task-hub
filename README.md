@@ -14,11 +14,17 @@ Task Hub is an open-source execution workspace for product teams and AI coding a
 ```bash
 cp apps/hub/.env.example apps/hub/.env
 # Set APP_KEY, POSTGRES_PASSWORD, GitHub OAuth credentials and a secure MCP token.
+# For server-side runners also set TASK_HUB_RUNNER_REGISTRATION_TOKEN and
+# RUNNER_GITHUB_TOKEN (only in the runner environment, never in source control).
 docker compose -f infra/docker/compose.yml up -d --build
 docker compose -f infra/docker/compose.yml exec hub php artisan migrate --force
 ```
 
 Open `http://localhost:8080`. Configure the Desktop app with this base URL; it verifies `/api/v1/capabilities` before device pairing.
+
+## Server agent runner
+
+The optional `runner` service leases `execution_mode=server` agent runs, creates a temporary Git worktree, and runs headless Codex or Claude Code. Register it with `TASK_HUB_RUNNER_REGISTRATION_TOKEN`, configure the provider login profiles and `RUNNER_GITHUB_TOKEN` inside the runner environment, then use the `Server ...` buttons in a task's Agent Run panel. Secrets are not stored in the Hub database. Antigravity is reported as `external_only` unless a compatible headless `agy` executable is installed; use Task Companion Desktop for the normal GUI flow.
 
 ## Compatibility
 

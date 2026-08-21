@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\ApiAgentRunController;
 use App\Http\Controllers\Api\ApiCapabilityController;
+use App\Http\Controllers\Api\ApiAgentRunnerController;
 use App\Http\Controllers\Api\ApiProjectController;
 use App\Http\Controllers\Api\ApiProjectDocumentController;
 use App\Http\Controllers\Api\ApiProjectReleaseController;
@@ -37,6 +38,14 @@ Route::post('/desktop/pairing/{pairingId}/deny', [DesktopPairingController::clas
 $registerApiRoutes = function () {
     // Capabilities
     Route::get('/capabilities', [ApiCapabilityController::class, 'show']);
+    Route::post('/runners/register', [ApiAgentRunnerController::class, 'register']);
+    Route::get('/runners', [ApiAgentRunnerController::class, 'index']);
+    Route::post('/runners/{agentRunner}/heartbeat', [ApiAgentRunnerController::class, 'heartbeat']);
+    Route::post('/runners/{agentRunner}/revoke', [ApiAgentRunnerController::class, 'revoke']);
+    Route::get('/runners/{agentRunner}/jobs/claim', [ApiAgentRunnerController::class, 'claim']);
+    Route::post('/agent-runs/{agentRun}/events', [ApiAgentRunnerController::class, 'event']);
+    Route::post('/agent-runs/{agentRun}/logs', [ApiAgentRunnerController::class, 'log']);
+    Route::post('/agent-runs/{agentRun}/cancel', [ApiAgentRunnerController::class, 'cancel']);
 
     // Tasks and AI workflows
     Route::get('/tasks', [ApiTaskController::class, 'index']);

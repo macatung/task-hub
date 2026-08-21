@@ -17,7 +17,7 @@ use Illuminate\Support\Str;
 class ApiAgentRunController extends Controller
 {
     private const PROVIDERS = ['antigravity', 'codex', 'claude_code'];
-    private const STATUSES = ['queued', 'running', 'waiting_input', 'needs_review', 'verified', 'failed', 'cancelled'];
+    private const STATUSES = ['queued', 'claimed', 'preparing', 'running', 'waiting_input', 'needs_review', 'verified', 'failed', 'cancelled'];
 
     public function index(Request $request)
     {
@@ -43,6 +43,7 @@ class ApiAgentRunController extends Controller
             'run_type' => 'nullable|string|max:30',
             'instruction' => 'nullable|array',
             'context' => 'nullable|array',
+            'execution_mode' => 'nullable|in:desktop,server',
         ]);
 
         $task = !empty($validated['task_id']) ? Task::findOrFail($validated['task_id']) : null;
@@ -57,6 +58,8 @@ class ApiAgentRunController extends Controller
                 'repository' => $validated['repository'] ?? ($context['repository'] ?? (config('services.task_hub.repository') ?: env('TASK_HUB_REPOSITORY'))),
                 'branch' => $validated['branch'] ?? ($context['branch'] ?? null),
                 'status' => 'queued',
+                'execution_mode' => $validated['execution_mode'] ?? 'desktop',
+                'queued_at' => now(),
                 'run_type' => $validated['run_type'] ?? 'implementation',
                 'context_hash' => $context['context_hash'] ?? null,
                 'instruction_hash' => $contextService->instructionHash($instruction),

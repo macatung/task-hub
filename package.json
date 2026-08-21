@@ -2,12 +2,13 @@
   "name": "task-hub",
   "private": true,
   "version": "1.0.0",
-  "workspaces": ["apps/desktop", "apps/hub"],
+  "workspaces": ["apps/desktop", "apps/hub", "apps/runner"],
   "scripts": {
     "build": "npm --workspace apps/hub run build && npm --workspace apps/desktop run build:vue",
     "hub:build": "npm --workspace apps/hub run build",
     "desktop:build": "npm --workspace apps/desktop run build:vue",
     "desktop:typecheck": "npm --workspace apps/desktop exec vue-tsc --noEmit",
-    "contracts:validate": "node packages/contracts/validate.mjs"
+    "contracts:validate": "node packages/contracts/validate.mjs",
+    "runner:test": "npm --workspace apps/runner test"
   }
 }

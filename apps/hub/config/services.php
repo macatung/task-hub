@@ -29,6 +29,7 @@ return [
 
     'task_hub' => [
         'repository' => env('TASK_HUB_REPOSITORY'),
+        'runner_registration_token' => env('TASK_HUB_RUNNER_REGISTRATION_TOKEN'),
     ],
 
 ];

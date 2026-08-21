@@ -3,6 +3,31 @@ info:
   title: Task Hub API
   version: 1.0.0
 paths:
+  /api/v1/runners/register:
+    post:
+      summary: Register a self-hosted server agent runner
+      responses:
+        '201': { description: Runner registered and token issued once }
+  /api/v1/runners/{runner_id}/heartbeat:
+    post:
+      summary: Update runner liveness and capabilities
+      responses:
+        '200': { description: Heartbeat accepted }
+  /api/v1/runners/{runner_id}/jobs/claim:
+    get:
+      summary: Atomically lease the next compatible server run
+      responses:
+        '200': { description: Run claimed or no job available }
+  /api/v1/agent-runs/{run_id}/logs:
+    post:
+      summary: Append an idempotent, redacted server runner log chunk
+      responses:
+        '200': { description: Log accepted }
+  /api/v1/agent-runs/{run_id}/cancel:
+    post:
+      summary: Request cancellation of a server run
+      responses:
+        '200': { description: Cancellation requested }
   /api/v1/capabilities:
     get:
       summary: Discover server and MCP compatibility

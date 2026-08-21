@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Task Hub agent runner registration",
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "hostname": { "type": "string" },
+    "version": { "type": "string" },
+    "capabilities": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },
+    "metadata": { "type": "object" }
+  },
+  "additionalProperties": false
+}

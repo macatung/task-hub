@@ -92,6 +92,8 @@ export interface TaskItem {
 export interface AgentRunItem {
   id: number;
   provider: string;
+  execution_mode?: 'desktop' | 'server';
+  runner_id?: number | null;
   agent_session_id?: string;
   status: string;
   branch?: string | null;
@@ -540,12 +542,14 @@ const loadAgentRuns = async (taskId: number) => {
   }
 };
 
-const startAgentRun = async (provider: string) => {
+const startAgentRun = async (provider: string, executionMode: 'desktop' | 'server' = 'desktop') => {
   if (!selectedTask.value) return;
   try {
-    const res = await axios.post('/api/tasks/agent-runs', { task_id: selectedTask.value.id, provider });
+    const res = await axios.post('/api/tasks/agent-runs', { task_id: selectedTask.value.id, provider, execution_mode: executionMode });
     selectedAgentRuns.value.unshift(res.data.data);
-    agentRunFeedback.value = `Đã tạo run cho ${provider}. Agent có thể lấy Context Pack từ Task Hub.`;
+    agentRunFeedback.value = executionMode === 'server'
+      ? `Đã xếp hàng ${provider} trên server runner. Run sẽ tự nhận khi runner online.`
+      : `Đã tạo run cho ${provider}. Agent có thể lấy Context Pack từ Task Hub.`;
   } catch (err: any) {
     agentRunFeedback.value = err.response?.data?.message || 'Không thể tạo agent run.';
   }
@@ -3764,15 +3768,18 @@ onUnmounted(() => {
                 <label :class="['font-mono text-xs font-bold uppercase', isDarkMode ? 'text-slate-300' : 'text-slate-700']">Agent Run</label>
                 <span v-if="isAgentRunsLoading" class="text-[10px] text-slate-500">Đang tải…</span>
               </div>
-              <div class="grid grid-cols-3 gap-1.5">
-                <button v-for="provider in ['codex', 'claude_code', 'antigravity']" :key="provider" @click="startAgentRun(provider)" class="rounded-lg border px-2 py-2 text-[10px] font-bold cursor-pointer hover:border-blue-500" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-200' : 'border-slate-300 bg-white text-slate-800'">
-                  {{ provider === 'claude_code' ? 'Claude' : provider === 'antigravity' ? 'Antigravity' : 'Codex' }}
+              <div class="grid grid-cols-2 gap-1.5">
+                <button v-for="provider in ['codex', 'claude_code', 'antigravity']" :key="`desktop-${provider}`" @click="startAgentRun(provider, 'desktop')" class="rounded-lg border px-2 py-2 text-[10px] font-bold cursor-pointer hover:border-blue-500" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-200' : 'border-slate-300 bg-white text-slate-800'">
+                  {{ provider === 'claude_code' ? 'Desktop Claude' : provider === 'antigravity' ? 'Desktop Antigravity' : 'Desktop Codex' }}
+                </button>
+                <button v-for="provider in ['codex', 'claude_code', 'antigravity']" :key="`server-${provider}`" @click="startAgentRun(provider, 'server')" class="rounded-lg border border-emerald-400/50 bg-emerald-500/10 px-2 py-2 text-[10px] font-bold text-emerald-700 cursor-pointer hover:border-emerald-500 dark:text-emerald-300">
+                  {{ provider === 'claude_code' ? 'Server Claude' : provider === 'antigravity' ? 'Server Antigravity' : 'Server Codex' }}
                 </button>
               </div>
               <p v-if="agentRunFeedback" class="text-[11px] leading-relaxed text-blue-600 dark:text-blue-300">{{ agentRunFeedback }}</p>
               <div v-for="run in selectedAgentRuns" :key="run.id" :class="['rounded-xl border p-3 space-y-2', isDarkMode ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white']">
                 <div class="flex items-center justify-between gap-2 text-xs">
-                  <span class="font-bold">{{ run.provider }}</span>
+                  <span class="font-bold">{{ run.provider }} · {{ run.execution_mode || 'desktop' }}</span>
                   <span class="rounded-full border px-2 py-0.5 font-mono text-[10px]">{{ run.status }}</span>
                 </div>
                 <p v-if="run.branch || run.commit_sha" class="font-mono text-[10px] text-slate-500 truncate">{{ run.branch || 'no branch' }} · {{ run.commit_sha || 'no commit' }}</p>
