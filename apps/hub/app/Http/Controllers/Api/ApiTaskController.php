@@ -17,6 +17,8 @@ class ApiTaskController extends Controller
     public function index(Request $request)
     {
         $query = Task::with(['project', 'sprint', 'epic', 'documents']);
+        $desktopProject = $request->attributes->get('desktop_project');
+        if ($desktopProject) $query->where('project_id', $desktopProject->id);
         if ($request->user()) $query->where('workspace_id', app(WorkspaceContext::class)->resolve($request)->id);
 
         if ($request->has("project_id") && $request->query("project_id") !== 'all') {
@@ -88,6 +90,8 @@ class ApiTaskController extends Controller
         if ($request->user()) {
             $workspace = app(WorkspaceContext::class)->resolve($request);
             $project = Project::where('workspace_id', $workspace->id)->findOrFail($validated['project_id']);
+            $desktopProject = $request->attributes->get('desktop_project');
+            if ($desktopProject) abort_unless((int) $desktopProject->id === (int) $project->id, 403, 'Desktop credential is scoped to another project.');
             $validated['workspace_id'] = $workspace->id;
         }
 
@@ -106,6 +110,8 @@ class ApiTaskController extends Controller
     {
         $task = Task::findOrFail($id);
         if ($request->user()) abort_unless((int) $task->workspace_id === (int) app(WorkspaceContext::class)->resolve($request)->id, 404);
+        $desktopProject = $request->attributes->get('desktop_project');
+        if ($desktopProject) abort_unless((int) $task->project_id === (int) $desktopProject->id, 403, 'Desktop credential is scoped to another project.');
 
         $validated = $request->validate([
             "project_id" => "sometimes|required|integer|exists:projects,id",

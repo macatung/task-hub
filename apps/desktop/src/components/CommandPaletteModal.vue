@@ -50,7 +50,7 @@ const allCommands: CommandItem[] = [
   {
     id: 'open-tasks',
     title: 'Xem danh sách nhiệm vụ hôm nay',
-    subtitle: 'Đồng bộ trực tiếp tasks.macatung.dev',
+    subtitle: 'Đồng bộ trực tiếp task-hub.macatung.dev',
     icon: '📋',
     category: 'Năng Suất',
     keywords: ['task', 'tasks', 'nhiem vu', 'cong viec', 'dispatch', 'hub'],
@@ -86,12 +86,12 @@ const allCommands: CommandItem[] = [
   {
     id: 'open-web',
     title: 'Mở Tasks Hub trên Web',
-    subtitle: 'Quản lý bảng Kanban đầy đủ (tasks.macatung.dev)',
+    subtitle: 'Quản lý bảng Kanban đầy đủ (task-hub.macatung.dev)',
     icon: '🌐',
     category: 'Liên Kết',
     keywords: ['web', 'kanban', 'browser', 'macatung', 'link'],
     action: () => {
-      const url = `${(import.meta as any).env?.VITE_TASK_HUB_URL || 'https://tasks.macatung.dev'}/tasks`;
+      const url = `${(import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev'}/tasks`;
       if ((window as any).desktopApi?.openExternal) (window as any).desktopApi.openExternal(url);
       else window.open(url, '_blank');
     },

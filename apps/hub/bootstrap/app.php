@@ -7,6 +7,7 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\TrackVisitorAnalytics;
 use App\Http\Middleware\AdminAuthMiddleware;
 use App\Http\Middleware\ResolveWorkspace;
+use App\Http\Middleware\AuthenticateDesktopProject;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -25,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin.auth' => AdminAuthMiddleware::class,
             'workspace' => ResolveWorkspace::class,
+            'desktop.project' => AuthenticateDesktopProject::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

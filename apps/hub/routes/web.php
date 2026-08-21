@@ -141,6 +141,15 @@ $registerApiRoutes = function () {
     // Desktop Pairing API
     Route::post('/desktop/pairing/start', [DesktopPairingController::class, 'start']);
     Route::get('/desktop/pairing/{pairingId}/status', [DesktopPairingController::class, 'status']);
+
+    // Project-scoped API consumed by the authenticated desktop companion.
+    Route::middleware('desktop.project')->prefix('desktop')->group(function () {
+        Route::get('/bootstrap', [ApiProjectController::class, 'desktopBootstrap']);
+        Route::get('/projects', [ApiProjectController::class, 'index']);
+        Route::get('/tasks', [ApiTaskController::class, 'index']);
+        Route::post('/tasks', [ApiTaskController::class, 'store']);
+        Route::patch('/tasks/{id}', [ApiTaskController::class, 'update']);
+    });
 };
 
 // Register API under both /api and /api/v1

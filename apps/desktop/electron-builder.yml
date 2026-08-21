@@ -1,5 +1,6 @@
 appId: dev.macatung.taskcompanion
 productName: Task Companion
+electronVersion: 34.5.8
 copyright: Copyright © 2026 Ma Cà Tưng
 directories:
   output: release

@@ -39,9 +39,9 @@ const handleSelectForPomodoro = (task: TaskItem) => {
 
 const openWebHub = () => {
   if ((window as any).electron?.shell?.openExternal) {
-    (window as any).desktopApi?.openExternal?.(`${(import.meta as any).env?.VITE_TASK_HUB_URL || 'https://tasks.macatung.dev'}/tasks`);
+      (window as any).desktopApi?.openExternal?.(`${(import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev'}/tasks`);
   } else {
-    window.open(`${(import.meta as any).env?.VITE_TASK_HUB_URL || 'https://tasks.macatung.dev'}/tasks`, '_blank');
+    window.open(`${(import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev'}/tasks`, '_blank');
   }
 };
 </script>
@@ -57,7 +57,7 @@ const openWebHub = () => {
         </div>
         <div class="text-[9px] font-mono text-slate-500 flex items-center gap-1 mt-0.5">
           <span class="w-1.5 h-1.5 rounded-full" :class="isOnline ? 'bg-emerald-400' : 'bg-amber-400'"></span>
-          <span>{{ isOnline ? 'Đồng bộ tasks.macatung.dev' : 'Offline Cache' }}</span>
+          <span>{{ isOnline ? 'Đồng bộ task-hub.macatung.dev' : 'Offline Cache' }}</span>
         </div>
       </div>
 

@@ -2,9 +2,9 @@ import { describe, expect, it } from '../Harness/index.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const root = process.cwd();
-const mainSource = fs.readFileSync(path.join(root, 'desktop/electron/main.ts'), 'utf8');
-const uiSource = fs.readFileSync(path.join(root, 'desktop/src/components/AgentConsoleModal.vue'), 'utf8');
+const root = path.resolve(process.cwd(), '../desktop');
+const mainSource = fs.readFileSync(path.join(root, 'electron/main.ts'), 'utf8');
+const uiSource = fs.readFileSync(path.join(root, 'src/components/AgentConsoleModal.vue'), 'utf8');
 
 describe('Desktop agent execution workspace', () => {
   it('uses a PTY-backed adapter for interactive coding CLIs', () => {

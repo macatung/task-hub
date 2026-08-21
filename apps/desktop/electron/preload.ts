@@ -23,6 +23,9 @@ contextBridge.exposeInMainWorld('desktopApi', {
     },
   },
   taskHub: {
+    getCredential: () => ipcRenderer.invoke('taskhub-credential-get'),
+    saveCredential: (credential: { taskHubUrl: string; token: string; projectId: string; projectTitle?: string }) => ipcRenderer.invoke('taskhub-credential-save', credential),
+    clearCredential: () => ipcRenderer.invoke('taskhub-credential-clear'),
     startPairing: (taskHubUrl: string, projectId: number) => ipcRenderer.invoke('taskhub-pairing-start', { taskHubUrl, projectId }),
     pollPairing: (taskHubUrl: string, pairingId: string, deviceSecret: string) => ipcRenderer.invoke('taskhub-pairing-status', { taskHubUrl, pairingId, deviceSecret }),
     mcpCall: (taskHubUrl: string, token: string, projectId: string, method: string, params?: Record<string, any>) => ipcRenderer.invoke('taskhub-mcp-call', { taskHubUrl, token, projectId, method, params }),
@@ -31,6 +34,7 @@ contextBridge.exposeInMainWorld('desktopApi', {
   agent: {
     pickWorkspace: () => ipcRenderer.invoke('agent-pick-workspace'),
     preflight: (provider: 'codex' | 'claude_code' | 'antigravity', cwd: string) => ipcRenderer.invoke('agent-preflight', { provider, cwd }),
+    quickSetup: (cwd: string, installDependencies = true) => ipcRenderer.invoke('agent-quick-setup', { cwd, installDependencies }),
     createWorktree: (repository: string, issueKey: string) => ipcRenderer.invoke('agent-create-worktree', { repository, issueKey }),
     openWorkspace: (cwd: string) => ipcRenderer.invoke('agent-open-workspace', cwd),
     cleanupWorktree: (repository: string, worktree: string) => ipcRenderer.invoke('agent-cleanup-worktree', { repository, worktree }),

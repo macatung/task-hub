@@ -2337,6 +2337,7 @@ onUnmounted(() => {
               >
                 <button
                   @click="selectedProjectId = proj.id"
+                  :title="`Project ID: ${proj.id}`"
                   :class="[
                     'w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-all cursor-pointer border text-left',
                     selectedProjectId === proj.id

@@ -40,6 +40,22 @@ class ApiProjectController extends Controller
         ]);
     }
 
+    public function desktopBootstrap(Request $request)
+    {
+        $project = $request->attributes->get('desktop_project');
+        abort_unless($project instanceof Project, 401);
+
+        $project->loadCount('tasks');
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'project' => $project->only(['id', 'title', 'slug', 'key', 'description', 'category', 'color', 'tags']),
+                'tasks_endpoint' => '/api/v1/desktop/tasks?project_id=' . $project->id,
+                'authenticated_via' => 'desktop_project_credential',
+            ],
+        ]);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([

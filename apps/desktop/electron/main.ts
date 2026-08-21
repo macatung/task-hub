@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, screen, dialog, clipboard, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, screen, dialog, clipboard, shell, safeStorage } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { spawn, execFileSync } from 'node:child_process';
 import { spawn as spawnPty, IPty } from 'node-pty';
@@ -41,6 +41,22 @@ const PROVIDER_CAPABILITIES: Record<AgentProvider, string[]> = {
   claude_code: AGENT_COMMANDS.claude_code.capabilities,
   antigravity: ['external_session', 'handoff'],
 };
+
+type DesktopCredential = { taskHubUrl: string; token: string; projectId: string; projectTitle?: string };
+
+function desktopCredentialPath() { return path.join(app.getPath('userData'), 'task-hub-credential.bin'); }
+function saveDesktopCredential(credential: DesktopCredential) {
+  if (!safeStorage.isEncryptionAvailable()) throw new Error('OS secure storage is unavailable.');
+  fs.mkdirSync(path.dirname(desktopCredentialPath()), { recursive: true });
+  fs.writeFileSync(desktopCredentialPath(), safeStorage.encryptString(JSON.stringify(credential)));
+  return true;
+}
+function loadDesktopCredential(): DesktopCredential | null {
+  const file = desktopCredentialPath();
+  if (!fs.existsSync(file) || !safeStorage.isEncryptionAvailable()) return null;
+  try { return JSON.parse(safeStorage.decryptString(fs.readFileSync(file))) as DesktopCredential; } catch { return null; }
+}
+function clearDesktopCredential() { const file = desktopCredentialPath(); if (fs.existsSync(file)) fs.rmSync(file, { force: true }); return true; }
 
 function findAntigravityExecutable() {
   const candidates = [
@@ -119,6 +135,27 @@ function preflightAgent(provider: AgentProvider, cwd: string) {
     checks.push({ id: 'repository', status: 'failed', message: 'Workspace phải là Git repository.' });
     return { ok: false, provider, capabilities: PROVIDER_CAPABILITIES[provider], checks };
   }
+}
+
+function quickSetupEnvironment(cwd: string, installDependencies = true) {
+  if (!cwd || !fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) throw new Error('Workspace phải là thư mục hợp lệ.');
+  const checks: Array<{ id: string; status: 'passed' | 'failed' | 'warning'; message: string }> = [];
+  const run = (id: string, command: string, args: string[], message: string) => {
+    const executable = resolveCli(command);
+    if (!executable) { checks.push({ id, status: 'warning', message: `${command} chưa được cài; bỏ qua.` }); return; }
+    try { execFileSync(executable, args, { cwd, encoding: 'utf8', windowsHide: true, timeout: 300000, stdio: 'ignore' }); checks.push({ id, status: 'passed', message }); }
+    catch { checks.push({ id, status: 'failed', message: `${command} không chạy thành công.` }); }
+  };
+  const repository = git(cwd, ['rev-parse', '--show-toplevel']);
+  checks.push({ id: 'repository', status: 'passed', message: `Git repository: ${repository}` });
+  const envExample = path.join(repository, '.env.example');
+  const envFile = path.join(repository, '.env');
+  if (fs.existsSync(envExample) && !fs.existsSync(envFile)) { fs.copyFileSync(envExample, envFile); checks.push({ id: 'env', status: 'passed', message: 'Created .env from .env.example.' }); }
+  else if (fs.existsSync(envFile)) checks.push({ id: 'env', status: 'passed', message: '.env already exists; kept local values.' });
+  else checks.push({ id: 'env', status: 'warning', message: 'No .env.example found; skipped environment file setup.' });
+  if (installDependencies && fs.existsSync(path.join(repository, 'package-lock.json'))) run('node_dependencies', 'npm', ['ci'], 'Installed Node dependencies with npm ci.');
+  if (installDependencies && fs.existsSync(path.join(repository, 'composer.lock'))) run('php_dependencies', 'composer', ['install', '--no-interaction', '--prefer-dist'], 'Installed PHP dependencies with Composer.');
+  return { ok: checks.every((check) => check.status !== 'failed'), repository, checks };
 }
 
 function createAgentWorktree(repository: string, issueKey: string) {
@@ -304,6 +341,7 @@ function createWindow() {
     return checkForUpdates();
   });
   ipcMain.handle('agent-preflight', (_event, { provider, cwd }: { provider: AgentProvider; cwd: string }) => preflightAgent(provider, cwd));
+  ipcMain.handle('agent-quick-setup', (_event, { cwd, installDependencies }: { cwd: string; installDependencies?: boolean }) => quickSetupEnvironment(cwd, installDependencies !== false));
   ipcMain.handle('agent-create-worktree', (_event, { repository, issueKey }: { repository: string; issueKey: string }) => createAgentWorktree(repository, issueKey));
   ipcMain.handle('agent-open-workspace', async (_event, cwd: string) => shell.openPath(cwd));
   ipcMain.handle('agent-cleanup-worktree', (_event, { repository, worktree }: { repository: string; worktree: string }) => {
@@ -318,6 +356,10 @@ function createWindow() {
     setUpdateState({ status: 'idle', message: undefined });
     return updateState;
   });
+
+  ipcMain.handle('taskhub-credential-get', () => loadDesktopCredential());
+  ipcMain.handle('taskhub-credential-save', (_event, credential: DesktopCredential) => saveDesktopCredential(credential));
+  ipcMain.handle('taskhub-credential-clear', () => clearDesktopCredential());
 
   ipcMain.handle('taskhub-pairing-start', async (_event, { taskHubUrl, projectId }: { taskHubUrl: string; projectId: number }) => {
     return taskHubRequest(taskHubUrl, '/api/v1/desktop/pairing/start', { method: 'POST', body: JSON.stringify({ project_id: projectId }) });
@@ -483,10 +525,10 @@ function createTray() {
       },
     },
     {
-      label: '🌐 Mở Tasks Hub (tasks.macatung.dev)',
+      label: '🌐 Mở Task Hub (task-hub.macatung.dev)',
       click: () => {
         import('electron').then(({ shell }) => {
-          shell.openExternal(process.env.TASK_HUB_URL || 'https://tasks.macatung.dev/tasks');
+          shell.openExternal(process.env.TASK_HUB_URL || 'https://task-hub.macatung.dev/tasks');
         });
       },
     },

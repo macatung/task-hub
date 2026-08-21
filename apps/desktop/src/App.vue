@@ -9,16 +9,17 @@ import QuickNotesModal from './components/QuickNotesModal.vue';
 import CommandPaletteModal from './components/CommandPaletteModal.vue';
 import DailyFocusBar from './components/DailyFocusBar.vue';
 import AgentConsoleModal from './components/AgentConsoleModal.vue';
+import TaskHubSetupModal from './components/TaskHubSetupModal.vue';
 import UpdateStatus from './components/UpdateStatus.vue';
 import { useTaskSync, TaskItem } from './composables/useTaskSync';
 import { sfx } from './audio/soundEffects';
 import { mindfulBell } from './audio/mindfulBellAudio';
 
-const { tasks, agentTasks, activeTask, isOnline, createTask, toggleTaskComplete, incrementPomodoro } = useTaskSync();
+const { tasks, agentTasks, activeTask, isOnline, credential, setCredential, clearCredential, createTask, toggleTaskComplete, incrementPomodoro } = useTaskSync();
 const isHovered = ref(false);
 const zenMascotRef = ref<InstanceType<typeof ZenMascotStage> | null>(null);
-const TASK_HUB_URL = (import.meta as any).env?.VITE_TASK_HUB_URL || 'https://tasks.macatung.dev';
-type ActiveModal = 'palette' | 'dispatch' | 'review' | 'pomodoro' | 'duck' | 'notes' | 'agent' | null;
+const TASK_HUB_URL = (import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev';
+type ActiveModal = 'palette' | 'dispatch' | 'review' | 'pomodoro' | 'duck' | 'notes' | 'agent' | 'taskhub' | null;
 const activeModal = ref<ActiveModal>(null);
 
 const openWebAction = (path = '/tasks') => {
@@ -67,6 +68,8 @@ const onMascotMouseDown = (event: MouseEvent) => {
 const handleCreateTask = (title: string, priority = 'high') => { createTask(title, priority); sfx.playSuccess(); };
 const handleStartPomodoro = (task: TaskItem) => { activeTask.value = task; openModal('pomodoro'); };
 const handlePomodoroCompleted = (task: TaskItem) => { incrementPomodoro(task); sfx.playSuccess(); };
+const handleTaskHubConnected = async (next: any) => { await setCredential(next); activeModal.value = 'dispatch'; sfx.playSuccess(); };
+const handleTaskHubDisconnect = async () => { await clearCredential(); activeModal.value = null; };
 const hideMascot = () => (window as any).desktopApi?.close?.();
 const checkForUpdates = () => (window as any).desktopApi?.updater?.check?.();
 const installUpdate = () => (window as any).desktopApi?.updater?.install?.();
@@ -78,7 +81,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown);
   (window as any).desktopApi?.onTrayAction?.((action: string) => {
-    const actions: Record<string, ActiveModal> = { 'open-dispatch': 'dispatch', 'open-agent': 'agent', 'open-review': 'review', 'open-pomodoro': 'pomodoro', 'open-duck': 'duck', 'open-notes': 'notes' };
+    const actions: Record<string, ActiveModal> = { 'open-dispatch': 'dispatch', 'open-agent': 'agent', 'open-review': 'review', 'open-pomodoro': 'pomodoro', 'open-duck': 'duck', 'open-notes': 'notes', 'open-taskhub': 'taskhub' };
     if (actions[action]) openModal(actions[action]);
     if (action === 'open-tasks') openWebAction('/tasks');
     if (action === 'check-updates') checkForUpdates();
@@ -95,6 +98,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeyDown));
       <CommandPaletteModal v-if="activeModal === 'palette'" @close="activeModal = null" @create-task="handleCreateTask" @start-pomodoro="openModal('pomodoro')" @open-duck="openModal('duck')" @open-notes="openModal('notes')" @open-dispatch="openModal('dispatch')" @open-review="openModal('review')" @check-updates="checkForUpdates" @install-update="installUpdate" />
       <TaskDispatchModal v-if="activeModal === 'dispatch'" :tasks="tasks" :is-online="isOnline" @close="activeModal = null" @start-pomodoro="handleStartPomodoro" @toggle-complete="toggleTaskComplete" @create-task="handleCreateTask" />
       <AgentConsoleModal v-if="activeModal === 'agent'" :tasks="agentTasks" :initial-task="activeTask" @close="activeModal = null" />
+      <TaskHubSetupModal v-if="activeModal === 'taskhub'" :credential="credential" @close="activeModal = null" @connected="handleTaskHubConnected" @disconnect="handleTaskHubDisconnect" />
       <PomodoroTimer v-if="activeModal === 'pomodoro'" :active-task="activeTask" @pomodoro-completed="handlePomodoroCompleted" @close="activeModal = null" />
       <EveningReviewModal v-if="activeModal === 'review'" :tasks="tasks" @close="activeModal = null" />
       <RubberDuckModal v-if="activeModal === 'duck'" @close="activeModal = null" />
@@ -106,6 +110,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeyDown));
         <button class="dock-button text-violet-300" title="Command center (Ctrl+K)" @click="openModal('palette')">⌘</button>
         <button class="dock-button text-blue-300" title="AI Agent" @click="openModal('agent')">🤖</button>
         <button class="dock-button text-amber-300" title="Tasks hôm nay" @click="openModal('dispatch')">✓</button>
+        <button class="dock-button text-emerald-300" :title="credential ? 'Task Hub connected' : 'Connect Task Hub SaaS'" @click="openModal('taskhub')">🔐</button>
         <button class="dock-button text-sky-300" title="Mở Task Hub" @click="openWebAction('/tasks')">↗</button>
         <button class="dock-button text-slate-300" title="Ẩn mascot" @click="hideMascot">×</button>
       </nav>

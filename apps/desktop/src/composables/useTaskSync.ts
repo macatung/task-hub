@@ -8,6 +8,13 @@ export interface ProjectItem {
   color?: string | null;
 }
 
+export interface DesktopCredential {
+  taskHubUrl: string;
+  token: string;
+  projectId: string;
+  projectTitle?: string;
+}
+
 export interface TaskItem {
   id: number;
   project_id?: number | null;
@@ -47,19 +54,30 @@ export interface DailyReviewData {
   wisdom_quote: string;
 }
 
-const API_BASE = `${(import.meta as any).env?.VITE_TASK_HUB_URL || 'http://localhost:8080'}/api/v1/tasks`;
+declare global { interface Window { desktopApi?: any; } }
+const DEFAULT_TASK_HUB_URL = (import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev';
 
 export function useTaskSync() {
   const tasks = ref<TaskItem[]>([]);
   const agentTasks = ref<TaskItem[]>([]);
   const activeTask = ref<TaskItem | null>(null);
   const isLoading = ref(false);
-  const isOnline = ref(true);
+  const isOnline = ref(false);
+  const credential = ref<DesktopCredential | null>(null);
+  const connectionError = ref('');
+
+  const cacheKey = () => `task_hub_desktop_synced_tasks:${credential.value?.projectId || 'offline'}`;
+  const apiUrl = (suffix = '') => `${(credential.value?.taskHubUrl || DEFAULT_TASK_HUB_URL).replace(/\/$/, '')}/api/v1/desktop/tasks${suffix}`;
+  const authHeaders = (): Record<string, string> => credential.value ? {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${credential.value.token}`,
+    'X-Task-Hub-Project': credential.value.projectId,
+  } : { 'Content-Type': 'application/json' };
 
   // Load from local storage cache initially
   const loadLocalCache = () => {
     try {
-      const saved = localStorage.getItem('task_hub_desktop_synced_tasks');
+      const saved = localStorage.getItem(cacheKey());
       if (saved) {
         tasks.value = JSON.parse(saved);
       }
@@ -70,17 +88,40 @@ export function useTaskSync() {
 
   const saveLocalCache = () => {
     try {
-      localStorage.setItem('task_hub_desktop_synced_tasks', JSON.stringify(tasks.value));
+      localStorage.setItem(cacheKey(), JSON.stringify(tasks.value));
     } catch (e) {
       console.warn('Local task save error:', e);
     }
   };
 
   // Fetch tasks from API
+  const loadCredential = async () => {
+    try { credential.value = await window.desktopApi?.taskHub?.getCredential?.() || null; }
+    catch { credential.value = null; }
+    return credential.value;
+  };
+
+  const setCredential = async (next: DesktopCredential) => {
+    await window.desktopApi?.taskHub?.saveCredential?.(next);
+    credential.value = next;
+    connectionError.value = '';
+    await fetchTasks();
+  };
+
+  const clearCredential = async () => {
+    await window.desktopApi?.taskHub?.clearCredential?.();
+    credential.value = null;
+    tasks.value = [];
+    agentTasks.value = [];
+    isOnline.value = false;
+  };
+
   const fetchTasks = async () => {
     isLoading.value = true;
+    if (!credential.value) await loadCredential();
+    if (!credential.value) { loadLocalCache(); isOnline.value = false; isLoading.value = false; return; }
     try {
-      const res = await fetch(`${API_BASE}?today=1`);
+      const res = await fetch(`${apiUrl()}?today=1&project_id=${encodeURIComponent(credential.value.projectId)}`, { headers: authHeaders() });
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -92,6 +133,7 @@ export function useTaskSync() {
       }
     } catch (e) {
       isOnline.value = false;
+      connectionError.value = e instanceof Error ? e.message : 'Unable to connect to Task Hub.';
       console.warn('Cannot connect to task backend, using offline cache:', e);
     } finally {
       isLoading.value = false;
@@ -100,9 +142,10 @@ export function useTaskSync() {
   };
 
   const fetchAgentTasks = async () => {
+    if (!credential.value) return;
     try {
       const statuses = ['todo', 'in_progress', 'review'];
-      const responses = await Promise.all(statuses.map(status => fetch(`${API_BASE}?status=${status}`)));
+      const responses = await Promise.all(statuses.map(status => fetch(`${apiUrl()}?status=${status}&project_id=${encodeURIComponent(credential.value!.projectId)}`, { headers: authHeaders() })));
       const payloads = await Promise.all(responses.map(response => response.ok ? response.json() : null));
       const unique = new Map<number, TaskItem>();
       payloads.forEach(payload => (payload?.data || []).forEach((task: TaskItem) => unique.set(task.id, task)));
@@ -117,8 +160,10 @@ export function useTaskSync() {
   const createTask = async (title: string, priority = 'high', category = 'backend', estimatedPomodoros = 2) => {
     if (!title.trim()) return null;
 
+    if (!credential.value) return null;
     const newTask: TaskItem = {
       id: Date.now(),
+      project_id: Number(credential.value.projectId),
       title: title.trim(),
       description: null,
       status: 'todo',
@@ -134,9 +179,9 @@ export function useTaskSync() {
     saveLocalCache();
 
     try {
-      const res = await fetch(API_BASE, {
+      const res = await fetch(apiUrl(), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify(newTask),
       });
       if (res.ok) {
@@ -162,9 +207,10 @@ export function useTaskSync() {
     saveLocalCache();
 
     try {
-      await fetch(`${API_BASE}/${task.id}`, {
+      if (!credential.value) return;
+      await fetch(`${apiUrl()}/${task.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ status: newStatus }),
       });
     } catch (e) {
@@ -178,9 +224,10 @@ export function useTaskSync() {
     saveLocalCache();
 
     try {
-      await fetch(`${API_BASE}/${task.id}`, {
+      if (!credential.value) return;
+      await fetch(`${apiUrl()}/${task.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({ completed_pomodoros: task.completed_pomodoros }),
       });
     } catch (e) {
@@ -189,8 +236,7 @@ export function useTaskSync() {
   };
 
   onMounted(() => {
-    fetchTasks();
-    fetchAgentTasks();
+    void fetchTasks().then(() => fetchAgentTasks());
   });
 
   return {
@@ -199,6 +245,11 @@ export function useTaskSync() {
     activeTask,
     isLoading,
     isOnline,
+    credential,
+    connectionError,
+    setCredential,
+    clearCredential,
+    loadCredential,
     fetchTasks,
     fetchAgentTasks,
     createTask,

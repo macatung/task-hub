@@ -7,17 +7,17 @@
 import { describe, it, expect } from '../Harness/index.js';
 import fs from 'fs';
 import path from 'path';
-import { ZEN_PHASES, useZenTimeCycle } from '../../desktop/src/composables/useZenTimeCycle.ts';
+import { ZEN_PHASES, useZenTimeCycle } from '../../../desktop/src/composables/useZenTimeCycle.ts';
 
 describe('DesktopZenMascotTest (HD Vector, 4-Phase Aura & 432Hz Chime)', () => {
   // Read component source files
-  const stageVuePath = path.resolve(process.cwd(), 'desktop/src/components/ZenMascotStage.vue');
+  const stageVuePath = path.resolve(process.cwd(), '../desktop/src/components/ZenMascotStage.vue');
   const stageVueContent = fs.readFileSync(stageVuePath, 'utf-8');
 
-  const appVuePath = path.resolve(process.cwd(), 'desktop/src/App.vue');
+  const appVuePath = path.resolve(process.cwd(), '../desktop/src/App.vue');
   const appVueContent = fs.readFileSync(appVuePath, 'utf-8');
 
-  const audioPath = path.resolve(process.cwd(), 'desktop/src/audio/mindfulBellAudio.ts');
+  const audioPath = path.resolve(process.cwd(), '../desktop/src/audio/mindfulBellAudio.ts');
   const audioContent = fs.readFileSync(audioPath, 'utf-8');
 
   // ==========================================================================
