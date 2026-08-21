@@ -25,7 +25,6 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
         $startDate = !empty($options['start_date']) ? Carbon::parse($options['start_date']) : Carbon::today();
         $projectTitle = !empty($options['project_title']) ? trim($options['project_title']) : $this->inferProjectTitle($prompt);
         $projectKey = !empty($options['project_key']) ? strtoupper(trim($options['project_key'])) : $this->inferProjectKey($projectTitle);
-        $projectType = $options['project_type'] ?? 'work';
         $projectColor = $options['project_color'] ?? '#2563eb';
 
         // Check for domain keywords in the prompt
@@ -51,7 +50,6 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
             'project' => [
                 'title' => $projectTitle,
                 'key' => $projectKey,
-                'type' => $projectType,
                 'color' => $projectColor,
                 'description' => Str::limit($prompt, 180),
             ],
@@ -128,11 +126,15 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                 'slug' => $slug,
                 'key' => $projectInfo['key'] ?? 'PROJ',
                 'tagline' => $tagline,
-                'type' => $projectInfo['type'] ?? 'work',
                 'color' => $projectInfo['color'] ?? '#2563eb',
                 'description' => $projectInfo['description'] ?? '',
                 'category' => 'Full-stack Platform',
+                'workspace_id' => $options['workspace_id'] ?? null,
             ]);
+        }
+
+        if (!$project) {
+            throw new RuntimeException('A project is required before generating tasks.');
         }
 
         $createdSprints = [];
@@ -144,7 +146,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
         // 2. Iterate each Sprint
         foreach ($sprintsData as $sIndex => $sData) {
             $sprint = Sprint::create([
-                'project_id' => $project ? $project->id : null,
+                'project_id' => $project->id,
                 'name' => $sData['name'],
                 'goal' => $sData['goal'] ?? null,
                 'start_date' => $sData['start_date'] ?? null,
@@ -171,7 +173,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     }
 
                     $task = Task::create([
-                        'project_id' => $project ? $project->id : null,
+                        'project_id' => $project->id,
                         'issue_key' => $issueKey,
                         'issue_type' => $tData['issue_type'] ?? 'task',
                         'title' => $tData['title'],
@@ -219,7 +221,6 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
             throw new RuntimeException('The project plan must include a title.');
         }
         $project['key'] = strtoupper(substr((string) ($project['key'] ?? $this->inferProjectKey($project['title'])), 0, 10));
-        $project['type'] = in_array(($project['type'] ?? 'work'), ['work', 'personal'], true) ? $project['type'] : 'work';
         $project['color'] = (string) ($project['color'] ?? '#2563eb');
         $project['description'] = (string) ($project['description'] ?? '');
 

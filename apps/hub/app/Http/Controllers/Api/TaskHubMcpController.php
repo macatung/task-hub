@@ -58,7 +58,6 @@ class TaskHubMcpController extends ApiAgentRunController
             ['name' => 'preview_project_breakdown', 'description' => 'Generate and validate a project plan without writing to the database. Human approval is required before commit.', 'inputSchema' => ['type' => 'object', 'properties' => [
                 'prompt' => ['type' => 'string', 'description' => 'Project idea or requirement.'],
                 'project_title' => ['type' => 'string'], 'project_key' => ['type' => 'string'],
-                'project_type' => ['type' => 'string', 'enum' => ['work', 'personal']],
                 'sprint_count' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 5],
                 'sprint_duration_weeks' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 4],
                 'start_date' => ['type' => 'string', 'description' => 'ISO date, e.g. 2026-08-20'],
@@ -106,7 +105,6 @@ class TaskHubMcpController extends ApiAgentRunController
         $options = array_filter([
             'project_title' => $args['project_title'] ?? null,
             'project_key' => $args['project_key'] ?? null,
-            'project_type' => $args['project_type'] ?? null,
             'sprint_count' => $args['sprint_count'] ?? null,
             'sprint_duration_weeks' => $args['sprint_duration_weeks'] ?? null,
             'start_date' => $args['start_date'] ?? null,

@@ -20,11 +20,7 @@ class ApiTaskController extends Controller
         if ($request->user()) $query->where('workspace_id', app(WorkspaceContext::class)->resolve($request)->id);
 
         if ($request->has("project_id") && $request->query("project_id") !== 'all') {
-            if ($request->query("project_id") === 'unassigned') {
-                $query->whereNull("project_id");
-            } else {
-                $query->where("project_id", $request->query("project_id"));
-            }
+            $query->where("project_id", $request->query("project_id"));
         }
 
         if ($request->has("sprint_id")) {
@@ -65,7 +61,7 @@ class ApiTaskController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            "project_id" => "nullable|exists:projects,id",
+            "project_id" => "required|integer|exists:projects,id",
             "issue_key" => "nullable|string|max:20",
             "issue_type" => "nullable|in:epic,story,task,bug",
             "title" => "required|string|max:255",
@@ -89,7 +85,11 @@ class ApiTaskController extends Controller
             $validated["due_date"] = Carbon::today()->toDateString();
         }
 
-        if ($request->user()) $validated['workspace_id'] = app(WorkspaceContext::class)->resolve($request)->id;
+        if ($request->user()) {
+            $workspace = app(WorkspaceContext::class)->resolve($request);
+            $project = Project::where('workspace_id', $workspace->id)->findOrFail($validated['project_id']);
+            $validated['workspace_id'] = $workspace->id;
+        }
 
         $task = Task::create($validated);
         $task->load(['project', 'sprint', 'epic', 'documents']);
@@ -108,7 +108,7 @@ class ApiTaskController extends Controller
         if ($request->user()) abort_unless((int) $task->workspace_id === (int) app(WorkspaceContext::class)->resolve($request)->id, 404);
 
         $validated = $request->validate([
-            "project_id" => "nullable|exists:projects,id",
+            "project_id" => "sometimes|required|integer|exists:projects,id",
             "issue_key" => "nullable|string|max:20",
             "issue_type" => "nullable|in:epic,story,task,bug",
             "title" => "sometimes|string|max:255",
@@ -135,6 +135,10 @@ class ApiTaskController extends Controller
             $validated["completed_at"] = null;
         }
 
+        if (array_key_exists('project_id', $validated) && $request->user()) {
+            $workspace = app(WorkspaceContext::class)->resolve($request);
+            Project::where('workspace_id', $workspace->id)->findOrFail($validated['project_id']);
+        }
         $task->update($validated);
         $task->load(['project', 'sprint', 'epic', 'documents']);
         if (($validated['status'] ?? null) === 'done') {
@@ -244,7 +248,6 @@ class ApiTaskController extends Controller
             'prompt' => 'required|string|min:5',
             'project_title' => 'nullable|string|max:255',
             'project_key' => 'nullable|string|max:10',
-            'project_type' => 'nullable|in:work,personal',
             'project_color' => 'nullable|string',
             'sprint_count' => 'nullable|integer|min:1|max:5',
             'sprint_duration_weeks' => 'nullable|integer|min:1|max:4',
@@ -270,8 +273,10 @@ class ApiTaskController extends Controller
             'plan.sprints' => 'required|array',
         ]);
 
+        $workspace = $request->user() ? app(WorkspaceContext::class)->resolve($request) : null;
         $result = $service->executePlan($validated['plan'], [
             'project_id' => $validated['project_id'] ?? null,
+            'workspace_id' => $workspace?->id,
         ]);
         $this->track('ai_plan_committed', 'project', $result['project_id'] ?? null, ['task_count' => count($result['task_ids'] ?? [])]);
 

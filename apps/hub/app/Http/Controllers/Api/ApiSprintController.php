@@ -8,6 +8,8 @@ use App\Models\Task;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use App\Models\Project;
+use App\Services\WorkspaceContext;
 
 class ApiSprintController extends Controller
 {
@@ -50,7 +52,7 @@ class ApiSprintController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'project_id' => 'nullable|exists:projects,id',
+            'project_id' => 'required|integer|exists:projects,id',
             'name' => 'required|string|max:255',
             'goal' => 'nullable|string',
             'start_date' => 'nullable|date',
@@ -58,8 +60,11 @@ class ApiSprintController extends Controller
             'status' => 'nullable|in:future,active,completed',
         ]);
 
+        $workspace = $request->user() ? app(WorkspaceContext::class)->resolve($request) : null;
+        if ($workspace) Project::where('workspace_id', $workspace->id)->findOrFail($validated['project_id']);
         $sprint = Sprint::create([
-            'project_id' => $validated['project_id'] ?? null,
+            'project_id' => $validated['project_id'],
+            'workspace_id' => $workspace?->id,
             'name' => $validated['name'],
             'goal' => $validated['goal'] ?? null,
             'start_date' => $validated['start_date'] ?? null,

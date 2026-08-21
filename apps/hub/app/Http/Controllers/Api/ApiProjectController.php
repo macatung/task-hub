@@ -19,7 +19,7 @@ class ApiProjectController extends Controller
 
     public function storeFromGithub(Request $request, GithubProjectIntegrationService $integration)
     {
-        $validated = $request->validate(['repository' => ['required', 'regex:/^[^\/\s]+\/[^\/\s]+$/', 'max:255'], 'type' => 'required|in:work,personal', 'color' => 'nullable|string|max:50']);
+        $validated = $request->validate(['repository' => ['required', 'regex:/^[^\/\s]+\/[^\/\s]+$/', 'max:255'], 'color' => 'nullable|string|max:50']);
         try {
             $validated['workspace_id'] = app(WorkspaceContext::class)->resolve($request)->id;
             $project = $integration->createFromRepository($request->user(), $validated);
@@ -31,10 +31,6 @@ class ApiProjectController extends Controller
     {
         $query = Project::withCount('tasks');
         if ($request->user()) $query->where('workspace_id', app(WorkspaceContext::class)->resolve($request)->id);
-
-        if ($request->has('type') && in_array($request->query('type'), ['work', 'personal'])) {
-            $query->where('type', $request->query('type'));
-        }
 
         $projects = $query->orderBy('title', 'asc')->get();
 
@@ -48,15 +44,16 @@ class ApiProjectController extends Controller
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            'type' => 'required|in:work,personal',
             'color' => 'nullable|string|max:50',
             'description' => 'nullable|string',
+            'tags' => 'nullable|array|max:20',
+            'tags.*' => 'string|max:40',
         ]);
 
         $validated['slug'] = Str::slug($validated['title']) . '-' . Str::random(5);
         $validated['tagline'] = $validated['tagline'] ?? (!empty($validated['description']) ? Str::limit($validated['description'], 100) : $validated['title']);
-        $validated['category'] = $validated['type'] === 'work' ? 'web' : 'creative';
-        $validated['color'] = $validated['color'] ?? ($validated['type'] === 'work' ? '#00f5a0' : '#ffd166');
+        $validated['category'] = $validated['category'] ?? 'software';
+        $validated['color'] = $validated['color'] ?? '#00f5a0';
         if ($request->user()) $validated['workspace_id'] = app(WorkspaceContext::class)->resolve($request)->id;
 
         $project = Project::create($validated);
@@ -76,9 +73,10 @@ class ApiProjectController extends Controller
 
         $validated = $request->validate([
             'title' => 'sometimes|required|string|max:255',
-            'type' => 'sometimes|required|in:work,personal',
             'color' => 'nullable|string|max:50',
             'description' => 'nullable|string',
+            'tags' => 'nullable|array|max:20',
+            'tags.*' => 'string|max:40',
         ]);
 
         if (isset($validated['title']) && $validated['title'] !== $project->title) {
@@ -98,8 +96,10 @@ class ApiProjectController extends Controller
     {
         $project = Project::findOrFail($id);
         if (request()->user()) abort_unless((int) $project->workspace_id === (int) app(WorkspaceContext::class)->resolve(request())->id, 404);
+        if ($project->tasks()->exists()) {
+            return response()->json(['success' => false, 'message' => 'Move or delete the project tasks before deleting this project.'], 422);
+        }
         
-        // Tasks have project_id nullOnDelete, so all tasks are safely preserved as Unassigned
         $project->delete();
 
         return response()->json([

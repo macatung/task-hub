@@ -18,7 +18,6 @@ class Project extends Model
         'tagline',
         'description',
         'category',
-        'type', // 'work' or 'personal'
         'color',
         'cover_gradient',
         'tags',
@@ -45,6 +44,7 @@ class Project extends Model
         'github_token',
         'github_webhook_secret',
         'task_hub_mcp_token',
+        'type', // legacy storage field; SaaS projects no longer expose work/personal categories
     ];
 
     protected $casts = [
@@ -107,22 +107,6 @@ class Project extends Model
             if (strlen($key) >= 4) break;
         }
         return $key ?: ('PRJ' . $this->id);
-    }
-
-    /**
-     * Scope for work projects
-     */
-    public function scopeWork($query)
-    {
-        return $query->where('type', 'work');
-    }
-
-    /**
-     * Scope for personal projects
-     */
-    public function scopePersonal($query)
-    {
-        return $query->where('type', 'personal');
     }
 
     /**

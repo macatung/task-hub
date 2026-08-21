@@ -68,11 +68,9 @@ class Task extends Model
             }
             if (empty($task->issue_key)) {
                 $prefix = 'MCT';
-                if ($task->project_id) {
-                    $project = Project::find($task->project_id);
-                    if ($project) {
-                        $prefix = $project->effective_key;
-                    }
+                $project = Project::find($task->project_id);
+                if ($project) {
+                    $prefix = $project->effective_key;
                 }
                 $maxId = static::where('project_id', $task->project_id)->count() + 1;
                 $task->issue_key = $prefix . '-' . $maxId;

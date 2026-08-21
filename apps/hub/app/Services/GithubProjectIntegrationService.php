@@ -56,7 +56,7 @@ class GithubProjectIntegrationService
             return Project::create([
                 'user_id' => $user->id, 'workspace_id' => $input['workspace_id'] ?? null, 'slug' => $slug, 'key' => Str::substr($key ?: 'PRJ', 0, 5), 'title' => $title,
                 'tagline' => $repo['description'] ?: $repo['full_name'], 'description' => $repo['description'] ?: 'GitHub repository ' . $repo['full_name'],
-                'category' => 'tools', 'type' => $input['type'] ?? 'work', 'color' => $input['color'] ?? '#2563eb',
+                'category' => 'tools', 'color' => $input['color'] ?? '#2563eb',
                 'github_url' => $repo['html_url'] ?? null, 'github_repository' => $repo['full_name'], 'github_default_branch' => $repo['default_branch'] ?? 'main',
                 'github_connected_at' => now(), 'github_sync_status' => 'connected', 'github_snapshot' => ['repository' => [
                     'full_name' => $repo['full_name'], 'description' => $repo['description'] ?? null, 'default_branch' => $repo['default_branch'] ?? 'main',

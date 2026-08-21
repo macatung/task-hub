@@ -6,6 +6,7 @@ use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceCredential;
+use App\Models\Task;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -49,5 +50,19 @@ class SaasTenantIsolationTest extends TestCase
         $this->actingAs($member)->withHeaders(['X-Workspace-Id' => $workspace->id])->postJson('/api/v1/workspaces/' . $workspace->id . '/members', ['user_id' => $owner->id, 'role' => 'developer'])->assertForbidden();
         $this->actingAs($owner)->withHeaders(['X-Workspace-Id' => $workspace->id])->patchJson('/api/v1/workspaces/' . $workspace->id . '/members/' . $member->id, ['role' => 'developer'])->assertOk();
         $this->assertDatabaseHas('workspace_members', ['workspace_id' => $workspace->id, 'user_id' => $member->id, 'role' => 'developer']);
+    }
+
+    public function test_projects_are_tagged_and_tasks_require_a_project_in_the_same_workspace(): void
+    {
+        [$user, $workspace] = $this->tenant('Project Center');
+        [$otherUser, $otherWorkspace] = $this->tenant('Other Tenant');
+        $project = Project::create(['workspace_id' => $workspace->id, 'user_id' => $user->id, 'slug' => 'saas-project', 'title' => 'SaaS Project', 'tagline' => 'Core', 'description' => 'Core project', 'category' => 'software', 'tags' => ['saas', 'core']]);
+        $otherProject = Project::create(['workspace_id' => $otherWorkspace->id, 'user_id' => $otherUser->id, 'slug' => 'other-project', 'title' => 'Other Project', 'tagline' => 'Other', 'description' => 'Other project', 'category' => 'software']);
+
+        $this->actingAs($user)->withHeaders(['X-Workspace-Id' => $workspace->id])->postJson('/api/tasks', ['title' => 'Missing project'])->assertStatus(422)->assertJsonValidationErrors(['project_id']);
+        $this->actingAs($user)->withHeaders(['X-Workspace-Id' => $workspace->id])->postJson('/api/tasks', ['title' => 'Cross tenant task', 'project_id' => $otherProject->id])->assertNotFound();
+        $this->actingAs($user)->withHeaders(['X-Workspace-Id' => $workspace->id])->postJson('/api/tasks', ['title' => 'Valid task', 'project_id' => $project->id])->assertCreated();
+        $this->assertDatabaseHas('projects', ['id' => $project->id, 'tags' => json_encode(['saas', 'core'])]);
+        $this->assertNotNull(Task::where('project_id', $project->id)->first());
     }
 }

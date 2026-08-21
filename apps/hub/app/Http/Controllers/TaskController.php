@@ -59,12 +59,8 @@ class TaskController extends Controller
         $query = Task::with(['project', 'sprint', 'epic', 'documents'])
             ->where('workspace_id', $workspace->id);
 
-        if ($projectId && $projectId !== 'all') {
-            if ($projectId === 'unassigned') {
-                $query->whereNull('project_id');
-            } else {
-                $query->where('project_id', $projectId);
-            }
+        if ($projectId && $projectId !== 'all' && $projectId !== 'unassigned') {
+            $query->where('project_id', $projectId);
         }
 
         $tasks = $query->orderByRaw("CASE WHEN status = 'in_progress' THEN 1 WHEN status = 'todo' THEN 2 WHEN status = 'review' THEN 3 ELSE 4 END")
@@ -73,7 +69,7 @@ class TaskController extends Controller
             ->get();
 
         $projects = Project::where('workspace_id', $workspace->id)
-            ->select('id', 'title', 'slug', 'key', 'category', 'type', 'color', 'description', 'github_repository', 'github_default_branch')
+            ->select('id', 'title', 'slug', 'key', 'category', 'tags', 'color', 'description', 'github_repository', 'github_default_branch')
             ->withCount('tasks')
             ->orderBy('title')
             ->get();

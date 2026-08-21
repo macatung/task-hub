@@ -14,7 +14,7 @@ export interface ProjectItem {
   slug: string;
   key?: string;
   category?: string;
-  type: 'work' | 'personal';
+  tags?: string[] | null;
   color?: string;
   description?: string | null;
   tasks_count?: number;
@@ -38,7 +38,7 @@ interface GithubRepositoryItem {
 
 export interface SprintItem {
   id: number;
-  project_id: number | null;
+  project_id: number;
   name: string;
   goal: string | null;
   start_date: string | null;
@@ -214,7 +214,7 @@ const checkPin = () => {
     sessionStorage.setItem('macatung_tasks_pin_auth', '301095');
   } else {
     sound.playError();
-    pinError.value = 'Mã PIN không chính xác. Vui lòng thử lại!';
+    pinError.value = 'Incorrect PIN. Please try again.';
     isPinShaking.value = true;
     setTimeout(() => {
       isPinShaking.value = false;
@@ -267,8 +267,8 @@ const getTaskDelayStatus = (task: TaskItem): TaskDelayStatus => {
       isDelayed: false,
       daysOverdue: 0,
       daysRemaining: 0,
-      label: 'Đã hoàn thành',
-      reason: 'Nhiệm vụ đã hoàn tất thành công.',
+      label: 'Completed',
+      reason: 'Task completed successfully.',
       badgeClass: isDarkMode.value
         ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
         : 'bg-emerald-50 text-emerald-800 border-emerald-200',
@@ -301,8 +301,8 @@ const getTaskDelayStatus = (task: TaskItem): TaskDelayStatus => {
       isDelayed: false,
       daysOverdue: 0,
       daysRemaining: 999,
-      label: 'Không có hạn',
-      reason: 'Chưa đặt hạn chót',
+      label: 'No due date',
+      reason: 'No due date set',
       badgeClass: isDarkMode.value ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200',
       cardBorderClass: isDarkMode.value ? 'border-slate-800' : 'border-slate-200',
       progressPercent,
@@ -322,8 +322,8 @@ const getTaskDelayStatus = (task: TaskItem): TaskDelayStatus => {
       isDelayed: false,
       daysOverdue,
       daysRemaining: 0,
-      label: `🚨 TRỄ ${daysOverdue} NGÀY`,
-      reason: `Đã quá hạn chót ${daysOverdue} ngày (${task.due_date}) mà chưa hoàn thành. Cần ưu tiên xử lý ngay hoặc gia hạn!`,
+      label: `🚨 ${daysOverdue} DAYS OVERDUE`,
+      reason: `${daysOverdue} days past the due date (${task.due_date}). Prioritize or reschedule this task.`,
       badgeClass: isDarkMode.value
         ? 'bg-rose-950/90 text-rose-300 border-rose-600 font-bold shadow-xs'
         : 'bg-rose-100 text-rose-900 border-rose-300 font-bold shadow-xs ring-1 ring-rose-300',
@@ -343,8 +343,8 @@ const getTaskDelayStatus = (task: TaskItem): TaskDelayStatus => {
       isDelayed: true,
       daysOverdue: 0,
       daysRemaining: 0,
-      label: '⚠️ HẠN HÔM NAY',
-      reason: 'Hạn chót là hôm nay. Cần tập trung hoàn tất trong ngày!',
+      label: '⚠️ DUE TODAY',
+      reason: 'Due today. Focus on completing this task.',
       badgeClass: isDarkMode.value
         ? 'bg-amber-950/90 text-amber-300 border-amber-600 font-bold'
         : 'bg-amber-100 text-amber-900 border-amber-300 font-bold shadow-xs ring-1 ring-amber-300',
@@ -366,10 +366,10 @@ const getTaskDelayStatus = (task: TaskItem): TaskDelayStatus => {
       const timeRatio = elapsed / totalDuration;
       if (timeRatio > 0.55 && progressPercent < 30 && task.status === 'todo') {
         isBehindTime = true;
-        reasonText = `Đã trôi qua ${Math.round(timeRatio * 100)}% thời gian nhưng vẫn ở trạng thái Cần Làm (To Do).`;
+        reasonText = `${Math.round(timeRatio * 100)}% of the schedule has passed while the task is still To Do.`;
       } else if (timeRatio > 0.7 && progressPercent < 40) {
         isBehindTime = true;
-        reasonText = `Đã trôi qua ${Math.round(timeRatio * 100)}% thời gian nhưng tiến độ chỉ đạt ~${progressPercent}%.`;
+        reasonText = `${Math.round(timeRatio * 100)}% of the schedule has passed, but progress is only ~${progressPercent}%.`;
       }
     }
   }
@@ -377,7 +377,7 @@ const getTaskDelayStatus = (task: TaskItem): TaskDelayStatus => {
   // Condition c: Due in 1-2 days with High/Urgent priority and still in Todo
   if (!isBehindTime && diffDays <= 2 && task.status === 'todo' && (task.priority === 'urgent' || task.priority === 'high')) {
     isBehindTime = true;
-    reasonText = `Còn ${diffDays} ngày đến hạn nhưng nhiệm vụ ưu tiên cao vẫn chưa được bắt đầu (To Do).`;
+    reasonText = `${diffDays} days remain, but this high-priority task has not started.`;
   }
 
   if (isBehindTime) {
@@ -387,8 +387,8 @@ const getTaskDelayStatus = (task: TaskItem): TaskDelayStatus => {
       isDelayed: true,
       daysOverdue: 0,
       daysRemaining: diffDays,
-      label: '⚠️ CHẬM TIẾN ĐỘ',
-      reason: reasonText || `Nhiệm vụ có nguy cơ trễ hạn (còn ${diffDays} ngày).`,
+      label: '⚠️ AT RISK',
+      reason: reasonText || `Task may miss its due date (${diffDays} days remaining).`,
       badgeClass: isDarkMode.value
         ? 'bg-amber-950/90 text-amber-300 border-amber-600 font-semibold'
         : 'bg-amber-50 text-amber-900 border-amber-300 font-semibold shadow-xs',
@@ -406,8 +406,8 @@ const getTaskDelayStatus = (task: TaskItem): TaskDelayStatus => {
     isDelayed: false,
     daysOverdue: 0,
     daysRemaining: diffDays,
-    label: `Còn ${diffDays} ngày`,
-    reason: `Đúng tiến độ. Hạn chót: ${task.due_date}.`,
+    label: `${diffDays} days remaining`,
+    reason: `On track. Due date: ${task.due_date}.`,
     badgeClass: isDarkMode.value ? 'bg-slate-900 text-slate-300 border-slate-700' : 'bg-slate-100 text-slate-700 border-slate-300',
     cardBorderClass: isDarkMode.value ? 'border-slate-800' : 'border-slate-200/90',
     progressPercent,
@@ -491,7 +491,7 @@ const openAiSettings = async () => {
     const res = await axios.get('/api/tasks/ai-settings');
     if (res.data.success) aiSettings.value = { ...aiSettings.value, ...res.data.data, api_key: '' };
   } catch (err) {
-    aiSettingsFeedback.value = 'Không thể tải cài đặt AI.';
+    aiSettingsFeedback.value = 'Unable to load AI settings.';
   }
 };
 
@@ -501,12 +501,12 @@ const saveAiSettings = async () => {
   try {
     const res = await axios.post('/api/tasks/ai-settings', aiSettings.value);
     if (res.data.success) {
-      aiSettingsFeedback.value = '✓ Đã lưu an toàn. API key không được hiển thị lại.';
+      aiSettingsFeedback.value = '✓ Saved securely. The API key will not be shown again.';
       aiSettings.value.api_key = '';
       sound.playSuccess();
     }
   } catch (err: any) {
-    aiSettingsFeedback.value = err.response?.data?.message || 'Không thể lưu cài đặt AI.';
+    aiSettingsFeedback.value = err.response?.data?.message || 'Unable to save AI settings.';
   } finally {
     isAiSettingsSaving.value = false;
   }
@@ -535,7 +535,7 @@ const loadAgentRuns = async (taskId: number) => {
     const res = await axios.get('/api/tasks/agent-runs', { params: { task_id: taskId } });
     selectedAgentRuns.value = res.data.data || [];
   } catch (err) {
-    agentRunFeedback.value = 'Không thể tải lịch sử agent run.';
+    agentRunFeedback.value = 'Unable to load agent run history.';
   } finally {
     isAgentRunsLoading.value = false;
   }
@@ -547,10 +547,10 @@ const startAgentRun = async (provider: string, executionMode: 'desktop' | 'serve
     const res = await axios.post('/api/tasks/agent-runs', { task_id: selectedTask.value.id, provider, execution_mode: executionMode });
     selectedAgentRuns.value.unshift(res.data.data);
     agentRunFeedback.value = executionMode === 'server'
-      ? `Đã xếp hàng ${provider} trên server runner. Run sẽ tự nhận khi runner online.`
-      : `Đã tạo run cho ${provider}. Agent có thể lấy Context Pack từ Task Hub.`;
+      ? `${provider} queued on the server runner. It will start when a runner is online.`
+      : `Created a ${provider} run. The agent can retrieve its Context Pack from Task Hub.`;
   } catch (err: any) {
-    agentRunFeedback.value = err.response?.data?.message || 'Không thể tạo agent run.';
+    agentRunFeedback.value = err.response?.data?.message || 'Unable to create agent run.';
   }
 };
 
@@ -691,9 +691,9 @@ const isProjectSubmitting = ref(false);
 const projectForm = ref({
   title: '',
   key: '',
-  type: 'work' as 'work' | 'personal',
   color: '#2563eb',
   description: '',
+  tags: '',
   github_repository: '',
   github_default_branch: 'main',
   github_token: '',
@@ -779,7 +779,6 @@ export interface AiPlanPreview {
   project: {
     title: string;
     key: string;
-    type: 'work' | 'personal';
     color: string;
     description: string;
   };
@@ -805,7 +804,6 @@ const aiForm = ref({
   project_id: 'new' as string | number,
   project_title: '',
   project_key: '',
-  project_type: 'work' as 'work' | 'personal',
   project_color: '#2563eb',
   sprint_count: 3,
   sprint_duration_weeks: 2,
@@ -840,7 +838,6 @@ const openAiGeneratorModal = () => {
     project_id: selectedProjectId.value !== 'all' && selectedProjectId.value !== 'unassigned' ? selectedProjectId.value : 'new',
     project_title: '',
     project_key: '',
-    project_type: 'work',
     project_color: '#2563eb',
     sprint_count: 3,
     sprint_duration_weeks: 2,
@@ -867,7 +864,6 @@ const handleAnalyzeAiPlan = async () => {
       prompt: aiForm.value.prompt,
       project_title: aiForm.value.project_title || undefined,
       project_key: aiForm.value.project_key || undefined,
-      project_type: aiForm.value.project_type,
       project_color: aiForm.value.project_color,
       sprint_count: aiForm.value.sprint_count,
       sprint_duration_weeks: aiForm.value.sprint_duration_weeks,
@@ -977,8 +973,8 @@ const increaseTaskPriority = async () => {
 };
 
 // Computed Properties
-const workProjects = computed(() => projectList.value.filter(p => p.type === 'work'));
-const personalProjects = computed(() => projectList.value.filter(p => p.type === 'personal'));
+const workProjects = computed(() => projectList.value);
+const personalProjects = computed(() => [] as ProjectItem[]);
 
 const activeProjectObject = computed(() => {
   if (selectedProjectId.value === 'all' || selectedProjectId.value === 'unassigned') {
@@ -1346,11 +1342,18 @@ const openCreateSprintModal = () => {
 
 const handleSaveSprint = async () => {
   if (!sprintForm.value.name.trim()) return;
+  const projectId = selectedProjectId.value !== 'all' && selectedProjectId.value !== 'unassigned'
+    ? Number(selectedProjectId.value)
+    : projectList.value[0]?.id;
+  if (!projectId) {
+    openCreateProjectModal();
+    return;
+  }
   isSubmitting.value = true;
 
   try {
     const payload = {
-      project_id: selectedProjectId.value !== 'all' && selectedProjectId.value !== 'unassigned' ? Number(selectedProjectId.value) : null,
+      project_id: projectId,
       name: sprintForm.value.name,
       goal: sprintForm.value.goal,
       start_date: sprintForm.value.start_date,
@@ -1455,15 +1458,15 @@ const handleDeleteSprint = async (sprint: SprintItem) => {
 };
 
 // PROJECT CRUD
-const openCreateProjectModal = (type: 'work' | 'personal' = 'work') => {
+const openCreateProjectModal = () => {
   projectModalMode.value = 'create';
   editingProjectId.value = null;
   projectForm.value = {
     title: '',
     key: '',
-    type,
-    color: type === 'work' ? '#2563eb' : '#f59e0b',
+    color: '#2563eb',
     description: '',
+    tags: '',
     github_repository: '',
     github_default_branch: 'main',
     github_token: '',
@@ -1489,9 +1492,9 @@ const openEditProjectModal = (project: ProjectItem) => {
   projectForm.value = {
     title: project.title,
     key: project.key || '',
-    type: project.type || 'work',
     color: project.color || '#2563eb',
     description: project.description || '',
+    tags: (project.tags || []).join(', '),
     github_repository: project.github_repository || '',
     github_default_branch: project.github_default_branch || 'main',
     github_token: '',
@@ -1532,9 +1535,12 @@ const handleSaveProject = async () => {
 
   try {
     if (projectModalMode.value === 'create') {
-      const res = await axios.post('/api/projects/from-github', { repository: selectedGithubRepository.value!.full_name, type: projectForm.value.type, color: projectForm.value.color });
+      const res = await axios.post('/api/projects/from-github', { repository: selectedGithubRepository.value!.full_name, color: projectForm.value.color });
       if (res.data.success) {
         const created: ProjectItem = res.data.data;
+        if (projectForm.value.tags.trim()) {
+          await axios.patch(`/api/projects/${created.id}`, { tags: projectForm.value.tags.split(',').map(tag => tag.trim()).filter(Boolean) });
+        }
         if (projectForm.value.github_repository.trim()) {
           await axios.post(`/api/projects/${created.id}/github/connect`, projectForm.value);
         }
@@ -1544,7 +1550,10 @@ const handleSaveProject = async () => {
         showProjectModal.value = false;
       }
     } else if (projectModalMode.value === 'edit' && editingProjectId.value) {
-      const res = await axios.patch(`/api/projects/${editingProjectId.value}`, projectForm.value);
+      const res = await axios.patch(`/api/projects/${editingProjectId.value}`, {
+        ...projectForm.value,
+        tags: projectForm.value.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+      });
       if (res.data.success) {
         const updated: ProjectItem = res.data.data;
         const idx = projectList.value.findIndex(p => p.id === updated.id);
@@ -1611,12 +1620,6 @@ const handleDeleteProject = async (project: ProjectItem) => {
   try {
     await axios.delete(`/api/projects/${project.id}`);
     projectList.value = projectList.value.filter(p => p.id !== project.id);
-    taskList.value.forEach(t => {
-      if (t.project_id === project.id) {
-        t.project_id = null;
-        t.project = null;
-      }
-    });
     if (selectedProjectId.value === project.id) selectedProjectId.value = 'all';
     sound.playClick();
   } catch (err) {
@@ -1627,8 +1630,15 @@ const handleDeleteProject = async (project: ProjectItem) => {
 
 // TASK / ISSUE CRUD & DRAWER
 const openCreateTaskModal = () => {
+  const projectId = selectedProjectId.value !== 'all' && selectedProjectId.value !== 'unassigned'
+    ? Number(selectedProjectId.value)
+    : projectList.value[0]?.id;
+  if (!projectId) {
+    openCreateProjectModal();
+    return;
+  }
   newTaskForm.value = {
-    project_id: selectedProjectId.value !== 'all' && selectedProjectId.value !== 'unassigned' ? Number(selectedProjectId.value) : null,
+    project_id: projectId,
     issue_type: 'task',
     title: '',
     description: '',
@@ -1671,13 +1681,20 @@ const handleCreateTask = async () => {
 
 const handleQuickCreate = async (targetSprintId: number | null = null) => {
   if (!quickInputText.value.trim()) return;
+  const projectId = selectedProjectId.value !== 'all' && selectedProjectId.value !== 'unassigned'
+    ? Number(selectedProjectId.value)
+    : projectList.value[0]?.id;
+  if (!projectId) {
+    openCreateProjectModal();
+    return;
+  }
   const title = quickInputText.value.trim();
   quickInputText.value = '';
 
   try {
     const payload = {
       title,
-      project_id: selectedProjectId.value !== 'all' && selectedProjectId.value !== 'unassigned' ? Number(selectedProjectId.value) : null,
+      project_id: projectId,
       issue_type: 'task',
       status: 'todo',
       priority: 'high',
@@ -1900,7 +1917,7 @@ const handleGlobalKey = (e: KeyboardEvent) => {
     openCreateTaskModal();
   } else if (e.key === 'p' || e.key === 'P') {
     e.preventDefault();
-    openCreateProjectModal('work');
+    openCreateProjectModal();
   } else if (e.key === 'g' || e.key === 'G') {
     keyboardSequence.value = 'g';
     window.setTimeout(() => { keyboardSequence.value = ''; }, 1200);
@@ -2049,7 +2066,7 @@ onUnmounted(() => {
             <span class="mono-icon text-xl">▤</span>
             <div>
               <h3 class="font-bold text-base">Project Documents & Context Pack</h3>
-              <p class="text-xs text-slate-400">Tài liệu kiến trúc, PRD, Runbook đồng bộ cho Developer & AI Agent</p>
+            <p class="text-xs text-slate-400">Architecture, PRD and runbook references for developers and AI agents</p>
             </div>
           </div>
           <button
@@ -2086,7 +2103,7 @@ onUnmounted(() => {
             <span class="mono-icon text-xl">↗</span>
             <div>
               <h3 class="font-bold text-base">Project Release Log</h3>
-              <p class="text-xs text-slate-400">Lưu vết lịch sử triển khai, commit SHA và changelog từng phiên bản</p>
+            <p class="text-xs text-slate-400">Track deployments, commit SHAs and release changes</p>
             </div>
           </div>
           <button
@@ -2124,7 +2141,7 @@ onUnmounted(() => {
           ]"
         >
           <span class="mono-icon">▦</span>
-          <span>Bảng Công Việc</span>
+          <span>Task Board</span>
           <span :class="['px-1.5 py-0.2 rounded-full font-mono text-[10px] font-bold', currentView === 'board' ? 'bg-white/20 text-white' : (isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700')]">
             {{ filteredBoardTasks.length }}
           </span>
@@ -2140,7 +2157,7 @@ onUnmounted(() => {
           ]"
         >
           <span class="mono-icon">▤</span>
-          <span>Kế Hoạch Sprint</span>
+          <span>Sprint Backlog</span>
           <span :class="['px-1.5 py-0.2 rounded-full font-mono text-[10px] font-bold', currentView === 'backlog' ? 'bg-white/20 text-white' : (isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700')]">
             {{ sprintList.length }}
           </span>
@@ -2156,7 +2173,7 @@ onUnmounted(() => {
           ]"
         >
           <span class="mono-icon">⌁</span>
-          <span>Tiến Độ (Roadmap)</span>
+          <span>Roadmap</span>
         </button>
       </div>
 
@@ -2170,7 +2187,7 @@ onUnmounted(() => {
               'px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs',
               isDarkMode ? 'bg-slate-900 border-purple-800/60 text-purple-300 hover:bg-purple-950/30' : 'bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100'
             ]"
-            title="Công cụ AI Thông Minh (Kế hoạch & Cài đặt)"
+            title="AI planning and settings"
           >
             <span class="mono-icon">✦</span>
             <span class="hidden sm:inline">AI Engine</span>
@@ -2192,8 +2209,8 @@ onUnmounted(() => {
             >
               <span class="mono-icon">✦</span>
               <div>
-                <div class="font-bold text-xs">AI Lập Kế Hoạch</div>
-                <div class="text-[10px] text-slate-400">Phân rã Sprint, Epic & Tasks</div>
+                <div class="font-bold text-xs">AI Project Planner</div>
+                <div class="text-[10px] text-slate-400">Break down epics, sprints and tasks</div>
               </div>
             </button>
             <button
@@ -2203,7 +2220,7 @@ onUnmounted(() => {
               <span>⚙️</span>
               <div>
                 <div class="font-bold text-xs">AI Settings</div>
-                <div class="text-[10px] text-slate-400">Provider & API Key riêng tư</div>
+                <div class="text-[10px] text-slate-400">Private provider and API key</div>
               </div>
             </button>
           </div>
@@ -2219,7 +2236,7 @@ onUnmounted(() => {
           title="Cài đặt và gửi email báo cáo tiến độ tuần"
         >
           <span>✉️</span>
-          <span>Báo Cáo</span>
+          <span>Reports</span>
         </button>
 
         <!-- Light / Dark Toggle Button -->
@@ -2236,14 +2253,14 @@ onUnmounted(() => {
           <span>{{ isDarkMode ? '☀️' : '🌙' }}</span>
         </button>
 
-        <!-- Primary Action: + Tạo Task (Phím C) -->
+        <!-- Primary Action: + Create Task -->
         <button
           @click="openCreateTaskModal"
           class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-          title="Tạo Issue mới (Phím C)"
+          title="Create a new task"
         >
           <span class="text-sm font-black">+</span>
-          <span>Tạo Task</span>
+          <span>Create Task</span>
         </button>
 
         <!-- User Profile & Action Controls -->
@@ -2253,10 +2270,10 @@ onUnmounted(() => {
               <img v-if="props.auth.user.github_avatar_url" :src="props.auth.user.github_avatar_url" class="h-4 w-4 rounded-full" alt="GitHub avatar" />
               @{{ props.auth.user.github_login || props.auth.user.name }}
             </span>
-            <button @click="logoutGithub" class="rounded-xl border px-2.5 py-2 text-[10px] font-bold cursor-pointer" :class="isDarkMode ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'">Đăng xuất</button>
+            <button @click="logoutGithub" class="rounded-xl border px-2.5 py-2 text-[10px] font-bold cursor-pointer" :class="isDarkMode ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'">Sign out</button>
           </div>
         </template>
-        <a v-else href="/auth/github" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-100">Đăng nhập GitHub</a>
+        <a v-else href="/auth/github" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-100">Sign in with GitHub</a>
 
         <!-- Lock Button -->
         <button
@@ -2299,8 +2316,8 @@ onUnmounted(() => {
               <div class="flex items-center gap-2.5 min-w-0">
                 <span class="mono-icon text-base">▦</span>
                 <div>
-                  <div :class="['font-bold text-xs', isDarkMode ? 'text-white' : 'text-slate-950']">Tất Cả Dự Án</div>
-                  <div :class="['text-[11px]', isDarkMode ? 'text-slate-400' : 'text-slate-600']">Toàn bộ công việc & nhiệm vụ</div>
+                  <div :class="['font-bold text-xs', isDarkMode ? 'text-white' : 'text-slate-950']">All Projects</div>
+                  <div :class="['text-[11px]', isDarkMode ? 'text-slate-400' : 'text-slate-600']">All projects and tasks</div>
                 </div>
               </div>
               <span :class="['font-mono text-xs font-bold px-2 py-0.5 rounded-full', isDarkMode ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-slate-100 text-slate-800 border border-slate-300']">
@@ -2309,6 +2326,7 @@ onUnmounted(() => {
             </button>
 
             <button
+              v-if="false"
               @click="selectedProjectId = 'unassigned'"
               :class="[
                 'w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-all cursor-pointer border text-left',
@@ -2320,8 +2338,8 @@ onUnmounted(() => {
               <div class="flex items-center gap-2.5 min-w-0">
                 <span class="mono-icon text-base">▤</span>
                 <div>
-                  <div :class="['font-bold text-xs', isDarkMode ? 'text-white' : 'text-slate-950']">Chung (Chưa gán)</div>
-                  <div :class="['text-[11px]', isDarkMode ? 'text-slate-400' : 'text-slate-600']">Task lẻ chưa gán vào dự án</div>
+                  <div :class="['font-bold text-xs', isDarkMode ? 'text-white' : 'text-slate-950']">Unassigned</div>
+                  <div :class="['text-[11px]', isDarkMode ? 'text-slate-400' : 'text-slate-600']">Legacy tasks without a project</div>
                 </div>
               </div>
               <span :class="['font-mono text-xs font-bold px-2 py-0.5 rounded-full', isDarkMode ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-slate-100 text-slate-800 border border-slate-300']">
@@ -2335,10 +2353,10 @@ onUnmounted(() => {
             <div class="flex items-center justify-between px-2 text-[11px] font-mono font-bold uppercase tracking-wider">
               <span class="flex items-center gap-1.5 text-blue-700 dark:text-blue-400 font-bold">
                 <span>💼</span>
-                <span>DỰ ÁN CÔNG VIỆC</span>
+                <span>PROJECTS</span>
               </span>
               <button
-                @click="openCreateProjectModal('work')"
+                @click="openCreateProjectModal()"
                 class="hover:text-blue-600 p-0.5 rounded cursor-pointer text-xs font-bold"
                 title="Tạo dự án mới"
               >
@@ -2375,7 +2393,10 @@ onUnmounted(() => {
                     </div>
 
                     <div :class="['text-[11px] truncate pl-4.5 font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
-                      {{ proj.description || 'Dự án trọng điểm' }}
+                      {{ proj.description || 'Project description' }}
+                    </div>
+                    <div v-if="proj.tags?.length" class="mt-1 flex gap-1 overflow-hidden pl-4.5">
+                      <span v-for="tag in proj.tags.slice(0, 3)" :key="tag" class="shrink-0 rounded bg-blue-950/50 px-1.5 py-0.5 text-[9px] font-semibold text-blue-300">#{{ tag }}</span>
                     </div>
                   </div>
 
@@ -2415,14 +2436,14 @@ onUnmounted(() => {
                       class="w-full px-2.5 py-1.5 rounded-lg text-left hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer font-medium"
                     >
                       <span>✏️</span>
-                      <span>Chỉnh Sửa</span>
+                      <span>Edit</span>
                     </button>
                     <button
                       @click.stop="handleDeleteProject(proj)"
                       class="w-full px-2.5 py-1.5 rounded-lg text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 cursor-pointer font-medium"
                     >
                       <span>🗑️</span>
-                      <span>Xóa Dự Án</span>
+                      <span>Delete Project</span>
                     </button>
                   </div>
                 </div>
@@ -2431,14 +2452,14 @@ onUnmounted(() => {
           </div>
 
           <!-- GROUP 2: PERSONAL PROJECTS (2-LINE ITEM) -->
-          <div class="space-y-2">
+          <div v-if="false" class="space-y-2">
             <div class="flex items-center justify-between px-2 text-[11px] font-mono font-bold uppercase tracking-wider">
               <span class="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-bold">
                 <span>👤</span>
                 <span>CÁ NHÂN</span>
               </span>
               <button
-                @click="openCreateProjectModal('personal')"
+                @click="openCreateProjectModal()"
                 class="hover:text-amber-600 p-0.5 rounded cursor-pointer text-xs font-bold"
               >
                 +
@@ -2472,7 +2493,7 @@ onUnmounted(() => {
                       </span>
                     </div>
                     <div :class="['text-[11px] truncate pl-4.5 font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
-                      {{ proj.description || 'Dự án cá nhân' }}
+                      {{ proj.description || 'Project description' }}
                     </div>
                   </div>
 
@@ -2510,14 +2531,14 @@ onUnmounted(() => {
                       class="w-full px-2.5 py-1.5 rounded-lg text-left hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer font-medium"
                     >
                       <span>✏️</span>
-                      <span>Chỉnh Sửa</span>
+                      <span>Edit</span>
                     </button>
                     <button
                       @click.stop="handleDeleteProject(proj)"
                       class="w-full px-2.5 py-1.5 rounded-lg text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 cursor-pointer font-medium"
                     >
                       <span>🗑️</span>
-                      <span>Xóa Dự Án</span>
+                      <span>Delete Project</span>
                     </button>
                   </div>
                 </div>
@@ -2534,18 +2555,18 @@ onUnmounted(() => {
             class="w-full py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <span>✨</span>
-            <span>AI Phân Rã Dự Án</span>
+            <span>AI Project Planner</span>
           </button>
 
           <button
-            @click="openCreateProjectModal('work')"
+            @click="openCreateProjectModal()"
             :class="[
               'w-full py-2 px-3 rounded-xl border font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer',
               isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-100' : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-900 shadow-xs'
             ]"
           >
             <span>+</span>
-            <span>Thêm Dự Án Mới</span>
+            <span>Add Project</span>
           </button>
         </div>
       </aside>
@@ -2582,20 +2603,18 @@ onUnmounted(() => {
               <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-2.5">
                   <h1 :class="['text-xl sm:text-2xl font-bold font-display tracking-tight truncate', isDarkMode ? 'text-white' : 'text-slate-950']">
-                    {{ activeProjectObject ? activeProjectObject.title : (selectedProjectId === 'unassigned' ? 'Nhiệm Vụ Chưa Phân Dự Án' : 'Tất Cả Nhiệm Vụ & Dự Án') }}
+                    {{ activeProjectObject ? activeProjectObject.title : (selectedProjectId === 'unassigned' ? 'Unassigned Tasks' : 'All Tasks & Projects') }}
                   </h1>
 
                   <span v-if="activeProjectObject?.key" class="px-2.5 py-0.5 rounded-lg bg-blue-100 text-blue-900 dark:bg-blue-950/80 dark:text-blue-300 font-mono text-xs font-bold border border-blue-300 dark:border-blue-800 shadow-xs">
                     {{ activeProjectObject.key }}
                   </span>
 
-                  <span v-if="activeProjectObject" class="px-2.5 py-0.5 rounded-lg font-mono text-[11px] font-bold border shadow-xs" :class="activeProjectObject.type === 'work' ? 'bg-blue-100 text-blue-950 dark:bg-blue-950 dark:text-blue-300 border-blue-300 dark:border-blue-800' : 'bg-amber-100 text-amber-950 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-800'">
-                    {{ activeProjectObject.type === 'work' ? '💼 Công Việc' : '👤 Cá Nhân' }}
-                  </span>
+                  <span v-if="activeProjectObject" class="px-2.5 py-0.5 rounded-lg font-mono text-[11px] font-bold border shadow-xs bg-blue-100 text-blue-950 dark:bg-blue-950 dark:text-blue-300 border-blue-300 dark:border-blue-800">PROJECT</span>
                 </div>
 
                 <p :class="['text-xs sm:text-sm mt-1 line-clamp-1 font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-700']">
-                  {{ activeProjectObject?.tagline || activeProjectObject?.description || 'Quản lý toàn bộ tiến độ, Sprint Scrum và Backlog nhiệm vụ.' }}
+                  {{ activeProjectObject?.tagline || activeProjectObject?.description || 'Manage project delivery, sprints and task backlog.' }}
                 </p>
               </div>
             </div>
@@ -2636,7 +2655,7 @@ onUnmounted(() => {
                 title="Lọc nhanh các task trễ hạn hoặc chậm tiến độ"
               >
                 <span>🚨</span>
-                <strong class="font-black">{{ activeProjectWarningCount }} Cần Chú Ý</strong>
+                <strong class="font-black">{{ activeProjectWarningCount }} Attention</strong>
               </button>
 
               <!-- Documents Button -->
@@ -2680,7 +2699,7 @@ onUnmounted(() => {
                   ref="searchInputRef"
                   v-model="searchQuery"
                   type="text"
-                  placeholder="Tìm kiếm task... (Phím '/')"
+                  placeholder="Search tasks... (Press '/')"
                   :class="[
                     'w-full border rounded-xl pl-8 pr-8 py-2 text-xs focus:outline-none focus:border-blue-500 shadow-xs font-medium transition-colors',
                     isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'
@@ -2703,17 +2722,17 @@ onUnmounted(() => {
                     : (isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
                 ]"
               >
-                <option value="all">📊 Tất cả tiến độ</option>
+                <option value="all">📊 All progress</option>
                 <option value="warning" :disabled="activeProjectWarningCount === 0">
-                  ⚡ Cần chú ý (Trễ + Chậm) ({{ activeProjectWarningCount }})
+                  ⚡ Attention needed (Overdue + At risk) ({{ activeProjectWarningCount }})
                 </option>
                 <option value="overdue" :disabled="overdueTasksCount === 0">
-                  🚨 Chỉ task trễ hạn ({{ overdueTasksCount }})
+                  🚨 Overdue only ({{ overdueTasksCount }})
                 </option>
                 <option value="at_risk" :disabled="delayedTasksCount === 0">
-                  ⚠️ Chỉ task chậm tiến độ ({{ delayedTasksCount }})
+                  ⚠️ At risk only ({{ delayedTasksCount }})
                 </option>
-                <option value="on_track">🟢 Đúng tiến độ</option>
+                <option value="on_track">🟢 On track</option>
               </select>
 
               <!-- Issue Type Filter -->
@@ -2726,11 +2745,11 @@ onUnmounted(() => {
                     : (isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
                 ]"
               >
-                <option value="all">Tất cả loại issue</option>
-                <option value="story">📖 Story (Tính năng)</option>
-                <option value="task">☑️ Task (Công việc)</option>
-                <option value="bug">🐞 Bug (Lỗi)</option>
-                <option value="epic">⚡ Epic (Mục tiêu lớn)</option>
+                <option value="all">All issue types</option>
+                <option value="story">📖 Story</option>
+                <option value="task">☑️ Task</option>
+                <option value="bug">🐞 Bug</option>
+                <option value="epic">⚡ Epic</option>
               </select>
 
               <!-- Priority Filter -->
@@ -2743,11 +2762,11 @@ onUnmounted(() => {
                     : (isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
                 ]"
               >
-                <option value="all">Tất cả độ ưu tiên</option>
-                <option value="urgent">🔴 Khẩn cấp</option>
-                <option value="high">🟠 Ưu tiên cao</option>
-                <option value="medium">🟡 Bình thường</option>
-                <option value="low">⚪ Thấp</option>
+                <option value="all">All priorities</option>
+                <option value="urgent">🔴 Urgent</option>
+                <option value="high">🟠 High</option>
+                <option value="medium">🟡 Medium</option>
+                <option value="low">⚪ Low</option>
               </select>
 
               <!-- Epic Filter -->
@@ -2760,8 +2779,8 @@ onUnmounted(() => {
                     : (isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
                 ]"
               >
-                <option value="all">Tất cả Epic</option>
-                <option value="none">Không thuộc Epic</option>
+                <option value="all">All Epics</option>
+                <option value="none">No Epic</option>
                 <option v-for="epic in epicList" :key="epic.id" :value="epic.id">
                   ⚡ {{ epic.issue_key }} — {{ epic.title }}
                 </option>
@@ -2775,7 +2794,7 @@ onUnmounted(() => {
                 title="Xóa toàn bộ bộ lọc hiện tại"
               >
                 <span>✕</span>
-                <span>Xóa Bộ Lọc</span>
+                <span>Clear Filters</span>
               </button>
             </div>
 
@@ -2785,7 +2804,7 @@ onUnmounted(() => {
                 ref="quickInputRef"
                 v-model="quickInputText"
                 type="text"
-                placeholder="+ Thêm nhanh task mới... (Enter)"
+                placeholder="+ Quick add task... (Enter)"
                 @keydown.enter="handleQuickCreate(null)"
                 :class="[
                   'min-w-[220px] sm:min-w-[260px] border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-blue-500 shadow-xs font-medium transition-colors',
@@ -2816,9 +2835,9 @@ onUnmounted(() => {
             <div class="flex items-start gap-3">
               <div class="mono-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-blue-500/40 text-blue-400" aria-hidden="true">⌂</div>
               <div class="min-w-0 flex-1">
-                <h2 :class="['text-sm font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">Chọn một dự án để bắt đầu</h2>
+                <h2 :class="['text-sm font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">Choose a project to get started</h2>
                 <p :class="['mt-1 text-xs leading-5', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
-                  Bạn đang xem tổng quan workspace. Chọn project bên dưới để mở task board, Docs, Releases và context của project.
+                  You are viewing the workspace overview. Select a project below to open its task board, docs, releases and context.
                 </p>
               </div>
             </div>
@@ -2836,12 +2855,12 @@ onUnmounted(() => {
                 <span class="mono-icon flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-xs font-bold" :style="{ color: project.color || '#60a5fa', borderColor: `${project.color || '#60a5fa'}66` }" aria-hidden="true">▦</span>
                 <span class="min-w-0">
                   <span :class="['block truncate text-xs font-bold', isDarkMode ? 'text-slate-100' : 'text-slate-900']">{{ project.title }}</span>
-                  <span class="block truncate text-[10px] text-slate-500">{{ project.github_repository || project.type || 'Project' }}</span>
+                  <span class="block truncate text-[10px] text-slate-500">{{ project.github_repository || 'Project' }}</span>
                 </span>
               </button>
             </div>
-            <button v-else type="button" @click="openCreateProjectModal('work')" class="mt-4 rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 cursor-pointer">
-              + Tạo dự án đầu tiên
+            <button v-else type="button" @click="openCreateProjectModal()" class="mt-4 rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 cursor-pointer">
+              + Create your first project
             </button>
           </div>
         </section>
@@ -2849,7 +2868,7 @@ onUnmounted(() => {
           <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
             <div>
               <p :class="['text-[10px] font-mono font-bold uppercase tracking-widest', isDarkMode ? 'text-indigo-300' : 'text-indigo-700']">Personal Command Center</p>
-              <h2 :class="['text-lg font-bold tracking-tight', isDarkMode ? 'text-white' : 'text-slate-950']">Hôm nay cần làm gì?</h2>
+              <h2 :class="['text-lg font-bold tracking-tight', isDarkMode ? 'text-white' : 'text-slate-950']">What needs your attention today?</h2>
             </div>
             <div class="flex flex-wrap gap-2">
               <button @click="startMyDay" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer shadow-xs">☀️ Start my day</button>
@@ -2864,37 +2883,37 @@ onUnmounted(() => {
                 <span class="text-[10px] font-bold uppercase" :class="task.priority === 'urgent' ? 'text-rose-600' : task.priority === 'high' ? 'text-amber-600' : 'text-slate-500'">{{ task.priority }}</span>
               </div>
               <p :class="['text-xs font-bold line-clamp-2', isDarkMode ? 'text-slate-100' : 'text-slate-900']">{{ task.title }}</p>
-              <p class="mt-1 text-[10px] text-slate-500 truncate">{{ task.project?.title || 'Chung' }} · {{ task.due_date || 'Không hạn' }}</p>
+              <p class="mt-1 text-[10px] text-slate-500 truncate">{{ task.project?.title || 'Project' }} · {{ task.due_date || 'No due date' }}</p>
             </button>
             <TasksEmptyState
               v-if="dailyFocusTasks.length === 0"
               :dark="isDarkMode"
               icon="✓"
-              title="Không còn task đang mở"
-              description="Hãy tạo kế hoạch tiếp theo hoặc xem lại backlog."
+              title="No open tasks"
+              description="Create the next plan or review the backlog."
             />
           </div>
           <div class="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-3">
             <div :class="['rounded-xl border p-4', isDarkMode ? 'bg-slate-950/40 border-slate-800' : 'bg-white border-slate-200']">
-              <div class="flex items-center justify-between mb-3"><h3 class="text-xs font-bold">Cần chú ý</h3><span class="font-mono text-[10px] text-slate-500">{{ warningTasksCount }}</span></div>
+              <div class="flex items-center justify-between mb-3"><h3 class="text-xs font-bold">Attention</h3><span class="font-mono text-[10px] text-slate-500">{{ warningTasksCount }}</span></div>
               <button v-for="task in taskList.filter(t => t.status !== 'done' && (getTaskDelayStatus(t).isOverdue || getTaskDelayStatus(t).isDelayed)).slice(0, 3)" :key="task.id" @click="openTaskDrawer(task)" class="w-full flex items-center gap-2 border-b py-2 text-left last:border-0 border-slate-200 dark:border-slate-800">
                 <span class="h-2 w-2 rounded-full bg-rose-500 shrink-0"></span><span class="truncate text-[11px] font-medium">{{ task.title }}</span>
               </button>
-              <p v-if="!taskList.some(t => t.status !== 'done' && (getTaskDelayStatus(t).isOverdue || getTaskDelayStatus(t).isDelayed))" class="text-[11px] text-slate-500">Không có cảnh báo.</p>
+              <p v-if="!taskList.some(t => t.status !== 'done' && (getTaskDelayStatus(t).isOverdue || getTaskDelayStatus(t).isDelayed))" class="text-[11px] text-slate-500">No alerts.</p>
             </div>
             <div :class="['rounded-xl border p-4', isDarkMode ? 'bg-slate-950/40 border-slate-800' : 'bg-white border-slate-200']">
-              <div class="flex items-center justify-between mb-3"><h3 class="text-xs font-bold">Sprint hiện tại</h3><span class="text-[10px] text-slate-500">{{ activeSprint?.end_date || 'Chưa đặt hạn' }}</span></div>
+              <div class="flex items-center justify-between mb-3"><h3 class="text-xs font-bold">Current sprint</h3><span class="text-[10px] text-slate-500">{{ activeSprint?.end_date || 'No deadline' }}</span></div>
               <p v-if="activeSprint" class="truncate text-[11px] font-medium">{{ activeSprint.name }}</p>
               <div v-if="activeSprint" class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"><div class="h-full rounded-full bg-blue-600" :style="{ width: (activeSprint.total_tasks ? Math.round(((activeSprint.done_tasks || 0) / activeSprint.total_tasks) * 100) : 0) + '%' }"></div></div>
               <p v-if="activeSprint" class="mt-2 text-[10px] text-slate-500">{{ activeSprint.done_tasks || 0 }}/{{ activeSprint.total_tasks || 0 }} task hoàn thành</p>
-              <p v-else class="text-[11px] text-slate-500">Chưa có sprint active.</p>
+              <p v-else class="text-[11px] text-slate-500">No active sprint.</p>
             </div>
             <div :class="['rounded-xl border p-4', isDarkMode ? 'bg-slate-950/40 border-slate-800' : 'bg-white border-slate-200']">
-              <div class="flex items-center justify-between mb-3"><h3 class="text-xs font-bold">Hoàn thành gần đây</h3><span class="text-[10px] text-slate-500">{{ completedRecentlyTasks.length }}</span></div>
+              <div class="flex items-center justify-between mb-3"><h3 class="text-xs font-bold">Recently completed</h3><span class="text-[10px] text-slate-500">{{ completedRecentlyTasks.length }}</span></div>
               <button v-for="task in completedRecentlyTasks.slice(0, 3)" :key="task.id" @click="openTaskDrawer(task)" class="w-full flex items-center gap-2 border-b py-2 text-left last:border-0 border-slate-200 dark:border-slate-800">
                 <span class="text-emerald-600">✓</span><span class="truncate text-[11px] font-medium">{{ task.title }}</span>
               </button>
-              <p v-if="!completedRecentlyTasks.length" class="text-[11px] text-slate-500">Chưa có task hoàn thành gần đây.</p>
+              <p v-if="!completedRecentlyTasks.length" class="text-[11px] text-slate-500">No recently completed tasks.</p>
             </div>
           </div>
         </section>
@@ -2919,13 +2938,13 @@ onUnmounted(() => {
               </div>
               <div>
                 <div class="flex items-center gap-2">
-                  <span class="font-bold text-sm">CẢNH BÁO TIẾN ĐỘ CÔNG VIỆC</span>
+                  <span class="font-bold text-sm">TASK PROGRESS ALERTS</span>
                   <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-600 text-white">
-                    {{ warningTasksCount }} VẤN ĐỀ
+                    {{ warningTasksCount }} ISSUES
                   </span>
                 </div>
                 <p class="text-xs mt-0.5 opacity-90">
-                  Có <strong class="font-bold underline text-rose-700 dark:text-rose-300">{{ overdueTasksCount }} task đã quá hạn</strong> và <strong class="font-bold underline text-amber-700 dark:text-amber-300">{{ delayedTasksCount }} task chậm tiến độ</strong> cần được gia hạn hoặc điều chỉnh ưu tiên.
+                  <strong class="font-bold underline text-rose-700 dark:text-rose-300">{{ overdueTasksCount }} overdue tasks</strong> and <strong class="font-bold underline text-amber-700 dark:text-amber-300">{{ delayedTasksCount }} at-risk tasks</strong> need rescheduling or reprioritization.
                 </p>
               </div>
             </div>
@@ -2936,7 +2955,7 @@ onUnmounted(() => {
                 @click="filterHealth = 'warning'"
                 class="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs cursor-pointer transition-colors"
               >
-                🚨 Xem Chi Tiết
+                🚨 View Details
               </button>
               <button
                 v-else
@@ -2946,7 +2965,7 @@ onUnmounted(() => {
                   isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white' : 'bg-white border-slate-300 text-slate-700 hover:text-slate-950'
                 ]"
               >
-                🔄 Bỏ Lọc
+                🔄 Clear Filter
               </button>
             </div>
           </div>
@@ -2981,7 +3000,7 @@ onUnmounted(() => {
                   isDarkMode ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700 hover:bg-emerald-900' : 'bg-emerald-50 text-emerald-950 border-emerald-300 hover:bg-emerald-100 font-bold'
                 ]"
               >
-                Hoàn Thành Sprint 🏁
+                Complete Sprint 🏁
               </button>
             </div>
           </div>
@@ -2997,7 +3016,7 @@ onUnmounted(() => {
               <div :class="['flex items-center justify-between pb-3 mb-3 border-b px-1', isDarkMode ? 'border-slate-800' : 'border-slate-300']">
                 <span class="flex items-center gap-2 font-mono text-xs font-bold text-slate-900 dark:text-slate-200 uppercase tracking-wide">
                   <span class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
-                  <span>CẦN LÀM (TO DO)</span>
+                  <span>TO DO</span>
                 </span>
                 <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border', isDarkMode ? 'bg-slate-900 text-slate-200 border-slate-700' : 'bg-white text-slate-950 border-slate-300 shadow-xs']">
                   {{ todoTasks.length }}
@@ -3073,7 +3092,7 @@ onUnmounted(() => {
               <div :class="['flex items-center justify-between pb-3 mb-3 border-b px-1', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
                 <span class="flex items-center gap-2 font-mono text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wide">
                   <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
-                  <span>ĐANG LÀM</span>
+                  <span>IN PROGRESS</span>
                 </span>
                 <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border', isDarkMode ? 'bg-slate-900 text-amber-300 border-slate-700' : 'bg-white text-amber-950 border-amber-300 shadow-xs']">
                   {{ inProgressTasks.length }}
@@ -3149,7 +3168,7 @@ onUnmounted(() => {
               <div :class="['flex items-center justify-between pb-3 mb-3 border-b px-1', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
                 <span class="flex items-center gap-2 font-mono text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wide">
                   <span class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
-                  <span>KIỂM THỬ (REVIEW)</span>
+                  <span>REVIEW</span>
                 </span>
                 <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border', isDarkMode ? 'bg-slate-900 text-purple-300 border-slate-700' : 'bg-white text-purple-950 border-purple-300 shadow-xs']">
                   {{ reviewTasks.length }}
@@ -3223,7 +3242,7 @@ onUnmounted(() => {
               <div :class="['flex items-center justify-between pb-3 mb-3 border-b px-1', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
                 <span class="flex items-center gap-2 font-mono text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wide">
                   <span class="w-2.5 h-2.5 rounded-full bg-slate-600"></span>
-                  <span>ĐÃ HOÀN TẤT</span>
+                  <span>DONE</span>
                 </span>
                 <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border', isDarkMode ? 'bg-slate-900 text-emerald-300 border-slate-700' : 'bg-white text-emerald-950 border-emerald-300 shadow-xs']">
                   {{ doneTasks.length }}
@@ -3260,7 +3279,7 @@ onUnmounted(() => {
                     <span :class="['px-1.5 py-0.2 rounded border font-medium', getCategoryBadge(task.category).class]">
                       {{ getCategoryBadge(task.category).label }}
                     </span>
-                    <span class="text-emerald-500 font-mono font-bold">Hoàn tất ✓</span>
+                    <span class="text-emerald-500 font-mono font-bold">Done ✓</span>
                   </div>
                 </div>
 
@@ -3279,10 +3298,10 @@ onUnmounted(() => {
           <div :class="['flex flex-wrap items-center justify-between gap-3 pb-3 border-b', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
             <div>
               <h2 :class="['text-base sm:text-lg font-bold font-display', isDarkMode ? 'text-white' : 'text-slate-950']">
-                📦 Lập Kế Hoạch Sprint & Backlog
+                📦 Sprint Planning & Backlog
               </h2>
               <p :class="['text-xs mt-0.5 font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
-                Kéo thả các task vào từng Sprint để chuẩn bị giai đoạn phát triển.
+                Drag tasks into sprints to prepare the delivery stages.
               </p>
             </div>
 
@@ -3291,7 +3310,7 @@ onUnmounted(() => {
               class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <span>+</span>
-              <span>Tạo Sprint Mới</span>
+              <span>Create Sprint</span>
             </button>
           </div>
 
@@ -3411,7 +3430,7 @@ onUnmounted(() => {
                 </div>
 
                 <div v-if="getSprintTasks(sprint.id).length === 0" class="py-6 border-2 border-dashed border-slate-300 dark:border-slate-800 rounded-xl text-center text-xs text-slate-500 font-medium">
-                  Sprint này chưa có task. Kéo thả từ Backlog vào đây.
+                  This sprint has no tasks. Drag tasks here from the backlog.
                 </div>
               </div>
             </div>
@@ -3425,7 +3444,7 @@ onUnmounted(() => {
               <div :class="['flex items-center justify-between pb-3 border-b', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
                 <div class="flex items-center gap-2">
                   <span class="text-lg">📦</span>
-                  <h3 :class="['text-sm sm:text-base font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">Backlog (Chưa Gán Sprint)</h3>
+                  <h3 :class="['text-sm sm:text-base font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">Backlog (No Sprint)</h3>
                   <span :class="['text-xs font-mono font-bold', isDarkMode ? 'text-slate-400' : 'text-slate-700']">({{ backlogTasks.length }} tasks)</span>
                 </div>
               </div>
@@ -3463,7 +3482,7 @@ onUnmounted(() => {
                 </div>
 
                 <div v-if="backlogTasks.length === 0" class="py-6 text-center text-xs text-slate-500 italic font-medium">
-                  Backlog đang trống!
+                  Backlog is empty.
                 </div>
               </div>
             </div>
@@ -3476,10 +3495,10 @@ onUnmounted(() => {
         <div v-else-if="currentView === 'roadmap'" class="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6">
           <div :class="['pb-3 border-b', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
             <h2 :class="['text-base sm:text-lg font-bold font-display', isDarkMode ? 'text-white' : 'text-slate-950']">
-              🗺️ Roadmap & Tiến Độ Các Mục Tiêu Lớn (Epics)
+              🗺️ Roadmap & Epic Progress
             </h2>
             <p :class="['text-xs mt-0.5 font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
-              Theo dõi tiến độ tổng thể của các Epic và Milestone theo dòng thời gian.
+              Track overall epic and milestone progress over time.
             </p>
           </div>
 
@@ -3497,7 +3516,7 @@ onUnmounted(() => {
                 </div>
 
                 <span :class="['font-mono text-xs font-bold', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
-                  {{ epic.start_date || 'Bắt đầu' }} ➔ {{ epic.due_date || 'Hạn chót' }}
+                  {{ epic.start_date || 'Start' }} ➔ {{ epic.due_date || 'Due date' }}
                 </span>
               </div>
 
@@ -3510,14 +3529,14 @@ onUnmounted(() => {
                   ></div>
                 </div>
                 <div :class="['flex justify-between text-xs font-mono font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
-                  <span>Trạng thái: <strong :class="['uppercase font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">{{ epic.status }}</strong></span>
+                  <span>Status: <strong :class="['uppercase font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">{{ epic.status }}</strong></span>
                   <span class="font-bold">{{ epic.story_points || 0 }} Story Points</span>
                 </div>
               </div>
             </div>
 
             <div v-if="epicList.length === 0" class="py-8 text-center text-xs text-slate-500 italic font-medium">
-              Chưa có Epic nào. Hãy tạo Issue loại Epic để hiển thị trên Roadmap.
+              No epics yet. Create an Epic issue to show it on the roadmap.
             </div>
           </div>
         </div>
@@ -3554,7 +3573,7 @@ onUnmounted(() => {
             </span>
             <span class="text-slate-400 font-bold">/</span>
             <span :class="['text-sm truncate font-bold', isDarkMode ? 'text-slate-300' : 'text-slate-800']">
-              {{ selectedTask.project?.title || 'Chung (Chưa phân dự án)' }}
+              {{ selectedTask.project?.title || 'Project required' }}
             </span>
             <span v-if="selectedTask.epic" class="hidden sm:inline-flex px-2 py-0.5 rounded-md font-mono text-xs font-bold bg-purple-50 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
               ⚡ {{ selectedTask.epic.issue_key }}
@@ -3572,7 +3591,7 @@ onUnmounted(() => {
               :title="isDrawerExpanded ? 'Thu nhỏ bảng chi tiết' : 'Mở rộng toàn màn hình'"
             >
               <span>{{ isDrawerExpanded ? '🗗' : '⛶' }}</span>
-              <span class="hidden sm:inline">{{ isDrawerExpanded ? 'Thu Gọn' : 'Toàn Màn Hình' }}</span>
+              <span class="hidden sm:inline">{{ isDrawerExpanded ? 'Collapse' : 'Full Screen' }}</span>
             </button>
 
             <!-- Delete Button -->
@@ -3582,7 +3601,7 @@ onUnmounted(() => {
               title="Xóa Issue"
             >
               <span>🗑️</span>
-              <span class="hidden sm:inline">Xóa</span>
+                <span class="hidden sm:inline">Delete</span>
             </button>
 
             <!-- Close Button -->
@@ -3606,7 +3625,7 @@ onUnmounted(() => {
             <!-- Large Title Input -->
             <div class="space-y-1">
               <label :class="['font-mono text-[11px] font-bold uppercase tracking-wider block', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
-                Tiêu Đề Nhiệm Vụ (Issue Title)
+                Task Title (Issue Title)
               </label>
               <input
                 v-model="selectedTask.title"
@@ -3615,7 +3634,7 @@ onUnmounted(() => {
                   'w-full font-bold text-xl sm:text-2xl lg:text-3xl bg-transparent border-b-2 border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:outline-none py-2 transition-colors leading-snug',
                   isDarkMode ? 'text-white placeholder-slate-600' : 'text-slate-950 placeholder-slate-400'
                 ]"
-                placeholder="Nhập tiêu đề nhiệm vụ..."
+                placeholder="Enter task title..."
               />
             </div>
 
@@ -3983,6 +4002,15 @@ onUnmounted(() => {
 
         <div class="space-y-3 text-xs">
           <div>
+            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Project *</label>
+            <select
+              v-model="newTaskForm.project_id"
+              :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 font-bold', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
+            >
+              <option v-for="project in projectList" :key="project.id" :value="project.id">{{ project.title }}</option>
+            </select>
+          </div>
+          <div>
             <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Tên Sprint</label>
             <input
               v-model="sprintForm.name"
@@ -4037,16 +4065,16 @@ onUnmounted(() => {
     <div v-if="showCreateModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
       <div :class="['w-full max-w-lg border rounded-3xl p-6 shadow-2xl space-y-4', isDarkMode ? 'bg-[#0a0f1d] border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-950']">
         <div :class="['flex items-center justify-between pb-3 border-b', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
-          <h3 class="font-bold text-sm">✨ Tạo Task Mới</h3>
+          <h3 class="font-bold text-sm">✨ Create Task</h3>
           <button @click="showCreateModal = false" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
         </div>
 
         <div class="space-y-3 text-xs">
           <div>
-            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Tiêu Đề Task *</label>
+            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Task title *</label>
             <input
               v-model="newTaskForm.title"
-              placeholder="VD: Cập nhật giao diện High Contrast"
+              placeholder="e.g. Update the project dashboard"
               :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 font-medium', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
             />
           </div>
@@ -4082,11 +4110,11 @@ onUnmounted(() => {
           </div>
 
           <div>
-            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Mô Tả</label>
+            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Description</label>
             <textarea
               v-model="newTaskForm.description"
               rows="3"
-              placeholder="Chi tiết công việc..."
+              placeholder="Task details..."
               :class="['w-full p-2.5 rounded-xl border focus:outline-none font-medium', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
             ></textarea>
           </div>
@@ -4104,7 +4132,7 @@ onUnmounted(() => {
       <div :class="['w-full max-w-md border rounded-3xl p-6 shadow-2xl space-y-4', isDarkMode ? 'bg-[#0a0f1d] border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-950']">
         <div :class="['flex items-center justify-between pb-3 border-b', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
           <h3 class="font-bold text-sm">
-            {{ projectModalMode === 'create' ? 'Tạo Dự Án Mới' : 'Chỉnh Sửa Dự Án' }}
+            {{ projectModalMode === 'create' ? 'Create Project' : 'Edit Project' }}
           </h3>
           <button @click="showProjectModal = false" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
         </div>
@@ -4112,12 +4140,12 @@ onUnmounted(() => {
         <div class="space-y-3 text-xs">
           <div v-if="projectModalMode === 'create'" class="space-y-3">
             <div v-if="!props.auth?.user" class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-blue-900">
-              <p class="font-bold">Cần xác thực GitHub</p>
-              <p class="mt-1 text-[11px]">Đăng nhập GitHub để cấp quyền và chọn repository tạo dự án.</p>
-              <a href="/auth/github" class="mt-3 inline-block rounded-lg bg-slate-900 px-3 py-2 text-[11px] font-bold text-white">Đăng nhập GitHub</a>
+              <p class="font-bold">GitHub authentication required</p>
+              <p class="mt-1 text-[11px]">Sign in with GitHub to select a repository for this project.</p>
+              <a href="/auth/github" class="mt-3 inline-block rounded-lg bg-slate-900 px-3 py-2 text-[11px] font-bold text-white">Sign in with GitHub</a>
             </div>
             <template v-else>
-              <input v-model="githubRepositorySearch" placeholder="Tìm repository GitHub..." :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']" />
+              <input v-model="githubRepositorySearch" placeholder="Search GitHub repositories..." :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']" />
               <div v-if="isGithubRepositoriesLoading" class="rounded-xl border p-4 text-center text-slate-500">Đang tải repository…</div>
               <div v-else class="max-h-56 space-y-2 overflow-y-auto pr-1">
                 <button v-for="repo in filteredGithubRepositories" :key="repo.id" type="button" @click="selectedGithubRepository = repo" :class="['w-full rounded-xl border p-3 text-left', selectedGithubRepository?.id === repo.id ? 'border-blue-500 bg-blue-50 text-blue-950' : (isDarkMode ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white')]">
@@ -4125,45 +4153,44 @@ onUnmounted(() => {
                   <p class="mt-1 line-clamp-2 text-[11px] text-slate-500">{{ repo.description || 'Không có mô tả' }}</p>
                   <span class="text-[10px] text-slate-500">{{ repo.default_branch || 'main' }} · {{ repo.language || 'Unknown' }}</span>
                 </button>
-                <p v-if="!filteredGithubRepositories.length" class="p-4 text-center text-slate-500">Không tìm thấy repository.</p>
+                <p v-if="!filteredGithubRepositories.length" class="p-4 text-center text-slate-500">No repositories found.</p>
               </div>
-              <div v-if="selectedGithubRepository" class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-900">Đã chọn <strong>{{ selectedGithubRepository.full_name }}</strong>.</div>
+              <div v-if="selectedGithubRepository" class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-900">Selected <strong>{{ selectedGithubRepository.full_name }}</strong>.</div>
             </template>
           </div>
           <div v-if="projectModalMode === 'edit'">
-            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Tên Dự Án *</label>
+            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Project name *</label>
             <input
               v-model="projectForm.title"
-              placeholder="VD: Mobile App 2026"
+              placeholder="e.g. Mobile App 2026"
               :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 font-medium', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
             />
           </div>
 
           <div v-if="projectModalMode === 'edit'">
-            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Mã Key Dự Án (2-5 ký tự)</label>
+            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Project key (2-5 characters)</label>
             <input
               v-model="projectForm.key"
-              placeholder="VD: APP"
+              placeholder="e.g. APP"
               :class="['w-full p-2.5 rounded-xl border font-mono uppercase focus:outline-none focus:border-blue-500 font-bold', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
             />
           </div>
 
           <div>
-            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Phân Loại</label>
-            <select
-              v-model="projectForm.type"
-              :class="['w-full p-2.5 rounded-xl border focus:outline-none font-bold', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
-            >
-              <option value="work">💼 Công Việc (Work)</option>
-              <option value="personal">👤 Cá Nhân (Personal)</option>
-            </select>
+            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Project tags</label>
+            <input
+              v-model="projectForm.tags"
+              placeholder="product, platform, priority"
+              :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 font-medium', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
+            />
+            <p class="mt-1 text-[10px] text-slate-500">Separate tags with commas.</p>
           </div>
 
           <div v-if="projectModalMode === 'edit'" :class="['pt-3 mt-3 border-t space-y-3', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
             <div class="flex items-center justify-between">
               <div>
-                <h4 class="font-bold text-xs">Kết nối riêng cho Project</h4>
-                <p class="text-[10px] text-slate-500">Cấu hình này không dùng chung với project khác.</p>
+                <h4 class="font-bold text-xs">Project integrations</h4>
+                <p class="text-[10px] text-slate-500">These settings are isolated to this project.</p>
               </div>
               <span v-if="projectGithubStatus?.connected" class="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">GitHub {{ projectGithubStatus.sync_status }}</span>
             </div>
