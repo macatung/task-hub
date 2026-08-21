@@ -13,6 +13,10 @@ export interface DesktopCredential {
   token: string;
   projectId: string;
   projectTitle?: string;
+  workspaceId?: string;
+  workspaceName?: string;
+  userEmail?: string;
+  userName?: string;
 }
 
 export interface TaskItem {

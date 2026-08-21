@@ -38,7 +38,7 @@ class DesktopPairingController extends Controller
 
     public function status(Request $request, string $pairingId)
     {
-        $session = DesktopPairingSession::with('project')->where('pairing_id', $pairingId)->firstOrFail();
+        $session = DesktopPairingSession::with(['project.workspace', 'user'])->where('pairing_id', $pairingId)->firstOrFail();
         $secret = (string) $request->header('X-Desktop-Pairing-Secret');
         if ($secret === '' || !hash_equals($session->verifier_hash, hash('sha256', $secret))) {
             return response()->json(['success' => false, 'message' => 'Invalid pairing secret.'], 401);
@@ -54,6 +54,11 @@ class DesktopPairingController extends Controller
             'success' => true,
             'status' => 'approved',
             'project_id' => $session->project_id,
+            'project_title' => $session->project->title,
+            'workspace_id' => $session->project->workspace_id,
+            'workspace_name' => $session->project->workspace?->name,
+            'user_email' => $session->user?->email,
+            'user_name' => $session->user?->name,
             'task_hub_url' => rtrim($request->getSchemeAndHttpHost(), '/'),
             'mcp_token' => $token,
         ]);

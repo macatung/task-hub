@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { TaskItem } from '../composables/useTaskSync';
+import type { DesktopCredential, TaskItem } from '../composables/useTaskSync';
 import { mindfulBell } from '../audio/mindfulBellAudio';
 
 const props = defineProps<{
   tasks: TaskItem[];
   isOnline: boolean;
+  credential: DesktopCredential | null;
 }>();
 
 const emit = defineEmits<{
@@ -47,7 +48,7 @@ const openWebHub = () => {
 </script>
 
 <template>
-  <div class="w-80 sm:w-88 rounded-2xl p-4 bg-slate-950/98 text-slate-100 border border-slate-800 shadow-2xl backdrop-blur-2xl no-drag select-none text-left font-sans animate-fadeIn">
+  <div class="w-full max-w-[calc(100vw-1rem)] sm:w-88 rounded-2xl p-4 bg-slate-950/98 text-slate-100 border border-slate-800 shadow-2xl backdrop-blur-2xl no-drag select-none text-left font-sans animate-fadeIn">
     <!-- Clean Minimalist Header -->
     <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-800">
       <div>
@@ -57,7 +58,9 @@ const openWebHub = () => {
         </div>
         <div class="text-[9px] font-mono text-slate-500 flex items-center gap-1 mt-0.5">
           <span class="w-1.5 h-1.5 rounded-full" :class="isOnline ? 'bg-emerald-400' : 'bg-amber-400'"></span>
-          <span>{{ isOnline ? 'Đồng bộ task-hub.macatung.dev' : 'Offline Cache' }}</span>
+          <span v-if="credential?.workspaceName">{{ credential.workspaceName }} · {{ credential.userEmail || 'Connected account' }}</span>
+          <span v-else-if="credential">Project {{ credential.projectId }} · Connected</span>
+          <span v-else>Not connected to a workspace</span>
         </div>
       </div>
 
@@ -68,6 +71,11 @@ const openWebHub = () => {
       >
         ✕
       </button>
+    </div>
+
+    <div v-if="!credential" class="mb-2 rounded-lg border border-amber-900/60 bg-amber-950/30 px-2.5 py-2 text-[10px] text-amber-200">
+      Desktop chưa đăng nhập nên chưa thể xác định workspace.
+      <button class="mt-1 block font-semibold text-amber-100 underline" @click="$emit('close')">Mở Connect Task Hub ở thanh công cụ</button>
     </div>
 
     <!-- Quick Add Input -->

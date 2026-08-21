@@ -93,16 +93,18 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeyDown));
 
 <template>
   <div class="w-full h-full p-4 flex items-end justify-end relative select-none bg-transparent overflow-visible font-sans">
-    <div class="mr-3 mb-2 z-30 shrink-0">
-      <UpdateStatus />
+    <div class="absolute right-3 top-3 z-40 pointer-events-auto"><UpdateStatus /></div>
+    <div class="absolute inset-0 z-30 pointer-events-none flex items-end justify-end p-3 sm:p-4 overflow-hidden">
+    <div class="w-full max-w-[min(960px,calc(100vw-1rem))] max-h-[calc(100vh-1rem)] mr-0 sm:mr-3 mb-0 sm:mb-2 overflow-hidden" :class="activeModal ? 'pointer-events-auto' : 'pointer-events-none'">
       <CommandPaletteModal v-if="activeModal === 'palette'" @close="activeModal = null" @create-task="handleCreateTask" @start-pomodoro="openModal('pomodoro')" @open-duck="openModal('duck')" @open-notes="openModal('notes')" @open-dispatch="openModal('dispatch')" @open-review="openModal('review')" @check-updates="checkForUpdates" @install-update="installUpdate" />
-      <TaskDispatchModal v-if="activeModal === 'dispatch'" :tasks="tasks" :is-online="isOnline" @close="activeModal = null" @start-pomodoro="handleStartPomodoro" @toggle-complete="toggleTaskComplete" @create-task="handleCreateTask" />
+      <TaskDispatchModal v-if="activeModal === 'dispatch'" :tasks="tasks" :is-online="isOnline" :credential="credential" @close="activeModal = null" @start-pomodoro="handleStartPomodoro" @toggle-complete="toggleTaskComplete" @create-task="handleCreateTask" />
       <AgentConsoleModal v-if="activeModal === 'agent'" :tasks="agentTasks" :initial-task="activeTask" @close="activeModal = null" />
       <TaskHubSetupModal v-if="activeModal === 'taskhub'" :credential="credential" @close="activeModal = null" @connected="handleTaskHubConnected" @disconnect="handleTaskHubDisconnect" />
       <PomodoroTimer v-if="activeModal === 'pomodoro'" :active-task="activeTask" @pomodoro-completed="handlePomodoroCompleted" @close="activeModal = null" />
       <EveningReviewModal v-if="activeModal === 'review'" :tasks="tasks" @close="activeModal = null" />
       <RubberDuckModal v-if="activeModal === 'duck'" @close="activeModal = null" />
       <QuickNotesModal v-if="activeModal === 'notes'" @close="activeModal = null" />
+    </div>
     </div>
 
     <div class="mascot-shell no-drag relative flex flex-col items-center cursor-pointer active:scale-98 transition-transform z-20 shrink-0 mr-2 mb-2" @mouseenter="isHovered = true" @mouseleave="isHovered = false" @mousedown="onMascotMouseDown" title="Mở Tasks và kéo để di chuyển">

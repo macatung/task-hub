@@ -27,7 +27,7 @@ const startPairing = async () => {
         const result = await window.desktopApi.taskHub.pollPairing(taskHubUrl.value.trim(), pairing.pairing_id, pairing.device_secret);
         if (result.status === 'approved') {
           stopPolling();
-          const credential: DesktopCredential = { taskHubUrl: taskHubUrl.value.trim().replace(/\/$/, ''), token: result.mcp_token, projectId: String(result.project_id) };
+          const credential: DesktopCredential = { taskHubUrl: taskHubUrl.value.trim().replace(/\/$/, ''), token: result.mcp_token, projectId: String(result.project_id), projectTitle: result.project_title, workspaceId: result.workspace_id ? String(result.workspace_id) : undefined, workspaceName: result.workspace_name, userEmail: result.user_email, userName: result.user_name };
           localStorage.setItem('task_hub_base_url', credential.taskHubUrl);
           localStorage.setItem('task_hub_project_id', credential.projectId);
           status.value = 'connected';
@@ -44,7 +44,7 @@ onUnmounted(stopPolling);
 <template>
   <div class="no-drag w-[min(92vw,430px)] rounded-2xl border border-slate-700 bg-slate-950 p-4 text-slate-100 shadow-2xl" @mousedown.stop>
     <header class="flex items-start justify-between border-b border-slate-800 pb-3">
-      <div><h2 class="font-bold">🔐 Task Hub SaaS connection</h2><p class="mt-1 text-[11px] text-slate-400">Authenticate one project securely for this desktop companion.</p></div>
+      <div><h2 class="font-bold">Task Hub SaaS connection</h2><p class="mt-1 text-[11px] text-slate-400">Authenticate one project securely for this desktop companion.</p></div>
       <button class="text-slate-400 hover:text-white" @click="emit('close')">✕</button>
     </header>
     <div class="space-y-3 pt-4 text-xs">
