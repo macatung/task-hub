@@ -44,7 +44,6 @@ services:
       TASK_HUB_RUNNER_REGISTRATION_TOKEN: ${TASK_HUB_RUNNER_REGISTRATION_TOKEN:?set TASK_HUB_RUNNER_REGISTRATION_TOKEN}
       RUNNER_NAME: ${RUNNER_NAME:-task-hub-runner}
       RUNNER_PROVIDERS: ${RUNNER_PROVIDERS:-codex,claude_code,antigravity}
-      RUNNER_GITHUB_TOKEN: ${RUNNER_GITHUB_TOKEN:-}
     depends_on:
       hub:
         condition: service_started

@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\AgentRun;
 use App\Models\AgentRunner;
+use App\Models\User;
+use App\Models\Workspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -35,9 +37,12 @@ class ServerAgentRunnerTest extends TestCase
         ])->assertCreated();
         $token = $registration->json('token');
         $runnerId = $registration->json('runner.id');
+        $user = User::factory()->create();
+        $workspace = Workspace::create(['name' => 'Tenant', 'slug' => 'tenant-' . $user->id, 'owner_id' => $user->id]);
+        $workspace->members()->attach($user->id, ['role' => 'owner']);
 
         $run = AgentRun::create([
-            'provider' => 'codex', 'status' => 'queued', 'execution_mode' => 'server',
+            'workspace_id' => $workspace->id, 'provider' => 'codex', 'status' => 'queued', 'execution_mode' => 'server',
             'repository' => 'acme/demo', 'queued_at' => now(), 'metadata' => ['context' => ['work_item' => ['title' => 'Demo']]],
         ]);
 
@@ -59,7 +64,10 @@ class ServerAgentRunnerTest extends TestCase
         config(['services.task_hub.runner_registration_token' => 'bootstrap-secret']);
         $first = $this->withHeaders(['X-Task-Hub-Runner-Registration' => 'bootstrap-secret'])->postJson('/api/v1/runners/register', ['name' => 'one'])->assertCreated();
         $second = $this->withHeaders(['X-Task-Hub-Runner-Registration' => 'bootstrap-secret'])->postJson('/api/v1/runners/register', ['name' => 'two'])->assertCreated();
-        $run = AgentRun::create(['provider' => 'codex', 'status' => 'queued', 'execution_mode' => 'server', 'queued_at' => now()]);
+        $user = User::factory()->create();
+        $workspace = Workspace::create(['name' => 'Tenant', 'slug' => 'tenant-' . $user->id, 'owner_id' => $user->id]);
+        $workspace->members()->attach($user->id, ['role' => 'owner']);
+        $run = AgentRun::create(['workspace_id' => $workspace->id, 'provider' => 'codex', 'status' => 'queued', 'execution_mode' => 'server', 'queued_at' => now()]);
         $this->withToken($first->json('token'))->getJson('/api/v1/runners/' . $first->json('runner.id') . '/jobs/claim?provider=codex')->assertOk();
         $this->withToken($second->json('token'))->postJson('/api/v1/agent-runs/' . $run->id . '/cancel')->assertUnauthorized();
     }

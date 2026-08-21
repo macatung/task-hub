@@ -13,6 +13,7 @@ use App\Services\TaskHubContextPackService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Services\WorkspaceContext;
 
 class ApiAgentRunController extends Controller
 {
@@ -22,6 +23,7 @@ class ApiAgentRunController extends Controller
     public function index(Request $request)
     {
         $query = AgentRun::with(['task.project', 'evidence'])->latest();
+        if ($request->user()) $query->where('workspace_id', app(WorkspaceContext::class)->resolve($request)->id);
         if ($request->filled('task_id')) $query->where('task_id', $request->integer('task_id'));
         if ($request->filled('status')) $query->where('status', $request->string('status'));
         return response()->json(['success' => true, 'data' => $query->limit(50)->get()]);
@@ -29,6 +31,7 @@ class ApiAgentRunController extends Controller
 
     public function show(AgentRun $agentRun)
     {
+        if (request()->user()) abort_unless((int) $agentRun->workspace_id === (int) app(WorkspaceContext::class)->resolve(request())->id, 404);
         return response()->json(['success' => true, 'data' => $agentRun->load(['task.project', 'evidence', 'events'])]);
     }
 
@@ -46,13 +49,17 @@ class ApiAgentRunController extends Controller
             'execution_mode' => 'nullable|in:desktop,server',
         ]);
 
-        $task = !empty($validated['task_id']) ? Task::findOrFail($validated['task_id']) : null;
+        $task = !empty($validated['task_id']) ? Task::with('project.workspace')->findOrFail($validated['task_id']) : null;
+        $workspace = $task?->project?->workspace;
+        if ($request->user()) $workspace = app(WorkspaceContext::class)->resolve($request);
+        if ($task?->project && $workspace && (int) $task->project->workspace_id !== (int) $workspace->id) abort(403, 'Task does not belong to the selected workspace.');
         $context = $validated['context'] ?? $contextService->build($task, $validated);
         $instruction = $validated['instruction'] ?? [];
 
         $run = DB::transaction(function () use ($validated, $context, $instruction, $contextService, $task) {
             $run = AgentRun::create([
                 'task_id' => $task?->id,
+                'workspace_id' => $workspace?->id,
                 'provider' => $validated['provider'],
                 'agent_session_id' => $validated['agent_session_id'] ?? (string) Str::uuid(),
                 'repository' => $validated['repository'] ?? ($context['repository'] ?? (config('services.task_hub.repository') ?: env('TASK_HUB_REPOSITORY'))),

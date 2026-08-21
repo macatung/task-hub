@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AgentRunner extends Model
 {
-    protected $fillable = ['name', 'token_hash', 'hostname', 'version', 'capabilities', 'status', 'last_heartbeat_at', 'revoked_at', 'metadata'];
+    protected $fillable = ['workspace_id', 'name', 'token_hash', 'hostname', 'version', 'capabilities', 'status', 'last_heartbeat_at', 'revoked_at', 'metadata'];
 
     protected $hidden = ['token_hash'];
 
@@ -17,4 +17,6 @@ class AgentRunner extends Model
     {
         return $this->hasMany(AgentRun::class, 'runner_id');
     }
+
+    public function workspace() { return $this->belongsTo(Workspace::class); }
 }

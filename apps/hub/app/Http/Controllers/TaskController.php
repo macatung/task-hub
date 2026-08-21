@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Carbon\Carbon;
+use App\Services\WorkspaceContext;
 
 class TaskController extends Controller
 {
@@ -23,15 +24,12 @@ class TaskController extends Controller
         }
 
         $date = Carbon::today()->toDateString();
-        $tasks = Task::with('project')->take(5)->get();
-        $projects = Project::withCount('tasks')->take(4)->get();
+        // Public landing must never expose tenant records.
+        $tasks = collect();
+        $projects = collect();
 
         $stats = [
-            "total" => Task::count(),
-            "todo" => Task::where("status", "todo")->count(),
-            "in_progress" => Task::where("status", "in_progress")->count(),
-            "review" => Task::where("status", "review")->count(),
-            "done" => Task::where("status", "done")->count(),
+            "total" => 0, "todo" => 0, "in_progress" => 0, "review" => 0, "done" => 0,
         ];
 
         return Inertia::render("Hub/Index", [
@@ -54,15 +52,12 @@ class TaskController extends Controller
         }
 
         $user = $request->user();
+        $workspace = app(WorkspaceContext::class)->resolve($request);
         $date = $request->query("date", Carbon::today()->toDateString());
         $projectId = $request->query("project_id");
         
         $query = Task::with(['project', 'sprint', 'epic', 'documents'])
-            ->where(function ($q) use ($user) {
-                $q->whereHas('project', function ($pq) use ($user) {
-                    $pq->where('user_id', $user->id)->orWhereNull('user_id');
-                })->orWhereNull('project_id');
-            });
+            ->where('workspace_id', $workspace->id);
 
         if ($projectId && $projectId !== 'all') {
             if ($projectId === 'unassigned') {
@@ -77,9 +72,7 @@ class TaskController extends Controller
             ->orderBy("created_at", "desc")
             ->get();
 
-        $projects = Project::where(function ($q) use ($user) {
-                $q->where('user_id', $user->id)->orWhereNull('user_id');
-            })
+        $projects = Project::where('workspace_id', $workspace->id)
             ->select('id', 'title', 'slug', 'key', 'category', 'type', 'color', 'description', 'github_repository', 'github_default_branch')
             ->withCount('tasks')
             ->orderBy('title')
@@ -87,11 +80,7 @@ class TaskController extends Controller
 
         $sprintsQuery = Sprint::with(['tasks' => function ($q) {
             $q->select('id', 'sprint_id', 'status', 'story_points');
-        }])->where(function ($q) use ($user) {
-            $q->whereHas('project', function ($pq) use ($user) {
-                $pq->where('user_id', $user->id)->orWhereNull('user_id');
-            })->orWhereNull('project_id');
-        });
+        }])->where('workspace_id', $workspace->id);
 
         if ($projectId && $projectId !== 'all' && $projectId !== 'unassigned') {
             $sprintsQuery->where('project_id', $projectId);
@@ -111,7 +100,7 @@ class TaskController extends Controller
             ]);
         });
 
-        $epics = Task::where('issue_type', 'epic')->get(['id', 'project_id', 'issue_key', 'title', 'category']);
+        $epics = Task::where('workspace_id', $workspace->id)->where('issue_type', 'epic')->get(['id', 'project_id', 'issue_key', 'title', 'category']);
 
         $stats = [
             "total" => $tasks->count(),
@@ -133,9 +122,11 @@ class TaskController extends Controller
             "epics" => $epics,
             "stats" => $stats,
             "selectedDate" => $date,
+            "workspaces" => $user->workspaces()->where('is_system', false)->get(['workspaces.id', 'name', 'slug', 'plan']),
+            "currentWorkspaceId" => $workspace->id,
             "selectedProjectId" => $projectId ?: 'all',
             "projectKnowledge" => $projectId && $projectId !== 'all' && $projectId !== 'unassigned'
-                ? app(\App\Services\ProjectKnowledgeService::class)->projectState(Project::findOrFail($projectId)) : null,
+                ? app(\App\Services\ProjectKnowledgeService::class)->projectState(Project::where('workspace_id', $workspace->id)->findOrFail($projectId)) : null,
         ]);
     }
 }

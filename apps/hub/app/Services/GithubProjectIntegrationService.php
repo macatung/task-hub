@@ -10,12 +10,16 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Models\User;
 use App\Services\ProjectKnowledgeService;
+use App\Services\CredentialVaultService;
 
 class GithubProjectIntegrationService
 {
     public function repositories(User $user): array
     {
-        $token = $this->secret($user->github_access_token);
+        $workspace = $user->workspaces()->where('is_system', false)->orderBy('workspaces.id')->first();
+        $credential = $workspace ? app(CredentialVaultService::class)->resolve($workspace, null, 'github') : null;
+        $token = $credential ? app(CredentialVaultService::class)->reveal($credential) : null;
+        $token = $token ?: $this->secret($user->github_access_token);
         if (!$token) throw new \RuntimeException('Tài khoản GitHub chưa được cấp quyền.');
         return Http::acceptJson()->withToken($token)->withHeaders(['User-Agent' => 'TaskHub/1.0'])->timeout(15)
             ->get('https://api.github.com/user/repos', ['affiliation' => 'owner,collaborator,organization_member', 'sort' => 'updated', 'direction' => 'desc', 'per_page' => 100])
@@ -31,12 +35,18 @@ class GithubProjectIntegrationService
     public function createFromRepository(User $user, array $input): Project
     {
         $repository = trim($input['repository']);
-        $token = $this->secret($user->github_access_token);
+        $workspace = !empty($input['workspace_id']) ? \App\Models\Workspace::find($input['workspace_id']) : null;
+        $credential = $workspace ? app(CredentialVaultService::class)->resolve($workspace, null, 'github') : null;
+        $token = $credential ? app(CredentialVaultService::class)->reveal($credential) : null;
+        $token = $token ?: $this->secret($user->github_access_token);
         if (!$token) throw new \RuntimeException('Tài khoản GitHub chưa được cấp quyền.');
         $repo = Http::acceptJson()->withToken($token)->withHeaders(['User-Agent' => 'TaskHub/1.0'])->timeout(15)
             ->get('https://api.github.com/repos/' . $repository)->throw()->json();
         if (empty($repo['full_name'])) throw new \RuntimeException('Repository GitHub không hợp lệ.');
-        if (Project::where('user_id', $user->id)->where('github_repository', $repo['full_name'])->exists()) throw new \RuntimeException('Repository này đã được thêm vào Task Hub.');
+        $duplicate = Project::where('github_repository', $repo['full_name']);
+        if ($workspace) $duplicate->where('workspace_id', $workspace->id);
+        else $duplicate->where('user_id', $user->id);
+        if ($duplicate->exists()) throw new \RuntimeException('Repository này đã được thêm vào Task Hub.');
         return DB::transaction(function () use ($user, $repo, $input) {
             $title = $repo['name'] ?? $repo['full_name'];
             $slugBase = Str::slug($repo['full_name'] ?: $title) ?: Str::slug($title);
@@ -44,7 +54,7 @@ class GithubProjectIntegrationService
             while (Project::where('slug', $slug)->exists()) $slug = $slugBase . '-' . $suffix++;
             $key = collect(preg_split('/[\s_-]+/', $title))->filter()->map(fn ($word) => Str::upper(Str::substr($word, 0, 1)))->join('');
             return Project::create([
-                'user_id' => $user->id, 'slug' => $slug, 'key' => Str::substr($key ?: 'PRJ', 0, 5), 'title' => $title,
+                'user_id' => $user->id, 'workspace_id' => $input['workspace_id'] ?? null, 'slug' => $slug, 'key' => Str::substr($key ?: 'PRJ', 0, 5), 'title' => $title,
                 'tagline' => $repo['description'] ?: $repo['full_name'], 'description' => $repo['description'] ?: 'GitHub repository ' . $repo['full_name'],
                 'category' => 'tools', 'type' => $input['type'] ?? 'work', 'color' => $input['color'] ?? '#2563eb',
                 'github_url' => $repo['html_url'] ?? null, 'github_repository' => $repo['full_name'], 'github_default_branch' => $repo['default_branch'] ?? 'main',
@@ -94,8 +104,10 @@ class GithubProjectIntegrationService
 
     private function githubRequest(Project $project)
     {
-        $project->loadMissing('user');
-        $token = $project->user ? $this->secret($project->user->github_access_token) : null;
+        $project->loadMissing(['user', 'workspace']);
+        $credential = $project->workspace ? app(CredentialVaultService::class)->resolve($project->workspace, $project, 'github') : null;
+        $token = $credential ? app(CredentialVaultService::class)->reveal($credential) : null;
+        $token = $token ?: ($project->user ? $this->secret($project->user->github_access_token) : null);
         $token = $token ?: $this->secret($project->github_token);
         $request = Http::acceptJson()->withHeaders(['User-Agent' => 'TaskHub/1.0'])->timeout(20);
         return $token ? $request->withToken($token) : $request;

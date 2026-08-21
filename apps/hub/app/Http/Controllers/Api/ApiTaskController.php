@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\SiteSetting;
 use App\Models\TaskUsageEvent;
 use Illuminate\Http\Request;
+use App\Services\WorkspaceContext;
 use Illuminate\Support\Facades\Crypt;
 use Carbon\Carbon;
 
@@ -16,6 +17,7 @@ class ApiTaskController extends Controller
     public function index(Request $request)
     {
         $query = Task::with(['project', 'sprint', 'epic', 'documents']);
+        if ($request->user()) $query->where('workspace_id', app(WorkspaceContext::class)->resolve($request)->id);
 
         if ($request->has("project_id") && $request->query("project_id") !== 'all') {
             if ($request->query("project_id") === 'unassigned') {
@@ -87,6 +89,8 @@ class ApiTaskController extends Controller
             $validated["due_date"] = Carbon::today()->toDateString();
         }
 
+        if ($request->user()) $validated['workspace_id'] = app(WorkspaceContext::class)->resolve($request)->id;
+
         $task = Task::create($validated);
         $task->load(['project', 'sprint', 'epic', 'documents']);
         $this->track('task_created', 'task', $task->id);
@@ -101,6 +105,7 @@ class ApiTaskController extends Controller
     public function update(Request $request, $id)
     {
         $task = Task::findOrFail($id);
+        if ($request->user()) abort_unless((int) $task->workspace_id === (int) app(WorkspaceContext::class)->resolve($request)->id, 404);
 
         $validated = $request->validate([
             "project_id" => "nullable|exists:projects,id",
@@ -146,6 +151,7 @@ class ApiTaskController extends Controller
     public function destroy($id)
     {
         $task = Task::findOrFail($id);
+        if (request()->user()) abort_unless((int) $task->workspace_id === (int) app(WorkspaceContext::class)->resolve(request())->id, 404);
         $task->delete();
 
         return response()->json([

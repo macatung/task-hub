@@ -61,12 +61,12 @@ async function git(cwd, args, envOverrides = {}) {
   if (result.code !== 0) throw new Error(`git ${args[0]} failed`);
 }
 
-async function prepare(run) {
+async function prepare(run, githubToken = null) {
   if (!run.repository) throw new Error('Run has no repository.');
   if (run.provider === 'antigravity') throw new Error('Antigravity is external_only on server runners; use Desktop Task Companion.');
   const dir = path.join(WORK_ROOT, `run-${run.id}`);
   await rm(dir, { recursive: true, force: true }); await mkdir(WORK_ROOT, { recursive: true });
-  const tokenValue = process.env.RUNNER_GITHUB_TOKEN;
+  const tokenValue = githubToken;
   const remote = run.repository.startsWith('git@') ? run.repository : (tokenValue ? `https://x-access-token@github.com/${run.repository}.git` : `https://github.com/${run.repository}.git`);
   let askpass;
   const gitEnv = {};
@@ -84,7 +84,8 @@ async function prepare(run) {
 
 async function execute(run) {
   await emit(run.id, 'preparing', 'preparing');
-  const workspace = await prepare(run);
+  const credential = await request(`/api/v1/runners/${runnerId}/jobs/${run.id}/credential?provider=github`).catch(() => ({}));
+  const workspace = await prepare(run, credential.credential || null);
   await emit(run.id, 'execution_started', 'running', { branch: workspace.branch, workspace: workspace.dir });
   const [command, args] = commandFor(run.provider);
   const context = run.metadata?.context || {};

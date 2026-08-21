@@ -12,7 +12,7 @@ class Sprint extends Model
     use HasFactory;
 
     protected $fillable = [
-        'project_id',
+        'project_id', 'workspace_id',
         'name',
         'goal',
         'start_date',

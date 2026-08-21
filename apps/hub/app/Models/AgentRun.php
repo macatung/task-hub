@@ -10,7 +10,7 @@ class AgentRun extends Model
     use HasFactory;
 
     protected $fillable = [
-        'task_id', 'runner_id', 'provider', 'agent_session_id', 'repository', 'branch',
+        'task_id', 'workspace_id', 'runner_id', 'provider', 'agent_session_id', 'repository', 'branch',
         'commit_sha', 'pull_request_url', 'status', 'run_type', 'context_hash',
         'execution_mode', 'instruction_hash', 'summary', 'failure_reason', 'metadata',
         'claimed_at', 'lease_expires_at', 'queued_at', 'cancel_requested_at', 'exit_code',
@@ -32,5 +32,6 @@ class AgentRun extends Model
     public function evidence() { return $this->hasMany(VerificationEvidence::class); }
     public function events() { return $this->hasMany(AgentRunEvent::class); }
     public function runner() { return $this->belongsTo(AgentRunner::class, 'runner_id'); }
+    public function workspace() { return $this->belongsTo(Workspace::class); }
     public function logs() { return $this->hasMany(AgentRunLog::class); }
 }

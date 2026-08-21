@@ -7,6 +7,7 @@ use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use App\Services\GithubProjectIntegrationService;
+use App\Services\WorkspaceContext;
 
 class ApiProjectController extends Controller
 {
@@ -20,6 +21,7 @@ class ApiProjectController extends Controller
     {
         $validated = $request->validate(['repository' => ['required', 'regex:/^[^\/\s]+\/[^\/\s]+$/', 'max:255'], 'type' => 'required|in:work,personal', 'color' => 'nullable|string|max:50']);
         try {
+            $validated['workspace_id'] = app(WorkspaceContext::class)->resolve($request)->id;
             $project = $integration->createFromRepository($request->user(), $validated);
             return response()->json(['success' => true, 'message' => 'Dự án đã được tạo từ GitHub repository.', 'data' => $project->loadCount('tasks')], 201);
         } catch (\Throwable $e) { return response()->json(['success' => false, 'message' => $e->getMessage()], 422); }
@@ -28,6 +30,7 @@ class ApiProjectController extends Controller
     public function index(Request $request)
     {
         $query = Project::withCount('tasks');
+        if ($request->user()) $query->where('workspace_id', app(WorkspaceContext::class)->resolve($request)->id);
 
         if ($request->has('type') && in_array($request->query('type'), ['work', 'personal'])) {
             $query->where('type', $request->query('type'));
@@ -54,6 +57,7 @@ class ApiProjectController extends Controller
         $validated['tagline'] = $validated['tagline'] ?? (!empty($validated['description']) ? Str::limit($validated['description'], 100) : $validated['title']);
         $validated['category'] = $validated['type'] === 'work' ? 'web' : 'creative';
         $validated['color'] = $validated['color'] ?? ($validated['type'] === 'work' ? '#00f5a0' : '#ffd166');
+        if ($request->user()) $validated['workspace_id'] = app(WorkspaceContext::class)->resolve($request)->id;
 
         $project = Project::create($validated);
         $project->tasks_count = 0;
@@ -68,6 +72,7 @@ class ApiProjectController extends Controller
     public function update(Request $request, $id)
     {
         $project = Project::withCount('tasks')->findOrFail($id);
+        if ($request->user()) abort_unless((int) $project->workspace_id === (int) app(WorkspaceContext::class)->resolve($request)->id, 404);
 
         $validated = $request->validate([
             'title' => 'sometimes|required|string|max:255',
@@ -92,6 +97,7 @@ class ApiProjectController extends Controller
     public function destroy($id)
     {
         $project = Project::findOrFail($id);
+        if (request()->user()) abort_unless((int) $project->workspace_id === (int) app(WorkspaceContext::class)->resolve(request())->id, 404);
         
         // Tasks have project_id nullOnDelete, so all tasks are safely preserved as Unassigned
         $project->delete();

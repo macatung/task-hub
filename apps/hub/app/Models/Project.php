@@ -38,6 +38,7 @@ class Project extends Model
         'github_sync_error',
         'github_snapshot',
         'user_id',
+        'workspace_id',
     ];
 
     protected $hidden = [

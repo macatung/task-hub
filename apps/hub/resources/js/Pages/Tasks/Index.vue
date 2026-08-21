@@ -177,6 +177,7 @@ const toggleTheme = () => {
 const isSidebarOpen = ref(true);
 const selectedProjectId = ref<string | number>(props.selectedProjectId || 'all');
 const activeProjectMenuId = ref<number | null>(null);
+const isAiMenuOpen = ref(false);
 const keyboardSequence = ref('');
 
 // Top View Mode: Board (Kanban) | Backlog (Sprint Planning) | Roadmap (Gantt)
@@ -1980,200 +1981,228 @@ onUnmounted(() => {
     <!-- ========================================================================= -->
     <header
       :class="[
-        'sticky top-0 z-40 border-b backdrop-blur-md transition-colors',
-        isDarkMode ? 'bg-[#0b101e]/90 border-slate-800/80 text-slate-100 shadow-sm' : 'bg-white/90 border-slate-200/90 text-slate-900 shadow-xs'
+        'h-16 shrink-0 z-40 border-b backdrop-blur-md transition-colors w-full px-3 sm:px-6 flex items-center justify-between gap-3',
+        isDarkMode ? 'bg-[#0b101e]/95 border-slate-800/80 text-slate-100 shadow-sm' : 'bg-white/95 border-slate-200/90 text-slate-900 shadow-xs'
       ]"
     >
-      <div class="w-full px-3 sm:px-6 min-h-16 py-2 lg:h-16 flex flex-wrap lg:flex-nowrap items-center justify-between gap-3">
-        <!-- Left: Sidebar toggle + Logo + Breadcrumb -->
-        <div class="flex items-center gap-3 min-w-0">
+      <!-- Left: Sidebar toggle + Logo + Breadcrumb -->
+      <div class="flex items-center gap-3 min-w-0">
+        <button
+          @click="isSidebarOpen = !isSidebarOpen"
+          :class="[
+            'p-2 rounded-xl border transition-all cursor-pointer text-xs font-bold shadow-xs',
+            isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800' : 'bg-white border-slate-200 text-slate-700 hover:text-slate-950 hover:bg-slate-100'
+          ]"
+          title="Đóng / Mở danh mục dự án"
+        >
+          {{ isSidebarOpen ? '◀' : '▶' }}
+        </button>
+
+        <!-- Logo & Brand -->
+        <a href="/" class="flex items-center gap-2.5 group shrink-0">
+          <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-md shadow-emerald-500/20 text-slate-950 font-black text-sm group-hover:scale-105 transition-transform">
+            ⚡
+          </div>
+          <div class="flex items-center gap-2">
+            <span :class="['font-bold text-base tracking-tight', isDarkMode ? 'text-white' : 'text-slate-950']">
+              Task Hub
+            </span>
+            <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-mono text-[10px] font-bold">
+              SAAS
+            </span>
+          </div>
+        </a>
+
+        <!-- Dynamic Breadcrumbs -->
+        <div class="hidden lg:flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800 text-xs min-w-0">
+          <span class="text-slate-400">/</span>
+          <div class="flex items-center gap-1.5 font-bold truncate">
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: activeProjectObject?.color || '#10b981' }"></span>
+            <span :class="['truncate', isDarkMode ? 'text-slate-200' : 'text-slate-800']">
+              {{ activeProjectObject ? activeProjectObject.title : (selectedProjectId === 'unassigned' ? 'Chung (Chưa gán)' : 'Tất Cả Dự Án') }}
+            </span>
+            <span v-if="activeProjectObject?.key" class="font-mono text-[10px] px-1.5 py-0.2 rounded font-bold border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+              {{ activeProjectObject.key }}
+            </span>
+          </div>
+          <template v-if="activeSprint">
+            <span class="text-slate-400">/</span>
+            <span class="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 truncate max-w-[140px]">
+              🏃 {{ activeSprint.name }}
+            </span>
+          </template>
+        </div>
+      </div>
+
+      <!-- Center Tabs: Board | Backlog | Roadmap with dynamic counts -->
+      <div
+        :class="[
+          'hidden md:flex items-center p-1 rounded-2xl border font-semibold text-xs gap-1 shadow-xs',
+          isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-100/90 border-slate-200/80'
+        ]"
+      >
+        <button
+          @click="currentView = 'board'; sound.playClick();"
+          :class="[
+            'px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5',
+            currentView === 'board'
+              ? (isDarkMode ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold shadow-md shadow-emerald-950/40' : 'bg-white text-emerald-900 font-bold shadow-xs border border-slate-200/80')
+              : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
+          ]"
+        >
+          <span>📋</span>
+          <span>Bảng Công Việc</span>
+          <span :class="['px-1.5 py-0.2 rounded-full font-mono text-[10px] font-bold', currentView === 'board' ? 'bg-white/20 text-white' : (isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700')]">
+            {{ filteredBoardTasks.length }}
+          </span>
+        </button>
+
+        <button
+          @click="currentView = 'backlog'; sound.playClick();"
+          :class="[
+            'px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5',
+            currentView === 'backlog'
+              ? (isDarkMode ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold shadow-md shadow-emerald-950/40' : 'bg-white text-emerald-900 font-bold shadow-xs border border-slate-200/80')
+              : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
+          ]"
+        >
+          <span>📦</span>
+          <span>Kế Hoạch Sprint</span>
+          <span :class="['px-1.5 py-0.2 rounded-full font-mono text-[10px] font-bold', currentView === 'backlog' ? 'bg-white/20 text-white' : (isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700')]">
+            {{ sprintList.length }}
+          </span>
+        </button>
+
+        <button
+          @click="currentView = 'roadmap'; sound.playClick();"
+          :class="[
+            'px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5',
+            currentView === 'roadmap'
+              ? (isDarkMode ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold shadow-md shadow-emerald-950/40' : 'bg-white text-emerald-900 font-bold shadow-xs border border-slate-200/80')
+              : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
+          ]"
+        >
+          <span>🗺️</span>
+          <span>Tiến Độ (Roadmap)</span>
+        </button>
+      </div>
+
+      <!-- Right Controls -->
+      <div class="flex items-center gap-2 shrink-0">
+        <!-- AI Engine Dropdown Button -->
+        <div class="relative">
           <button
-            @click="isSidebarOpen = !isSidebarOpen"
+            @click.stop="isAiMenuOpen = !isAiMenuOpen"
             :class="[
-              'p-2 rounded-xl border transition-all cursor-pointer text-xs font-bold shadow-xs',
-              isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800' : 'bg-white border-slate-200 text-slate-700 hover:text-slate-950 hover:bg-slate-100'
+              'px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs',
+              isDarkMode ? 'bg-slate-900 border-purple-800/60 text-purple-300 hover:bg-purple-950/30' : 'bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100'
             ]"
-            title="Đóng / Mở danh mục dự án"
+            title="Công cụ AI Thông Minh (Kế hoạch & Cài đặt)"
           >
-            {{ isSidebarOpen ? '◀' : '▶' }}
+            <span>✨</span>
+            <span class="hidden sm:inline">AI Engine</span>
+            <span class="text-[10px]">▾</span>
           </button>
 
-          <!-- Logo & Brand -->
-          <a href="/" class="flex items-center gap-2.5 group shrink-0">
-            <MiniMascotLogo size="sm" :enable-sound="true" />
-            <div class="flex items-center gap-2">
-              <span :class="['font-display font-bold text-base tracking-tight', isDarkMode ? 'text-white' : 'text-slate-950']">
-                Tasks Hub
-              </span>
-              <span class="px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-mono text-[10px] font-bold">
-                JIRA LITE
-              </span>
-            </div>
-          </a>
-
-          <!-- Dynamic Breadcrumbs -->
-          <div class="hidden lg:flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800 text-xs min-w-0">
-            <span class="text-slate-400">/</span>
-            <div class="flex items-center gap-1.5 font-bold truncate">
-              <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: activeProjectObject?.color || '#2563eb' }"></span>
-              <span :class="['truncate', isDarkMode ? 'text-slate-200' : 'text-slate-800']">
-                {{ activeProjectObject ? activeProjectObject.title : (selectedProjectId === 'unassigned' ? 'Chung (Chưa gán)' : 'Tất Cả Dự Án') }}
-              </span>
-              <span v-if="activeProjectObject?.key" class="font-mono text-[10px] px-1.5 py-0.2 rounded font-bold border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-300">
-                {{ activeProjectObject.key }}
-              </span>
-            </div>
-            <template v-if="activeSprint">
-              <span class="text-slate-400">/</span>
-              <span class="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 truncate max-w-[140px]">
-                🏃 {{ activeSprint.name }}
-              </span>
-            </template>
+          <!-- Dropdown Menu -->
+          <div
+            v-if="isAiMenuOpen"
+            @click.stop
+            :class="[
+              'absolute right-0 top-full mt-2 w-56 rounded-2xl border shadow-2xl p-2 z-50 text-xs font-medium backdrop-blur-xl',
+              isDarkMode ? 'bg-slate-900/95 border-slate-800 text-slate-200' : 'bg-white border-slate-200 text-slate-800'
+            ]"
+          >
+            <button
+              @click="isAiMenuOpen = false; openAiGeneratorModal();"
+              class="w-full px-3 py-2.5 rounded-xl text-left hover:bg-slate-800/60 flex items-center gap-2.5 cursor-pointer font-medium"
+            >
+              <span>✨</span>
+              <div>
+                <div class="font-bold text-xs">AI Lập Kế Hoạch</div>
+                <div class="text-[10px] text-slate-400">Phân rã Sprint, Epic & Tasks</div>
+              </div>
+            </button>
+            <button
+              @click="isAiMenuOpen = false; openAiSettings();"
+              class="w-full px-3 py-2.5 rounded-xl text-left hover:bg-slate-800/60 flex items-center gap-2.5 cursor-pointer font-medium border-t border-slate-800/50 mt-1"
+            >
+              <span>⚙️</span>
+              <div>
+                <div class="font-bold text-xs">AI Settings</div>
+                <div class="text-[10px] text-slate-400">Provider & API Key riêng tư</div>
+              </div>
+            </button>
           </div>
         </div>
 
-        <!-- Center Tabs: Board | Backlog | Roadmap with dynamic counts -->
-        <div
+        <!-- Weekly Email Report Button -->
+        <button
+          @click="openReportModal"
           :class="[
-            'hidden md:flex items-center p-1 rounded-2xl border font-semibold text-xs gap-1 shadow-xs',
-            isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-100/90 border-slate-200/80'
+            'hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs',
+            isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50'
           ]"
+          title="Cài đặt và gửi email báo cáo tiến độ tuần"
         >
-          <button
-            @click="currentView = 'board'; sound.playClick();"
-            :class="[
-              'px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5',
-              currentView === 'board'
-                ? (isDarkMode ? 'bg-blue-600 text-white font-bold shadow-md' : 'bg-white text-blue-800 font-bold shadow-xs border border-slate-200/80')
-                : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
-            ]"
-          >
-            <span>📋</span>
-            <span>Bảng Công Việc</span>
-            <span :class="['px-1.5 py-0.2 rounded-full font-mono text-[10px] font-bold', currentView === 'board' ? 'bg-white/20 text-white' : (isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700')]">
-              {{ filteredBoardTasks.length }}
-            </span>
-          </button>
+          <span>✉️</span>
+          <span>Báo Cáo</span>
+        </button>
 
-          <button
-            @click="currentView = 'backlog'; sound.playClick();"
-            :class="[
-              'px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5',
-              currentView === 'backlog'
-                ? (isDarkMode ? 'bg-blue-600 text-white font-bold shadow-md' : 'bg-white text-blue-800 font-bold shadow-xs border border-slate-200/80')
-                : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
-            ]"
-          >
-            <span>📦</span>
-            <span>Kế Hoạch Sprint</span>
-            <span :class="['px-1.5 py-0.2 rounded-full font-mono text-[10px] font-bold', currentView === 'backlog' ? 'bg-white/20 text-white' : (isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700')]">
-              {{ sprintList.length }}
-            </span>
-          </button>
+        <!-- Light / Dark Toggle Button -->
+        <button
+          @click="toggleTheme"
+          :class="[
+            'p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs',
+            isDarkMode
+              ? 'bg-slate-900 border-slate-700 text-amber-300 hover:bg-slate-800'
+              : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50'
+          ]"
+          :title="isDarkMode ? 'Chuyển sang Giao diện Sáng' : 'Chuyển sang Giao diện Tối'"
+        >
+          <span>{{ isDarkMode ? '☀️' : '🌙' }}</span>
+        </button>
 
-          <button
-            @click="currentView = 'roadmap'; sound.playClick();"
-            :class="[
-              'px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5',
-              currentView === 'roadmap'
-                ? (isDarkMode ? 'bg-blue-600 text-white font-bold shadow-md' : 'bg-white text-blue-800 font-bold shadow-xs border border-slate-200/80')
-                : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
-            ]"
-          >
-            <span>🗺️</span>
-            <span>Tiến Độ (Roadmap)</span>
-          </button>
-        </div>
+        <!-- Primary Action: + Tạo Task (Phím C) -->
+        <button
+          @click="openCreateTaskModal"
+          class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+          title="Tạo Issue mới (Phím C)"
+        >
+          <span class="text-sm font-black">+</span>
+          <span>Tạo Task</span>
+        </button>
 
-        <!-- Right Controls -->
-        <div class="flex flex-wrap items-center justify-end gap-2 shrink-0 w-full lg:w-auto">
-          <!-- Weekly Email Report Settings & Send Button -->
-          <button
-            @click="openReportModal"
-            :class="[
-              'px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs',
-              isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50'
-            ]"
-            title="Cài đặt và gửi email báo cáo tiến độ tuần cho sếp & quản lý"
-          >
-            <span>✉️</span>
-            <span class="hidden sm:inline">Email Báo Cáo</span>
-            <span class="sm:hidden">Report</span>
-          </button>
-
-          <!-- AI Sprint & Task Generator Button -->
-          <button
-            @click="openAiGeneratorModal"
-            class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Tự động phân rã yêu cầu dự án thành Sprints, Epics & Tasks bằng AI"
-          >
-            <span>✨</span>
-            <span class="hidden sm:inline">AI Lập Kế Hoạch</span>
-            <span class="sm:hidden">AI</span>
-          </button>
-
-          <button
-            @click="openAiSettings"
-            :class="['px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs', isDarkMode ? 'bg-slate-900 border-slate-700 text-purple-300 hover:bg-slate-800' : 'bg-white border-slate-300 text-purple-800 hover:bg-purple-50']"
-            title="Cấu hình provider AI và API key riêng tư"
-          >
-            <span>⚙️</span>
-            <span class="hidden xl:inline">AI Settings</span>
-          </button>
-
-          <!-- Light / Dark Toggle Button -->
-          <button
-            @click="toggleTheme"
-            :class="[
-              'px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs',
-              isDarkMode
-                ? 'bg-slate-900 border-slate-700 text-amber-300 hover:bg-slate-800'
-                : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50'
-            ]"
-            :title="isDarkMode ? 'Chuyển sang Giao diện Sáng' : 'Chuyển sang Giao diện Tối'"
-          >
-            <span>{{ isDarkMode ? '☀️' : '🌙' }}</span>
-            <span class="hidden sm:inline">{{ isDarkMode ? 'Sáng' : 'Tối' }}</span>
-          </button>
-
-          <!-- Create Issue Button -->
-          <button
-            @click="openCreateTaskModal"
-            class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
-            title="Tạo Issue mới (Phím C)"
-          >
-            <span class="text-sm font-black">+</span>
-            <span>Tạo Task</span>
-          </button>
-
-          <template v-if="props.auth?.user">
+        <!-- User Profile & Action Controls -->
+        <template v-if="props.auth?.user">
+          <div class="flex items-center gap-2 pl-2 border-l border-slate-800">
             <span class="hidden xl:inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[10px] font-bold" :class="isDarkMode ? 'border-slate-700 text-slate-300' : 'border-slate-300 text-slate-700'">
               <img v-if="props.auth.user.github_avatar_url" :src="props.auth.user.github_avatar_url" class="h-4 w-4 rounded-full" alt="GitHub avatar" />
               @{{ props.auth.user.github_login || props.auth.user.name }}
             </span>
-            <button @click="logoutGithub" class="rounded-xl border px-2.5 py-2 text-[10px] font-bold" :class="isDarkMode ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'">Đăng xuất</button>
-          </template>
-          <a v-else href="/auth/github" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-100">Đăng nhập GitHub</a>
+            <button @click="logoutGithub" class="rounded-xl border px-2.5 py-2 text-[10px] font-bold cursor-pointer" :class="isDarkMode ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'">Đăng xuất</button>
+          </div>
+        </template>
+        <a v-else href="/auth/github" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-100">Đăng nhập GitHub</a>
 
-          <!-- Lock Button -->
-          <button
-            @click="lockWorkspace"
-            :class="[
-              'p-2 rounded-xl border text-xs transition-colors cursor-pointer shadow-xs',
-              isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-red-400 hover:bg-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:text-red-600 hover:bg-red-50'
-            ]"
-            title="Khóa không gian làm việc (PIN: 301095)"
-          >
-            <span>🔒</span>
-          </button>
-        </div>
+        <!-- Lock Button -->
+        <button
+          @click="lockWorkspace"
+          :class="[
+            'p-2 rounded-xl border text-xs transition-colors cursor-pointer shadow-xs',
+            isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-red-400 hover:bg-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:text-red-600 hover:bg-red-50'
+          ]"
+          title="Khóa không gian làm việc (PIN: 301095)"
+        >
+          <span>🔒</span>
+        </button>
       </div>
     </header>
 
     <!-- ========================================================================= -->
     <!-- 2. MAIN LAYOUT (SIDEBAR + MAIN CANVAS)                                    -->
     <!-- ========================================================================= -->
-    <div class="flex-1 flex min-h-0 overflow-visible md:overflow-hidden">
+    <div class="flex-1 flex min-h-0 overflow-hidden w-full">
       <!-- SIDEBAR: DỰ ÁN 2-LINE HIGH CONTRAST LAYOUT -->
       <aside
         v-if="isSidebarOpen"
@@ -5027,4 +5056,27 @@ onUnmounted(() => {
 .animate-slideInRight {
   animation: slideInRight 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Custom Slim Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(51, 65, 85, 0.5);
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(51, 65, 85, 0.85);
+}
+
 </style>

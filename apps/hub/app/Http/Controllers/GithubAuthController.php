@@ -7,6 +7,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Workspace;
+use App\Services\CredentialVaultService;
 
 class GithubAuthController extends Controller
 {
@@ -22,7 +24,7 @@ class GithubAuthController extends Controller
         return redirect()->away($oauth->authorizationUrl($state));
     }
 
-    public function callback(Request $request, GithubOAuthService $oauth): RedirectResponse
+    public function callback(Request $request, GithubOAuthService $oauth, CredentialVaultService $vault): RedirectResponse
     {
         $state = $request->session()->pull('github_oauth_state');
         if (!$state || !hash_equals($state, (string) $request->query('state'))) {
@@ -33,6 +35,15 @@ class GithubAuthController extends Controller
         try {
             $user = $oauth->authenticate((string) $request->query('code'));
             Auth::login($user, true);
+            $workspace = $user->workspaces()->where('is_system', false)->orderBy('workspaces.id')->first();
+            if (!$workspace) {
+                $workspace = Workspace::create(['name' => ($user->name ?: 'My') . ' Workspace', 'slug' => Str::slug(($user->name ?: 'workspace') . '-' . $user->id) . '-' . Str::lower(Str::random(4)), 'owner_id' => $user->id, 'plan' => 'free', 'agent_concurrency_limit' => 1]);
+                $workspace->members()->attach($user->id, ['role' => 'owner']);
+            }
+            // OAuth tokens are tenant credentials. Keep the user column only for
+            // legacy compatibility; new integrations resolve from this vault.
+            $vault->put($workspace, null, 'github', (string) $user->github_access_token);
+            $request->session()->put('current_workspace_id', $workspace->id);
             $request->session()->regenerate();
             return redirect()->to($request->session()->pull('github_oauth_intended', $this->taskHubUrl($request)))->with('success', 'Đăng nhập GitHub thành công.');
         } catch (\Throwable $e) {

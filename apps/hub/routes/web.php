@@ -3,6 +3,8 @@
 use App\Http\Controllers\Api\ApiAgentRunController;
 use App\Http\Controllers\Api\ApiCapabilityController;
 use App\Http\Controllers\Api\ApiAgentRunnerController;
+use App\Http\Controllers\Api\WorkspaceController;
+use App\Http\Controllers\Api\WorkspaceCredentialController;
 use App\Http\Controllers\Api\ApiProjectController;
 use App\Http\Controllers\Api\ApiProjectDocumentController;
 use App\Http\Controllers\Api\ApiProjectReleaseController;
@@ -39,18 +41,27 @@ Route::post('/desktop/pairing/{pairingId}/deny', [DesktopPairingController::clas
 $registerApiRoutes = function () {
     // Capabilities
     Route::get('/capabilities', [ApiCapabilityController::class, 'show']);
+    Route::get('/workspaces', [WorkspaceController::class, 'index'])->middleware('auth');
+    Route::post('/workspaces', [WorkspaceController::class, 'store'])->middleware('auth');
+    Route::post('/workspaces/{workspace}/switch', [WorkspaceController::class, 'switch'])->middleware('auth');
+    Route::post('/workspaces/{workspace}/members', [WorkspaceController::class, 'addMember'])->middleware('auth');
+    Route::patch('/workspaces/{workspace}/members/{user}', [WorkspaceController::class, 'updateMember'])->middleware('auth');
+    Route::get('/workspaces/{workspace}/credentials', [WorkspaceCredentialController::class, 'index'])->middleware('auth');
+    Route::post('/workspaces/{workspace}/credentials', [WorkspaceCredentialController::class, 'store'])->middleware('auth');
+    Route::delete('/workspaces/{workspace}/credentials/{credential}', [WorkspaceCredentialController::class, 'destroy'])->middleware('auth');
     Route::post('/runners/register', [ApiAgentRunnerController::class, 'register']);
     Route::get('/runners', [ApiAgentRunnerController::class, 'index']);
     Route::post('/runners/{agentRunner}/heartbeat', [ApiAgentRunnerController::class, 'heartbeat']);
     Route::post('/runners/{agentRunner}/revoke', [ApiAgentRunnerController::class, 'revoke']);
     Route::get('/runners/{agentRunner}/jobs/claim', [ApiAgentRunnerController::class, 'claim']);
+    Route::get('/runners/{agentRunner}/jobs/{agentRun}/credential', [ApiAgentRunnerController::class, 'credential']);
     Route::post('/agent-runs/{agentRun}/events', [ApiAgentRunnerController::class, 'event']);
     Route::post('/agent-runs/{agentRun}/logs', [ApiAgentRunnerController::class, 'log']);
     Route::post('/agent-runs/{agentRun}/cancel', [ApiAgentRunnerController::class, 'cancel']);
 
     // Tasks and AI workflows
-    Route::get('/tasks', [ApiTaskController::class, 'index']);
-    Route::post('/tasks', [ApiTaskController::class, 'store']);
+    Route::get('/tasks', [ApiTaskController::class, 'index'])->middleware('auth');
+    Route::post('/tasks', [ApiTaskController::class, 'store'])->middleware('auth');
     Route::post('/tasks/ai-preview', [ApiTaskController::class, 'aiPreview']);
     Route::post('/tasks/ai-generate', [ApiTaskController::class, 'aiGenerate']);
     Route::get('/tasks/daily-dispatch', [ApiTaskController::class, 'dailyDispatch']);
@@ -64,22 +75,22 @@ $registerApiRoutes = function () {
     Route::post('/tasks/work-items/{task}/approve', [ApiAgentRunController::class, 'approve']);
     Route::post('/tasks/work-items/{task}/reject', [ApiAgentRunController::class, 'reject']);
     Route::post('/tasks/github/webhook', [ApiAgentRunController::class, 'githubWebhook']);
-    Route::get('/tasks/agent-runs', [ApiAgentRunController::class, 'index']);
-    Route::post('/tasks/agent-runs', [ApiAgentRunController::class, 'store']);
-    Route::get('/tasks/agent-runs/{agentRun}', [ApiAgentRunController::class, 'show']);
-    Route::patch('/tasks/agent-runs/{agentRun}', [ApiAgentRunController::class, 'update']);
+    Route::get('/tasks/agent-runs', [ApiAgentRunController::class, 'index'])->middleware('auth');
+    Route::post('/tasks/agent-runs', [ApiAgentRunController::class, 'store'])->middleware('auth');
+    Route::get('/tasks/agent-runs/{agentRun}', [ApiAgentRunController::class, 'show'])->middleware('auth');
+    Route::patch('/tasks/agent-runs/{agentRun}', [ApiAgentRunController::class, 'update'])->middleware('auth');
     Route::post('/tasks/agent-runs/{agentRun}/events', [ApiAgentRunController::class, 'event']);
     Route::post('/tasks/agent-runs/{agentRun}/evidence', [ApiAgentRunController::class, 'evidence']);
     Route::post('/tasks/agent-runs/{agentRun}/handoff', [ApiAgentRunController::class, 'handoff']);
     Route::get('/tasks/context-pack', [ApiAgentRunController::class, 'context']);
     Route::post('/tasks/{task}/documents', [ApiProjectDocumentController::class, 'attach']);
     Route::delete('/tasks/{task}/documents/{document}', [ApiProjectDocumentController::class, 'detach']);
-    Route::patch('/tasks/{id}', [ApiTaskController::class, 'update']);
-    Route::delete('/tasks/{id}', [ApiTaskController::class, 'destroy']);
+    Route::patch('/tasks/{id}', [ApiTaskController::class, 'update'])->middleware('auth');
+    Route::delete('/tasks/{id}', [ApiTaskController::class, 'destroy'])->middleware('auth');
 
     // Projects
-    Route::get('/projects', [ApiProjectController::class, 'index']);
-    Route::post('/projects', [ApiProjectController::class, 'store']);
+    Route::get('/projects', [ApiProjectController::class, 'index'])->middleware('auth');
+    Route::post('/projects', [ApiProjectController::class, 'store'])->middleware('auth');
     Route::get('/projects/github/repositories', [ApiProjectController::class, 'githubRepositories'])->middleware('auth');
     Route::post('/projects/from-github', [ApiProjectController::class, 'storeFromGithub'])->middleware('auth');
     Route::get('/projects/{project}/github', [ApiProjectController::class, 'githubStatus']);
@@ -93,8 +104,8 @@ $registerApiRoutes = function () {
     Route::delete('/projects/documents/{document}', [ApiProjectDocumentController::class, 'destroy']);
     Route::get('/projects/{project}/releases', [ApiProjectReleaseController::class, 'index']);
     Route::post('/projects/{project}/releases', [ApiProjectReleaseController::class, 'store']);
-    Route::patch('/projects/{id}', [ApiProjectController::class, 'update']);
-    Route::delete('/projects/{id}', [ApiProjectController::class, 'destroy']);
+    Route::patch('/projects/{id}', [ApiProjectController::class, 'update'])->middleware('auth');
+    Route::delete('/projects/{id}', [ApiProjectController::class, 'destroy'])->middleware('auth');
 
     // Sprints
     Route::get('/sprints', [ApiSprintController::class, 'index']);
@@ -113,6 +124,19 @@ $registerApiRoutes = function () {
     Route::post('/agent-runs/{agentRun}/evidence', [ApiAgentRunController::class, 'evidence']);
     Route::post('/agent-runs/{agentRun}/handoff', [ApiAgentRunController::class, 'handoff']);
     Route::get('/context-pack', [ApiAgentRunController::class, 'context']);
+
+    // Canonical SaaS tenant-scoped API. Legacy unscoped routes remain for desktop compatibility,
+    // while authenticated requests are filtered by WorkspaceContext in their controllers.
+    Route::prefix('workspaces/{workspace}')->middleware(['auth', 'workspace'])->group(function () {
+        Route::get('/projects', [ApiProjectController::class, 'index']);
+        Route::post('/projects', [ApiProjectController::class, 'store']);
+        Route::get('/tasks', [ApiTaskController::class, 'index']);
+        Route::post('/tasks', [ApiTaskController::class, 'store']);
+        Route::get('/agent-runs', [ApiAgentRunController::class, 'index']);
+        Route::post('/agent-runs', [ApiAgentRunController::class, 'store']);
+        Route::get('/credentials', [WorkspaceCredentialController::class, 'index']);
+        Route::post('/credentials', [WorkspaceCredentialController::class, 'store']);
+    });
 
     // Desktop Pairing API
     Route::post('/desktop/pairing/start', [DesktopPairingController::class, 'start']);

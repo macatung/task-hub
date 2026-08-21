@@ -150,7 +150,7 @@ class TaskHubMcpController extends ApiAgentRunController
         $provided = (string) $request->bearerToken();
         if ($provided === '') return false;
         $workspaceToken = config('services.mcp.token') ?: env('TASK_HUB_MCP_TOKEN');
-        if ($workspaceToken && hash_equals($workspaceToken, $provided)) return true;
+        if ($workspaceToken && !app()->environment('production') && hash_equals($workspaceToken, $provided)) return true;
 
         $args = data_get($payload, 'params.arguments', []);
         $project = null;
@@ -160,6 +160,9 @@ class TaskHubMcpController extends ApiAgentRunController
         if (!$project && !empty($args['task_id'])) $project = Task::with('project')->find($args['task_id'])?->project;
         if (!$project && !empty($args['run_id'])) $project = AgentRun::with('task.project')->find($args['run_id'])?->task?->project;
         if (!$project || !$project->task_hub_mcp_token) return false;
+        $workspaceId = $request->header('X-Task-Hub-Workspace');
+        if ($workspaceId && (int) $project->workspace_id !== (int) $workspaceId) return false;
+        if (app()->environment('production') && !$project->workspace_id) return false;
         return app(GithubProjectIntegrationService::class)->secret($project->task_hub_mcp_token) === $provided;
     }
 }

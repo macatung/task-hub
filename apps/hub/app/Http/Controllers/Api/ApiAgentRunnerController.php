@@ -10,6 +10,7 @@ use App\Models\AgentRunner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Services\CredentialVaultService;
 
 class ApiAgentRunnerController extends Controller
 {
@@ -61,11 +62,15 @@ class ApiAgentRunnerController extends Controller
 
         $run = DB::transaction(function () use ($agentRunner, $provider) {
             $now = now();
-            $query = AgentRun::query()->where('execution_mode', 'server')->where('provider', $provider)
+            $workspaceIds = AgentRun::query()->whereNotNull('workspace_id')->where('execution_mode', 'server')->whereIn('status', ['claimed', 'preparing', 'running'])->pluck('workspace_id');
+            $query = AgentRun::query()->whereNotNull('workspace_id')->where('execution_mode', 'server')->where('provider', $provider)
+                ->when($agentRunner->workspace_id, fn ($q) => $q->where('workspace_id', $agentRunner->workspace_id))
                 ->where(function ($q) use ($now) { $q->where('status', 'queued')->orWhere(fn ($q) => $q->where('status', 'claimed')->where('lease_expires_at', '<', $now)); })
                 ->orderBy('queued_at')->orderBy('id')->lock('for update');
             $run = $query->first();
             if (!$run) return null;
+            $limit = (int) ($run->workspace?->agent_concurrency_limit ?? 1);
+            if ($limit < 1 || $workspaceIds->filter(fn ($id) => (int) $id === (int) $run->workspace_id)->count() >= $limit) return null;
             $run->update(['runner_id' => $agentRunner->id, 'status' => 'claimed', 'claimed_at' => $now, 'lease_expires_at' => $now->copy()->addSeconds((int) env('TASK_HUB_RUNNER_LEASE_SECONDS', 120))]);
             AgentRunEvent::create(['agent_run_id' => $run->id, 'event_id' => (string) Str::uuid(), 'event_type' => 'run_claimed', 'status' => 'claimed', 'payload' => ['runner_id' => $agentRunner->id], 'occurred_at' => $now]);
             $agentRunner->update(['status' => 'busy', 'last_heartbeat_at' => $now]);
@@ -104,6 +109,16 @@ class ApiAgentRunnerController extends Controller
         if (in_array($agentRun->status, ['verified', 'failed', 'cancelled'], true)) return response()->json(['success' => true, 'data' => $agentRun]);
         $agentRun->update(['cancel_requested_at' => now()]);
         return response()->json(['success' => true, 'data' => $agentRun->fresh()]);
+    }
+
+    public function credential(Request $request, AgentRunner $agentRunner, AgentRun $agentRun, CredentialVaultService $vault)
+    {
+        $this->runner($request, $agentRunner);
+        abort_unless((int) $agentRun->runner_id === (int) $agentRunner->id, 403);
+        $provider = $request->string('provider')->toString();
+        $credential = $vault->resolve($agentRun->workspace, $agentRun->task?->project, $provider);
+        if (!$credential) return response()->json(['success' => false, 'message' => 'Credential unavailable.'], 404);
+        return response()->json(['success' => true, 'credential' => $vault->reveal($credential), 'expires_at' => now()->addMinutes(10)->toIso8601String()]);
     }
 
     private function runnerForRun(Request $request, AgentRun $run): AgentRunner

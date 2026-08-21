@@ -6,6 +6,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\TrackVisitorAnalytics;
 use App\Http\Middleware\AdminAuthMiddleware;
+use App\Http\Middleware\ResolveWorkspace;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin.auth' => AdminAuthMiddleware::class,
+            'workspace' => ResolveWorkspace::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
