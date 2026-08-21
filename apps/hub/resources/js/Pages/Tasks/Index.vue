@@ -176,6 +176,7 @@ const toggleTheme = () => {
 // Sidebar State
 const isSidebarOpen = ref(true);
 const selectedProjectId = ref<string | number>(props.selectedProjectId || 'all');
+const currentView = ref<'board' | 'backlog' | 'roadmap'>('board');
 const activeProjectMenuId = ref<number | null>(null);
 const isAiMenuOpen = ref(false);
 const isDocsModalOpen = ref(false);
@@ -985,6 +986,8 @@ const activeProjectObject = computed(() => {
   }
   return projectList.value.find(p => p.id === Number(selectedProjectId.value)) || null;
 });
+
+const hasSelectedProject = computed(() => Boolean(activeProjectObject.value));
 
 const activeProjectTasks = computed(() => {
   if (selectedProjectId.value === 'all') return taskList.value;
@@ -2043,7 +2046,7 @@ onUnmounted(() => {
       >
         <div class="flex items-center justify-between border-b pb-3" :class="isDarkMode ? 'border-slate-800' : 'border-slate-200'">
           <div class="flex items-center gap-2.5">
-            <span class="text-xl">📚</span>
+            <span class="mono-icon text-xl">▤</span>
             <div>
               <h3 class="font-bold text-base">Project Documents & Context Pack</h3>
               <p class="text-xs text-slate-400">Tài liệu kiến trúc, PRD, Runbook đồng bộ cho Developer & AI Agent</p>
@@ -2080,7 +2083,7 @@ onUnmounted(() => {
       >
         <div class="flex items-center justify-between border-b pb-3" :class="isDarkMode ? 'border-slate-800' : 'border-slate-200'">
           <div class="flex items-center gap-2.5">
-            <span class="text-xl">🚀</span>
+            <span class="mono-icon text-xl">↗</span>
             <div>
               <h3 class="font-bold text-base">Project Release Log</h3>
               <p class="text-xs text-slate-400">Lưu vết lịch sử triển khai, commit SHA và changelog từng phiên bản</p>
@@ -2120,7 +2123,7 @@ onUnmounted(() => {
               : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
           ]"
         >
-          <span>📋</span>
+          <span class="mono-icon">▦</span>
           <span>Bảng Công Việc</span>
           <span :class="['px-1.5 py-0.2 rounded-full font-mono text-[10px] font-bold', currentView === 'board' ? 'bg-white/20 text-white' : (isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700')]">
             {{ filteredBoardTasks.length }}
@@ -2136,7 +2139,7 @@ onUnmounted(() => {
               : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
           ]"
         >
-          <span>📦</span>
+          <span class="mono-icon">▤</span>
           <span>Kế Hoạch Sprint</span>
           <span :class="['px-1.5 py-0.2 rounded-full font-mono text-[10px] font-bold', currentView === 'backlog' ? 'bg-white/20 text-white' : (isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700')]">
             {{ sprintList.length }}
@@ -2152,7 +2155,7 @@ onUnmounted(() => {
               : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
           ]"
         >
-          <span>🗺️</span>
+          <span class="mono-icon">⌁</span>
           <span>Tiến Độ (Roadmap)</span>
         </button>
       </div>
@@ -2169,7 +2172,7 @@ onUnmounted(() => {
             ]"
             title="Công cụ AI Thông Minh (Kế hoạch & Cài đặt)"
           >
-            <span>✨</span>
+            <span class="mono-icon">✦</span>
             <span class="hidden sm:inline">AI Engine</span>
             <span class="text-[10px]">▾</span>
           </button>
@@ -2187,7 +2190,7 @@ onUnmounted(() => {
               @click="isAiMenuOpen = false; openAiGeneratorModal();"
               class="w-full px-3 py-2.5 rounded-xl text-left hover:bg-slate-800/60 flex items-center gap-2.5 cursor-pointer font-medium"
             >
-              <span>✨</span>
+              <span class="mono-icon">✦</span>
               <div>
                 <div class="font-bold text-xs">AI Lập Kế Hoạch</div>
                 <div class="text-[10px] text-slate-400">Phân rã Sprint, Epic & Tasks</div>
@@ -2264,7 +2267,7 @@ onUnmounted(() => {
           ]"
           title="Khóa không gian làm việc (PIN: 301095)"
         >
-          <span>🔒</span>
+          <span class="mono-icon">□</span>
         </button>
       </div>
     </header>
@@ -2294,7 +2297,7 @@ onUnmounted(() => {
               ]"
             >
               <div class="flex items-center gap-2.5 min-w-0">
-                <span class="text-base">📁</span>
+                <span class="mono-icon text-base">▦</span>
                 <div>
                   <div :class="['font-bold text-xs', isDarkMode ? 'text-white' : 'text-slate-950']">Tất Cả Dự Án</div>
                   <div :class="['text-[11px]', isDarkMode ? 'text-slate-400' : 'text-slate-600']">Toàn bộ công việc & nhiệm vụ</div>
@@ -2315,7 +2318,7 @@ onUnmounted(() => {
               ]"
             >
               <div class="flex items-center gap-2.5 min-w-0">
-                <span class="text-base">📦</span>
+                <span class="mono-icon text-base">▤</span>
                 <div>
                   <div :class="['font-bold text-xs', isDarkMode ? 'text-white' : 'text-slate-950']">Chung (Chưa gán)</div>
                   <div :class="['text-[11px]', isDarkMode ? 'text-slate-400' : 'text-slate-600']">Task lẻ chưa gán vào dự án</div>
@@ -2800,6 +2803,48 @@ onUnmounted(() => {
         <!-- ===================================================================== -->
         <!-- PERSONAL DAILY COMMAND CENTER                                         -->
         <!-- ===================================================================== -->
+        <section
+          v-if="!hasSelectedProject"
+          :class="['p-4 sm:p-6 pb-0', isDarkMode ? 'bg-[#070b14]' : 'bg-[#f8fafc]']"
+        >
+          <div
+            :class="[
+              'ml-auto max-w-xl rounded-2xl border p-4 sm:p-5 shadow-sm',
+              isDarkMode ? 'border-blue-900/70 bg-blue-950/20' : 'border-blue-200 bg-blue-50/70'
+            ]"
+          >
+            <div class="flex items-start gap-3">
+              <div class="mono-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-blue-500/40 text-blue-400" aria-hidden="true">⌂</div>
+              <div class="min-w-0 flex-1">
+                <h2 :class="['text-sm font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">Chọn một dự án để bắt đầu</h2>
+                <p :class="['mt-1 text-xs leading-5', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
+                  Bạn đang xem tổng quan workspace. Chọn project bên dưới để mở task board, Docs, Releases và context của project.
+                </p>
+              </div>
+            </div>
+            <div v-if="projectList.length" class="mt-4 grid gap-2 sm:grid-cols-2">
+              <button
+                v-for="project in projectList.slice(0, 6)"
+                :key="project.id"
+                type="button"
+                @click="selectedProjectId = project.id; sound.playClick()"
+                :class="[
+                  'flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors cursor-pointer',
+                  isDarkMode ? 'border-slate-800 bg-slate-950/60 hover:border-blue-500/70 hover:bg-blue-950/20' : 'border-slate-200 bg-white hover:border-blue-400 hover:bg-blue-50'
+                ]"
+              >
+                <span class="mono-icon flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-xs font-bold" :style="{ color: project.color || '#60a5fa', borderColor: `${project.color || '#60a5fa'}66` }" aria-hidden="true">▦</span>
+                <span class="min-w-0">
+                  <span :class="['block truncate text-xs font-bold', isDarkMode ? 'text-slate-100' : 'text-slate-900']">{{ project.title }}</span>
+                  <span class="block truncate text-[10px] text-slate-500">{{ project.github_repository || project.type || 'Project' }}</span>
+                </span>
+              </button>
+            </div>
+            <button v-else type="button" @click="openCreateProjectModal('work')" class="mt-4 rounded-xl bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 cursor-pointer">
+              + Tạo dự án đầu tiên
+            </button>
+          </div>
+        </section>
         <section :class="['p-4 sm:p-6 border-b', isDarkMode ? 'bg-indigo-950/20 border-slate-800' : 'bg-indigo-50/50 border-slate-200']">
           <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
             <div>
@@ -4914,6 +4959,13 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.mono-icon {
+  color: currentColor;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 700;
+  line-height: 1;
+}
+
 /* Tasks design system: neutral work surface, one accent, restrained motion. */
 .tasks-page {
   --tasks-accent: #2563eb;
