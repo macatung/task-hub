@@ -190,7 +190,7 @@ class ApiTaskController extends Controller
             "completed_today_count" => $completedToday,
             "overdue_count" => Task::where('status', '!=', 'done')->whereDate('due_date', '<', Carbon::today())->count(),
             "focus_limit" => 3,
-            "greeting" => "Chào buổi sáng! Hãy cùng Ma Cà Tưng chinh phục các nhiệm vụ trọng tâm hôm nay 🚀",
+            "greeting" => "Good morning! Let’s focus on today’s most important work 🚀",
         ]);
     }
 
@@ -222,7 +222,7 @@ class ApiTaskController extends Controller
             "total_pomodoros_done" => $totalPomodorosDone,
             "completed_tasks" => $completedTasks,
             "incompleted_tasks" => $incompletedTasks,
-            "wisdom_quote" => "Chiến thắng vĩ đại nhất của bậc trượng phu là tự thắng sự lười biếng và giữ tâm bất động trước nghịch cảnh.",
+            "wisdom_quote" => "The greatest victory is mastering procrastination and staying steady through adversity.",
         ]);
     }
 

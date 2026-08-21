@@ -48,7 +48,7 @@ class TaskController extends Controller
     {
         if (!Auth::check()) {
             $request->session()->put('github_oauth_intended', $request->fullUrl());
-            return redirect('/auth/github')->with('info', 'Vui lòng đăng nhập bằng GitHub để truy cập Task Hub Workspace.');
+            return redirect('/auth/github')->with('info', 'Please sign in with GitHub to access the Task Hub workspace.');
         }
 
         $user = $request->user();
@@ -59,7 +59,7 @@ class TaskController extends Controller
         $query = Task::with(['project', 'sprint', 'epic', 'documents'])
             ->where('workspace_id', $workspace->id);
 
-        if ($projectId && $projectId !== 'all' && $projectId !== 'unassigned') {
+        if ($projectId && $projectId !== 'all') {
             $query->where('project_id', $projectId);
         }
 
@@ -78,7 +78,7 @@ class TaskController extends Controller
             $q->select('id', 'sprint_id', 'status', 'story_points');
         }])->where('workspace_id', $workspace->id);
 
-        if ($projectId && $projectId !== 'all' && $projectId !== 'unassigned') {
+        if ($projectId && $projectId !== 'all') {
             $sprintsQuery->where('project_id', $projectId);
         }
 
@@ -121,7 +121,7 @@ class TaskController extends Controller
             "workspaces" => $user->workspaces()->where('is_system', false)->get(['workspaces.id', 'name', 'slug', 'plan']),
             "currentWorkspaceId" => $workspace->id,
             "selectedProjectId" => $projectId ?: 'all',
-            "projectKnowledge" => $projectId && $projectId !== 'all' && $projectId !== 'unassigned'
+            "projectKnowledge" => $projectId && $projectId !== 'all'
                 ? app(\App\Services\ProjectKnowledgeService::class)->projectState(Project::where('workspace_id', $workspace->id)->findOrFail($projectId)) : null,
         ]);
     }

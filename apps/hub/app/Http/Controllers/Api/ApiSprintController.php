@@ -22,7 +22,7 @@ class ApiSprintController extends Controller
             $q->select('id', 'sprint_id', 'status', 'story_points');
         }]);
 
-        if ($request->filled('project_id') && $request->project_id !== 'all' && $request->project_id !== 'unassigned') {
+        if ($request->filled('project_id') && $request->project_id !== 'all') {
             $query->where('project_id', $request->project_id);
         }
 
@@ -75,7 +75,7 @@ class ApiSprintController extends Controller
         return response()->json([
             'success' => true,
             'data' => $sprint,
-            'message' => 'Tạo Sprint thành công!',
+            'message' => 'Sprint created successfully.',
         ], 201);
     }
 
@@ -97,7 +97,7 @@ class ApiSprintController extends Controller
         return response()->json([
             'success' => true,
             'data' => $sprint,
-            'message' => 'Cập nhật Sprint thành công!',
+            'message' => 'Sprint updated successfully.',
         ]);
     }
 
@@ -126,7 +126,7 @@ class ApiSprintController extends Controller
         return response()->json([
             'success' => true,
             'data' => $sprint,
-            'message' => "Sprint '{$sprint->name}' đã bắt đầu!",
+            'message' => "Sprint '{$sprint->name}' has started.",
         ]);
     }
 
@@ -155,7 +155,7 @@ class ApiSprintController extends Controller
         return response()->json([
             'success' => true,
             'data' => $sprint,
-            'message' => "Sprint '{$sprint->name}' đã hoàn thành!",
+            'message' => "Sprint '{$sprint->name}' has been completed.",
         ]);
     }
 
@@ -170,7 +170,7 @@ class ApiSprintController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Đã xóa Sprint và chuyển các tác vụ về Backlog.',
+            'message' => 'Sprint deleted and its tasks moved to the backlog.',
         ]);
     }
 
@@ -191,7 +191,7 @@ class ApiSprintController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Đã chuyển danh sách tác vụ thành công!',
+            'message' => 'Task list moved successfully.',
         ]);
     }
 }

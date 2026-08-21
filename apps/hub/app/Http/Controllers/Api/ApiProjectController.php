@@ -23,7 +23,7 @@ class ApiProjectController extends Controller
         try {
             $validated['workspace_id'] = app(WorkspaceContext::class)->resolve($request)->id;
             $project = $integration->createFromRepository($request->user(), $validated);
-            return response()->json(['success' => true, 'message' => 'Dự án đã được tạo từ GitHub repository.', 'data' => $project->loadCount('tasks')], 201);
+            return response()->json(['success' => true, 'message' => 'Project created from the GitHub repository.', 'data' => $project->loadCount('tasks')], 201);
         } catch (\Throwable $e) { return response()->json(['success' => false, 'message' => $e->getMessage()], 422); }
     }
 
@@ -61,7 +61,7 @@ class ApiProjectController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Dự án đã được tạo thành công',
+            'message' => 'Project created successfully.',
             'data' => $project,
         ], 201);
     }
@@ -87,7 +87,7 @@ class ApiProjectController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Dự án đã được cập nhật',
+            'message' => 'Project updated successfully.',
             'data' => $project,
         ]);
     }
@@ -104,7 +104,7 @@ class ApiProjectController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Dự án đã được xóa (Các nhiệm vụ liên quan đã được chuyển an toàn sang mục Chung)',
+            'message' => 'Project deleted successfully.',
         ]);
     }
 
@@ -116,12 +116,12 @@ class ApiProjectController extends Controller
     public function connectGithub(Request $request, Project $project, GithubProjectIntegrationService $integration)
     {
         if ($project->user_id && $project->user_id !== $request->user()->id) {
-            return response()->json(['success' => false, 'message' => 'Project này đã thuộc tài khoản GitHub khác.'], 403);
+            return response()->json(['success' => false, 'message' => 'This project belongs to another GitHub account.'], 403);
         }
         $userToken = $integration->secret($request->user()->github_access_token);
         $projectToken = $integration->secret($project->github_token);
         if (!$userToken && !$projectToken) {
-            return response()->json(['success' => false, 'message' => 'Tài khoản GitHub chưa được cấp quyền. Hãy đăng nhập lại bằng GitHub.'], 422);
+            return response()->json(['success' => false, 'message' => 'GitHub access is not available. Please sign in with GitHub again.'], 422);
         }
         $validated = $request->validate([
             'github_repository' => ['required', 'regex:/^[^\/\s]+\/[^\/\s]+$/', 'max:255'],
@@ -133,19 +133,19 @@ class ApiProjectController extends Controller
             'clear_task_hub_mcp_token' => 'nullable|boolean',
         ]);
         $project = $integration->connect($project, $validated);
-        return response()->json(['success' => true, 'message' => 'Đã lưu cấu hình tích hợp riêng cho project.', 'data' => $integration->status($project)]);
+        return response()->json(['success' => true, 'message' => 'Project integration settings saved.', 'data' => $integration->status($project)]);
     }
 
     public function syncGithub(Project $project, GithubProjectIntegrationService $integration)
     {
         if ($project->user_id && $project->user_id !== request()->user()->id) {
-            return response()->json(['success' => false, 'message' => 'Bạn không có quyền sync Project này.'], 403);
+            return response()->json(['success' => false, 'message' => 'You do not have permission to sync this project.'], 403);
         }
         try {
             $project = $integration->sync($project);
-            return response()->json(['success' => true, 'message' => 'GitHub đã được đồng bộ.', 'data' => $integration->status($project)]);
+            return response()->json(['success' => true, 'message' => 'GitHub synchronized successfully.', 'data' => $integration->status($project)]);
         } catch (\Throwable $e) {
-            return response()->json(['success' => false, 'message' => 'Không thể đồng bộ GitHub: ' . $e->getMessage()], 422);
+            return response()->json(['success' => false, 'message' => 'Unable to synchronize GitHub: ' . $e->getMessage()], 422);
         }
     }
 }

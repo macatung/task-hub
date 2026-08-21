@@ -106,7 +106,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
         $projectId = $options['project_id'] ?? null;
         $project = null;
 
-        if ($projectId && $projectId !== 'new' && $projectId !== 'all' && $projectId !== 'unassigned') {
+        if ($projectId && $projectId !== 'new' && $projectId !== 'all') {
             $project = Project::find($projectId);
         }
 
@@ -198,7 +198,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
 
         return [
             'success' => true,
-            'message' => 'Đã tự động phân rã dự án và tạo toàn bộ Sprints & Tasks thành công!',
+            'message' => 'The project was broken down and all sprints and tasks were created successfully.',
             'project_id' => $project ? $project->id : null,
             'sprint_ids' => array_map(fn($s) => $s->id, $createdSprints),
             'task_ids' => array_map(fn($t) => $t->id, $createdTasks),
@@ -307,7 +307,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
         $titleWords = array_slice($words, 0, 6);
         $title = implode(' ', $titleWords);
 
-        return !empty($title) ? Str::title($title) : 'Dự Án Phần Mềm Mới';
+        return !empty($title) ? Str::title($title) : 'New Software Project';
     }
 
     /**
@@ -363,15 +363,15 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
     ): array {
         $sprints = [];
 
-        // Sprint 1: Khởi tạo, Cấu trúc Nền tảng & MVP Architecture
+        // Sprint 1: Foundation, Platform Structure & MVP Architecture
         $sprint1Start = $startDate->copy();
         $sprint1End = $sprint1Start->copy()->addWeeks($sprintWeeks);
 
         $sprint1Tasks = [
             [
                 'issue_type' => 'epic',
-                'title' => "Khởi tạo Nền tảng & Kiến trúc Cốt lõi ({$projectTitle})",
-                'description' => "Thiết lập cấu trúc cơ sở dữ liệu, hạ tầng môi trường và các chuẩn thiết kế hệ thống ban đầu.\n\n### Tiêu chí nghiệm thu (Acceptance Criteria):\n- Hoàn thiện schema CSDL & migration\n- Cấu hình môi trường dev & staging sẵn sàng\n- Thiết lập chuẩn Coding Conventions và CI baseline",
+                'title' => "Platform Foundation & Core Architecture ({$projectTitle})",
+                'description' => "Set up the database structure, environment infrastructure, and initial system design standards.\n\n### Acceptance Criteria:\n- Complete the database schema and migrations\n- Prepare dev and staging environments\n- Establish coding conventions and a CI baseline",
                 'priority' => 'urgent',
                 'category' => 'backend',
                 'story_points' => 8,
@@ -380,15 +380,15 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                 'start_date' => $sprint1Start->toDateString(),
                 'due_date' => $sprint1Start->copy()->addDays(4)->toDateString(),
                 'subtasks' => [
-                    ['text' => 'Khảo sát và thiết kế sơ đồ ERD dữ liệu'],
-                    ['text' => 'Tạo migrations và model relationships'],
-                    ['text' => 'Cấu hình biến môi trường .env và Docker container'],
+                    ['text' => 'Analyze and design the data ERD'],
+                    ['text' => 'Create migrations and model relationships'],
+                    ['text' => 'Configure .env variables and Docker containers'],
                 ],
             ],
             [
                 'issue_type' => 'story',
-                'title' => 'Xây dựng Hệ thống Xác thực & Phân quyền Người Dùng',
-                'description' => "Triển khai cơ chế Đăng ký / Đăng nhập, bảo mật JWT/Session và kiểm soát quyền truy cập RBAC.\n\n### Acceptance Criteria:\n- Hỗ trợ đăng nhập an toàn với rate limiting\n- Middleware phân quyền quản trị viên vs người dùng thường\n- Test cases xác thực đạt 100% pass",
+                'title' => 'Build User Authentication & Authorization',
+                'description' => "Implement registration and sign-in, JWT/session security, and RBAC access control.\n\n### Acceptance Criteria:\n- Support secure sign-in with rate limiting\n- Middleware separates administrator and regular-user permissions\n- Authentication test cases pass at 100%",
                 'priority' => 'high',
                 'category' => 'backend',
                 'story_points' => 5,
@@ -397,15 +397,15 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                 'start_date' => $sprint1Start->copy()->addDays(2)->toDateString(),
                 'due_date' => $sprint1Start->copy()->addDays(7)->toDateString(),
                 'subtasks' => [
-                    ['text' => 'API Đăng ký, Đăng nhập & Thu hồi Token'],
-                    ['text' => 'Middleware kiểm tra Session/Bearer Token'],
-                    ['text' => 'Xử lý khôi phục mật khẩu & xác thực email'],
+                    ['text' => 'Registration, sign-in, and token revocation APIs'],
+                    ['text' => 'Session and bearer-token middleware'],
+                    ['text' => 'Password recovery and email verification'],
                 ],
             ],
             [
                 'issue_type' => 'story',
-                'title' => 'Thiết lập Giao diện Cơ bản & Layout Theme High Contrast',
-                'description' => "Xây dựng khung giao diện chính với hệ thống màu sắc tương phản cao, hỗ trợ cả Dark Mode và Light Mode.\n\n### Acceptance Criteria:\n- Responsive hoàn hảo trên Mobile, Tablet và Desktop\n- Theme toggle mượt mà không bị flicker\n- Tích hợp bộ icon và font typography chuẩn",
+                'title' => 'Build the Core Interface & High-Contrast Theme',
+                'description' => "Build the primary interface with a high-contrast color system and dark/light mode support.\n\n### Acceptance Criteria:\n- Responsive behavior across mobile, tablet, and desktop\n- Smooth theme switching without flicker\n- Consistent icon and typography system",
                 'priority' => 'high',
                 'category' => 'frontend',
                 'story_points' => 5,
@@ -414,15 +414,15 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                 'start_date' => $sprint1Start->copy()->addDays(3)->toDateString(),
                 'due_date' => $sprint1End->toDateString(),
                 'subtasks' => [
-                    ['text' => 'Xây dựng Header Navigation & Sidebar responsive'],
-                    ['text' => 'Tích hợp Dark/Light theme toggle và LocalStorage sync'],
-                    ['text' => 'Thiết kế các UI components: Button, Modal, Card, Badge'],
+                    ['text' => 'Build responsive header navigation and sidebar'],
+                    ['text' => 'Add dark/light theme switching with LocalStorage sync'],
+                    ['text' => 'Design UI components: buttons, modals, cards, and badges'],
                 ],
             ],
             [
                 'issue_type' => 'task',
-                'title' => 'Cấu hình CI/CD Pipeline & Automated Healthcheck',
-                'description' => "Thiết lập GitHub Actions hoặc Cloud Build tự động chạy test và deploy bản build thử nghiệm.\n\n```yaml\nname: Automated Pipeline\non: [push, pull_request]\n```",
+                'title' => 'Configure the CI/CD Pipeline & Automated Health Checks',
+                'description' => "Configure GitHub Actions or Cloud Build to run tests and deploy preview builds automatically.\n\n```yaml\nname: Automated Pipeline\non: [push, pull_request]\n```",
                 'priority' => 'medium',
                 'category' => 'infra',
                 'story_points' => 3,
@@ -431,8 +431,8 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                 'start_date' => $sprint1Start->copy()->addDays(4)->toDateString(),
                 'due_date' => $sprint1End->toDateString(),
                 'subtasks' => [
-                    ['text' => 'Viết workflow test tự động'],
-                    ['text' => 'Tạo docker-compose file cho local testing'],
+                    ['text' => 'Write the automated test workflow'],
+                    ['text' => 'Create a docker-compose file for local testing'],
                 ],
             ],
         ];
@@ -441,8 +441,8 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
         if ($domains['has_database']) {
             $sprint1Tasks[] = [
                 'issue_type' => 'task',
-                'title' => 'Thiết kế Schema & Migration CSDL Tối Ưu Index',
-                'description' => "Tối ưu hóa bảng CSDL, tạo index trên các trường query thường xuyên và foreign keys.",
+                'title' => 'Design the Database Schema & Optimized Indexes',
+                'description' => "Optimize database tables and add indexes for frequently queried fields and foreign keys.",
                 'priority' => 'high',
                 'category' => 'backend',
                 'story_points' => 3,
@@ -451,15 +451,15 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                 'start_date' => $sprint1Start->copy()->addDays(1)->toDateString(),
                 'due_date' => $sprint1Start->copy()->addDays(5)->toDateString(),
                 'subtasks' => [
-                    ['text' => 'Tạo migration các bảng nghiệp vụ chính'],
-                    ['text' => 'Viết Database Seeders dữ liệu mẫu'],
+                    ['text' => 'Create migrations for core business tables'],
+                    ['text' => 'Write database seeders with sample data'],
                 ],
             ];
         }
 
         $sprints[] = [
-            'name' => 'Sprint 1 — Khởi Tạo Nền Tảng & MVP Architecture',
-            'goal' => "Hoàn thành bộ khung kiến trúc, CSDL và hệ thống đăng nhập/giao diện nền tảng cho {$projectTitle}.",
+            'name' => 'Sprint 1 — Platform Foundation & MVP Architecture',
+            'goal' => "Complete the architecture, database, authentication, and core interface foundation for {$projectTitle}.",
             'start_date' => $sprint1Start->toDateString(),
             'end_date' => $sprint1End->toDateString(),
             'status' => 'active',
@@ -467,15 +467,15 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
         ];
 
         if ($sprintCount >= 2) {
-            // Sprint 2: Phát Triển Nghiệp Vụ Cốt Lõi (Core Business Logic)
+            // Sprint 2: Core Business Logic
             $sprint2Start = $sprint1End->copy();
             $sprint2End = $sprint2Start->copy()->addWeeks($sprintWeeks);
 
             $sprint2Tasks = [
                 [
                     'issue_type' => 'epic',
-                    'title' => "Phát triển Tính Năng Nghiệp Vụ Trọng Tâm ({$projectTitle})",
-                    'description' => "Xây dựng toàn bộ các luồng nghiệp vụ cốt lõi theo yêu cầu dự án.\n\n### Tiêu chí hoàn thành:\n- Luồng dữ liệu hoạt động trơn tru end-to-end\n- Validate dữ liệu chặt chẽ ở cả client và server",
+                    'title' => "Build Core Business Features ({$projectTitle})",
+                    'description' => "Build the core business flows required by the project.\n\n### Completion Criteria:\n- Data flows work end to end\n- Client and server validation is strict and consistent",
                     'priority' => 'urgent',
                     'category' => 'backend',
                     'story_points' => 8,
@@ -484,14 +484,14 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'start_date' => $sprint2Start->toDateString(),
                     'due_date' => $sprint2End->toDateString(),
                     'subtasks' => [
-                        ['text' => 'Xây dựng Business Services & Repositories'],
-                        ['text' => 'Viết Controllers & Form Requests validation'],
+                        ['text' => 'Build business services and repositories'],
+                        ['text' => 'Write controllers and form-request validation'],
                     ],
                 ],
                 [
                     'issue_type' => 'story',
-                    'title' => 'Xây dựng Bảng Quản Trị Dữ Liệu & Dashboard Analytics',
-                    'description' => "Giao diện quản lý thông minh với bộ lọc tìm kiếm tức thời, phân trang linh hoạt và thống kê trực quan.\n\n### Acceptance Criteria:\n- Tìm kiếm, lọc theo ngày/trạng thái tức thời\n- Biểu đồ thống kê và tóm tắt chỉ số KPI",
+                    'title' => 'Build the Data Administration & Analytics Dashboard',
+                    'description' => "Create a smart management interface with instant search filters, flexible pagination, and clear analytics.\n\n### Acceptance Criteria:\n- Instant search and date/status filtering\n- KPI charts and summary metrics",
                     'priority' => 'high',
                     'category' => 'frontend',
                     'story_points' => 5,
@@ -500,9 +500,9 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'start_date' => $sprint2Start->copy()->addDays(2)->toDateString(),
                     'due_date' => $sprint2End->toDateString(),
                     'subtasks' => [
-                        ['text' => 'Tạo bảng dữ liệu Data Grid có sorting & pagination'],
-                        ['text' => 'Tích hợp biểu đồ thống kê trực quan'],
-                        ['text' => 'Tạo Modal xem/sửa chi tiết'],
+                        ['text' => 'Create a sortable and paginated data grid'],
+                        ['text' => 'Add clear analytics charts'],
+                        ['text' => 'Create a detail view/edit modal'],
                     ],
                 ],
             ];
@@ -510,8 +510,8 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
             if ($domains['has_payment']) {
                 $sprint2Tasks[] = [
                     'issue_type' => 'story',
-                    'title' => 'Tích hợp Cổng Thanh Toán Trực Tuyến (VNPay/Momo/Stripe)',
-                    'description' => "Xây dựng cổng thanh toán an toàn, xử lý IPN Webhook và đối soát giao dịch tự động.",
+                    'title' => 'Integrate the Online Payment Gateway (VNPay/Momo/Stripe)',
+                    'description' => "Build a secure payment gateway with IPN webhooks and automated transaction reconciliation.",
                     'priority' => 'urgent',
                     'category' => 'backend',
                     'story_points' => 5,
@@ -520,9 +520,9 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'start_date' => $sprint2Start->copy()->addDays(3)->toDateString(),
                     'due_date' => $sprint2End->toDateString(),
                     'subtasks' => [
-                        ['text' => 'Tạo chữ ký bảo mật HMAC-SHA512 checksum'],
-                        ['text' => 'Endpoint xử lý Return URL và IPN Callback'],
-                        ['text' => 'Lưu log lịch sử giao dịch và biên lai'],
+                        ['text' => 'Create HMAC-SHA512 security signatures'],
+                        ['text' => 'Build return URL and IPN callback endpoints'],
+                        ['text' => 'Store transaction history and receipt logs'],
                     ],
                 ];
             }
@@ -530,8 +530,8 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
             if ($domains['has_ai']) {
                 $sprint2Tasks[] = [
                     'issue_type' => 'story',
-                    'title' => 'Tích hợp AI Engine & Xử Lý Ngôn Ngữ Tự Nhiên (LLM)',
-                    'description' => "Kết nối API trí tuệ nhân tạo (Gemini / OpenAI), xử lý stream response và gợi ý thông minh.",
+                    'title' => 'Integrate the AI Engine & Natural Language Processing (LLM)',
+                    'description' => "Connect Gemini/OpenAI APIs, stream responses, and provide intelligent suggestions.",
                     'priority' => 'high',
                     'category' => 'ai_agent',
                     'story_points' => 5,
@@ -540,9 +540,9 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'start_date' => $sprint2Start->copy()->addDays(2)->toDateString(),
                     'due_date' => $sprint2End->toDateString(),
                     'subtasks' => [
-                        ['text' => 'Thiết kế System Prompt chuẩn mực'],
-                        ['text' => 'Xử lý streaming SSE phản hồi thời gian thực'],
-                        ['text' => 'Cơ chế fallback và caching kết quả'],
+                        ['text' => 'Design a consistent system prompt'],
+                        ['text' => 'Process streaming SSE responses'],
+                        ['text' => 'Add result fallback and caching'],
                     ],
                 ];
             }
@@ -550,8 +550,8 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
             if ($domains['has_mobile']) {
                 $sprint2Tasks[] = [
                     'issue_type' => 'story',
-                    'title' => 'Phát triển Màn Hình & Luồng Ứng Dụng Mobile Flutter/React Native',
-                    'description' => "Đồng bộ giao diện mobile, lưu cache offline và kết nối REST API.",
+                    'title' => 'Build Mobile Screens & Flows with Flutter/React Native',
+                    'description' => "Synchronize the mobile interface, add offline caching, and connect the REST API.",
                     'priority' => 'high',
                     'category' => 'frontend',
                     'story_points' => 5,
@@ -560,8 +560,8 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'start_date' => $sprint2Start->copy()->addDays(4)->toDateString(),
                     'due_date' => $sprint2End->toDateString(),
                     'subtasks' => [
-                        ['text' => 'Xây dựng luồng màn hình chính'],
-                        ['text' => 'Tích hợp State Management (Pinia/Bloc/Redux)'],
+                        ['text' => 'Build the primary mobile screen flow'],
+                        ['text' => 'Integrate state management (Pinia/Bloc/Redux)'],
                     ],
                 ];
             }
@@ -569,8 +569,8 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
             if ($domains['has_realtime']) {
                 $sprint2Tasks[] = [
                     'issue_type' => 'task',
-                    'title' => 'Cấu hình WebSocket Realtime Broadcast & Thông Báo',
-                    'description' => "Phát sự kiện realtime qua Laravel WebSockets/Pusher tới client mà không cần reload trang.",
+                    'title' => 'Configure Realtime WebSocket Broadcasts & Notifications',
+                    'description' => "Broadcast realtime events through Laravel WebSockets/Pusher without page reloads.",
                     'priority' => 'medium',
                     'category' => 'infra',
                     'story_points' => 3,
@@ -579,15 +579,15 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'start_date' => $sprint2Start->copy()->addDays(5)->toDateString(),
                     'due_date' => $sprint2End->toDateString(),
                     'subtasks' => [
-                        ['text' => 'Tạo Broadcast Events'],
-                        ['text' => 'Lắng nghe sự kiện trên client Vue/JS'],
+                        ['text' => 'Create broadcast events'],
+                        ['text' => 'Listen for events in the Vue/JS client'],
                     ],
                 ];
             }
 
             $sprints[] = [
-                'name' => 'Sprint 2 — Phát Triển Nghiệp Vụ Cốt Lõi',
-                'goal' => "Triển khai đầy đủ các luồng chức năng trọng tâm, tích hợp API và hoàn thiện Dashboard cho {$projectTitle}.",
+                'name' => 'Sprint 2 — Core Business Development',
+                'goal' => "Deliver the core flows, integrate APIs, and complete the dashboard for {$projectTitle}.",
                 'start_date' => $sprint2Start->toDateString(),
                 'end_date' => $sprint2End->toDateString(),
                 'status' => 'future',
@@ -596,15 +596,15 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
         }
 
         if ($sprintCount >= 3) {
-            // Sprint 3: Tối Ưu Hóa, Kiểm Thử, Bảo Mật & Triển Khai (Polish & Production Release)
+            // Sprint 3: Optimization, Testing, Security & Production Release
             $sprint3Start = $sprint1End->copy()->addWeeks($sprintWeeks * ($sprintCount - 2));
             $sprint3End = $sprint3Start->copy()->addWeeks($sprintWeeks);
 
             $sprint3Tasks = [
                 [
                     'issue_type' => 'epic',
-                    'title' => "Hoàn Thiện, Kiểm Thử Toàn Diện & Triển Khai Production",
-                    'description' => "Đảm bảo chất lượng sản phẩm đạt chuẩn quốc tế, không còn lỗi nghiêm trọng và sẵn sàng bàn giao vận hành.",
+                    'title' => "Polish, Comprehensive Testing & Production Release",
+                    'description' => "Ensure product quality, eliminate critical issues, and prepare the system for operations handoff.",
                     'priority' => 'urgent',
                     'category' => 'qa',
                     'story_points' => 5,
@@ -613,14 +613,14 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'start_date' => $sprint3Start->toDateString(),
                     'due_date' => $sprint3End->toDateString(),
                     'subtasks' => [
-                        ['text' => 'Kiểm thử hộp đen (Black-box testing) tất cả user flows'],
-                        ['text' => 'Audit bảo mật OWASP Top 10 và bảo vệ CSRF/XSS'],
+                        ['text' => 'Black-box test all user flows'],
+                        ['text' => 'Audit OWASP Top 10 security and CSRF/XSS protection'],
                     ],
                 ],
                 [
                     'issue_type' => 'task',
-                    'title' => 'Tối Ưu Tốc Độ Tải Trang & Caching Nâng Cao',
-                    'description' => "Nén hình ảnh, tối ưu câu truy vấn SQL (Eager loading N+1), bật Redis cache và tối ưu bundle Vite.",
+                    'title' => 'Optimize Page Load Speed & Advanced Caching',
+                    'description' => "Compress images, optimize SQL queries and eager loading, enable Redis caching, and optimize the Vite bundle.",
                     'priority' => 'high',
                     'category' => 'backend',
                     'story_points' => 3,
@@ -629,15 +629,15 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'start_date' => $sprint3Start->copy()->addDays(1)->toDateString(),
                     'due_date' => $sprint3Start->copy()->addDays(5)->toDateString(),
                     'subtasks' => [
-                        ['text' => 'Khử triệt để N+1 query trên các màn hình chính'],
-                        ['text' => 'Cấu hình HTTP Caching & Gzip/Brotli compression'],
-                        ['text' => 'Đo điểm Lighthouse đạt tối thiểu 90+'],
+                        ['text' => 'Eliminate N+1 queries from primary screens'],
+                        ['text' => 'Configure HTTP caching and Gzip/Brotli compression'],
+                        ['text' => 'Reach a Lighthouse score of at least 90'],
                     ],
                 ],
                 [
                     'issue_type' => 'bug',
-                    'title' => 'Rà Soát Lỗi Hiển Thị Giao Diện Trên Các Thiết Bị Di Động Nhỏ',
-                    'description' => "Fix triệt để các vấn đề vỡ khung, tràn viền (overflow-x) và lỗi font trên màn hình iPhone SE / Android nhỏ.",
+                    'title' => 'Review the Interface on Small Mobile Devices',
+                    'description' => "Fix layout breaks, horizontal overflow, and font issues on iPhone SE and small Android screens.",
                     'priority' => 'medium',
                     'category' => 'frontend',
                     'story_points' => 2,
@@ -646,14 +646,14 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'start_date' => $sprint3Start->copy()->addDays(3)->toDateString(),
                     'due_date' => $sprint3Start->copy()->addDays(6)->toDateString(),
                     'subtasks' => [
-                        ['text' => 'Kiểm tra trên màn hình 375px và 320px'],
-                        ['text' => 'Tối ưu kích thước nút bấm cảm ứng (min 44px)'],
+                        ['text' => 'Test 375px and 320px viewport widths'],
+                        ['text' => 'Optimize touch target sizes (minimum 44px)'],
                     ],
                 ],
                 [
                     'issue_type' => 'task',
-                    'title' => 'Triển Khai Môi Trường Production & Thiết Lập Sao Lưu Tự Động',
-                    'description' => "Cấu hình domain chính thức, SSL HTTPS certificate, Nginx reverse proxy và cronjob backup CSDL hàng ngày.",
+                    'title' => 'Deploy Production & Configure Automated Backups',
+                    'description' => "Configure the production domain, HTTPS certificate, Nginx reverse proxy, and daily database backups.",
                     'priority' => 'urgent',
                     'category' => 'infra',
                     'story_points' => 3,
@@ -662,16 +662,16 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'start_date' => $sprint3Start->copy()->addDays(4)->toDateString(),
                     'due_date' => $sprint3End->toDateString(),
                     'subtasks' => [
-                        ['text' => 'Cài đặt chứng chỉ SSL tự động gia hạn'],
-                        ['text' => 'Thiết lập script sao lưu CSDL tự động lên Cloud Storage'],
-                        ['text' => 'Kiểm tra hoạt động thực tế trên production'],
+                        ['text' => 'Install an auto-renewing SSL certificate'],
+                        ['text' => 'Back up the database automatically to Cloud Storage'],
+                        ['text' => 'Verify the production environment in practice'],
                     ],
                 ],
             ];
 
             $sprints[] = [
-                'name' => "Sprint {$sprintCount} — Tối Ưu, Kiểm Thử & Triển Khai Production",
-                'goal' => "Kiểm thử hồi quy, audit bảo mật, tối ưu hiệu năng và ra mắt chính thức {$projectTitle}.",
+                'name' => "Sprint {$sprintCount} — Optimization, Testing & Production Release",
+                'goal' => "Run regression tests, audit security, optimize performance, and officially launch {$projectTitle}.",
                 'start_date' => $sprint3Start->toDateString(),
                 'end_date' => $sprint3End->toDateString(),
                 'status' => 'future',

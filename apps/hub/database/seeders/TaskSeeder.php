@@ -20,6 +20,18 @@ class TaskSeeder extends Seeder
         $omniProject = Project::where('slug', 'ai-agent-customer-service-ecosystem')->first();
         $streamProject = Project::where('slug', 'streaming-platform-transcoding')->first();
         $finProject = Project::where('slug', 'stock-valuation-financial-management')->first();
+        $mindfulProject = Project::firstOrCreate(
+            ['slug' => 'mindfulness-desktop-tools'],
+            [
+                'key' => 'MIND',
+                'title' => 'Mindfulness Desktop Tools',
+                'tagline' => 'Focus, breathing, and mindful productivity tools',
+                'description' => 'Desktop tools for mindful focus and healthy work sessions.',
+                'category' => 'productivity',
+                'tags' => ['mindfulness', 'desktop', 'productivity'],
+                'color' => '#8b5cf6',
+            ]
+        );
 
         // 1. Create Sprints
         $sprint1 = Sprint::firstOrCreate(
@@ -41,6 +53,17 @@ class TaskSeeder extends Seeder
                 'start_date' => Carbon::today()->addDays(12)->toDateString(),
                 'end_date' => Carbon::today()->addDays(26)->toDateString(),
                 'status' => 'future',
+            ]
+        );
+
+        $mindfulSprint = Sprint::firstOrCreate(
+            ['name' => 'Mindful Productivity Sprint'],
+            [
+                'project_id' => $mindfulProject->id,
+                'goal' => 'Build focused and sustainable desktop work habits.',
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'status' => 'active',
             ]
         );
 
@@ -80,7 +103,7 @@ class TaskSeeder extends Seeder
         $epicMindful = Task::firstOrCreate(
             ['title' => 'EPIC: Pháp Bảo & Không Gian Thiền Chánh Niệm Vipassanā'],
             [
-                'project_id' => null,
+                'project_id' => $mindfulProject->id,
                 'issue_key' => 'MCT-1',
                 'issue_type' => 'epic',
                 'description' => '### Mục tiêu Epic\nTích hợp đồng hồ tọa thiền 432Hz, chuông chánh niệm và tra cứu từ điển Pāḷi.',
@@ -192,11 +215,11 @@ class TaskSeeder extends Seeder
                 'due_date' => Carbon::today()->addDays(14)->toDateString(),
             ],
             [
-                'project_id' => null,
+                'project_id' => $mindfulProject->id,
                 'issue_key' => 'MCT-2',
                 'issue_type' => 'story',
                 'epic_id' => $epicMindful->id,
-                'sprint_id' => $sprint1->id,
+                'sprint_id' => $mindfulSprint->id,
                 'title' => 'Đồng bộ âm thanh chuông xoay Tây Tạng 432Hz với Desktop Companion',
                 'description' => "Phát chuông chánh niệm định kỳ mỗi 30 phút để nhắc nhở người dùng giữ chánh niệm và nghỉ ngơi mắt.",
                 'status' => 'done',
@@ -217,4 +240,4 @@ class TaskSeeder extends Seeder
             );
         }
     }
-}
+}
