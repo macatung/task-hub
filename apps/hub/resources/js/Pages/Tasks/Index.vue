@@ -178,6 +178,8 @@ const isSidebarOpen = ref(true);
 const selectedProjectId = ref<string | number>(props.selectedProjectId || 'all');
 const activeProjectMenuId = ref<number | null>(null);
 const isAiMenuOpen = ref(false);
+const isDocsModalOpen = ref(false);
+const isReleasesModalOpen = ref(false);
 // Collapsed Sprints in Backlog View
 const collapsedSprints = ref<Record<number, boolean>>({});
 const toggleSprintCollapse = (sprintId: number) => {
@@ -2026,7 +2028,79 @@ onUnmounted(() => {
             <span class="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 truncate max-w-[140px]">
               🏃 {{ activeSprint.name }}
             </span>
-          </template>
+          
+    <!-- PROJECT DOCUMENTS MODAL -->
+    <div
+      v-if="isDocsModalOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+      @click.self="isDocsModalOpen = false"
+    >
+      <div
+        :class="[
+          'w-full max-w-2xl rounded-3xl border p-6 shadow-2xl space-y-4 max-h-[88vh] overflow-y-auto custom-scrollbar transition-all',
+          isDarkMode ? 'bg-slate-900/95 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+        ]"
+      >
+        <div class="flex items-center justify-between border-b pb-3" :class="isDarkMode ? 'border-slate-800' : 'border-slate-200'">
+          <div class="flex items-center gap-2.5">
+            <span class="text-xl">📚</span>
+            <div>
+              <h3 class="font-bold text-base">Project Documents & Context Pack</h3>
+              <p class="text-xs text-slate-400">Tài liệu kiến trúc, PRD, Runbook đồng bộ cho Developer & AI Agent</p>
+            </div>
+          </div>
+          <button
+            @click="isDocsModalOpen = false"
+            class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        <ProjectDocumentsPanel
+          :project-id="activeProjectObject?.id || null"
+          :repository="activeProjectObject?.github_repository"
+          :branch="activeProjectObject?.github_default_branch"
+          :dark="isDarkMode"
+        />
+      </div>
+    </div>
+
+    <!-- PROJECT RELEASES MODAL -->
+    <div
+      v-if="isReleasesModalOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+      @click.self="isReleasesModalOpen = false"
+    >
+      <div
+        :class="[
+          'w-full max-w-2xl rounded-3xl border p-6 shadow-2xl space-y-4 max-h-[88vh] overflow-y-auto custom-scrollbar transition-all',
+          isDarkMode ? 'bg-slate-900/95 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+        ]"
+      >
+        <div class="flex items-center justify-between border-b pb-3" :class="isDarkMode ? 'border-slate-800' : 'border-slate-200'">
+          <div class="flex items-center gap-2.5">
+            <span class="text-xl">🚀</span>
+            <div>
+              <h3 class="font-bold text-base">Project Release Log</h3>
+              <p class="text-xs text-slate-400">Lưu vết lịch sử triển khai, commit SHA và changelog từng phiên bản</p>
+            </div>
+          </div>
+          <button
+            @click="isReleasesModalOpen = false"
+            class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        <ProjectReleaseLog
+          :project-id="activeProjectObject?.id || null"
+          :dark="isDarkMode"
+        />
+      </div>
+    </div>
+</template>
         </div>
       </div>
 
@@ -2561,11 +2635,38 @@ onUnmounted(() => {
                 <span>🚨</span>
                 <strong class="font-black">{{ activeProjectWarningCount }} Cần Chú Ý</strong>
               </button>
+
+              <!-- Documents Button -->
+              <button
+                v-if="activeProjectObject?.id"
+                @click="isDocsModalOpen = true; sound.playClick();"
+                :class="[
+                  'px-3 py-2 rounded-2xl border font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-all hover:scale-105',
+                  isDarkMode ? 'bg-slate-900 border-slate-700 text-cyan-300 hover:border-cyan-500/60 hover:bg-cyan-950/30' : 'bg-cyan-50 border-cyan-200 text-cyan-900 hover:bg-cyan-100'
+                ]"
+                title="Mở Quản lý Tài liệu Dự án (PRD, Architecture, Runbook, docs sync GitHub)"
+              >
+                <span>📚</span>
+                <span class="text-xs">Docs</span>
+              </button>
+
+              <!-- Releases Button -->
+              <button
+                v-if="activeProjectObject?.id"
+                @click="isReleasesModalOpen = true; sound.playClick();"
+                :class="[
+                  'px-3 py-2 rounded-2xl border font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-all hover:scale-105',
+                  isDarkMode ? 'bg-slate-900 border-slate-700 text-emerald-300 hover:border-emerald-500/60 hover:bg-emerald-950/30' : 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100'
+                ]"
+                title="Mở Nhật ký Phát hành / Deploy Releases"
+              >
+                <span>🚀</span>
+                <span class="text-xs">Releases</span>
+              </button>
             </div>
           </div>
 
-          <ProjectDocumentsPanel :project-id="activeProjectObject?.id || null" :repository="activeProjectObject?.github_repository" :branch="activeProjectObject?.github_default_branch" :dark="isDarkMode" />
-          <ProjectReleaseLog :project-id="activeProjectObject?.id || null" :dark="isDarkMode" />
+
 
           <!-- TẦNG 2: SMART FILTER & QUICK ACTION BAR -->
           <div :class="['flex flex-wrap items-center justify-between gap-3 pt-3.5 border-t text-xs', isDarkMode ? 'border-slate-800/80' : 'border-slate-200']">
