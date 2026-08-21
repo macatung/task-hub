@@ -2802,7 +2802,9 @@ onUnmounted(() => {
             </button>
           </div>
         </section>
-        <section v-if="hasSelectedProject" :class="['p-4 sm:p-6 border-b', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
+        <!-- Keep the board as the primary detail-page surface. Daily planning is
+             available from the task actions and should not push the repo board down. -->
+        <section v-if="false" :class="['p-4 sm:p-6 border-b', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
           <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
             <div>
               <p :class="['text-[10px] font-mono font-bold uppercase tracking-widest', isDarkMode ? 'text-indigo-300' : 'text-indigo-700']">Personal Command Center</p>
