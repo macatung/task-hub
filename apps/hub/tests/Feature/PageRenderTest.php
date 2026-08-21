@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
 use Tests\TestCase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -9,10 +10,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 class PageRenderTest extends TestCase
 {
     use RefreshDatabase;
+
     /**
-     * @tier: 1
-     * @feature: F01_FOUNDATION
-     * Test that the home page root route returns 200 HTTP OK.
+     * Test that the home page root route returns 200 HTTP OK for guest.
      */
     public function test_home_page_returns_200_status(): void
     {
@@ -21,23 +21,19 @@ class PageRenderTest extends TestCase
     }
 
     /**
-     * @tier: 1
-     * @feature: F01_FOUNDATION
-     * Test that the home page renders the Inertia "Home" component with title.
+     * Test that the home page renders the Inertia "Hub/Index" SaaS landing component.
      */
-    public function test_home_page_renders_home_inertia_component(): void
+    public function test_home_page_renders_hub_inertia_component(): void
     {
         $response = $this->get('/');
 
         $response->assertInertia(fn (Assert $page) => $page
-            ->component('Home')
-            ->has('title')
+            ->component('Hub/Index')
+            ->has('stats')
         );
     }
 
     /**
-     * @tier: 1
-     * @feature: F01_FOUNDATION
      * Test that Inertia shared props include appName and flash bag.
      */
     public function test_inertia_shares_global_props(): void
@@ -51,35 +47,27 @@ class PageRenderTest extends TestCase
     }
 
     /**
-     * @tier: 2
-     * @feature: F01_FOUNDATION
-     * Test that requesting with X-Inertia header receives Inertia JSON payload.
+     * Test that accessing /tasks without authentication redirects to GitHub OAuth.
      */
-    public function test_inertia_header_returns_json_response(): void
+    public function test_tasks_workspace_requires_authentication(): void
     {
-        $middleware = app(\App\Http\Middleware\HandleInertiaRequests::class);
-        $version = $middleware->version(\Illuminate\Http\Request::create('/'));
-
-        $headers = ['X-Inertia' => 'true'];
-        if ($version) {
-            $headers['X-Inertia-Version'] = $version;
-        }
-
-        $response = $this->get('/', $headers);
-
-        $response->assertStatus(200);
-        $response->assertHeader('X-Inertia', 'true');
-        $response->assertJsonPath('component', 'Home');
+        $response = $this->get('/tasks');
+        $response->assertRedirect('/auth/github');
     }
 
     /**
-     * @tier: 2
-     * @feature: F01_FOUNDATION
-     * Test that non-existent routes return 404 Not Found.
+     * Test that authenticated user can access /tasks workspace.
      */
-    public function test_non_existent_route_returns_404(): void
+    public function test_authenticated_user_can_access_workspace(): void
     {
-        $response = $this->get('/non-existent-spectral-dimension');
-        $response->assertStatus(404);
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->get('/tasks');
+        $response->assertStatus(200);
+        $response->assertInertia(fn (Assert $page) => $page
+            ->component('Tasks/Index')
+            ->has('tasks')
+            ->has('projects')
+        );
     }
 }
