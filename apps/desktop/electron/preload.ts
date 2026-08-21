@@ -26,7 +26,7 @@ contextBridge.exposeInMainWorld('desktopApi', {
     getCredential: () => ipcRenderer.invoke('taskhub-credential-get'),
     saveCredential: (credential: { taskHubUrl: string; token: string; projectId: string; projectTitle?: string }) => ipcRenderer.invoke('taskhub-credential-save', credential),
     clearCredential: () => ipcRenderer.invoke('taskhub-credential-clear'),
-    startPairing: (taskHubUrl: string, projectId: number) => ipcRenderer.invoke('taskhub-pairing-start', { taskHubUrl, projectId }),
+    startPairing: (taskHubUrl: string, projectId?: number | null) => ipcRenderer.invoke('taskhub-pairing-start', { taskHubUrl, projectId }),
     pollPairing: (taskHubUrl: string, pairingId: string, deviceSecret: string) => ipcRenderer.invoke('taskhub-pairing-status', { taskHubUrl, pairingId, deviceSecret }),
     mcpCall: (taskHubUrl: string, token: string, projectId: string, method: string, params?: Record<string, any>) => ipcRenderer.invoke('taskhub-mcp-call', { taskHubUrl, token, projectId, method, params }),
     getCapabilities: (taskHubUrl: string) => ipcRenderer.invoke('taskhub-capabilities', taskHubUrl),

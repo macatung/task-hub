@@ -64,6 +64,7 @@ const DEFAULT_TASK_HUB_URL = (import.meta as any).env?.VITE_TASK_HUB_URL || 'htt
 export function useTaskSync() {
   const tasks = ref<TaskItem[]>([]);
   const agentTasks = ref<TaskItem[]>([]);
+  const projects = ref<ProjectItem[]>([]);
   const activeTask = ref<TaskItem | null>(null);
   const isLoading = ref(false);
   const isOnline = ref(false);
@@ -72,6 +73,7 @@ export function useTaskSync() {
 
   const cacheKey = () => `task_hub_desktop_synced_tasks:${credential.value?.projectId || 'offline'}`;
   const apiUrl = (suffix = '') => `${(credential.value?.taskHubUrl || DEFAULT_TASK_HUB_URL).replace(/\/$/, '')}/api/v1/desktop/tasks${suffix}`;
+  const projectsUrl = () => `${(credential.value?.taskHubUrl || DEFAULT_TASK_HUB_URL).replace(/\/$/, '')}/api/v1/desktop/projects`;
   const authHeaders = (): Record<string, string> => credential.value ? {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${credential.value.token}`,
@@ -109,7 +111,12 @@ export function useTaskSync() {
     await window.desktopApi?.taskHub?.saveCredential?.(next);
     credential.value = next;
     connectionError.value = '';
-    await fetchTasks();
+    await fetchProjects(); await fetchTasks();
+  };
+
+  const fetchProjects = async () => {
+    if (!credential.value) return;
+    try { const response = await fetch(projectsUrl(), { headers: authHeaders() }); const json = await response.json(); if (response.ok && json.success) projects.value = json.data || []; } catch { projects.value = []; }
   };
 
   const clearCredential = async () => {
@@ -161,13 +168,15 @@ export function useTaskSync() {
   };
 
   // Create task
-  const createTask = async (title: string, priority = 'high', category = 'backend', estimatedPomodoros = 2) => {
+  const createTask = async (title: string, priority = 'high', projectId?: number, category = 'backend', estimatedPomodoros = 2) => {
     if (!title.trim()) return null;
 
     if (!credential.value) return null;
+    const selectedProjectId = projectId || projects.value[0]?.id;
+    if (!selectedProjectId) return null;
     const newTask: TaskItem = {
       id: Date.now(),
-      project_id: Number(credential.value.projectId),
+      project_id: selectedProjectId,
       title: title.trim(),
       description: null,
       status: 'todo',
@@ -240,11 +249,12 @@ export function useTaskSync() {
   };
 
   onMounted(() => {
-    void fetchTasks().then(() => fetchAgentTasks());
+    void loadCredential().then(() => fetchProjects()).then(() => fetchTasks()).then(() => fetchAgentTasks());
   });
 
   return {
     tasks,
+    projects,
     agentTasks,
     activeTask,
     isLoading,
@@ -255,6 +265,7 @@ export function useTaskSync() {
     clearCredential,
     loadCredential,
     fetchTasks,
+    fetchProjects,
     fetchAgentTasks,
     createTask,
     toggleTaskComplete,

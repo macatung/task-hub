@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import type { DesktopCredential, TaskItem } from '../composables/useTaskSync';
+import type { DesktopCredential, ProjectItem, TaskItem } from '../composables/useTaskSync';
 import { mindfulBell } from '../audio/mindfulBellAudio';
 
 const props = defineProps<{
   tasks: TaskItem[];
+  projects: ProjectItem[];
   isOnline: boolean;
   credential: DesktopCredential | null;
 }>();
@@ -13,15 +14,16 @@ const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'start-pomodoro', task: TaskItem): void;
   (e: 'toggle-complete', task: TaskItem): void;
-  (e: 'create-task', title: string, priority: string): void;
+  (e: 'create-task', title: string, priority: string, projectId?: number): void;
 }>();
 
 const newTaskTitle = ref('');
 const selectedPriority = ref('high');
+const selectedProjectId = ref<number | undefined>();
 
 const handleAddTask = () => {
   if (!newTaskTitle.value.trim()) return;
-  emit('create-task', newTaskTitle.value.trim(), selectedPriority.value);
+  emit('create-task', newTaskTitle.value.trim(), selectedPriority.value, selectedProjectId.value || props.projects[0]?.id);
   mindfulBell.ringBell(528, 1.5);
   newTaskTitle.value = '';
 };
@@ -80,6 +82,9 @@ const openWebHub = () => {
 
     <!-- Quick Add Input -->
     <div class="flex gap-1.5 mb-2.5">
+      <select v-if="projects.length" v-model="selectedProjectId" class="w-28 rounded-xl bg-slate-900 border border-slate-800 px-2 py-1.5 text-[10px] text-slate-300 outline-none" aria-label="Project">
+        <option v-for="project in projects" :key="project.id" :value="project.id">{{ project.key || project.title }}</option>
+      </select>
       <input
         v-model="newTaskTitle"
         @keyup.enter="handleAddTask"

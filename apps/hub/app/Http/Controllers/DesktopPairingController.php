@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DesktopPairingSession;
+use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Crypt;
@@ -12,14 +13,14 @@ class DesktopPairingController extends Controller
 {
     public function start(Request $request)
     {
-        $validated = $request->validate(['project_id' => 'required|integer|exists:projects,id']);
+        $validated = $request->validate(['project_id' => 'nullable|integer|exists:projects,id']);
         $pairingId = (string) Str::uuid();
         $verifier = Str::random(64);
         $code = strtoupper(Str::random(4) . '-' . Str::random(4));
         $expiresAt = now()->addMinutes(10);
         DesktopPairingSession::create([
             'pairing_id' => $pairingId,
-            'project_id' => $validated['project_id'],
+            'project_id' => $validated['project_id'] ?? null,
             'verifier_hash' => hash('sha256', $verifier),
             'code_hash' => hash('sha256', $code),
             'expires_at' => $expiresAt,
@@ -38,7 +39,7 @@ class DesktopPairingController extends Controller
 
     public function status(Request $request, string $pairingId)
     {
-        $session = DesktopPairingSession::with(['project.workspace', 'user'])->where('pairing_id', $pairingId)->firstOrFail();
+        $session = DesktopPairingSession::with(['project.workspace', 'workspace', 'user'])->where('pairing_id', $pairingId)->firstOrFail();
         $secret = (string) $request->header('X-Desktop-Pairing-Secret');
         if ($secret === '' || !hash_equals($session->verifier_hash, hash('sha256', $secret))) {
             return response()->json(['success' => false, 'message' => 'Invalid pairing secret.'], 401);
@@ -47,20 +48,23 @@ class DesktopPairingController extends Controller
         if ($session->status !== 'approved') return response()->json(['success' => true, 'status' => $session->status]);
         if ($session->consumed_at) return response()->json(['success' => true, 'status' => 'consumed']);
 
-        $token = app(\App\Services\GithubProjectIntegrationService::class)->secret($session->project->task_hub_mcp_token);
-        if (!$token) return response()->json(['success' => false, 'status' => 'rejected', 'message' => 'Project MCP token is unavailable.'], 422);
-        $session->update(['consumed_at' => now()]);
+        $project = $session->project;
+        if (!$project) return response()->json(['success' => false, 'status' => 'rejected', 'message' => 'No project is linked to this pairing.'], 422);
+        $workspace = $project->workspace;
+        if (!$workspace) return response()->json(['success' => false, 'status' => 'rejected', 'message' => 'Project workspace is unavailable.'], 422);
+        $workspaceToken = Str::random(64);
+        $session->update(['workspace_token_hash' => hash('sha256', $workspaceToken), 'consumed_at' => now()]);
         return response()->json([
             'success' => true,
             'status' => 'approved',
             'project_id' => $session->project_id,
-            'project_title' => $session->project->title,
-            'workspace_id' => $session->project->workspace_id,
-            'workspace_name' => $session->project->workspace?->name,
+            'project_title' => $project->title,
+            'workspace_id' => $workspace->id,
+            'workspace_name' => $workspace->name,
             'user_email' => $session->user?->email,
             'user_name' => $session->user?->name,
             'task_hub_url' => rtrim($request->getSchemeAndHttpHost(), '/'),
-            'mcp_token' => $token,
+            'mcp_token' => $workspaceToken,
         ]);
     }
 
@@ -83,14 +87,18 @@ class DesktopPairingController extends Controller
         $session = DesktopPairingSession::with('project')->where('pairing_id', $pairingId)->firstOrFail();
         if (!hash_equals($session->code_hash, hash('sha256', strtoupper((string) $request->input('code'))))) abort(403);
         if ($session->expires_at->isPast() || $session->status !== 'pending') abort(410);
-        $project = $session->project;
-        if ($project->user_id && $project->user_id !== Auth::id()) abort(403, 'Bạn không có quyền với project này.');
+        $workspaceId = (int) $request->session()->get('current_workspace_id');
+        if (!$workspaceId) $workspaceId = (int) Auth::user()->workspaces()->value('workspaces.id');
+        $workspace = \App\Models\Workspace::whereKey($workspaceId)->firstOrFail();
+        abort_unless(Auth::user()->workspaces()->whereKey($workspace->id)->exists(), 403, 'Bạn không có quyền với workspace này.');
+        $project = $session->project ?: Project::where('workspace_id', $workspace->id)->orderBy('id')->firstOrFail();
+        abort_unless((int) $project->workspace_id === (int) $workspace->id, 403, 'Project không thuộc workspace hiện tại.');
 
         if (!$project->task_hub_mcp_token) {
             $project->task_hub_mcp_token = Crypt::encryptString(Str::random(64));
             $project->save();
         }
-        $session->update(['status' => 'approved', 'user_id' => Auth::id(), 'approved_at' => now()]);
+        $session->update(['status' => 'approved', 'user_id' => Auth::id(), 'workspace_id' => $workspace->id, 'project_id' => $project->id, 'approved_at' => now()]);
         return view('desktop.pairing-approved', ['session' => $session->fresh('project')]);
     }
 

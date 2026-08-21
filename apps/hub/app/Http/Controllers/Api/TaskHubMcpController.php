@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\AgentRun;
+use App\Models\DesktopPairingSession;
 use App\Models\Project;
 use App\Models\Task;
 use App\Services\TaskHubContextPackService;
@@ -149,6 +150,13 @@ class TaskHubMcpController extends ApiAgentRunController
         if ($provided === '') return false;
         $workspaceToken = config('services.mcp.token') ?: env('TASK_HUB_MCP_TOKEN');
         if ($workspaceToken && !app()->environment('production') && hash_equals($workspaceToken, $provided)) return true;
+
+        $desktopSession = DesktopPairingSession::where('workspace_token_hash', hash('sha256', $provided))->where('status', 'approved')->latest('id')->first();
+        if ($desktopSession?->workspace_id) {
+            $candidate = data_get($payload, 'params.arguments.project_id');
+            if ($candidate && (int) Project::whereKey($candidate)->value('workspace_id') !== (int) $desktopSession->workspace_id) return false;
+            return true;
+        }
 
         $args = data_get($payload, 'params.arguments', []);
         $project = null;

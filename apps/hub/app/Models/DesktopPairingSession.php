@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class DesktopPairingSession extends Model
 {
     protected $fillable = [
-        'pairing_id', 'project_id', 'user_id', 'verifier_hash', 'code_hash',
+        'pairing_id', 'project_id', 'workspace_id', 'user_id', 'verifier_hash', 'code_hash', 'workspace_token_hash',
         'status', 'expires_at', 'approved_at', 'consumed_at',
     ];
 
@@ -20,4 +20,5 @@ class DesktopPairingSession extends Model
 
     public function project(): BelongsTo { return $this->belongsTo(Project::class); }
     public function user(): BelongsTo { return $this->belongsTo(User::class); }
+    public function workspace(): BelongsTo { return $this->belongsTo(Workspace::class); }
 }

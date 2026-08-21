@@ -11,7 +11,7 @@ class WorkspaceContext
     public function resolve(Request $request, bool $required = true): ?Workspace
     {
         $routeWorkspace = $request->route('workspace');
-        $id = $routeWorkspace ?: $request->header('X-Workspace-Id') ?: $request->session()->get('current_workspace_id');
+        $id = $routeWorkspace ?: $request->attributes->get('desktop_workspace_id') ?: $request->header('X-Workspace-Id') ?: $request->session()->get('current_workspace_id');
         $workspace = $routeWorkspace instanceof Workspace
             ? $routeWorkspace
             : ($id ? Workspace::find($id) : $this->defaultFor($request->user()));

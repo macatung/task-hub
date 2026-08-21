@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Project;
+use App\Models\DesktopPairingSession;
 use App\Services\GithubProjectIntegrationService;
 use Closure;
 use Illuminate\Http\Request;
@@ -16,9 +17,22 @@ class AuthenticateDesktopProject
         $token = (string) $request->bearerToken();
         $projectId = (string) $request->header('X-Task-Hub-Project');
 
-        if ($token === '' || !ctype_digit($projectId)) {
+        if ($token === '') {
             return response()->json(['success' => false, 'message' => 'Desktop Task Hub authentication is required.'], 401);
         }
+
+        $workspaceSession = DesktopPairingSession::with('workspace')
+            ->where('workspace_token_hash', hash('sha256', $token))
+            ->where('status', 'approved')
+            ->latest('id')
+            ->first();
+        if ($workspaceSession?->workspace) {
+            Auth::onceUsingId($workspaceSession->user_id);
+            $request->attributes->set('desktop_workspace_id', $workspaceSession->workspace_id);
+            $request->attributes->set('desktop_workspace_token', true);
+            return $next($request);
+        }
+        if (!ctype_digit($projectId)) return response()->json(['success' => false, 'message' => 'Desktop Task Hub authentication is required.'], 401);
 
         $project = Project::with('workspace')->find((int) $projectId);
         $secret = $project?->task_hub_mcp_token

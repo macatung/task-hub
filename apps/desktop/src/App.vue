@@ -15,7 +15,7 @@ import { useTaskSync, TaskItem } from './composables/useTaskSync';
 import { sfx } from './audio/soundEffects';
 import { mindfulBell } from './audio/mindfulBellAudio';
 
-const { tasks, agentTasks, activeTask, isOnline, credential, setCredential, clearCredential, createTask, toggleTaskComplete, incrementPomodoro } = useTaskSync();
+const { tasks, projects, agentTasks, activeTask, isOnline, credential, setCredential, clearCredential, createTask, toggleTaskComplete, incrementPomodoro } = useTaskSync();
 const isHovered = ref(false);
 const zenMascotRef = ref<InstanceType<typeof ZenMascotStage> | null>(null);
 const TASK_HUB_URL = (import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev';
@@ -65,7 +65,7 @@ const onMascotMouseDown = (event: MouseEvent) => {
   window.addEventListener('mousemove', onMouseMove); window.addEventListener('mouseup', onMouseUp);
 };
 
-const handleCreateTask = (title: string, priority = 'high') => { createTask(title, priority); sfx.playSuccess(); };
+const handleCreateTask = (title: string, priority = 'high', projectId?: number) => { createTask(title, priority, projectId); sfx.playSuccess(); };
 const handleStartPomodoro = (task: TaskItem) => { activeTask.value = task; openModal('pomodoro'); };
 const handlePomodoroCompleted = (task: TaskItem) => { incrementPomodoro(task); sfx.playSuccess(); };
 const handleTaskHubConnected = async (next: any) => { await setCredential(next); activeModal.value = 'dispatch'; sfx.playSuccess(); };
@@ -97,7 +97,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeyDown));
     <div class="absolute inset-0 z-30 pointer-events-none flex items-end justify-end p-3 sm:p-4 overflow-hidden">
     <div class="w-full max-w-[min(960px,calc(100vw-1rem))] max-h-[calc(100vh-1rem)] mr-0 sm:mr-3 mb-0 sm:mb-2 overflow-hidden" :class="activeModal ? 'pointer-events-auto' : 'pointer-events-none'">
       <CommandPaletteModal v-if="activeModal === 'palette'" @close="activeModal = null" @create-task="handleCreateTask" @start-pomodoro="openModal('pomodoro')" @open-duck="openModal('duck')" @open-notes="openModal('notes')" @open-dispatch="openModal('dispatch')" @open-review="openModal('review')" @check-updates="checkForUpdates" @install-update="installUpdate" />
-      <TaskDispatchModal v-if="activeModal === 'dispatch'" :tasks="tasks" :is-online="isOnline" :credential="credential" @close="activeModal = null" @start-pomodoro="handleStartPomodoro" @toggle-complete="toggleTaskComplete" @create-task="handleCreateTask" />
+      <TaskDispatchModal v-if="activeModal === 'dispatch'" :tasks="tasks" :projects="projects" :is-online="isOnline" :credential="credential" @close="activeModal = null" @start-pomodoro="handleStartPomodoro" @toggle-complete="toggleTaskComplete" @create-task="handleCreateTask" />
       <AgentConsoleModal v-if="activeModal === 'agent'" :tasks="agentTasks" :initial-task="activeTask" @close="activeModal = null" />
       <TaskHubSetupModal v-if="activeModal === 'taskhub'" :credential="credential" @close="activeModal = null" @connected="handleTaskHubConnected" @disconnect="handleTaskHubDisconnect" />
       <PomodoroTimer v-if="activeModal === 'pomodoro'" :active-task="activeTask" @pomodoro-completed="handlePomodoroCompleted" @close="activeModal = null" />
