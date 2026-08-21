@@ -18,6 +18,13 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->trustProxies(at: '*');
 
+        // API routes are consumed by the desktop client and authenticate with
+        // bearer/device credentials, not the browser session CSRF cookie.
+        $middleware->validateCsrfTokens(except: [
+            'api/*',
+            'api/v1/*',
+        ]);
+
         $middleware->web(append: [
             HandleInertiaRequests::class,
             TrackVisitorAnalytics::class,
