@@ -36,7 +36,7 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         return array_merge(parent::share($request), [
-            'appName' => config('app.name', 'Macatung Portfolio'),
+            'appName' => config('app.name', 'Task Hub'),
             'flash' => [
                 'success' => fn () => $request->session()->get('flash.success') ?? $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('flash.error') ?? $request->session()->get('error'),

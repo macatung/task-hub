@@ -12,7 +12,7 @@ class GithubAuthController extends Controller
 {
     public function redirect(Request $request, GithubOAuthService $oauth): RedirectResponse
     {
-        if (!env('GITHUB_CLIENT_ID') || !env('GITHUB_CLIENT_SECRET')) {
+        if (!$oauth->clientId() || !$oauth->clientSecret()) {
             return redirect()->to($this->taskHubUrl($request))->with('error', 'GitHub OAuth chưa được cấu hình trong môi trường.');
         }
         $state = Str::random(64);

@@ -54,7 +54,7 @@ class ApiAgentRunController extends Controller
                 'task_id' => $task?->id,
                 'provider' => $validated['provider'],
                 'agent_session_id' => $validated['agent_session_id'] ?? (string) Str::uuid(),
-                'repository' => $validated['repository'] ?? ($context['repository'] ?? env('TASK_HUB_REPOSITORY')),
+                'repository' => $validated['repository'] ?? ($context['repository'] ?? (config('services.task_hub.repository') ?: env('TASK_HUB_REPOSITORY'))),
                 'branch' => $validated['branch'] ?? ($context['branch'] ?? null),
                 'status' => 'queued',
                 'run_type' => $validated['run_type'] ?? 'implementation',
@@ -204,7 +204,7 @@ class ApiAgentRunController extends Controller
         $signature = $request->header('X-Hub-Signature-256');
         $repository = data_get($request->all(), 'repository.full_name');
         $project = $repository ? Project::where('github_repository', $repository)->first() : null;
-        $secret = $project?->github_webhook_secret ? app(\App\Services\GithubProjectIntegrationService::class)->secret($project->github_webhook_secret) : env('TASK_HUB_GITHUB_WEBHOOK_SECRET');
+        $secret = $project?->github_webhook_secret ? app(\App\Services\GithubProjectIntegrationService::class)->secret($project->github_webhook_secret) : (config('services.webhook.secret') ?: env('TASK_HUB_GITHUB_WEBHOOK_SECRET'));
         if (app()->environment('production') && !$secret) {
             return response()->json(['success' => false, 'message' => 'GitHub webhook secret is not configured.'], 503);
         }

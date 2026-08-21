@@ -35,7 +35,7 @@ class TaskHubContextPackService
                     'last_sync_at' => $project->github_last_sync_at?->toIso8601String(),
                 ] : null,
             ] : null,
-            'repository' => $options['repository'] ?? $project?->github_repository ?? env('TASK_HUB_REPOSITORY'),
+            'repository' => $options['repository'] ?? $project?->github_repository ?? (config('services.task_hub.repository') ?: env('TASK_HUB_REPOSITORY')),
             'branch' => $options['branch'] ?? $project?->github_default_branch,
             'test_commands' => $options['test_commands'] ?? ['npm test', 'npm run build'],
             'security_constraints' => $options['security_constraints'] ?? [

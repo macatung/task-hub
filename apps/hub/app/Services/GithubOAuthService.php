@@ -11,10 +11,20 @@ class GithubOAuthService
 {
     public const SCOPES = 'read:user user:email repo';
 
+    public function clientId(): ?string
+    {
+        return config('services.github.client_id') ?: env('GITHUB_CLIENT_ID') ?: getenv('GITHUB_CLIENT_ID') ?: ($_ENV['GITHUB_CLIENT_ID'] ?? null);
+    }
+
+    public function clientSecret(): ?string
+    {
+        return config('services.github.client_secret') ?: env('GITHUB_CLIENT_SECRET') ?: getenv('GITHUB_CLIENT_SECRET') ?: ($_ENV['GITHUB_CLIENT_SECRET'] ?? null);
+    }
+
     public function authorizationUrl(string $state, ?string $redirectUri = null): string
     {
         return 'https://github.com/login/oauth/authorize?' . http_build_query([
-            'client_id' => env('GITHUB_CLIENT_ID'),
+            'client_id' => $this->clientId(),
             'redirect_uri' => $redirectUri ?: $this->redirectUri(),
             'scope' => self::SCOPES,
             'state' => $state,
@@ -24,8 +34,8 @@ class GithubOAuthService
 
     public function authenticate(string $code, ?string $redirectUri = null): User
     {
-        $clientId = env('GITHUB_CLIENT_ID');
-        $clientSecret = env('GITHUB_CLIENT_SECRET');
+        $clientId = $this->clientId();
+        $clientSecret = $this->clientSecret();
         if (!$clientId || !$clientSecret) throw new \RuntimeException('GitHub OAuth chưa được cấu hình.');
 
         $tokenResponse = Http::asForm()->acceptJson()->timeout(10)->post('https://github.com/login/oauth/access_token', [
@@ -63,6 +73,16 @@ class GithubOAuthService
 
     public function redirectUri(): string
     {
-        return env('GITHUB_REDIRECT_URI', rtrim(env('APP_URL', 'http://localhost:8000'), '/') . '/auth/github/callback');
+        $configured = config('services.github.redirect') ?: env('GITHUB_REDIRECT_URI') ?: getenv('GITHUB_REDIRECT_URI') ?: ($_ENV['GITHUB_REDIRECT_URI'] ?? null);
+        if ($configured) {
+            return $configured;
+        }
+
+        $appUrl = config('app.url') ?: env('APP_URL') ?: getenv('APP_URL') ?: ($_ENV['APP_URL'] ?? null);
+        if ($appUrl) {
+            return rtrim($appUrl, '/') . '/auth/github/callback';
+        }
+
+        return url('/auth/github/callback');
     }
 }

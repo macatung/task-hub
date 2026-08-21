@@ -149,7 +149,7 @@ class TaskHubMcpController extends ApiAgentRunController
     {
         $provided = (string) $request->bearerToken();
         if ($provided === '') return false;
-        $workspaceToken = env('TASK_HUB_MCP_TOKEN');
+        $workspaceToken = config('services.mcp.token') ?: env('TASK_HUB_MCP_TOKEN');
         if ($workspaceToken && hash_equals($workspaceToken, $provided)) return true;
 
         $args = data_get($payload, 'params.arguments', []);
