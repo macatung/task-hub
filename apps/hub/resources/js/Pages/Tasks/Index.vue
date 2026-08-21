@@ -2085,6 +2085,7 @@ onUnmounted(() => {
             <span class="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 truncate max-w-[140px]">
               🏃 {{ activeSprint.name }}
             </span>
+          </template>
           
     <!-- PROJECT DOCUMENTS MODAL -->
     <div
@@ -2157,7 +2158,6 @@ onUnmounted(() => {
         />
       </div>
     </div>
-</template>
         </div>
       </div>
 
