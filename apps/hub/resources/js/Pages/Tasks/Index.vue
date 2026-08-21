@@ -179,6 +179,8 @@ const selectedProjectId = ref<string | number>(props.selectedProjectId || 'all')
 const currentView = ref<'board' | 'backlog' | 'roadmap'>('board');
 const activeProjectMenuId = ref<number | null>(null);
 const isAiMenuOpen = ref(false);
+const isNotificationsOpen = ref(false);
+const readNotificationIds = ref<string[]>([]);
 const isDocsModalOpen = ref(false);
 const isReleasesModalOpen = ref(false);
 // Collapsed Sprints in Backlog View
@@ -981,6 +983,58 @@ const activeProjectObject = computed(() => {
 });
 
 const hasSelectedProject = computed(() => Boolean(activeProjectObject.value));
+
+const notificationItems = computed(() => {
+  const items: Array<{ id: string; tone: 'warning' | 'info' | 'success'; title: string; detail: string; task?: TaskItem }> = [];
+  activeProjectTasks.value
+    .filter(task => task.status !== 'done' && (getTaskDelayStatus(task).isOverdue || getTaskDelayStatus(task).isDelayed))
+    .sort((a, b) => Number(getTaskDelayStatus(b).isOverdue) - Number(getTaskDelayStatus(a).isOverdue))
+    .slice(0, 6)
+    .forEach(task => {
+      const delay = getTaskDelayStatus(task);
+      items.push({
+        id: `risk-${task.id}`,
+        tone: 'warning',
+        title: delay.isOverdue ? `${task.issue_key} is overdue` : `${task.issue_key} needs attention`,
+        detail: task.title,
+        task,
+      });
+    });
+
+  if (activeSprint.value) {
+    items.push({
+      id: `sprint-${activeSprint.value.id}`,
+      tone: 'info',
+      title: `${activeSprint.value.name} is active`,
+      detail: activeSprint.value.end_date ? `Sprint ends ${activeSprint.value.end_date}.` : 'Keep the current sprint moving.',
+    });
+  }
+
+  completedRecentlyTasks.value.slice(0, 2).forEach(task => {
+    items.push({ id: `done-${task.id}`, tone: 'success', title: `${task.issue_key} completed`, detail: task.title, task });
+  });
+
+  return items;
+});
+
+const unreadNotificationCount = computed(() => notificationItems.value.filter(item => !readNotificationIds.value.includes(item.id)).length);
+
+const toggleNotifications = () => {
+  isNotificationsOpen.value = !isNotificationsOpen.value;
+  isAiMenuOpen.value = false;
+  sound.playClick();
+};
+
+const markAllNotificationsRead = () => {
+  readNotificationIds.value = notificationItems.value.map(item => item.id);
+  sound.playClick();
+};
+
+const openNotification = (item: { id: string; task?: TaskItem }) => {
+  if (!readNotificationIds.value.includes(item.id)) readNotificationIds.value.push(item.id);
+  if (item.task) openTaskDrawer(item.task);
+  isNotificationsOpen.value = false;
+};
 
 const activeProjectTasks = computed(() => {
   if (selectedProjectId.value === 'all') return taskList.value;
@@ -2222,6 +2276,24 @@ onUnmounted(() => {
           <span>Reports</span>
         </button>
 
+        <!-- Notifications -->
+        <button
+          @click.stop="toggleNotifications"
+          :class="[
+            'relative p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs',
+            isNotificationsOpen
+              ? (isDarkMode ? 'bg-blue-600 border-blue-500 text-white' : 'bg-blue-50 border-blue-300 text-blue-800')
+              : (isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50')
+          ]"
+          title="Open notifications"
+          aria-label="Open notifications"
+        >
+          <span>🔔</span>
+          <span v-if="unreadNotificationCount" class="absolute -right-1 -top-1 min-w-4 h-4 px-1 rounded-full bg-blue-600 text-white text-[9px] leading-4 font-black border-2 border-[#070b14]">
+            {{ unreadNotificationCount > 9 ? '9+' : unreadNotificationCount }}
+          </span>
+        </button>
+
         <!-- Light / Dark Toggle Button -->
         <button
           @click="toggleTheme"
@@ -2689,7 +2761,7 @@ onUnmounted(() => {
         <!-- PERSONAL DAILY COMMAND CENTER                                         -->
         <!-- ===================================================================== -->
         <section
-          v-if="!hasSelectedProject"
+          v-if="!hasSelectedProject && projectList.length === 0"
           :class="['p-4 sm:p-6 pb-0', isDarkMode ? 'bg-[#070b14]' : 'bg-[#f8fafc]']"
         >
           <div
@@ -2730,7 +2802,7 @@ onUnmounted(() => {
             </button>
           </div>
         </section>
-        <section :class="['p-4 sm:p-6 border-b', isDarkMode ? 'bg-indigo-950/20 border-slate-800' : 'bg-indigo-50/50 border-slate-200']">
+        <section v-if="hasSelectedProject" :class="['p-4 sm:p-6 border-b', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
           <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
             <div>
               <p :class="['text-[10px] font-mono font-bold uppercase tracking-widest', isDarkMode ? 'text-indigo-300' : 'text-indigo-700']">Personal Command Center</p>
@@ -3408,6 +3480,77 @@ onUnmounted(() => {
         </div>
         </div>
       </main>
+    </div>
+
+    <!-- NOTIFICATION DRAWER -->
+    <div
+      v-if="isNotificationsOpen"
+      class="fixed inset-0 z-[55] bg-slate-950/30"
+      @click="isNotificationsOpen = false"
+    >
+      <aside
+        :class="[
+          'absolute right-0 top-0 h-full w-full max-w-sm border-l flex flex-col shadow-2xl animate-slideInRight',
+          isDarkMode ? 'bg-[#0b101e] border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+        ]"
+        @click.stop
+      >
+        <div :class="['px-5 py-4 border-b flex items-center justify-between shrink-0', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+          <div>
+            <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-blue-500">Workspace inbox</p>
+            <h2 class="mt-1 text-lg font-bold tracking-tight">Notifications</h2>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              v-if="unreadNotificationCount"
+              @click="markAllNotificationsRead"
+              class="rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-blue-600 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/50 cursor-pointer"
+            >
+              Mark all read
+            </button>
+            <button
+              @click="isNotificationsOpen = false"
+              class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white cursor-pointer"
+              aria-label="Close notifications"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <div v-if="notificationItems.length" class="flex-1 overflow-y-auto p-3 space-y-1.5 custom-scrollbar">
+          <button
+            v-for="item in notificationItems"
+            :key="item.id"
+            @click="openNotification(item)"
+            :class="[
+              'w-full flex items-start gap-3 rounded-xl border p-3 text-left transition-colors cursor-pointer',
+              readNotificationIds.includes(item.id)
+                ? (isDarkMode ? 'border-slate-800 bg-slate-950/40 hover:bg-slate-900' : 'border-slate-200 bg-white hover:bg-slate-50')
+                : (isDarkMode ? 'border-blue-900/70 bg-blue-950/20 hover:bg-blue-950/40' : 'border-blue-200 bg-blue-50/60 hover:bg-blue-50')
+            ]"
+          >
+            <span
+              :class="[
+                'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-xs font-bold',
+                item.tone === 'warning' ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300' : item.tone === 'success' ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300' : 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-300'
+              ]"
+            >
+              {{ item.tone === 'warning' ? '!' : item.tone === 'success' ? '✓' : 'i' }}
+            </span>
+            <span class="min-w-0 flex-1">
+              <span :class="['block text-xs font-bold', isDarkMode ? 'text-slate-100' : 'text-slate-900']">{{ item.title }}</span>
+              <span class="mt-1 block text-[11px] leading-4 text-slate-500">{{ item.detail }}</span>
+            </span>
+            <span v-if="!readNotificationIds.includes(item.id)" class="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-500"></span>
+          </button>
+        </div>
+        <div v-else class="flex flex-1 flex-col items-center justify-center px-8 text-center">
+          <div class="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-xl text-slate-400 dark:border-slate-800 dark:bg-slate-950">✓</div>
+          <h3 class="mt-3 text-sm font-bold">You’re all caught up</h3>
+          <p class="mt-1 text-xs leading-5 text-slate-500">No task risks or workspace updates need your attention.</p>
+        </div>
+      </aside>
     </div>
 
     <!-- ========================================================================= -->
@@ -4931,6 +5074,32 @@ onUnmounted(() => {
 
 .tasks-page [class*="bg-gradient"] {
   background-color: var(--tasks-accent) !important;
+}
+
+/* Keep the workspace calm: blue is the primary action color, while the
+   remaining utility accents stay available only for compact status markers. */
+.tasks-page [class*="bg-purple-"],
+.tasks-page [class*="bg-indigo-"],
+.tasks-page [class*="bg-cyan-"],
+.tasks-page [class*="bg-amber-"],
+.tasks-page [class*="bg-emerald-"] {
+  background-color: var(--tasks-surface) !important;
+  border-color: var(--tasks-border) !important;
+}
+
+.tasks-page.dark [class*="bg-purple-"],
+.tasks-page.dark [class*="bg-indigo-"],
+.tasks-page.dark [class*="bg-cyan-"],
+.tasks-page.dark [class*="bg-amber-"],
+.tasks-page.dark [class*="bg-emerald-"] {
+  background-color: var(--tasks-surface) !important;
+  border-color: var(--tasks-border) !important;
+}
+
+.tasks-page [class*="text-purple-"],
+.tasks-page [class*="text-indigo-"],
+.tasks-page [class*="text-cyan-"] {
+  color: var(--tasks-muted) !important;
 }
 
 .tasks-page [class*="animate-pulse"],
