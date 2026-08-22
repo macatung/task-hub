@@ -9,6 +9,34 @@
   -webkit-app-region: no-drag;
 }
 
+/* Frameless IDE windows still need familiar desktop affordances. */
+.drag-region button,
+.drag-region input,
+.drag-region select,
+.drag-region textarea {
+  -webkit-app-region: no-drag;
+}
+
+.window-resize-grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 45%, rgba(148, 163, 184, 0.7) 46%, rgba(148, 163, 184, 0.7) 52%, transparent 53%);
+  border: 0;
+  opacity: 0.8;
+}
+
+.window-resize-grip:hover,
+.window-resize-grip:focus-visible {
+  opacity: 1;
+  outline: 1px solid rgba(56, 189, 248, 0.9);
+  outline-offset: -2px;
+}
+
 /* Sleek Dark Scrollbar for all modals and lists */
 ::-webkit-scrollbar {
   width: 5px;

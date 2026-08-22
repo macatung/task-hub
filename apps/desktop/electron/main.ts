@@ -855,14 +855,16 @@ function applyAppMode(mode: AppMode) {
   if (!win) return currentMode;
 
   const primaryDisplay = screen.getPrimaryDisplay();
-  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+  const { x: workAreaX, y: workAreaY, width: screenWidth, height: screenHeight } = primaryDisplay.workArea;
 
   if (mode === 'ide') {
     const ideWidth = Math.min(1360, Math.max(1024, screenWidth - 100));
     const ideHeight = Math.min(880, Math.max(700, screenHeight - 60));
-    const x = Math.max(0, Math.round((screenWidth - ideWidth) / 2));
-    const y = Math.max(0, Math.round((screenHeight - ideHeight) / 2));
+    const x = workAreaX + Math.max(0, Math.round((screenWidth - ideWidth) / 2));
+    const y = workAreaY + Math.max(0, Math.round((screenHeight - ideHeight) / 2));
 
+    // IDE is a normal desktop application: it must not obscure other windows or the taskbar.
+    win.setFullScreen(false);
     win.setAlwaysOnTop(false);
     win.setMinimumSize(960, 600);
     win.setBounds({ x, y, width: ideWidth, height: ideHeight });
@@ -871,10 +873,12 @@ function applyAppMode(mode: AppMode) {
   } else {
     const mascotWidth = 640;
     const mascotHeight = 520;
-    const x = Math.max(0, screenWidth - mascotWidth - 20);
-    const y = Math.max(0, screenHeight - mascotHeight - 20);
+    const x = workAreaX + Math.max(0, screenWidth - mascotWidth - 20);
+    const y = workAreaY + Math.max(0, screenHeight - mascotHeight - 20);
 
-    win.setAlwaysOnTop(true);
+    // Keep the companion available without forcing it above the user's active apps.
+    win.setFullScreen(false);
+    win.setAlwaysOnTop(false);
     win.setMinimumSize(320, 240);
     win.setBounds({ x, y, width: mascotWidth, height: mascotHeight });
     win.show();
@@ -887,15 +891,19 @@ function applyAppMode(mode: AppMode) {
 function createWindow() {
   currentMode = readSavedAppMode();
   const primaryDisplay = screen.getPrimaryDisplay();
-  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+  const { x: workAreaX, y: workAreaY, width: screenWidth, height: screenHeight } = primaryDisplay.workArea;
   const appIcon = getIconImage();
   const preloadFile = getPreloadPath();
 
   const isIde = currentMode === 'ide';
   const initialWidth = isIde ? Math.min(1360, Math.max(1024, screenWidth - 100)) : DEFAULT_WIDTH;
   const initialHeight = isIde ? Math.min(880, Math.max(700, screenHeight - 60)) : DEFAULT_HEIGHT;
-  const initialX = isIde ? Math.max(0, Math.round((screenWidth - initialWidth) / 2)) : screenWidth - DEFAULT_WIDTH - 20;
-  const initialY = isIde ? Math.max(0, Math.round((screenHeight - initialHeight) / 2)) : screenHeight - DEFAULT_HEIGHT - 20;
+  const initialX = isIde
+    ? workAreaX + Math.max(0, Math.round((screenWidth - initialWidth) / 2))
+    : workAreaX + Math.max(0, screenWidth - DEFAULT_WIDTH - 20);
+  const initialY = isIde
+    ? workAreaY + Math.max(0, Math.round((screenHeight - initialHeight) / 2))
+    : workAreaY + Math.max(0, screenHeight - DEFAULT_HEIGHT - 20);
 
   win = new BrowserWindow({
     width: initialWidth,
@@ -906,7 +914,8 @@ function createWindow() {
     minHeight: isIde ? 600 : 240,
     transparent: !isIde,
     frame: false,
-    alwaysOnTop: !isIde,
+    // Never make the normal IDE or the companion permanently cover other apps.
+    alwaysOnTop: false,
     hasShadow: true,
     resizable: true,
     skipTaskbar: false,
@@ -921,6 +930,7 @@ function createWindow() {
   });
 
   win.setAspectRatio(0);
+  win.setFullScreen(false);
 
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL);
@@ -977,15 +987,19 @@ function createWindow() {
 
   ipcMain.on('window-resize', (_event, { width, height }: { width: number; height: number }) => {
     if (win) {
-      const [currentX, currentY] = win.getPosition();
-      const [currentW, currentH] = win.getSize();
-      const newX = currentX - (width - currentW);
-      const newY = currentY - (height - currentH);
+      const bounds = win.getBounds();
+      const display = screen.getDisplayMatching(bounds);
+      const workArea = display.workArea;
+      const [minWidth, minHeight] = win.getMinimumSize();
+      const nextWidth = Math.min(Math.max(Math.round(width), minWidth), workArea.width);
+      const nextHeight = Math.min(Math.max(Math.round(height), minHeight), workArea.height);
+      const maxX = workArea.x + workArea.width - nextWidth;
+      const maxY = workArea.y + workArea.height - nextHeight;
       win.setBounds({
-        x: Math.max(0, newX),
-        y: Math.max(0, newY),
-        width,
-        height,
+        x: Math.min(Math.max(bounds.x, workArea.x), maxX),
+        y: Math.min(Math.max(bounds.y, workArea.y), maxY),
+        width: nextWidth,
+        height: nextHeight,
       });
     }
   });
@@ -1010,8 +1024,12 @@ function createWindow() {
   ipcMain.handle('agent-remove-workspace', (_event, cwd: string) => writeSavedAgentWorkspaces(readSavedAgentWorkspaces().filter((item) => item !== path.resolve(cwd || ''))));
 
   ipcMain.handle('window-toggle-fullscreen', (_event, fullscreen: boolean) => {
-    win?.setFullScreen(Boolean(fullscreen));
-    return Boolean(fullscreen);
+    // A full-screen Electron window hides the Windows taskbar. Use standard
+    // maximize/restore instead so the app remains a well-behaved desktop window.
+    if (!win) return false;
+    if (fullscreen) win.maximize();
+    else win.unmaximize();
+    return win.isMaximized();
   });
 
   ipcMain.handle('agent-read-generated-documents', (_event, worktree: string) => {

@@ -413,6 +413,49 @@ const handleMinimizeWindow = () => {
   (window as any).desktopApi?.minimize?.();
 };
 
+let resizeStartX = 0;
+let resizeStartY = 0;
+let resizeStartWidth = 0;
+let resizeStartHeight = 0;
+let pendingResize: { width: number; height: number } | null = null;
+let resizeAnimationFrame: number | null = null;
+
+const flushWindowResize = () => {
+  resizeAnimationFrame = null;
+  if (!pendingResize) return;
+  (window as any).desktopApi?.resizeWindow?.(pendingResize.width, pendingResize.height);
+  pendingResize = null;
+};
+
+const stopWindowResize = () => {
+  document.removeEventListener('pointermove', resizeWindowFromPointer);
+  document.removeEventListener('pointerup', stopWindowResize);
+  if (resizeAnimationFrame !== null) {
+    cancelAnimationFrame(resizeAnimationFrame);
+    resizeAnimationFrame = null;
+  }
+  flushWindowResize();
+};
+
+const resizeWindowFromPointer = (event: PointerEvent) => {
+  pendingResize = {
+    width: Math.max(960, resizeStartWidth + event.screenX - resizeStartX),
+    height: Math.max(600, resizeStartHeight + event.screenY - resizeStartY),
+  };
+  if (resizeAnimationFrame === null) resizeAnimationFrame = requestAnimationFrame(flushWindowResize);
+};
+
+const startWindowResize = (event: PointerEvent) => {
+  if (isFullscreen.value || event.button !== 0) return;
+  event.preventDefault();
+  resizeStartX = event.screenX;
+  resizeStartY = event.screenY;
+  resizeStartWidth = window.innerWidth;
+  resizeStartHeight = window.innerHeight;
+  document.addEventListener('pointermove', resizeWindowFromPointer);
+  document.addEventListener('pointerup', stopWindowResize, { once: true });
+};
+
 const syncAvailableModels = async (forceRefresh = false) => {
   if (isSyncingModels.value) return;
   isSyncingModels.value = true;
@@ -1992,6 +2035,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  stopWindowResize();
   saveWorkspaceState();
   stopPolling();
   stopDurationTimer();
@@ -2004,7 +2048,7 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="agent-workspace no-drag min-w-0 w-full flex flex-col overflow-hidden font-sans select-none"
+    class="agent-workspace no-drag relative min-w-0 w-full flex flex-col overflow-hidden font-sans select-none"
     :class="[
       isStandalone || isFullscreen
         ? 'w-full h-full max-w-none max-h-none rounded-none border-0'
@@ -2013,7 +2057,7 @@ onUnmounted(() => {
     @mousedown.stop
   >
     <!-- 1. VS CODE WORKBENCH TITLE BAR -->
-    <header class="h-9 px-3 bg-[#1e1e1e] border-b border-[#2d2d2d] flex items-center justify-between text-xs shrink-0 select-none text-zinc-300">
+    <header class="drag-region h-9 px-3 bg-[#1e1e1e] border-b border-[#2d2d2d] flex items-center justify-between text-xs shrink-0 select-none text-zinc-300">
       <!-- Left: Logo & VS Code Menu -->
       <div class="flex items-center gap-3 min-w-0">
         <div class="flex items-center gap-1.5 text-cyan-400 font-bold font-mono">
@@ -2086,7 +2130,7 @@ onUnmounted(() => {
 
         <button
           class="w-7 h-6 rounded hover:bg-[#333333] text-zinc-400 hover:text-white grid place-items-center transition-colors cursor-pointer text-xs"
-          :title="isFullscreen ? 'Thu nhỏ' : 'Toàn màn hình'"
+          :title="isFullscreen ? 'Khôi phục kích thước cửa sổ' : 'Phóng to trong vùng làm việc'"
           @click="toggleFullscreen"
         >
           <i class="codicon" :class="isFullscreen ? 'codicon-screen-normal' : 'codicon-screen-full'" />
@@ -2101,6 +2145,14 @@ onUnmounted(() => {
         </button>
       </div>
     </header>
+
+    <button
+      class="window-resize-grip no-drag"
+      type="button"
+      aria-label="Đổi kích thước cửa sổ"
+      title="Kéo để đổi kích thước"
+      @pointerdown.stop="startWindowResize"
+    />
 
     <!-- MAIN BODY: VS CODE SHELL (ACTIVITY BAR + SIDEBAR + EDITOR) -->
     <div class="flex min-h-0 flex-1 overflow-hidden">
