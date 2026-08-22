@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-import type { TaskItem } from '../composables/useTaskSync';
+import type { ProjectItem, TaskItem } from '../composables/useTaskSync';
 import MacatungIcon from './MacatungIcon.vue';
 import MonacoEditorView from './MonacoEditorView.vue';
 import AntigravitySkillsModal from './AntigravitySkillsModal.vue';
@@ -17,6 +17,7 @@ declare global {
 const props = withDefaults(
   defineProps<{
     tasks: TaskItem[];
+    projects?: ProjectItem[];
     initialTask?: TaskItem | null;
     isConnected?: boolean;
     desktopCredential?: { taskHubUrl: string; token: string; projectId: string } | null;
@@ -127,6 +128,10 @@ const taskSearch = ref('');
 const setupState = ref<any>(null);
 const setupBusy = ref(false);
 const docsOnly = ref(false);
+type WorkflowMode = 'task' | 'docs';
+const workflowMode = ref<WorkflowMode>('task');
+const docsProjectId = ref<number | null>(null);
+const showAdvancedTools = ref(false);
 
 const taskHubUrl = ref(localStorage.getItem('task_hub_base_url') || 'https://task-hub.macatung.dev');
 const credential = ref<{ token: string; projectId: string } | null>(null);
@@ -168,10 +173,11 @@ const timeline = ref<Array<{ id: string; label: string; detail: string; tone: 'o
 
 // Collapsible sidebar sections
 const collapsed = ref({
-  workspace: false,
-  tasks: false,
-  docs: false,
-  timeline: false,
+  model: true,
+  workspace: true,
+  tasks: true,
+  docs: true,
+  timeline: true,
 });
 
 // Running Timer State
@@ -198,6 +204,34 @@ let removeExit: (() => void) | undefined;
 const STORAGE_KEY = 'task_companion_agent_workspace_state_v2';
 
 const selectedTask = computed(() => props.tasks.find((task) => task.id === taskId.value) || null);
+const selectedDocsProject = computed(() => props.projects?.find((project) => project.id === docsProjectId.value) || null);
+
+watch(
+  () => props.projects,
+  (projects) => {
+    if (!docsProjectId.value && projects?.length) {
+      docsProjectId.value = props.desktopCredential?.projectId !== 'all'
+        ? Number(props.desktopCredential?.projectId)
+        : projects[0].id;
+    }
+  },
+  { immediate: true }
+);
+
+const selectWorkflowMode = (mode: WorkflowMode) => {
+  workflowMode.value = mode;
+  docsOnly.value = mode === 'docs';
+  errorMessage.value = '';
+  activeEditorTab.value = 'terminal';
+  showAdvancedTools.value = false;
+  if (mode === 'docs') {
+    docsProjectId.value ||= selectedTask.value?.project_id || (props.desktopCredential?.projectId !== 'all' ? Number(props.desktopCredential?.projectId) : null) || props.projects?.[0]?.id || null;
+    collapsed.value.workspace = false;
+    collapsed.value.docs = false;
+  } else {
+    collapsed.value.tasks = false;
+  }
+};
 
 const activeModel = computed<string>(() => {
   if (isCustomModel.value[provider.value] && customModelInput.value[provider.value]?.trim()) {
@@ -1523,7 +1557,12 @@ const runPreflight = async () => {
 
 const startDocsGeneration = async () => {
   errorMessage.value = '';
+  workflowMode.value = 'docs';
   docsOnly.value = true;
+  if (!docsProjectId.value) {
+    errorMessage.value = 'Chọn Repo/Project trên Task Hub trước khi quét và đồng bộ tài liệu.';
+    return;
+  }
   if (!sourceWorkspace.value) await chooseWorkspace();
   if (!sourceWorkspace.value) {
     docsOnly.value = false;
@@ -1744,13 +1783,12 @@ const syncGeneratedDocs = async () => {
     addTimeline('Docs sync info', 'Chưa kết nối Task Hub SaaS. Hãy dùng tùy chọn lưu vào Workspace.', 'muted');
     return;
   }
-  // A desktop-wide pairing deliberately uses projectId = "all" so it can load
-  // tasks across projects. Document import, however, is scoped to exactly one
-  // project. The selected task is mandatory before a docs run and is the
-  // authoritative project context for this import.
-  const projectId = selectedTask.value?.project_id;
+  // Documentation is owned by a repository/project, not by an individual
+  // task. A desktop-wide pairing uses projectId = "all", so this explicit
+  // project choice is required for the project-scoped import endpoint.
+  const projectId = docsProjectId.value;
   if (!projectId) {
-    errorMessage.value = 'Đồng bộ tài liệu cần một task thuộc project cụ thể. Hãy chọn task rồi tạo lại bộ docs.';
+    errorMessage.value = 'Chọn Repo/Project trước khi đồng bộ tài liệu.';
     addTimeline('Docs sync info', errorMessage.value, 'muted');
     return;
   }
@@ -1768,7 +1806,7 @@ const syncGeneratedDocs = async () => {
     if (raw.includes('404')) {
       errorMessage.value = `Máy chủ Task Hub (${props.desktopCredential.taskHubUrl}) chưa có endpoint đồng bộ docs. Hãy bấm "Lưu vào Workspace chính" để đưa tài liệu vào repo.`;
     } else if (raw.includes('500') && props.desktopCredential.projectId === 'all') {
-      errorMessage.value = 'Task Hub không thể xác định project cho bộ docs. Hãy thử lại từ một task cụ thể; ứng dụng đã dùng project của task cho các lần đồng bộ mới.';
+      errorMessage.value = 'Task Hub không thể xác định Repo/Project cho bộ docs. Chọn Repo/Project rồi thử lại.';
     } else {
       errorMessage.value = raw;
     }
@@ -2362,6 +2400,28 @@ onUnmounted(() => {
 
         <!-- DEFAULT AGENT WORKSPACE CONTROLS -->
         <template v-else>
+        <!-- FOCUSED WORKFLOW SWITCHER: one primary job per screen -->
+        <div class="rounded border border-[#333333] bg-[#1e1e1e] p-2 shrink-0">
+          <div class="grid grid-cols-2 gap-1.5">
+            <button
+              class="rounded px-3 py-2 text-left transition-colors cursor-pointer border"
+              :class="workflowMode === 'task' ? 'bg-[#0e639c]/25 border-[#007acc] text-white' : 'bg-[#252526] border-[#333333] text-zinc-400 hover:text-zinc-200'"
+              @click="selectWorkflowMode('task')"
+            >
+              <span class="block text-xs font-semibold">Thực thi Task</span>
+              <span class="block mt-0.5 text-[10px] opacity-75">Chọn task → Agent → Handoff</span>
+            </button>
+            <button
+              class="rounded px-3 py-2 text-left transition-colors cursor-pointer border"
+              :class="workflowMode === 'docs' ? 'bg-emerald-950/50 border-emerald-700 text-emerald-100' : 'bg-[#252526] border-[#333333] text-zinc-400 hover:text-zinc-200'"
+              @click="selectWorkflowMode('docs')"
+            >
+              <span class="block text-xs font-semibold">Tài liệu Repo</span>
+              <span class="block mt-0.5 text-[10px] opacity-75">Chọn repo → Quét → Đồng bộ</span>
+            </button>
+          </div>
+        </div>
+
         <!-- 1. PROVIDER SELECTOR -->
         <div class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 shrink-0">
           <label class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">AI Execution Provider</label>
@@ -2409,7 +2469,10 @@ onUnmounted(() => {
         <div class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 flex flex-col gap-2 shrink-0">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-1.5">
-              <label class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Model</label>
+              <button class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1 cursor-pointer" @click="collapsed.model = !collapsed.model">
+                <i class="codicon text-xs" :class="collapsed.model ? 'codicon-chevron-right' : 'codicon-chevron-down'" />
+                Model
+              </button>
               <span class="text-[9px] font-mono text-zinc-500">({{ filteredProviderModels.length }})</span>
               <span
                 v-if="modelSyncTimestamp"
@@ -2443,6 +2506,7 @@ onUnmounted(() => {
             </div>
           </div>
 
+          <template v-if="!collapsed.model">
           <!-- Quick Search Filter -->
           <div v-if="!isCustomModel[provider]" class="relative">
             <input
@@ -2550,12 +2614,16 @@ onUnmounted(() => {
               </button>
             </div>
           </div>
+          </template>
         </div>
 
         <!-- 2. REPOSITORY WORKSPACE -->
-        <div class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 flex flex-col gap-2 shrink-0">
+        <div v-if="workflowMode === 'docs' || workflowMode === 'task'" class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 flex flex-col gap-2 shrink-0">
           <div class="flex items-center justify-between">
-            <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Workspace</span>
+            <button class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1 cursor-pointer" @click="collapsed.workspace = !collapsed.workspace">
+              <i class="codicon text-xs" :class="collapsed.workspace ? 'codicon-chevron-right' : 'codicon-chevron-down'" />
+              Workspace
+            </button>
             <div class="flex items-center gap-1">
               <button
                 class="px-2 py-0.5 rounded border border-[#333333] bg-[#252526] hover:bg-[#2d2d2d] text-[10px] text-zinc-300 transition-colors cursor-pointer flex items-center gap-1"
@@ -2576,6 +2644,7 @@ onUnmounted(() => {
             </div>
           </div>
 
+          <template v-if="!collapsed.workspace">
           <div class="p-2 rounded bg-[#252526] border border-[#333333] flex items-center gap-2">
             <i class="codicon codicon-root-folder text-zinc-400 text-xs shrink-0" />
             <span class="text-xs font-mono text-zinc-300 truncate flex-1" :title="sourceWorkspace || 'Chưa chọn repository'">
@@ -2607,15 +2676,20 @@ onUnmounted(() => {
               </div>
             </div>
           </div>
+          </template>
         </div>
 
         <!-- 3. TASK HUB & TASK SELECTOR -->
-        <div class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 flex flex-col gap-2 shrink-0">
+        <div v-if="workflowMode === 'task'" class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 flex flex-col gap-2 shrink-0">
           <div class="flex items-center justify-between">
-            <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Nhiệm vụ Task Hub</span>
+            <button class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1 cursor-pointer" @click="collapsed.tasks = !collapsed.tasks">
+              <i class="codicon text-xs" :class="collapsed.tasks ? 'codicon-chevron-right' : 'codicon-chevron-down'" />
+              Nhiệm vụ Task Hub
+            </button>
             <span class="text-[10px] font-mono text-zinc-400">{{ filteredTasks.length }} tasks</span>
           </div>
 
+          <template v-if="!collapsed.tasks">
           <div class="relative">
             <input
               v-model="taskSearch"
@@ -2667,37 +2741,55 @@ onUnmounted(() => {
               {{ selectedTask.acceptance_criteria }}
             </p>
           </div>
+          </template>
         </div>
 
         <!-- 4. QUICK ACTION: DOCS GENERATOR -->
-        <div class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 shrink-0 flex flex-col gap-1.5">
+        <div v-if="workflowMode === 'docs'" class="rounded border border-emerald-900/80 bg-[#1e1e1e] p-2.5 shrink-0 flex flex-col gap-1.5">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
+            <button class="text-xs font-semibold text-zinc-200 flex items-center gap-1.5 cursor-pointer" @click="collapsed.docs = !collapsed.docs">
+              <i class="codicon text-xs" :class="collapsed.docs ? 'codicon-chevron-right' : 'codicon-chevron-down'" />
               <i class="codicon codicon-book text-zinc-400" />
-              <span>Quét repo → Tạo tài liệu</span>
-            </span>
+              <span>Tài liệu Repo</span>
+            </button>
           </div>
+          <template v-if="!collapsed.docs">
           <p class="text-[10px] text-zinc-400 leading-relaxed">
-            Agent quét toàn bộ cấu trúc repo, tạo tự động bộ tài liệu chuẩn (Brief, PRD, Architecture, QA, Runbook) vào <code>docs/</code>.
+            Chọn Repo/Project, rồi agent quét repo và cập nhật bộ tài liệu chuẩn vào <code>docs/</code>.
           </p>
+          <label class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Repo / Project trên Task Hub</label>
+          <select
+            v-model="docsProjectId"
+            class="w-full rounded border border-[#333333] bg-[#252526] px-2 py-1.5 text-xs text-zinc-200 outline-none focus:border-emerald-600"
+            :disabled="busy || !isConnected"
+          >
+            <option :value="null" disabled>Chọn Repo/Project</option>
+            <option v-for="project in projects || []" :key="project.id" :value="project.id">{{ project.title }}</option>
+          </select>
+          <p v-if="selectedDocsProject" class="text-[10px] text-emerald-300">Docs chuẩn sẽ thuộc Repo/Project: {{ selectedDocsProject.title }}</p>
+          <p v-if="!isConnected" class="text-[10px] text-amber-300">Kết nối Task Hub để chọn Repo/Project và đồng bộ docs.</p>
           <button
             class="w-full py-1.5 px-3 rounded border border-[#333333] bg-[#252526] hover:bg-[#2d2d2d] text-zinc-200 text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
-            :disabled="busy || phase === 'running'"
+            :disabled="busy || phase === 'running' || !docsProjectId"
             @click="startDocsGeneration"
           >
-            Bắt đầu tạo Docs từ Repo
+            Quét & tạo Docs
           </button>
+          </template>
         </div>
 
         <!-- 5. TIMELINE FEED -->
         <div class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 flex flex-col min-h-[200px] shrink-0">
           <div class="flex items-center justify-between mb-1.5 pb-1 border-b border-[#2d2d2d]">
-            <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+            <button class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1 cursor-pointer" @click="collapsed.timeline = !collapsed.timeline">
+              <i class="codicon text-xs" :class="collapsed.timeline ? 'codicon-chevron-right' : 'codicon-chevron-down'" />
               <i class="codicon codicon-history text-xs" />
               <span>Activity Timeline</span>
-            </span>
+            </button>
             <span class="text-[9px] font-mono text-zinc-400 bg-[#252526] px-1.5 py-0.5 rounded">{{ timeline.length }}</span>
           </div>
+          <div v-if="collapsed.timeline" class="text-[10px] text-zinc-500">Mở để xem lịch sử thao tác.</div>
+          <template v-else>
           <div class="space-y-1.5 overflow-y-auto max-h-[260px] pr-0.5">
             <div v-if="timeline.length === 0" class="text-[10px] text-zinc-500 text-center py-6 italic">
               Chưa có sự kiện nào.
@@ -2727,6 +2819,7 @@ onUnmounted(() => {
               <p class="text-zinc-400 break-words leading-tight">{{ item.detail }}</p>
             </div>
           </div>
+          </template>
         </div>
         </template>
       </aside>
@@ -2748,6 +2841,7 @@ onUnmounted(() => {
 
             <!-- Monaco Code & Diff Tab -->
             <button
+              v-if="workflowMode === 'task'"
               class="h-full px-3 text-xs font-medium flex items-center gap-2 border-r border-[#1e1e1e] transition-colors cursor-pointer"
               :class="activeEditorTab === 'monaco' ? 'bg-[#1e1e1e] text-white border-t-2 border-t-[#007acc]' : 'bg-[#2d2d2d] text-zinc-400 hover:text-zinc-200'"
               @click="activeEditorTab = 'monaco'"
@@ -2772,6 +2866,7 @@ onUnmounted(() => {
 
             <!-- Context Tab -->
             <button
+              v-if="workflowMode === 'task' && showAdvancedTools"
               class="h-full px-3 text-xs font-medium flex items-center gap-2 border-r border-[#1e1e1e] transition-colors cursor-pointer"
               :class="activeEditorTab === 'context' ? 'bg-[#1e1e1e] text-white border-t-2 border-t-[#007acc]' : 'bg-[#2d2d2d] text-zinc-400 hover:text-zinc-200'"
               @click="activeEditorTab = 'context'"
@@ -2782,6 +2877,7 @@ onUnmounted(() => {
 
             <!-- Subagents Swarm Tab -->
             <button
+              v-if="workflowMode === 'task' && showAdvancedTools"
               class="h-full px-3 text-xs font-medium flex items-center gap-2 border-r border-[#1e1e1e] transition-colors cursor-pointer"
               :class="activeEditorTab === 'subagents' ? 'bg-[#1e1e1e] text-white border-t-2 border-t-[#007acc]' : 'bg-[#2d2d2d] text-zinc-400 hover:text-zinc-200'"
               @click="activeEditorTab = 'subagents'"
@@ -2793,6 +2889,7 @@ onUnmounted(() => {
 
             <!-- Tasks & Scheduler Tab -->
             <button
+              v-if="workflowMode === 'task' && showAdvancedTools"
               class="h-full px-3 text-xs font-medium flex items-center gap-2 border-r border-[#1e1e1e] transition-colors cursor-pointer"
               :class="activeEditorTab === 'tasks' ? 'bg-[#1e1e1e] text-white border-t-2 border-t-[#007acc]' : 'bg-[#2d2d2d] text-zinc-400 hover:text-zinc-200'"
               @click="activeEditorTab = 'tasks'"
@@ -2804,6 +2901,7 @@ onUnmounted(() => {
 
             <!-- Artifacts Tab -->
             <button
+              v-if="workflowMode === 'docs'"
               class="h-full px-3 text-xs font-medium flex items-center gap-2 border-r border-[#1e1e1e] transition-colors cursor-pointer"
               :class="activeEditorTab === 'artifacts' ? 'bg-[#1e1e1e] text-white border-t-2 border-t-[#007acc]' : 'bg-[#2d2d2d] text-zinc-400 hover:text-zinc-200'"
               @click="activeEditorTab = 'artifacts'"
@@ -2815,6 +2913,7 @@ onUnmounted(() => {
 
             <!-- Evidence Tab -->
             <button
+              v-if="workflowMode === 'task'"
               class="h-full px-3 text-xs font-medium flex items-center gap-2 border-r border-[#1e1e1e] transition-colors cursor-pointer"
               :class="activeEditorTab === 'evidence' ? 'bg-[#1e1e1e] text-white border-t-2 border-t-[#007acc]' : 'bg-[#2d2d2d] text-zinc-400 hover:text-zinc-200'"
               @click="activeEditorTab = 'evidence'"
@@ -2827,6 +2926,14 @@ onUnmounted(() => {
           <!-- Quick Actions on Tab Bar -->
           <div class="flex items-center gap-2">
             <button
+              v-if="workflowMode === 'task'"
+              class="text-[10px] px-2 py-0.5 rounded bg-[#333333] hover:bg-[#3e3e42] text-zinc-300 transition-colors cursor-pointer"
+              @click="showAdvancedTools = !showAdvancedTools"
+            >
+              {{ showAdvancedTools ? 'Ẩn nâng cao' : 'Công cụ nâng cao' }}
+            </button>
+            <button
+              v-if="workflowMode === 'task'"
               class="text-[10px] px-2 py-0.5 rounded bg-[#333333] hover:bg-[#3e3e42] text-zinc-200 transition-colors cursor-pointer flex items-center gap-1.5 border border-[#3e3e42]"
               @click="loadGitDiff(); activeEditorTab = 'monaco';"
               title="Tải lại Git Diff trong Monaco Diff Viewer"
@@ -3601,7 +3708,7 @@ onUnmounted(() => {
     <div class="flex items-center justify-between gap-3 px-4 py-2 border-t border-[#333333] bg-[#252526] shrink-0 text-xs select-none">
       <div class="flex items-center gap-2 flex-wrap min-w-0">
         <button
-          v-if="phase === 'select' || phase === 'error'"
+          v-if="workflowMode === 'task' && (phase === 'select' || phase === 'error')"
           class="px-3.5 py-1.5 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white font-semibold text-xs shadow-xs transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           :disabled="busy || !selectedTask"
           @click="runPreflight"
@@ -3610,7 +3717,7 @@ onUnmounted(() => {
         </button>
 
         <button
-          v-if="phase === 'ready'"
+          v-if="workflowMode === 'task' && phase === 'ready'"
           class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
           @click="startAgent"
         >
@@ -3618,7 +3725,7 @@ onUnmounted(() => {
         </button>
 
         <button
-          v-if="phase === 'running' && provider === 'antigravity'"
+          v-if="workflowMode === 'task' && phase === 'running' && provider === 'antigravity'"
           class="px-3.5 py-1.5 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
           @click="completeExternalSession"
         >
@@ -3634,7 +3741,7 @@ onUnmounted(() => {
         </button>
 
         <button
-          v-if="phase === 'handoff'"
+          v-if="workflowMode === 'task' && phase === 'handoff'"
           class="px-3.5 py-1.5 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white font-semibold text-xs shadow-xs transition-all cursor-pointer disabled:opacity-40"
           :disabled="!handoff.summary || !handoff.changedFiles"
           @click="submitHandoff"

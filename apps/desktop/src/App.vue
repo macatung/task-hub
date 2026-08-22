@@ -148,6 +148,7 @@ onUnmounted(() => {
     <IdeView
       v-if="currentMode === 'ide'"
       :tasks="agentTasks"
+      :projects="projects"
       :initial-task="activeTask"
       :is-connected="Boolean(credential)"
       :desktop-credential="credential"
