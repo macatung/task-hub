@@ -294,6 +294,9 @@ const saveWorkspaceState = () => {
       worktree: worktree.value,
       taskId: taskId.value,
       docsOnly: docsOnly.value,
+      workflowMode: workflowMode.value,
+      docsProjectId: docsProjectId.value,
+      requirementText: requirementText.value,
       sessionId: sessionId.value,
       runId: runId.value,
       streamCards: streamCards.value,
@@ -315,10 +318,13 @@ const saveWorkspaceState = () => {
         sourceWorkspace: sourceWorkspace.value,
         worktree: worktree.value,
         taskId: taskId.value,
-        taskTitle: selectedTask.value?.title || (docsOnly.value ? 'Tạo bộ tài liệu Repo (Docs)' : undefined),
+        taskTitle: selectedTask.value?.title || (workflowMode.value === 'discovery' ? 'Requirement Discovery' : docsOnly.value ? 'Tạo bộ tài liệu Repo (Docs)' : undefined),
         issueKey: selectedTask.value?.issue_key,
         mode: 'exec',
-        kind: docsOnly.value ? 'docs' : 'task',
+        kind: workflowMode.value === 'discovery' ? 'discovery' : docsOnly.value ? 'docs' : 'task',
+        workflowMode: workflowMode.value,
+        docsProjectId: docsProjectId.value,
+        requirementText: requirementText.value,
         status: phase.value === 'running' ? 'running' : 'completed',
         streamCards: streamCards.value,
         timeline: timeline.value,
@@ -378,6 +384,23 @@ const lineCount = computed(() => {
   if (!rawOutput.value) return 0;
   return (rawOutput.value.match(/\n/g) || []).length + 1;
 });
+
+// Requirement Discovery writes its proposed Epic / stories / points to the
+// normal process stream. Keep a readable preview in Review so the developer
+// does not need to search across terminal tabs for the plan.
+const discoveryPlanPreview = computed(() => {
+  const output = (plainOutput.value || stripAnsiToPlainText(rawOutput.value)).trim();
+  if (!output) return 'Chưa có nội dung từ local agent. Mở Process để kiểm tra log đầy đủ.';
+  const maximumPreviewLength = 16000;
+  return output.length > maximumPreviewLength
+    ? `… Hiển thị ${maximumPreviewLength.toLocaleString()} ký tự cuối của process …\n\n${output.slice(-maximumPreviewLength)}`
+    : output;
+});
+
+const openCurrentProcess = (mode: 'cards' | 'terminal' = 'terminal') => {
+  activeEditorTab.value = 'terminal';
+  viewMode.value = mode;
+};
 
 const filteredTerminalHtml = computed(() => {
   if (!logSearchQuery.value.trim()) return terminalHtml.value;
@@ -1050,6 +1073,11 @@ const openSessionHistory = async () => {
   showSessionHistory.value = true;
 };
 
+const openSavedSessionProcess = async (sess: any, mode: 'cards' | 'terminal' = 'terminal') => {
+  await switchSession(sess);
+  openCurrentProcess(mode);
+};
+
 const switchSession = async (sess: any) => {
   if (!sess) return;
   stopDurationTimer();
@@ -1069,7 +1097,14 @@ const switchSession = async (sess: any) => {
   sourceWorkspace.value = sess.sourceWorkspace || sess.cwd || '';
   worktree.value = sess.worktree || sess.cwd || '';
   taskId.value = sess.taskId ?? null;
-  docsOnly.value = sess.kind === 'docs';
+  workflowMode.value = sess.workflowMode === 'discovery' || sess.kind === 'discovery'
+    ? 'discovery'
+    : sess.kind === 'docs'
+      ? 'docs'
+      : 'task';
+  docsOnly.value = workflowMode.value === 'docs';
+  if (sess.docsProjectId !== undefined) docsProjectId.value = sess.docsProjectId;
+  if (sess.requirementText) requirementText.value = sess.requirementText;
   sessionId.value = sess.sessionId;
   streamCards.value = Array.isArray(sess.streamCards) ? sess.streamCards : [];
   timeline.value = Array.isArray(sess.timeline) ? sess.timeline : [];
@@ -1087,11 +1122,11 @@ const switchSession = async (sess: any) => {
       startDurationTimer();
       addTimeline('Session resumed', `Đang tiếp tục phiên nền ${sess.provider}...`, 'ok');
     } else {
-      phase.value = sess.kind === 'docs' ? 'review' : 'handoff';
+      phase.value = workflowMode.value === 'discovery' || sess.kind === 'docs' ? 'review' : 'handoff';
       addTimeline('Session loaded', `Đã mở lại dữ liệu phiên ${sess.sessionId.slice(0, 16)}...`, 'ok');
     }
   } catch {
-    phase.value = sess.kind === 'docs' ? 'review' : 'handoff';
+    phase.value = workflowMode.value === 'discovery' || sess.kind === 'docs' ? 'review' : 'handoff';
   }
 
   showSessionHistory.value = false;
@@ -1149,6 +1184,12 @@ const restoreWorkspaceState = async () => {
       if (state.worktree) worktree.value = state.worktree;
       if (state.taskId !== undefined) taskId.value = state.taskId;
       if (state.docsOnly !== undefined) docsOnly.value = state.docsOnly;
+      if (state.workflowMode === 'discovery' || state.workflowMode === 'docs' || state.workflowMode === 'task') {
+        workflowMode.value = state.workflowMode;
+        docsOnly.value = state.workflowMode === 'docs';
+      }
+      if (state.docsProjectId !== undefined) docsProjectId.value = state.docsProjectId;
+      if (state.requirementText) requirementText.value = state.requirementText;
       if (state.sessionId) sessionId.value = state.sessionId;
       if (state.runId) runId.value = state.runId;
       if (Array.isArray(state.streamCards) && state.streamCards.length) streamCards.value = state.streamCards;
@@ -1188,7 +1229,7 @@ const restoreWorkspaceState = async () => {
       addTimeline('Session reconnected', `Đang kết nối lại phiên ${active.provider}...`, 'ok');
     } else if (phase.value === 'running') {
       stopDurationTimer();
-      if (docsOnly.value) {
+      if (workflowMode.value === 'discovery' || docsOnly.value) {
         phase.value = 'review';
       } else {
         phase.value = 'handoff';
@@ -1209,6 +1250,8 @@ const startNewRun = () => {
   sessionId.value = null;
   runId.value = null;
   docsOnly.value = false;
+  workflowMode.value = 'task';
+  requirementText.value = '';
   rawOutput.value = '';
   terminalHtml.value = '';
   plainOutput.value = '';
@@ -1228,7 +1271,7 @@ const startNewRun = () => {
 };
 
 // Watchers for auto-saving
-watch([phase, provider, selectedModels, customModelInput, isCustomModel, sourceWorkspace, worktree, taskId, docsOnly, sessionId, runId, streamCards, timeline, rawOutput, handoff, viewMode], () => {
+watch([phase, provider, selectedModels, customModelInput, isCustomModel, sourceWorkspace, worktree, taskId, docsOnly, workflowMode, docsProjectId, requirementText, sessionId, runId, streamCards, timeline, rawOutput, handoff, viewMode], () => {
   saveWorkspaceState();
 }, { deep: true });
 
@@ -3830,16 +3873,52 @@ onUnmounted(() => {
                 {{ workflowMode === 'discovery' ? 'Xem plan trong Terminal/Stream. Backlog chỉ được tạo khi bạn bấm phê duyệt.' : docsOnly ? 'Kiểm tra các file tài liệu trước khi đồng bộ lên Task Hub.' : 'Ghi nhận kết quả thực thi, test results, and bằng chứng hoàn thành.' }}
               </p>
             </div>
-            <button
-              class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
-              @click="copyHandoff"
-            >
-              <i class="codicon codicon-copy mr-1" />Copy Handoff Markdown
-            </button>
+            <div class="flex items-center gap-2 shrink-0">
+              <button
+                v-if="workflowMode === 'discovery'"
+                class="px-3 py-1.5 rounded-lg border border-violet-700 bg-violet-950/50 hover:bg-violet-900/70 text-violet-100 text-xs font-semibold transition-colors cursor-pointer"
+                title="Mở luồng agent dạng cards để đọc nhanh kế hoạch"
+                @click="openCurrentProcess('cards')"
+              >
+                <i class="codicon codicon-preview mr-1" />Xem Preview
+              </button>
+              <button
+                class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
+                title="Mở toàn bộ process và log của local agent"
+                @click="openCurrentProcess('terminal')"
+              >
+                <i class="codicon codicon-terminal mr-1" />Xem Process
+              </button>
+              <button
+                class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
+                title="Mở lại process của các phiên đã hoàn thành"
+                @click="openSessionHistory"
+              >
+                <i class="codicon codicon-history mr-1" />Lịch sử
+              </button>
+              <button
+                class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
+                @click="copyHandoff"
+              >
+                <i class="codicon codicon-copy mr-1" />Copy Handoff Markdown
+              </button>
+            </div>
           </div>
 
-          <div v-if="workflowMode === 'discovery'" class="rounded-xl border border-violet-900/70 bg-violet-950/20 p-4 text-sm text-violet-100">
-            Local agent đã phân tích requirement trong Terminal/Stream. Kiểm tra Epic, User Story, acceptance criteria và story points; sau đó phê duyệt để agent tạo backlog qua Task Hub MCP.
+          <div v-if="workflowMode === 'discovery'" class="rounded-xl border border-violet-900/70 bg-violet-950/20 p-4 flex flex-col gap-3">
+            <div class="flex items-start justify-between gap-3">
+              <div class="text-sm text-violet-100">
+                <span class="font-bold">Preview kế hoạch do local agent tạo.</span>
+                Kiểm tra Epic, User Story, acceptance criteria và story points trước khi phê duyệt tạo backlog qua Task Hub MCP.
+              </div>
+              <button
+                class="text-[11px] shrink-0 px-2.5 py-1.5 rounded border border-violet-700/80 bg-violet-900/40 hover:bg-violet-900/70 text-violet-100 cursor-pointer"
+                @click="openCurrentProcess('terminal')"
+              >
+                Mở full process
+              </button>
+            </div>
+            <pre class="max-h-[390px] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-violet-900/80 bg-[#111827] p-3 text-[11px] leading-relaxed text-slate-200 font-mono">{{ discoveryPlanPreview }}</pre>
           </div>
 
           <div v-else class="space-y-3">
@@ -4200,7 +4279,7 @@ onUnmounted(() => {
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2">
                   <span class="font-semibold text-slate-200 text-xs truncate">
-                    {{ sess.taskTitle || (sess.kind === 'docs' ? 'Tạo bộ tài liệu Repo (Docs)' : sess.issueKey || 'Agent Task Run') }}
+                    {{ sess.taskTitle || (sess.kind === 'discovery' || sess.workflowMode === 'discovery' ? 'Requirement Discovery' : sess.kind === 'docs' ? 'Tạo bộ tài liệu Repo (Docs)' : sess.issueKey || 'Agent Task Run') }}
                   </span>
                   <span
                     v-if="sess.model"
@@ -4239,11 +4318,18 @@ onUnmounted(() => {
 
             <div class="flex items-center gap-1.5 shrink-0">
               <button
+                class="px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors flex items-center gap-1 cursor-pointer"
+                title="Mở toàn bộ process/log đã lưu của phiên này"
+                @click.stop="openSavedSessionProcess(sess, 'terminal')"
+              >
+                <i class="codicon codicon-terminal mr-1" /><span>Process</span>
+              </button>
+              <button
                 class="px-2.5 py-1.5 rounded-lg bg-cyan-600/90 hover:bg-cyan-500 text-slate-950 font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
-                title="Mở phiên này để tiếp tục làm việc"
+                title="Mở lại phiên này trong màn hình review"
                 @click.stop="switchSession(sess)"
               >
-                <i class="codicon codicon-play mr-1" /><span>Tiếp tục</span>
+                <i class="codicon codicon-play mr-1" /><span>Mở lại</span>
               </button>
               <button
                 class="p-1.5 rounded-lg hover:bg-rose-950 text-slate-500 hover:text-rose-400 text-xs transition-colors cursor-pointer"

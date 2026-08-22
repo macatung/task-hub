@@ -1,6 +1,6 @@
 {
   "name": "@task-hub/desktop",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "type": "module",
   "description": "Task Hub desktop workspace for supervised AI agent execution",
   "main": "dist-electron/main.js",
