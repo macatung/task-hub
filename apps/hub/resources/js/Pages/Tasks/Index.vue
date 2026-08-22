@@ -1078,6 +1078,10 @@ const handleAnalyzeAiPlan = async () => {
   try {
     const payload = {
       prompt: aiForm.value.prompt,
+      // Requirement planning is repository-aware. Passing the selected project
+      // lets the API include its synced project documents and existing backlog
+      // in the read-only preview context.
+      project_id: aiForm.value.project_id !== 'new' ? aiForm.value.project_id : undefined,
       project_title: aiForm.value.project_title || undefined,
       project_key: aiForm.value.project_key || undefined,
       project_color: aiForm.value.project_color,

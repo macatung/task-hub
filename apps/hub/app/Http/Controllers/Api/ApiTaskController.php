@@ -252,6 +252,7 @@ class ApiTaskController extends Controller
     {
         $validated = $request->validate([
             'prompt' => 'required|string|min:5',
+            'project_id' => 'nullable|integer|exists:projects,id',
             'project_title' => 'nullable|string|max:255',
             'project_key' => 'nullable|string|max:10',
             'project_color' => 'nullable|string',
@@ -260,8 +261,38 @@ class ApiTaskController extends Controller
             'start_date' => 'nullable|date',
         ]);
 
-        $plan = $service->generatePlanWithProvider($validated['prompt'], $validated);
-        $this->track('ai_plan_previewed', null, null, ['provider' => $service->planningSettings()['provider']]);
+        $prompt = $validated['prompt'];
+        if (!empty($validated['project_id'])) {
+            $project = Project::findOrFail($validated['project_id']);
+            $documents = $project->documents()
+                ->where('status', 'active')
+                ->orderBy('document_type')
+                ->get(['document_type', 'title', 'repository_path', 'content'])
+                ->map(fn ($document) => [
+                    'type' => $document->document_type,
+                    'title' => $document->title,
+                    'path' => $document->repository_path,
+                    // Keep planning prompts bounded while preserving the
+                    // authoritative, synced document content.
+                    'content' => mb_substr((string) $document->content, 0, 12000),
+                ])
+                ->all();
+            $existing = Task::where('project_id', $project->id)
+                ->where('status', '!=', 'done')
+                ->orderByDesc('priority')
+                ->limit(100)
+                ->get(['issue_key', 'issue_type', 'title', 'description', 'story_points', 'status', 'epic_id'])
+                ->all();
+            $prompt .= "\n\nTASK HUB PROJECT CONTEXT (use this to avoid duplicating existing work and align the plan with the repository):\n"
+                . json_encode([
+                    'project' => ['id' => $project->id, 'title' => $project->title, 'description' => $project->description],
+                    'documents' => $documents,
+                    'open_work_items' => $existing,
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+
+        $plan = $service->generatePlanWithProvider($prompt, $validated);
+        $this->track('ai_plan_previewed', 'project', $validated['project_id'] ?? null, ['provider' => $service->planningSettings()['provider']]);
 
         return response()->json($plan);
     }
