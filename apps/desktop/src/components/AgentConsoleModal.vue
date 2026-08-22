@@ -128,9 +128,10 @@ const taskSearch = ref('');
 const setupState = ref<any>(null);
 const setupBusy = ref(false);
 const docsOnly = ref(false);
-type WorkflowMode = 'task' | 'docs';
+type WorkflowMode = 'task' | 'docs' | 'discovery';
 const workflowMode = ref<WorkflowMode>('task');
 const docsProjectId = ref<number | null>(null);
+const requirementText = ref('');
 const showAdvancedTools = ref(false);
 
 const taskHubUrl = ref(localStorage.getItem('task_hub_base_url') || 'https://task-hub.macatung.dev');
@@ -228,6 +229,9 @@ const selectWorkflowMode = (mode: WorkflowMode) => {
     docsProjectId.value ||= selectedTask.value?.project_id || (props.desktopCredential?.projectId !== 'all' ? Number(props.desktopCredential?.projectId) : null) || props.projects?.[0]?.id || null;
     collapsed.value.workspace = false;
     collapsed.value.docs = false;
+  } else if (mode === 'discovery') {
+    docsProjectId.value ||= selectedTask.value?.project_id || (props.desktopCredential?.projectId !== 'all' ? Number(props.desktopCredential?.projectId) : null) || props.projects?.[0]?.id || null;
+    collapsed.value.workspace = false;
   } else {
     collapsed.value.tasks = false;
   }
@@ -349,7 +353,7 @@ const phaseLabel = computed(() => {
     pairing: 'Kết nối Task Hub',
     context: 'Nạp Context & MCP',
     ready: 'Sẵn sàng khởi chạy',
-    running: docsOnly.value ? 'Đang tạo tài liệu' : 'Agent đang chạy',
+    running: workflowMode.value === 'discovery' ? 'Đang phân tích requirement' : docsOnly.value ? 'Đang tạo tài liệu' : 'Agent đang chạy',
     handoff: 'Bàn giao & Nghiệm thu',
     review: 'Review kết quả',
     error: 'Cần chú ý',
@@ -1488,6 +1492,12 @@ const contract = () =>
 const docsPrompt = () =>
   `You are generating Task Hub standard documentation in a supervised worktree. Model: ${activeModel.value} (${activeModelLabel.value}). First scan repository structure, package manifests, entry points, configuration, public interfaces, database/migrations, tests, and existing documentation. Create or update ONLY these canonical files under docs/: PROJECT_DOCUMENTS.md, PROJECT_BRIEF.md, PRD.md, ARCHITECTURE.md, QA_PLAN.md, and RELEASE_RUNBOOK.md. PROJECT_DOCUMENTS.md MUST use the exact Task Hub registry marker <!-- task-hub:document-registry:v1 --> and these five rows/types: brief→docs/PROJECT_BRIEF.md, prd→docs/PRD.md, architecture→docs/ARCHITECTURE.md, qa_plan→docs/QA_PLAN.md, release_runbook→docs/RELEASE_RUNBOOK.md. Each core document must have stable headings: Purpose, Scope, Current State, Constraints, Open Questions; add domain-specific sections only after those. Base every statement on files you actually inspected; mark unknowns as TODO instead of guessing. Include source paths and an As-of commit/date in each document. Do not modify application source code, credentials, lockfiles, generated output, README, or deployment state. Do not commit, push, merge, or deploy. Finish with a summary of scanned areas, created/updated canonical files, and documentation gaps. These files will be synced by Task Hub and passed into future task context, so preserve the schema and paths exactly.`;
 
+const discoveryPrompt = () =>
+  `You are the local Requirement Discovery agent for Task Hub. Requirement: ${requirementText.value}\n\nFirst inspect the current repository and docs/ in this worktree. Use Task Hub MCP to read get_project_state, list_project_documents and get_repository_context for project ${docsProjectId.value}. Do not edit files, commit, deploy, or create any Task Hub record in this run. Return a concise, reviewable plan in Vietnamese with: clarified requirement, assumptions/questions, affected docs and architecture, risks/dependencies, one or more Epics, User Stories with acceptance criteria, implementation Tasks, and Fibonacci story points. Every work item over 8 points must be split. Finish with an explicit human approval request.`;
+
+const approvedBacklogPrompt = () =>
+  `The developer approved creating the backlog for this requirement: ${requirementText.value}\n\nUse Task Hub MCP for project ${docsProjectId.value}. Read get_project_state and list_project_documents again. Then create the approved backlog: create_sprint only when useful, create_work_item for each Epic first, then create user stories and tasks with accurate Fibonacci story points (1,2,3,5,8; split anything larger). Link every Story/Task to its Epic using epic_id. Include acceptance criteria, dependencies, risks and the requirement source in descriptions. Do not modify repository files, commit, push, merge or deploy. End by listing every created Task Hub issue key and any blockers.`;
+
 const startPairing = async () => {
   if (!selectedTask.value) return;
   phase.value = 'pairing';
@@ -1609,6 +1619,88 @@ const startDocsGeneration = async () => {
   }
 };
 
+const startRequirementDiscovery = async () => {
+  errorMessage.value = '';
+  workflowMode.value = 'discovery';
+  docsOnly.value = false;
+  if (!props.desktopCredential || !docsProjectId.value) {
+    errorMessage.value = 'Kết nối Task Hub và chọn Repo/Project trước khi phân tích requirement.';
+    return;
+  }
+  if (!requirementText.value.trim()) {
+    errorMessage.value = 'Nhập requirement ngắn để agent phân tích.';
+    return;
+  }
+  if (!sourceWorkspace.value) await chooseWorkspace();
+  if (!sourceWorkspace.value) {
+    errorMessage.value = 'Chọn thư mục Git repository trước khi bắt đầu.';
+    return;
+  }
+  phase.value = 'preflight';
+  addTimeline('Requirement discovery', `Đang chuẩn bị ${provider.value} (${activeModel.value}) với docs Repo và MCP...`, 'active');
+  try {
+    preflight.value = await window.desktopApi.agent.preflight(provider.value, sourceWorkspace.value);
+    preflight.value.checks.forEach((check: any) => addTimeline(check.id, check.message, check.status));
+    if (!preflight.value.ok) throw new Error('Preflight chưa đạt. Kiểm tra lại môi trường.');
+    const workspace = await window.desktopApi.agent.createWorktree(preflight.value.repository, 'requirement-discovery');
+    worktree.value = workspace.path;
+    await window.desktopApi.agent.configureMcp({
+      cwd: worktree.value,
+      provider: provider.value,
+      taskHubUrl: props.desktopCredential.taskHubUrl,
+      projectId: String(docsProjectId.value),
+      token: props.desktopCredential.token,
+    });
+    phase.value = 'running';
+    rawOutput.value = '';
+    terminalHtml.value = '';
+    streamCards.value = [];
+    runDurationSeconds.value = 0;
+    startDurationTimer();
+    const result = await window.desktopApi.agent.startInteractive(provider.value, worktree.value, discoveryPrompt(), 'task', activeModel.value);
+    sessionId.value = result.sessionId;
+    localStorage.setItem('task_companion_active_session', result.sessionId);
+    if (result.mode === 'external') {
+      rawOutput.value = `Agent đang chạy trong ứng dụng bên ngoài (${provider.value}). Hoàn tất phân tích rồi bấm Dừng để review.\n`;
+      updateTerminalRender();
+    }
+    addTimeline('Discovery agent started', 'Local agent đang đọc docs, repository và Task Hub MCP; chưa tạo backlog.', 'ok');
+  } catch (error: any) {
+    stopDurationTimer();
+    phase.value = 'error';
+    errorMessage.value = error.message || 'Không thể khởi động Requirement Discovery.';
+    addTimeline('Discovery error', errorMessage.value, 'error');
+  }
+};
+
+const createApprovedBacklog = async () => {
+  if (!props.desktopCredential || !docsProjectId.value || !requirementText.value.trim() || !worktree.value) return;
+  phase.value = 'running';
+  rawOutput.value = '';
+  terminalHtml.value = '';
+  streamCards.value = [];
+  runDurationSeconds.value = 0;
+  startDurationTimer();
+  try {
+    await window.desktopApi.agent.configureMcp({
+      cwd: worktree.value,
+      provider: provider.value,
+      taskHubUrl: props.desktopCredential.taskHubUrl,
+      projectId: String(docsProjectId.value),
+      token: props.desktopCredential.token,
+    });
+    const result = await window.desktopApi.agent.startInteractive(provider.value, worktree.value, approvedBacklogPrompt(), 'task', activeModel.value);
+    sessionId.value = result.sessionId;
+    localStorage.setItem('task_companion_active_session', result.sessionId);
+    addTimeline('Backlog creation started', 'Đã được duyệt: local agent đang tạo Epic, Story và Task qua Task Hub MCP.', 'active');
+  } catch (error: any) {
+    stopDurationTimer();
+    phase.value = 'review';
+    errorMessage.value = error.message || 'Không thể tạo backlog.';
+    addTimeline('Backlog creation error', errorMessage.value, 'error');
+  }
+};
+
 const loadContext = async () => {
   if (!selectedTask.value || !credential.value) return;
   phase.value = 'context';
@@ -1718,6 +1810,14 @@ const stopAgent = async () => {
     await window.desktopApi.agent.stop(sessionId.value);
     localStorage.removeItem('task_companion_active_session');
     sessionId.value = null;
+  }
+  if (workflowMode.value === 'discovery') {
+    handoff.value.summary = 'Local agent đã hoàn tất phân tích requirement. Chờ developer duyệt trước khi tạo backlog.';
+    handoff.value.tests = 'Requirement discovery and Task Hub MCP context review';
+    handoff.value.testSummary = 'Plan is ready for human approval.';
+    addTimeline('Discovery review', 'Xem kết quả agent, sau đó duyệt để tạo backlog trên Task Hub.', 'ok');
+    phase.value = 'review';
+    return;
   }
   if (docsOnly.value) {
     handoff.value.summary = 'Agent đã hoàn tất quét repository và tạo các file tài liệu chuẩn docs/.';
@@ -1866,7 +1966,14 @@ onMounted(() => {
 
       addTimeline('Process exited', `Exit code: ${event.code ?? 'unknown'}`, event.code === 0 ? 'ok' : 'error');
 
-      if (docsOnly.value) {
+      if (workflowMode.value === 'discovery') {
+        handoff.value.summary = event.code === 0
+          ? 'Local agent đã hoàn tất phân tích requirement. Chờ developer duyệt trước khi tạo backlog.'
+          : `Requirement Discovery kết thúc với mã lỗi ${event.code}.`;
+        handoff.value.tests = 'Requirement discovery and Task Hub MCP context review';
+        handoff.value.testSummary = event.code === 0 ? 'Plan ready for review' : 'Needs review';
+        phase.value = 'review';
+      } else if (docsOnly.value) {
         handoff.value.summary =
           event.code === 0 ? 'Agent đã quét repository và tạo bộ tài liệu chuẩn docs/.' : `Docs agent kết thúc với mã lỗi ${event.code}.`;
         handoff.value.changedFiles = 'docs/PROJECT_DOCUMENTS.md\ndocs/PROJECT_BRIEF.md\ndocs/PRD.md\ndocs/ARCHITECTURE.md\ndocs/QA_PLAN.md\ndocs/RELEASE_RUNBOOK.md';
@@ -2402,7 +2509,15 @@ onUnmounted(() => {
         <template v-else>
         <!-- FOCUSED WORKFLOW SWITCHER: one primary job per screen -->
         <div class="rounded border border-[#333333] bg-[#1e1e1e] p-2 shrink-0">
-          <div class="grid grid-cols-2 gap-1.5">
+          <div class="grid grid-cols-3 gap-1.5">
+            <button
+              class="rounded px-3 py-2 text-left transition-colors cursor-pointer border"
+              :class="workflowMode === 'discovery' ? 'bg-violet-950/60 border-violet-600 text-violet-100' : 'bg-[#252526] border-[#333333] text-zinc-400 hover:text-zinc-200'"
+              @click="selectWorkflowMode('discovery')"
+            >
+              <span class="block text-xs font-semibold">Requirement</span>
+              <span class="block mt-0.5 text-[10px] opacity-75">Nhập → Local agent → Duyệt</span>
+            </button>
             <button
               class="rounded px-3 py-2 text-left transition-colors cursor-pointer border"
               :class="workflowMode === 'task' ? 'bg-[#0e639c]/25 border-[#007acc] text-white' : 'bg-[#252526] border-[#333333] text-zinc-400 hover:text-zinc-200'"
@@ -2745,6 +2860,22 @@ onUnmounted(() => {
         </div>
 
         <!-- 4. QUICK ACTION: DOCS GENERATOR -->
+        <div v-if="workflowMode === 'discovery'" class="rounded border border-violet-900/80 bg-[#1e1e1e] p-2.5 shrink-0 flex flex-col gap-2">
+          <div class="text-xs font-semibold text-violet-100 flex items-center gap-1.5">
+            <i class="codicon codicon-lightbulb" /> Requirement Discovery
+          </div>
+          <p class="text-[10px] text-zinc-400">Chỉ nhập kết quả mong muốn. Local agent tự đọc repo, docs và Task Hub MCP; chưa tạo backlog cho tới khi bạn duyệt.</p>
+          <label class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Repo / Project</label>
+          <select v-model="docsProjectId" class="w-full rounded border border-[#333333] bg-[#252526] px-2 py-1.5 text-xs text-zinc-200 outline-none focus:border-violet-500" :disabled="busy || !isConnected">
+            <option :value="null" disabled>Chọn Repo/Project</option>
+            <option v-for="project in projects || []" :key="project.id" :value="project.id">{{ project.title }}</option>
+          </select>
+          <textarea v-model="requirementText" rows="3" class="w-full rounded border border-[#333333] bg-[#252526] px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-violet-500" placeholder="Ví dụ: Thêm đăng nhập Google cho người dùng hiện tại." :disabled="busy" />
+          <button class="w-full py-1.5 px-3 rounded bg-violet-700 hover:bg-violet-600 text-white text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50" :disabled="busy || !docsProjectId || !requirementText.trim()" @click="startRequirementDiscovery">
+            Phân tích bằng Local Agent
+          </button>
+        </div>
+
         <div v-if="workflowMode === 'docs'" class="rounded border border-emerald-900/80 bg-[#1e1e1e] p-2.5 shrink-0 flex flex-col gap-1.5">
           <div class="flex items-center justify-between">
             <button class="text-xs font-semibold text-zinc-200 flex items-center gap-1.5 cursor-pointer" @click="collapsed.docs = !collapsed.docs">
@@ -3604,10 +3735,10 @@ onUnmounted(() => {
           <div class="border-b border-slate-800 pb-2.5 flex items-center justify-between">
             <div>
               <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
-                <span>📋</span> {{ docsOnly ? 'Review Tài liệu Đã Tạo' : 'Structured Agent Handoff' }}
+                <span>📋</span> {{ workflowMode === 'discovery' ? 'Review Requirement Plan' : docsOnly ? 'Review Tài liệu Đã Tạo' : 'Structured Agent Handoff' }}
               </h3>
               <p class="text-slate-400 text-xs mt-0.5">
-                {{ docsOnly ? 'Kiểm tra các file tài liệu trước khi đồng bộ lên Task Hub.' : 'Ghi nhận kết quả thực thi, test results, and bằng chứng hoàn thành.' }}
+                {{ workflowMode === 'discovery' ? 'Xem plan trong Terminal/Stream. Backlog chỉ được tạo khi bạn bấm phê duyệt.' : docsOnly ? 'Kiểm tra các file tài liệu trước khi đồng bộ lên Task Hub.' : 'Ghi nhận kết quả thực thi, test results, and bằng chứng hoàn thành.' }}
               </p>
             </div>
             <button
@@ -3618,7 +3749,11 @@ onUnmounted(() => {
             </button>
           </div>
 
-          <div class="space-y-3">
+          <div v-if="workflowMode === 'discovery'" class="rounded-xl border border-violet-900/70 bg-violet-950/20 p-4 text-sm text-violet-100">
+            Local agent đã phân tích requirement trong Terminal/Stream. Kiểm tra Epic, User Story, acceptance criteria và story points; sau đó phê duyệt để agent tạo backlog qua Task Hub MCP.
+          </div>
+
+          <div v-else class="space-y-3">
             <div>
               <label class="font-bold text-slate-300 block mb-1 text-[11px] uppercase tracking-wider">Tóm tắt công việc hoàn thành</label>
               <textarea
@@ -3737,7 +3872,7 @@ onUnmounted(() => {
           class="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
           @click="stopAgent"
         >
-          {{ docsOnly ? '⏹ Dừng → Review Docs' : '⏹ Dừng Agent → Handoff' }}
+          {{ workflowMode === 'discovery' ? '⏹ Dừng → Review Plan' : docsOnly ? '⏹ Dừng → Review Docs' : '⏹ Dừng Agent → Handoff' }}
         </button>
 
         <button
@@ -3747,6 +3882,14 @@ onUnmounted(() => {
           @click="submitHandoff"
         >
           Submit Handoff lên Task Hub
+        </button>
+
+        <button
+          v-if="workflowMode === 'discovery' && phase === 'review'"
+          class="px-3.5 py-1.5 rounded-lg bg-violet-700 hover:bg-violet-600 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
+          @click="createApprovedBacklog"
+        >
+          ✓ Duyệt & tạo Backlog
         </button>
 
         <button
