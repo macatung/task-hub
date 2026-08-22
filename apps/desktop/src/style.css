@@ -37,6 +37,122 @@
   outline-offset: -2px;
 }
 
+/* -------------------------------------------------------------------------- */
+/* IDE: quiet monochrome workspace                                             */
+/* -------------------------------------------------------------------------- */
+.ide-minimal {
+  color-scheme: dark;
+  font-family: "Segoe UI Variable", "Inter", "Helvetica Neue", Arial, sans-serif;
+  background: #0a0a0a !important;
+  color: #f4f4f5;
+  letter-spacing: 0.005em;
+}
+
+.ide-minimal .font-mono {
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+}
+
+.ide-minimal .codicon,
+.ide-minimal svg {
+  color: #f4f4f5 !important;
+  filter: grayscale(1) saturate(0);
+}
+
+/* Replace semantic accent palettes with tonal contrast. Information is still
+   communicated through weight, labels and borders rather than colour. */
+.ide-minimal [class*="text-cyan-"],
+.ide-minimal [class*="text-blue-"],
+.ide-minimal [class*="text-emerald-"],
+.ide-minimal [class*="text-green-"],
+.ide-minimal [class*="text-rose-"],
+.ide-minimal [class*="text-red-"],
+.ide-minimal [class*="text-amber-"],
+.ide-minimal [class*="text-yellow-"],
+.ide-minimal [class*="text-orange-"],
+.ide-minimal [class*="text-purple-"],
+.ide-minimal [class*="text-violet-"],
+.ide-minimal [class*="text-indigo-"],
+.ide-minimal [class*="text-pink-"],
+.ide-minimal [class*="text-sky-"] {
+  color: #e4e4e7 !important;
+}
+
+.ide-minimal [class*="text-slate-"] {
+  color: #a1a1aa !important;
+}
+
+.ide-minimal [class*="bg-cyan-"],
+.ide-minimal [class*="bg-blue-"],
+.ide-minimal [class*="bg-emerald-"],
+.ide-minimal [class*="bg-green-"],
+.ide-minimal [class*="bg-rose-"],
+.ide-minimal [class*="bg-red-"],
+.ide-minimal [class*="bg-amber-"],
+.ide-minimal [class*="bg-yellow-"],
+.ide-minimal [class*="bg-orange-"],
+.ide-minimal [class*="bg-purple-"],
+.ide-minimal [class*="bg-violet-"],
+.ide-minimal [class*="bg-indigo-"],
+.ide-minimal [class*="bg-pink-"],
+.ide-minimal [class*="bg-sky-"] {
+  background-color: #27272a !important;
+}
+
+.ide-minimal [class*="bg-slate-"] {
+  background-color: #18181b !important;
+}
+
+.ide-minimal [class*="border-cyan-"],
+.ide-minimal [class*="border-blue-"],
+.ide-minimal [class*="border-emerald-"],
+.ide-minimal [class*="border-green-"],
+.ide-minimal [class*="border-rose-"],
+.ide-minimal [class*="border-red-"],
+.ide-minimal [class*="border-amber-"],
+.ide-minimal [class*="border-yellow-"],
+.ide-minimal [class*="border-orange-"],
+.ide-minimal [class*="border-purple-"],
+.ide-minimal [class*="border-violet-"],
+.ide-minimal [class*="border-indigo-"],
+.ide-minimal [class*="border-pink-"],
+.ide-minimal [class*="border-sky-"],
+.ide-minimal [class*="ring-cyan-"],
+.ide-minimal [class*="ring-blue-"] {
+  border-color: #52525b !important;
+  --tw-ring-color: #52525b !important;
+}
+
+.ide-minimal [class*="border-slate-"],
+.ide-minimal [class*="ring-slate-"] {
+  border-color: #3f3f46 !important;
+  --tw-ring-color: #3f3f46 !important;
+}
+
+.ide-minimal [class*="bg-[#007acc]"],
+.ide-minimal [class*="bg-[#0e639c]"],
+.ide-minimal [class*="text-[#007acc]"],
+.ide-minimal [class*="border-[#007acc]"],
+.ide-minimal [class*="focus:border-[#007acc]"] {
+  background-color: #3f3f46 !important;
+  border-color: #71717a !important;
+  color: #fafafa !important;
+}
+
+.ide-minimal button,
+.ide-minimal input,
+.ide-minimal select,
+.ide-minimal textarea {
+  border-radius: 4px !important;
+}
+
+.ide-minimal button:hover {
+  filter: brightness(1.18);
+}
+
+.ide-minimal [class*="shadow-"] {
+  box-shadow: none !important;
+}
+
 /* Sleek Dark Scrollbar for all modals and lists */
 ::-webkit-scrollbar {
   width: 5px;

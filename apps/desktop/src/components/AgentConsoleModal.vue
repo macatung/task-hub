@@ -2048,7 +2048,7 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="agent-workspace no-drag relative min-w-0 w-full flex flex-col overflow-hidden font-sans select-none"
+    class="agent-workspace ide-minimal no-drag relative min-w-0 w-full flex flex-col overflow-hidden font-sans select-none"
     :class="[
       isStandalone || isFullscreen
         ? 'w-full h-full max-w-none max-h-none rounded-none border-0'
@@ -2060,7 +2060,7 @@ onUnmounted(() => {
     <header class="drag-region h-9 px-3 bg-[#1e1e1e] border-b border-[#2d2d2d] flex items-center justify-between text-xs shrink-0 select-none text-zinc-300">
       <!-- Left: Logo & VS Code Menu -->
       <div class="flex items-center gap-3 min-w-0">
-        <div class="flex items-center gap-1.5 text-cyan-400 font-bold font-mono">
+        <div class="flex items-center gap-1.5 text-white font-bold font-mono">
           <MacatungIcon name="agent" :size="16" />
           <span class="hidden sm:inline text-zinc-200 font-semibold">Task Hub IDE</span>
         </div>
@@ -2110,7 +2110,7 @@ onUnmounted(() => {
           @click="openModelsAndUsageModal"
           title="Models & Usage Quota"
         >
-          <i class="codicon codicon-pulse text-xs text-blue-400" />
+          <i class="codicon codicon-pulse text-xs text-zinc-300" />
           <span>{{ activeQuotaGroup.fiveHourRemainingPercent }}%</span>
         </button>
 
@@ -2137,7 +2137,7 @@ onUnmounted(() => {
         </button>
 
         <button
-          class="w-7 h-6 rounded hover:bg-rose-900/80 text-zinc-400 hover:text-white grid place-items-center transition-colors cursor-pointer text-xs font-bold"
+          class="w-7 h-6 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white grid place-items-center transition-colors cursor-pointer text-xs font-bold"
           title="Đóng cửa sổ"
           @click="emit('close')"
         >
@@ -3193,22 +3193,22 @@ onUnmounted(() => {
             :read-only="false"
           />
           <div v-else class="flex flex-col items-center justify-center h-full text-zinc-400 gap-3 p-6 select-none">
-            <span class="text-5xl">📄</span>
+            <i class="codicon codicon-file text-4xl text-zinc-300" />
             <p class="text-sm text-center max-w-md text-zinc-300">
-              Chọn một file từ Explorer (📁) hoặc Source Control (🔀) để xem và chỉnh sửa với bộ lõi Microsoft Monaco Editor.
+              Chọn một file từ Explorer hoặc Source Control để xem và chỉnh sửa với bộ lõi Microsoft Monaco Editor.
             </p>
             <div class="flex items-center gap-2">
               <button
                 class="px-3 py-1.5 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white text-xs font-semibold cursor-pointer shadow-xs"
                 @click="selectActivity('diff')"
               >
-                🔀 Xem Thay đổi Git Diff
+                <i class="codicon codicon-diff mr-1" />Xem Thay đổi Git Diff
               </button>
               <button
                 class="px-3 py-1.5 rounded-lg bg-[#333333] hover:bg-[#3e3e42] text-zinc-200 text-xs font-semibold cursor-pointer border border-[#444444]"
                 @click="selectActivity('explorer')"
               >
-                📁 Mở File Explorer
+                <i class="codicon codicon-folder-opened mr-1" />Mở File Explorer
               </button>
             </div>
           </div>
@@ -3218,7 +3218,7 @@ onUnmounted(() => {
         <div v-show="activeEditorTab === 'context'" class="flex-1 min-h-0 p-4 overflow-y-auto flex flex-col gap-4 text-xs">
           <div class="border-b border-[#333333] pb-3">
             <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
-              <span class="text-cyan-400">⚡</span>
+              <i class="codicon codicon-run text-zinc-200" />
               Task Context & Environment Details
             </h3>
             <p class="text-slate-400 text-xs mt-1 leading-relaxed">
@@ -3252,7 +3252,7 @@ onUnmounted(() => {
         <div v-show="activeEditorTab === 'evidence'" class="flex-1 min-h-0 p-4 overflow-y-auto flex flex-col gap-4 text-xs">
           <div class="border-b border-[#333333] pb-3 flex items-center justify-between">
             <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
-              <span class="text-emerald-400">🛡️</span>
+              <i class="codicon codicon-shield text-zinc-200" />
               Verification Evidence & Review Summary
             </h3>
             <span class="text-xs text-zinc-400 font-mono">Status: {{ phase }}</span>
@@ -3424,7 +3424,7 @@ onUnmounted(() => {
         >
           <div class="border-b border-slate-800 pb-3">
             <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
-              <span class="text-cyan-400">⚡</span>
+              <i class="codicon codicon-run text-zinc-200" />
               {{ phase === 'ready' ? 'Sẵn sàng khởi chạy Agent' : 'Preflight & Sandbox Isolation' }}
             </h3>
             <p class="text-slate-400 text-xs mt-1 leading-relaxed">
@@ -3505,14 +3505,14 @@ onUnmounted(() => {
                   :class="viewMode === 'cards' ? 'bg-cyan-600 text-slate-950' : 'text-slate-400 hover:text-slate-200'"
                   @click="viewMode = 'cards'"
                 >
-                  💬 Stream Cards
+                  <i class="codicon codicon-comment-discussion mr-1" />Stream Cards
                 </button>
                 <button
                   class="px-2 py-0.5 rounded text-[10px] font-semibold transition-colors cursor-pointer"
                   :class="viewMode === 'terminal' ? 'bg-cyan-600 text-slate-950' : 'text-slate-400 hover:text-slate-200'"
                   @click="viewMode = 'terminal'"
                 >
-                  🖥️ Terminal Logs
+                  <i class="codicon codicon-terminal mr-1" />Terminal Logs
                 </button>
               </div>
             </div>
@@ -3529,21 +3529,21 @@ onUnmounted(() => {
                 title="Sao chép logs"
                 @click="copyTerminalOutput"
               >
-                📋 Copy
+                <i class="codicon codicon-copy mr-1" />Copy
               </button>
               <button
                 class="px-2 py-0.5 rounded border border-slate-700 bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 transition-colors cursor-pointer"
                 title="Xóa màn hình"
                 @click="clearTerminal"
               >
-                🗑 Xóa
+                <i class="codicon codicon-trash mr-1" />Xóa
               </button>
               <button
                 class="px-2 py-0.5 rounded border border-slate-700 bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 transition-colors cursor-pointer"
                 title="Mở file log ngoài"
                 @click="openSessionLog"
               >
-                📄 Log file
+                <i class="codicon codicon-file mr-1" />Log file
               </button>
             </div>
           </div>
@@ -3556,7 +3556,7 @@ onUnmounted(() => {
             @scroll="handleScroll"
           >
             <div v-if="streamCards.length === 0" class="text-slate-500 italic py-8 text-center animate-pulse flex flex-col items-center gap-2">
-              <span class="text-lg">🤖</span>
+              <i class="codicon codicon-copilot text-lg" />
               <span>Đang khởi động Agent và chuẩn bị context...</span>
             </div>
 
@@ -3787,7 +3787,7 @@ onUnmounted(() => {
           <div class="border-b border-slate-800 pb-2.5 flex items-center justify-between">
             <div>
               <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
-                <span>📋</span> {{ workflowMode === 'discovery' ? 'Review Requirement Plan' : docsOnly ? 'Review Tài liệu Đã Tạo' : 'Structured Agent Handoff' }}
+                <i class="codicon codicon-checklist text-zinc-200" />{{ workflowMode === 'discovery' ? 'Review Requirement Plan' : docsOnly ? 'Review Tài liệu Đã Tạo' : 'Structured Agent Handoff' }}
               </h3>
               <p class="text-slate-400 text-xs mt-0.5">
                 {{ workflowMode === 'discovery' ? 'Xem plan trong Terminal/Stream. Backlog chỉ được tạo khi bạn bấm phê duyệt.' : docsOnly ? 'Kiểm tra các file tài liệu trước khi đồng bộ lên Task Hub.' : 'Ghi nhận kết quả thực thi, test results, and bằng chứng hoàn thành.' }}
@@ -3797,7 +3797,7 @@ onUnmounted(() => {
               class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
               @click="copyHandoff"
             >
-              📄 Copy Handoff Markdown
+              <i class="codicon codicon-copy mr-1" />Copy Handoff Markdown
             </button>
           </div>
 
@@ -3900,7 +3900,7 @@ onUnmounted(() => {
           :disabled="busy || !selectedTask"
           @click="runPreflight"
         >
-          {{ phase === 'error' ? 'Thử lại Preflight' : '⚡ Bắt đầu Preflight' }}
+          <i v-if="phase !== 'error'" class="codicon codicon-run mr-1" />{{ phase === 'error' ? 'Thử lại Preflight' : 'Bắt đầu Preflight' }}
         </button>
 
         <button
@@ -3908,7 +3908,7 @@ onUnmounted(() => {
           class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
           @click="startAgent"
         >
-          <span>🚀</span> Khởi chạy Agent (Full Access)
+          <i class="codicon codicon-play mr-1" />Khởi chạy Agent (Full Access)
         </button>
 
         <button
@@ -3924,7 +3924,7 @@ onUnmounted(() => {
           class="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
           @click="stopAgent"
         >
-          {{ workflowMode === 'discovery' ? '⏹ Dừng → Review Plan' : docsOnly ? '⏹ Dừng → Review Docs' : '⏹ Dừng Agent → Handoff' }}
+          <i class="codicon codicon-debug-stop mr-1" />{{ workflowMode === 'discovery' ? 'Dừng → Review Plan' : docsOnly ? 'Dừng → Review Docs' : 'Dừng Agent → Handoff' }}
         </button>
 
         <button
@@ -3950,7 +3950,7 @@ onUnmounted(() => {
           title="Sao chép toàn bộ file tài liệu đã tạo vào thư mục docs/ của workspace chính"
           @click="applyDocsToWorkspace"
         >
-          📥 Lưu vào Workspace chính
+          <i class="codicon codicon-save mr-1" />Lưu vào Workspace chính
         </button>
 
         <button
@@ -3966,7 +3966,7 @@ onUnmounted(() => {
           class="px-2.5 py-1 rounded-lg border border-[#3e3e42] bg-[#333333] hover:bg-[#3e3e42] text-zinc-200 text-xs transition-colors cursor-pointer"
           @click="openWorktree"
         >
-          📂 Mở Worktree
+          <i class="codicon codicon-folder-opened mr-1" />Mở Worktree
         </button>
 
         <button
@@ -3974,7 +3974,7 @@ onUnmounted(() => {
           class="px-2.5 py-1 rounded-lg border border-[#3e3e42] bg-[#333333] hover:bg-[#3e3e42] text-zinc-200 text-xs transition-colors cursor-pointer"
           @click="openSessionLog"
         >
-          📄 Mở Log File
+          <i class="codicon codicon-file mr-1" />Mở Log File
         </button>
       </div>
 
@@ -4040,7 +4040,8 @@ onUnmounted(() => {
           title="Chuyển sang Mascot Nhắc Việc (Ctrl+Shift+M)"
           @click="emit('switch-mode', 'mascot')"
         >
-          <span>🧘 Mascot Nhắc Việc</span>
+          <i class="codicon codicon-device-desktop text-xs" />
+          <span>Mascot Nhắc Việc</span>
         </span>
 
         <!-- Core Marker -->
@@ -4196,14 +4197,14 @@ onUnmounted(() => {
                 title="Mở phiên này để tiếp tục làm việc"
                 @click.stop="switchSession(sess)"
               >
-                <span>▶ Tiếp tục</span>
+                <i class="codicon codicon-play mr-1" /><span>Tiếp tục</span>
               </button>
               <button
                 class="p-1.5 rounded-lg hover:bg-rose-950 text-slate-500 hover:text-rose-400 text-xs transition-colors cursor-pointer"
                 title="Xóa phiên này khỏi lịch sử"
                 @click.stop="removeSavedSession(sess.sessionId, $event)"
               >
-                🗑
+                <i class="codicon codicon-trash" />
               </button>
             </div>
           </div>
@@ -4214,7 +4215,7 @@ onUnmounted(() => {
             class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-colors cursor-pointer"
             @click="startNewRun(); showSessionHistory = false;"
           >
-            ➕ Tạo phiên mới
+            <i class="codicon codicon-add mr-1" />Tạo phiên mới
           </button>
           <button
             class="text-slate-400 hover:text-white px-3 py-1.5 rounded hover:bg-slate-800 transition-colors text-xs cursor-pointer"
