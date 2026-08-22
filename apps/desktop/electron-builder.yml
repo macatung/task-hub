@@ -9,7 +9,10 @@ files:
   - dist/**
   - dist-electron/**
   - package.json
-asar: true
+# The renderer runs reliably from dist/ but crashes on this Windows machine
+# when Chromium loads the same assets from app.asar. Keep release assets
+# unpacked so the desktop agent remains usable on affected installations.
+asar: false
 publish:
   provider: github
   owner: macatung
@@ -17,6 +20,7 @@ publish:
   releaseType: release
   channel: latest
 win:
+  icon: public/icon.png
   signAndEditExecutable: false
   target:
     - target: nsis

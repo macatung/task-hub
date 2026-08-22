@@ -6,8 +6,10 @@ import MonacoEditorView from './MonacoEditorView.vue';
 import AntigravitySkillsModal from './AntigravitySkillsModal.vue';
 import AntigravityScheduledTasksModal from './AntigravityScheduledTasksModal.vue';
 import AntigravitySettingsPermissionsModal from './AntigravitySettingsPermissionsModal.vue';
+import MarkdownView from './MarkdownView.vue';
 import { ansiToHtml, stripAnsiToPlainText, escapeHtml } from '../utils/ansi';
-
+import { parseDiscoveryPlan, serializeDiscoveryPlanContract } from '../utils/discoveryPlan';
+import { buildInitialRequest, consumePendingUserEcho, normalizeConversationText } from '../utils/conversation';
 declare global {
   interface Window {
     desktopApi?: any;
@@ -107,7 +109,9 @@ const modelSyncSource = ref<'preset' | 'live' | 'cache'>('preset');
 const selectedModels = ref<Record<Provider, string>>({
   codex: 'gpt-5.6-sol',
   claude_code: 'claude-3-7-sonnet-20250219',
-  antigravity: 'gemini-3.7-flash',
+  // Recent AGY CLI versions require an explicit reasoning tier. The generic
+  // `gemini-3.7-flash` ID is retained only as a migration alias in main.ts.
+  antigravity: 'gemini-3.7-flash-high',
 });
 const customModelInput = ref<Record<Provider, string>>({
   codex: '',
@@ -119,6 +123,24 @@ const isCustomModel = ref<Record<Provider, boolean>>({
   claude_code: false,
   antigravity: false,
 });
+
+const LEGACY_AGY_MODEL_ALIASES: Record<string, string> = {
+  'gemini-3.7-flash': 'gemini-3.7-flash-high',
+  'gemini-3.6-flash': 'gemini-3.6-flash-medium',
+  'gemini-3.5-flash': 'gemini-3.5-flash-medium',
+};
+
+const migrateLegacyAgySelection = () => {
+  const selected = selectedModels.value.antigravity;
+  if (LEGACY_AGY_MODEL_ALIASES[selected]) {
+    selectedModels.value.antigravity = LEGACY_AGY_MODEL_ALIASES[selected];
+    isCustomModel.value.antigravity = false;
+  }
+  const custom = customModelInput.value.antigravity;
+  if (LEGACY_AGY_MODEL_ALIASES[custom]) {
+    customModelInput.value.antigravity = LEGACY_AGY_MODEL_ALIASES[custom];
+  }
+};
 
 const sourceWorkspace = ref(localStorage.getItem('task_companion_agent_workspace') || '');
 const savedWorkspaces = ref<string[]>([]);
@@ -132,7 +154,13 @@ type WorkflowMode = 'task' | 'docs' | 'discovery';
 const workflowMode = ref<WorkflowMode>('task');
 const docsProjectId = ref<number | null>(null);
 const requirementText = ref('');
+const conversationDraft = ref('');
+const pendingInitialRequest = ref('');
+const pendingUserEchoes = ref<string[]>([]);
 const showAdvancedTools = ref(false);
+const showAgentSettings = ref(false);
+const showActivityTimeline = ref(false);
+const showProcessDrawer = ref(false);
 
 const taskHubUrl = ref(localStorage.getItem('task_hub_base_url') || 'https://task-hub.macatung.dev');
 const credential = ref<{ token: string; projectId: string } | null>(null);
@@ -206,6 +234,34 @@ const STORAGE_KEY = 'task_companion_agent_workspace_state_v2';
 
 const selectedTask = computed(() => props.tasks.find((task) => task.id === taskId.value) || null);
 const selectedDocsProject = computed(() => props.projects?.find((project) => project.id === docsProjectId.value) || null);
+const conversationCards = computed(() => streamCards.value.filter((card) => card.type === 'user_message' || card.type === 'agent_message' || card.type === 'turn_completed'));
+const processCards = computed(() => streamCards.value.filter((card) => card.type === 'command_execution' || card.type === 'tool_execution'));
+const activeProcessCard = computed(() => {
+  return [...processCards.value].reverse().find((card) => card.status === 'in_progress')
+    || (phase.value === 'running' && processCards.value.length ? processCards.value[processCards.value.length - 1] : null);
+});
+const isAgentWorking = computed(() => phase.value === 'running');
+const activeWorkingStatus = computed(() => {
+  if (!isAgentWorking.value) return '';
+  if (activeProcessCard.value) {
+    if (activeProcessCard.value.type === 'tool_execution') {
+      const tool = activeProcessCard.value.toolName || 'tool';
+      const cmd = activeProcessCard.value.command ? ` · ${activeProcessCard.value.command}` : '';
+      return `Đang thực thi công cụ: ${tool}${cmd}`;
+    }
+    if (activeProcessCard.value.type === 'command_execution') {
+      return `Đang thực thi lệnh: ${activeProcessCard.value.command || 'terminal'}`;
+    }
+  }
+  return 'Local agent đang đọc ngữ cảnh và chuẩn bị phản hồi…';
+});
+const composerPlaceholder = computed(() => {
+  if (phase.value === 'running') return `Agent đang xử lý turn (${formattedDuration.value})… Bạn có thể gửi thêm ghi chú`;
+  if (workflowMode.value === 'discovery') return 'Bạn muốn xây dựng hoặc thay đổi điều gì?';
+  if (workflowMode.value === 'task') return selectedTask.value ? 'Ghi chú thêm cho task này (tuỳ chọn)…' : 'Chọn task ở cột trái trước.';
+  return 'Giới hạn phạm vi tài liệu cần quét (tuỳ chọn)…';
+});
+const composerActionLabel = computed(() => phase.value === 'running' ? 'Gửi' : phase.value === 'ready' && workflowMode.value === 'task' ? 'Khởi chạy agent' : workflowMode.value === 'discovery' ? 'Phân tích' : workflowMode.value === 'docs' ? 'Tạo docs' : 'Chuẩn bị task');
 
 watch(
   () => props.projects,
@@ -297,6 +353,7 @@ const saveWorkspaceState = () => {
       workflowMode: workflowMode.value,
       docsProjectId: docsProjectId.value,
       requirementText: requirementText.value,
+      conversationDraft: conversationDraft.value,
       sessionId: sessionId.value,
       runId: runId.value,
       streamCards: streamCards.value,
@@ -325,6 +382,7 @@ const saveWorkspaceState = () => {
         workflowMode: workflowMode.value,
         docsProjectId: docsProjectId.value,
         requirementText: requirementText.value,
+        conversationDraft: conversationDraft.value,
         status: phase.value === 'running' ? 'running' : 'completed',
         streamCards: streamCards.value,
         timeline: timeline.value,
@@ -342,6 +400,10 @@ const addTimeline = (label: string, detail: string, tone: 'ok' | 'passed' | 'fai
   const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   timeline.value.unshift({ id: `${Date.now()}-${Math.random()}`, label, detail, tone, time });
   if (timeline.value.length > 50) timeline.value.pop();
+  const logWorkspace = worktree.value || sourceWorkspace.value;
+  if (logWorkspace) {
+    void window.desktopApi?.agent?.logActivity?.(logWorkspace, sessionId.value, { label, detail, tone });
+  }
   saveWorkspaceState();
 };
 
@@ -385,21 +447,40 @@ const lineCount = computed(() => {
   return (rawOutput.value.match(/\n/g) || []).length + 1;
 });
 
-// Requirement Discovery writes its proposed Epic / stories / points to the
-// normal process stream. Keep a readable preview in Review so the developer
-// does not need to search across terminal tabs for the plan.
-const discoveryPlanPreview = computed(() => {
-  const output = (plainOutput.value || stripAnsiToPlainText(rawOutput.value)).trim();
-  if (!output) return 'Chưa có nội dung từ local agent. Mở Process để kiểm tra log đầy đủ.';
-  const maximumPreviewLength = 16000;
-  return output.length > maximumPreviewLength
-    ? `… Hiển thị ${maximumPreviewLength.toLocaleString()} ký tự cuối của process …\n\n${output.slice(-maximumPreviewLength)}`
-    : output;
+const latestDiscoveryAgentMessage = computed(() => [...streamCards.value]
+  .reverse()
+  .find((card) => card.type === 'agent_message' && card.text?.trim())?.text || '');
+const hasDiscoveryAgentResponse = computed(() => Boolean(latestDiscoveryAgentMessage.value.trim()));
+const discoveryPlanResult = computed(() => parseDiscoveryPlan(latestDiscoveryAgentMessage.value));
+const parsedDiscoveryPlan = computed(() => discoveryPlanResult.value.plan);
+const discoveryPlanErrors = computed(() => discoveryPlanResult.value.errors);
+const discoveryPlan = computed(() => parsedDiscoveryPlan.value || {
+  summary: discoveryPlanErrors.value?.[0] || 'Chưa có kế hoạch hợp lệ.',
+  assumptions: [] as string[],
+  affected_docs: [] as string[],
+  architecture_notes: [] as string[],
+  risks: [] as string[],
+  epic: { title: 'Kế hoạch cần chuẩn hoá' },
+  stories: [] as Array<{ title: string; story_points: number; acceptance_criteria: string[]; tasks: Array<{ ref: string; title: string; story_points: number; acceptance_criteria: string[]; depends_on: string[] }> }>,
 });
+const isDiscoveryPlanValid = computed(() => Boolean(parsedDiscoveryPlan.value && discoveryPlanErrors.value.length === 0));
+const discoveryTotalPoints = computed(() => discoveryPlan.value.stories.reduce((total, story) => total + story.story_points, 0));
+const discoveryTaskCount = computed(() => discoveryPlan.value.stories.reduce((total, story) => total + story.tasks.length, 0));
+const workflowTitle = computed(() => workflowMode.value === 'discovery' ? 'Requirement' : workflowMode.value === 'docs' ? 'Tài liệu Repo' : 'Thực thi Task');
+
+const requestDiscoveryPlanCorrection = () => {
+  if (!sessionId.value) {
+    errorMessage.value = 'Phiên agent đã đóng trước khi trả lời. Hãy chạy lại phân tích để tạo một phiên mới.';
+    return;
+  }
+  followUp.value = 'Hãy sửa kế hoạch theo Task Hub contract: trả về đầy đủ payload <task-hub-discovery-plan> JSON hợp lệ, story point Fibonacci, acceptance criteria và dependency refs hợp lệ ở cuối phản hồi.';
+  sendFollowUp();
+  phase.value = 'running';
+};
 
 const openCurrentProcess = (mode: 'cards' | 'terminal' = 'terminal') => {
-  activeEditorTab.value = 'terminal';
   viewMode.value = mode;
+  showProcessDrawer.value = true;
 };
 
 const filteredTerminalHtml = computed(() => {
@@ -496,6 +577,11 @@ const syncAvailableModels = async (forceRefresh = false) => {
             modelsState.value[p as Provider] = res.models[p];
           }
         });
+      }
+      const available = modelsState.value[provider.value] || [];
+      if (available.length && !available.some((model: any) => model.id === selectedModels.value[provider.value])) {
+        selectedModels.value[provider.value] = available[0].id;
+        addTimeline('Model updated', `Đã thay model cũ bằng ${available[0].name || available[0].id} do AGY CLI không còn hỗ trợ model trước đó.`, 'warning');
       }
       if (res.syncedAt) {
         modelSyncTimestamp.value = new Date(res.syncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1105,6 +1191,7 @@ const switchSession = async (sess: any) => {
   docsOnly.value = workflowMode.value === 'docs';
   if (sess.docsProjectId !== undefined) docsProjectId.value = sess.docsProjectId;
   if (sess.requirementText) requirementText.value = sess.requirementText;
+  if (sess.conversationDraft) conversationDraft.value = sess.conversationDraft;
   sessionId.value = sess.sessionId;
   streamCards.value = Array.isArray(sess.streamCards) ? sess.streamCards : [];
   timeline.value = Array.isArray(sess.timeline) ? sess.timeline : [];
@@ -1190,6 +1277,7 @@ const restoreWorkspaceState = async () => {
       }
       if (state.docsProjectId !== undefined) docsProjectId.value = state.docsProjectId;
       if (state.requirementText) requirementText.value = state.requirementText;
+      if (state.conversationDraft) conversationDraft.value = state.conversationDraft;
       if (state.sessionId) sessionId.value = state.sessionId;
       if (state.runId) runId.value = state.runId;
       if (Array.isArray(state.streamCards) && state.streamCards.length) streamCards.value = state.streamCards;
@@ -1204,9 +1292,18 @@ const restoreWorkspaceState = async () => {
       if (state.phase) phase.value = state.phase;
       if (typeof state.runDurationSeconds === 'number') runDurationSeconds.value = state.runDurationSeconds;
       else if (typeof state.durationSeconds === 'number') runDurationSeconds.value = state.durationSeconds;
+      migrateLegacyAgySelection();
     }
   } catch (e) {
     console.warn('Failed to restore agent workspace state:', e);
+  }
+
+  // Old builds persisted a completed Requirement run as `review` even when
+  // the stream contained only the user request. Do not leave that dead state
+  // looking approvable after an upgrade.
+  if (workflowMode.value === 'discovery' && phase.value === 'review' && !hasDiscoveryAgentResponse.value) {
+    phase.value = 'error';
+    errorMessage.value = 'Kế hoạch cũ không có phản hồi từ agent. Hãy chạy lại phân tích để tạo plan mới.';
   }
 
   // Refresh saved sessions list
@@ -1230,7 +1327,13 @@ const restoreWorkspaceState = async () => {
     } else if (phase.value === 'running') {
       stopDurationTimer();
       if (workflowMode.value === 'discovery' || docsOnly.value) {
-        phase.value = 'review';
+        if (workflowMode.value === 'discovery' && !hasDiscoveryAgentResponse.value) {
+          phase.value = 'error';
+          errorMessage.value = 'Phiên agent trước đã kết thúc nhưng không có phản hồi để tạo kế hoạch. Hãy chạy lại phân tích.';
+          addTimeline('Discovery response missing', errorMessage.value, 'error');
+        } else {
+          phase.value = 'review';
+        }
       } else {
         phase.value = 'handoff';
       }
@@ -1252,6 +1355,9 @@ const startNewRun = () => {
   docsOnly.value = false;
   workflowMode.value = 'task';
   requirementText.value = '';
+  conversationDraft.value = '';
+  pendingInitialRequest.value = '';
+  pendingUserEchoes.value = [];
   rawOutput.value = '';
   terminalHtml.value = '';
   plainOutput.value = '';
@@ -1271,21 +1377,35 @@ const startNewRun = () => {
 };
 
 // Watchers for auto-saving
-watch([phase, provider, selectedModels, customModelInput, isCustomModel, sourceWorkspace, worktree, taskId, docsOnly, workflowMode, docsProjectId, requirementText, sessionId, runId, streamCards, timeline, rawOutput, handoff, viewMode], () => {
+watch([phase, provider, selectedModels, customModelInput, isCustomModel, sourceWorkspace, worktree, taskId, docsOnly, workflowMode, docsProjectId, requirementText, conversationDraft, sessionId, runId, streamCards, timeline, rawOutput, handoff, viewMode], () => {
   saveWorkspaceState();
 }, { deep: true });
+
+const appendUserConversation = (text: string, expectEcho = false) => {
+  const message = text.trim();
+  if (!message) return;
+  if (expectEcho) pendingUserEchoes.value.push(normalizeConversationText(message));
+  streamCards.value.push({ id: `user-${Date.now()}-${Math.random()}`, type: 'user_message', text: message, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
+};
+
+const beginConversationRun = (initialRequest: string) => {
+  rawOutput.value = '';
+  terminalHtml.value = '';
+  plainOutput.value = '';
+  streamCards.value = [];
+  pendingUserEchoes.value = [];
+  appendUserConversation(initialRequest);
+};
 
 // Process structured stream events
 const handleStreamEvent = (payload: any) => {
   const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
   if (payload.stream === 'user') {
-    streamCards.value.push({
-      id: `user-${Date.now()}`,
-      type: 'user_message',
-      text: payload.event?.text || payload.text,
-      time: now,
-    });
+    const text = payload.event?.text || payload.text || '';
+    const result = consumePendingUserEcho(pendingUserEchoes.value, text);
+    pendingUserEchoes.value = result.pending;
+    if (!result.duplicate) streamCards.value.push({ id: `user-${Date.now()}`, type: 'user_message', text, time: now });
     return;
   }
 
@@ -1572,14 +1692,14 @@ const verifyTaskHub = async () => {
   addTimeline('Server compatible', `Task Hub API ${capabilities.api_version}`, 'ok');
 };
 
-const contract = () =>
-  `TASK HUB CONTRACT\nProvider: ${provider.value}\nModel: ${activeModel.value} (${activeModelLabel.value})\nWork only on ${selectedTask.value?.issue_key || `task-${taskId.value}`}. You have full execution permissions in this isolated worktree; do not ask for human approval before running commands, editing files, testing, committing, pushing, merging, or deploying when those actions are required by the task. Use Task Hub MCP for lifecycle/evidence and end with summary, changed files, tests, commit/PR and blockers.\n\nCONTEXT:\n${JSON.stringify(contextPack.value, null, 2)}`;
+const contract = (developerRequest = '') =>
+  `TASK HUB CONTRACT\nProvider: ${provider.value}\nModel: ${activeModel.value} (${activeModelLabel.value})\nWork only on ${selectedTask.value?.issue_key || `task-${taskId.value}`}. You have full execution permissions in this isolated worktree; do not ask for human approval before running commands, editing files, testing, committing, pushing, merging, or deploying when those actions are required by the task. Use Task Hub MCP for lifecycle/evidence and end with summary, changed files, tests, commit/PR and blockers.${developerRequest ? `\n\nDEVELOPER REQUEST:\n${developerRequest}` : ''}\n\nCONTEXT:\n${JSON.stringify(contextPack.value, null, 2)}`;
 
-const docsPrompt = () =>
-  `You are generating Task Hub standard documentation in a supervised worktree. Model: ${activeModel.value} (${activeModelLabel.value}). First scan repository structure, package manifests, entry points, configuration, public interfaces, database/migrations, tests, and existing documentation. Create or update ONLY these canonical files under docs/: PROJECT_DOCUMENTS.md, PROJECT_BRIEF.md, PRD.md, ARCHITECTURE.md, QA_PLAN.md, and RELEASE_RUNBOOK.md. PROJECT_DOCUMENTS.md MUST use the exact Task Hub registry marker <!-- task-hub:document-registry:v1 --> and these five rows/types: brief→docs/PROJECT_BRIEF.md, prd→docs/PRD.md, architecture→docs/ARCHITECTURE.md, qa_plan→docs/QA_PLAN.md, release_runbook→docs/RELEASE_RUNBOOK.md. Each core document must have stable headings: Purpose, Scope, Current State, Constraints, Open Questions; add domain-specific sections only after those. Base every statement on files you actually inspected; mark unknowns as TODO instead of guessing. Include source paths and an As-of commit/date in each document. Do not modify application source code, credentials, lockfiles, generated output, README, or deployment state. Do not commit, push, merge, or deploy. Finish with a summary of scanned areas, created/updated canonical files, and documentation gaps. These files will be synced by Task Hub and passed into future task context, so preserve the schema and paths exactly.`;
+const docsPrompt = (scopeNote = '') =>
+  `You are generating Task Hub standard documentation in a supervised worktree. Model: ${activeModel.value} (${activeModelLabel.value}).${scopeNote ? ` Additional developer scope: ${scopeNote}` : ''} First scan repository structure, package manifests, entry points, configuration, public interfaces, database/migrations, tests, and existing documentation. Create or update ONLY these canonical files under docs/: PROJECT_DOCUMENTS.md, PROJECT_BRIEF.md, PRD.md, ARCHITECTURE.md, QA_PLAN.md, and RELEASE_RUNBOOK.md. PROJECT_DOCUMENTS.md MUST use the exact Task Hub registry marker <!-- task-hub:document-registry:v1 --> and these five rows/types: brief→docs/PROJECT_BRIEF.md, prd→docs/PRD.md, architecture→docs/ARCHITECTURE.md, qa_plan→docs/QA_PLAN.md, release_runbook→docs/RELEASE_RUNBOOK.md. Each core document must have stable headings: Purpose, Scope, Current State, Constraints, Open Questions; add domain-specific sections only after those. Base every statement on files you actually inspected; mark unknowns as TODO instead of guessing. Include source paths and an As-of commit/date in each document. Do not modify application source code, credentials, lockfiles, generated output, README, or deployment state. Do not commit, push, merge, or deploy. Finish with a summary of scanned areas, created/updated canonical files, and documentation gaps. These files will be synced by Task Hub and passed into future task context, so preserve the schema and paths exactly.`;
 
 const discoveryPrompt = () =>
-  `You are the local Requirement Discovery agent for Task Hub. Requirement: ${requirementText.value}\n\nFirst inspect the current repository and docs/ in this worktree. Use Task Hub MCP to read get_project_state, list_project_documents and get_repository_context for project ${docsProjectId.value}. Do not edit files, commit, deploy, or create any Task Hub record in this run. Return a concise, reviewable plan in Vietnamese with: clarified requirement, assumptions/questions, affected docs and architecture, risks, one Epic for this request, User Stories with acceptance criteria, implementation Tasks, Fibonacci story points, and an explicit dependency map using a unique ref for every task (for example api depends_on schema). Prefer grouping this request in one Sprint unless its size clearly requires splitting. Every work item over 8 points must be split. Finish with an explicit human approval request.`;
+  `You are the local Requirement Discovery agent for Task Hub. Requirement: ${requirementText.value}\n\nFirst inspect the current repository and docs/ in this worktree. Use Task Hub MCP to read get_project_state, list_project_documents and get_repository_context for project ${docsProjectId.value}. Do not edit files, commit, deploy, or create any Task Hub record in this run. Return a concise, reviewable plan in Vietnamese with: clarified requirement, assumptions/questions, affected docs and architecture, risks, one Epic for this request, User Stories with acceptance criteria, implementation Tasks, Fibonacci story points, and an explicit dependency map using a unique ref for every task (for example api depends_on schema). Prefer grouping this request in one Sprint unless its size clearly requires splitting. Every work item over 8 points must be split. Finish with an explicit human approval request.${serializeDiscoveryPlanContract()}`;
 
 const approvedBacklogPrompt = () =>
   `The developer approved creating the backlog for this requirement: ${requirementText.value}\n\nUse Task Hub MCP for project ${docsProjectId.value}. Read get_project_state and list_project_documents again. Then call create_requirement_backlog exactly once. Its payload must include one epic and every Story/Task for this requirement. Use the active Sprint when possible (or specify a single new sprint); the MCP tool will keep all generated work in that one Sprint and link it to the one Epic. Give every task a unique ref and declare depends_on with predecessor refs, so a task can only start after its prerequisites are done. Use Fibonacci story points (1,2,3,5,8); split anything larger. Include acceptance criteria and risks in the relevant descriptions. Do not call create_sprint or create_work_item for this approved requirement unless create_requirement_backlog is unavailable. Do not modify repository files, commit, push, merge or deploy. End by listing the Epic, Sprint, every created Task Hub issue key, and the dependency chain.`;
@@ -1613,7 +1733,7 @@ const startPairing = async () => {
   }, 1800);
 };
 
-const runPreflight = async () => {
+const runPreflight = async (initialRequest = '') => {
   errorMessage.value = '';
   if (!selectedTask.value?.project_id) {
     errorMessage.value = 'Vui lòng chọn một task từ danh sách trước khi bắt đầu.';
@@ -1625,6 +1745,10 @@ const runPreflight = async () => {
     return;
   }
   phase.value = 'preflight';
+  if (initialRequest) {
+    pendingInitialRequest.value = initialRequest;
+    beginConversationRun(initialRequest);
+  }
   addTimeline('Preflight', `Kiểm tra ${provider.value} (${activeModel.value}) và repository...`, 'active');
   try {
     preflight.value = await window.desktopApi.agent.preflight(provider.value, sourceWorkspace.value);
@@ -1651,7 +1775,7 @@ const runPreflight = async () => {
   }
 };
 
-const startDocsGeneration = async () => {
+const startDocsGeneration = async (scopeNote = '', initialRequest = '') => {
   errorMessage.value = '';
   workflowMode.value = 'docs';
   docsOnly.value = true;
@@ -1677,13 +1801,11 @@ const startDocsGeneration = async () => {
     addTimeline('Docs worktree', `${workspace.branch} · ${workspace.reused ? 'reused' : 'tạo mới'}`, 'ok');
 
     phase.value = 'running';
-    rawOutput.value = '';
-    terminalHtml.value = '';
-    streamCards.value = [];
+    beginConversationRun(initialRequest || buildInitialRequest({ mode: 'docs', projectTitle: selectedDocsProject.value?.title, note: scopeNote }));
     runDurationSeconds.value = 0;
     startDurationTimer();
 
-    const result = await window.desktopApi.agent.startInteractive(provider.value, worktree.value, docsPrompt(), 'docs', activeModel.value);
+    const result = await window.desktopApi.agent.startInteractive(provider.value, worktree.value, docsPrompt(scopeNote), 'docs', activeModel.value);
     sessionId.value = result.sessionId;
     localStorage.setItem('task_companion_active_session', result.sessionId);
 
@@ -1705,7 +1827,7 @@ const startDocsGeneration = async () => {
   }
 };
 
-const startRequirementDiscovery = async () => {
+const startRequirementDiscovery = async (initialRequest = '') => {
   errorMessage.value = '';
   workflowMode.value = 'discovery';
   docsOnly.value = false;
@@ -1738,9 +1860,7 @@ const startRequirementDiscovery = async () => {
       token: props.desktopCredential.token,
     });
     phase.value = 'running';
-    rawOutput.value = '';
-    terminalHtml.value = '';
-    streamCards.value = [];
+    beginConversationRun(initialRequest || requirementText.value);
     runDurationSeconds.value = 0;
     startDurationTimer();
     const result = await window.desktopApi.agent.startInteractive(provider.value, worktree.value, discoveryPrompt(), 'task', activeModel.value);
@@ -1757,6 +1877,12 @@ const startRequirementDiscovery = async () => {
     errorMessage.value = error.message || 'Không thể khởi động Requirement Discovery.';
     addTimeline('Discovery error', errorMessage.value, 'error');
   }
+};
+
+const retryRequirementDiscovery = async () => {
+  sessionId.value = null;
+  errorMessage.value = '';
+  await startRequirementDiscovery(requirementText.value);
 };
 
 const hasFixableEnvironmentIssue = computed(() =>
@@ -1792,6 +1918,11 @@ const repairEnvironment = async () => {
 
 const createApprovedBacklog = async () => {
   if (!props.desktopCredential || !docsProjectId.value || !requirementText.value.trim() || !worktree.value) return;
+  if (!isDiscoveryPlanValid.value) {
+    errorMessage.value = 'Kế hoạch chưa hợp lệ. Hãy yêu cầu local agent sửa trước khi tạo backlog.';
+    addTimeline('Backlog blocked', errorMessage.value, 'warning');
+    return;
+  }
   phase.value = 'running';
   rawOutput.value = '';
   terminalHtml.value = '';
@@ -1882,12 +2013,15 @@ const startAgent = async () => {
     phase.value = 'running';
     rawOutput.value = '';
     terminalHtml.value = '';
-    streamCards.value = [];
+    if (!streamCards.value.length) {
+      beginConversationRun(pendingInitialRequest.value || buildInitialRequest({ mode: 'task', task: { issueKey: selectedTask.value?.issue_key ?? undefined, title: selectedTask.value?.title ?? undefined } }));
+    }
     runDurationSeconds.value = 0;
     startDurationTimer();
     await updateRun('running');
 
-    const result = await window.desktopApi.agent.startInteractive(provider.value, worktree.value, contract(), 'task', activeModel.value);
+    const result = await window.desktopApi.agent.startInteractive(provider.value, worktree.value, contract(pendingInitialRequest.value), 'task', activeModel.value);
+    pendingInitialRequest.value = '';
     sessionId.value = result.sessionId;
     localStorage.setItem('task_companion_active_session', result.sessionId);
 
@@ -1910,10 +2044,57 @@ const startAgent = async () => {
 
 const sendFollowUp = () => {
   if (sessionId.value && followUp.value.trim()) {
-    window.desktopApi.agent.send(sessionId.value, followUp.value);
-    addTimeline('Follow-up sent', followUp.value.trim(), 'active');
+    const message = followUp.value.trim();
+    appendUserConversation(message, true);
+    window.desktopApi.agent.send(sessionId.value, message);
+    addTimeline('Follow-up sent', message, 'active');
     followUp.value = '';
   }
+};
+
+const sendConversation = () => {
+  const note = conversationDraft.value.trim();
+  if (phase.value === 'running') {
+    if (!note) return;
+    followUp.value = note;
+    sendFollowUp();
+    conversationDraft.value = '';
+    return;
+  }
+  if (sessionId.value && ['review', 'handoff'].includes(phase.value) && note) {
+    followUp.value = note;
+    sendFollowUp();
+    phase.value = 'running';
+    conversationDraft.value = '';
+    return;
+  }
+  if (workflowMode.value === 'discovery') {
+    if (!note) {
+      errorMessage.value = 'Nhập outcome mong muốn trước khi phân tích.';
+      return;
+    }
+    requirementText.value = note;
+    conversationDraft.value = '';
+    void startRequirementDiscovery(note);
+    return;
+  }
+  if (workflowMode.value === 'docs') {
+    const request = buildInitialRequest({ mode: 'docs', projectTitle: selectedDocsProject.value?.title ?? undefined, note });
+    conversationDraft.value = '';
+    void startDocsGeneration(note, request);
+    return;
+  }
+  if (!selectedTask.value) {
+    errorMessage.value = 'Chọn Task Hub task ở cột trái trước khi gửi.';
+    return;
+  }
+  if (phase.value === 'ready') {
+    void startAgent();
+    return;
+  }
+  const request = buildInitialRequest({ mode: 'task', task: { issueKey: selectedTask.value.issue_key ?? undefined, title: selectedTask.value.title ?? undefined }, note });
+  conversationDraft.value = '';
+  void runPreflight(request);
 };
 
 const sendQuickPrompt = (promptText: string) => {
@@ -2056,10 +2237,12 @@ const openSessionLog = async () => {
   }
 };
 
-onMounted(() => {
-  void loadSavedWorkspaces();
-  void restoreWorkspaceState();
-  void syncAvailableModels(false);
+onMounted(async () => {
+  // Restore persisted state before checking the available model inventory.
+  // Running these concurrently allowed stale localStorage to overwrite the
+  // AGY 2.x model migration after it had already completed.
+  await Promise.all([loadSavedWorkspaces(), restoreWorkspaceState()]);
+  await syncAvailableModels(false);
   void loadQuotaUsage();
 
   removeOutput = window.desktopApi?.agent?.onOutput((event: any) => {
@@ -2074,7 +2257,6 @@ onMounted(() => {
     if (event.sessionId === sessionId.value) {
       stopDurationTimer();
       localStorage.removeItem('task_companion_active_session');
-      sessionId.value = null;
       if (renderTimer) {
         clearTimeout(renderTimer);
         renderTimer = undefined;
@@ -2084,12 +2266,21 @@ onMounted(() => {
       addTimeline('Process exited', `Exit code: ${event.code ?? 'unknown'}`, event.code === 0 ? 'ok' : 'error');
 
       if (workflowMode.value === 'discovery') {
-        handoff.value.summary = event.code === 0
-          ? 'Local agent đã hoàn tất phân tích requirement. Chờ developer duyệt trước khi tạo backlog.'
-          : `Requirement Discovery kết thúc với mã lỗi ${event.code}.`;
+        const completedWithoutResponse = event.code === 0 && !hasDiscoveryAgentResponse.value;
+        handoff.value.summary = completedWithoutResponse
+          ? 'Agent đã kết thúc nhưng không trả nội dung để tạo kế hoạch.'
+          : event.code === 0
+            ? 'Local agent đã hoàn tất phân tích requirement. Chờ developer duyệt trước khi tạo backlog.'
+            : `Requirement Discovery kết thúc với mã lỗi ${event.code}.`;
         handoff.value.tests = 'Requirement discovery and Task Hub MCP context review';
-        handoff.value.testSummary = event.code === 0 ? 'Plan ready for review' : 'Needs review';
-        phase.value = 'review';
+        handoff.value.testSummary = completedWithoutResponse ? 'No agent response' : event.code === 0 ? 'Plan ready for review' : 'Needs review';
+        if (completedWithoutResponse) {
+          errorMessage.value = 'Agent kết thúc thành công nhưng không gửi phản hồi. Không thể review hoặc tạo backlog; hãy mở Process để xem log rồi chạy lại.';
+          addTimeline('Discovery response missing', errorMessage.value, 'error');
+          phase.value = 'error';
+        } else {
+          phase.value = 'review';
+        }
       } else if (docsOnly.value) {
         handoff.value.summary =
           event.code === 0 ? 'Agent đã quét repository và tạo bộ tài liệu chuẩn docs/.' : `Docs agent kết thúc với mã lỗi ${event.code}.`;
@@ -2633,8 +2824,15 @@ onUnmounted(() => {
 
         <!-- DEFAULT AGENT WORKSPACE CONTROLS -->
         <template v-else>
-        <!-- FOCUSED WORKFLOW SWITCHER: one primary job per screen -->
-        <div class="rounded border border-[#333333] bg-[#1e1e1e] p-2 shrink-0">
+        <!-- GUIDED WORKFLOW: choose intent, provide only the context needed, then run -->
+        <div class="rounded-xl border border-[#333333] bg-[#1e1e1e] p-2.5 shrink-0 space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <p class="text-[10px] font-bold tracking-wider uppercase text-zinc-500">Guided workspace</p>
+              <p class="text-xs font-semibold text-zinc-100 mt-0.5">{{ workflowTitle }}</p>
+            </div>
+            <span class="px-2 py-1 rounded-full text-[10px] font-medium" :class="phaseTone === 'success' ? 'bg-emerald-950 text-emerald-300' : phaseTone === 'error' ? 'bg-rose-950 text-rose-300' : phaseTone === 'active' ? 'bg-amber-950 text-amber-300' : 'bg-[#252526] text-zinc-400'">{{ phaseLabel }}</span>
+          </div>
           <div class="grid grid-cols-3 gap-1.5">
             <button
               class="rounded px-3 py-2 text-left transition-colors cursor-pointer border"
@@ -2663,7 +2861,34 @@ onUnmounted(() => {
           </div>
         </div>
 
+        <div class="rounded-xl border border-[#333333] bg-[#1e1e1e] p-2.5 shrink-0 space-y-2">
+          <div class="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide">
+            <span :class="phase === 'select' || phase === 'error' ? 'text-white' : 'text-emerald-400'">1. Nhập</span>
+            <span class="text-zinc-600">→</span>
+            <span :class="phase === 'running' ? 'text-amber-300' : ['review', 'handoff'].includes(phase) ? 'text-emerald-400' : 'text-zinc-500'">2. Agent</span>
+            <span class="text-zinc-600">→</span>
+            <span :class="['review', 'handoff'].includes(phase) ? 'text-white' : 'text-zinc-500'">3. Review</span>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            <button class="max-w-full inline-flex items-center gap-1 rounded border border-[#333333] bg-[#252526] px-2 py-1 text-[10px] text-zinc-300 hover:text-white cursor-pointer" @click="chooseWorkspace" :title="sourceWorkspace || 'Chọn workspace'">
+              <i class="codicon codicon-folder" /><span class="max-w-[128px] truncate">{{ sourceWorkspace ? sourceWorkspace.split(/[/\\]/).pop() : 'Chọn workspace' }}</span>
+            </button>
+            <select v-if="workflowMode !== 'task'" v-model="docsProjectId" class="max-w-[180px] rounded border border-[#333333] bg-[#252526] px-2 py-1 text-[10px] text-zinc-300 outline-none focus:border-cyan-500" :disabled="busy || !isConnected"><option :value="null" disabled>Chọn project</option><option v-for="project in projects || []" :key="project.id" :value="project.id">{{ project.title }}</option></select>
+            <span class="inline-flex items-center gap-1 rounded border px-2 py-1 text-[10px]" :class="isConnected ? 'border-emerald-900 bg-emerald-950/50 text-emerald-300' : 'border-amber-900 bg-amber-950/40 text-amber-300'"><i class="codicon" :class="isConnected ? 'codicon-plug' : 'codicon-debug-disconnect'" />MCP {{ isConnected ? 'ready' : 'offline' }}</span>
+          </div>
+          <button class="w-full flex items-center justify-between rounded-lg border border-[#333333] bg-[#252526] px-2.5 py-2 text-left hover:border-[#4b5563] cursor-pointer" @click="showAgentSettings = true">
+            <span class="flex min-w-0 items-center gap-2"><i class="codicon codicon-copilot text-cyan-300" /><span class="min-w-0"><span class="block text-[10px] text-zinc-500">Local agent</span><span class="block max-w-[220px] truncate text-xs font-medium text-zinc-100">{{ provider === 'antigravity' ? 'AGY' : provider === 'claude_code' ? 'Claude' : 'Codex' }} · {{ activeModelLabel }}</span></span></span>
+            <i class="codicon codicon-settings-gear text-zinc-400" />
+          </button>
+          <div class="flex gap-1.5">
+            <button class="flex-1 rounded border border-[#333333] bg-[#252526] py-1.5 text-[10px] text-zinc-300 hover:text-white cursor-pointer" @click="openCurrentProcess('cards')"><i class="codicon codicon-terminal mr-1" />Process</button>
+            <button class="flex-1 rounded border border-[#333333] bg-[#252526] py-1.5 text-[10px] text-zinc-300 hover:text-white cursor-pointer" @click="showActivityTimeline = true"><i class="codicon codicon-history mr-1" />Hoạt động<span v-if="timeline.length" class="ml-1 text-zinc-500">{{ timeline.length }}</span></button>
+            <button class="flex-1 rounded border border-[#333333] bg-[#252526] py-1.5 text-[10px] text-zinc-300 hover:text-white cursor-pointer" @click="openSessionHistory"><i class="codicon codicon-archive mr-1" />Phiên</button>
+          </div>
+        </div>
+
         <!-- 1. PROVIDER SELECTOR -->
+        <template v-if="false">
         <div class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 shrink-0">
           <label class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">AI Execution Provider</label>
           <div class="grid grid-cols-3 gap-1.5">
@@ -2857,9 +3082,10 @@ onUnmounted(() => {
           </div>
           </template>
         </div>
+        </template>
 
         <!-- 2. REPOSITORY WORKSPACE -->
-        <div v-if="workflowMode === 'docs' || workflowMode === 'task'" class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 flex flex-col gap-2 shrink-0">
+        <div v-if="false && (workflowMode === 'docs' || workflowMode === 'task')" class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 flex flex-col gap-2 shrink-0">
           <div class="flex items-center justify-between">
             <button class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1 cursor-pointer" @click="collapsed.workspace = !collapsed.workspace">
               <i class="codicon text-xs" :class="collapsed.workspace ? 'codicon-chevron-right' : 'codicon-chevron-down'" />
@@ -2986,7 +3212,7 @@ onUnmounted(() => {
         </div>
 
         <!-- 4. QUICK ACTION: DOCS GENERATOR -->
-        <div v-if="workflowMode === 'discovery'" class="rounded border border-violet-900/80 bg-[#1e1e1e] p-2.5 shrink-0 flex flex-col gap-2">
+        <div v-if="false && workflowMode === 'discovery'" class="rounded border border-violet-900/80 bg-[#1e1e1e] p-2.5 shrink-0 flex flex-col gap-2">
           <div class="text-xs font-semibold text-violet-100 flex items-center gap-1.5">
             <i class="codicon codicon-lightbulb" /> Requirement Discovery
           </div>
@@ -2997,12 +3223,12 @@ onUnmounted(() => {
             <option v-for="project in projects || []" :key="project.id" :value="project.id">{{ project.title }}</option>
           </select>
           <textarea v-model="requirementText" rows="3" class="w-full rounded border border-[#333333] bg-[#252526] px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-violet-500" placeholder="Ví dụ: Thêm đăng nhập Google cho người dùng hiện tại." :disabled="busy" />
-          <button class="w-full py-1.5 px-3 rounded bg-violet-700 hover:bg-violet-600 text-white text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50" :disabled="busy || !docsProjectId || !requirementText.trim()" @click="startRequirementDiscovery">
+          <button class="w-full py-1.5 px-3 rounded bg-violet-700 hover:bg-violet-600 text-white text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50" :disabled="busy || !docsProjectId || !requirementText.trim()" @click="() => startRequirementDiscovery()">
             Phân tích bằng Local Agent
           </button>
         </div>
 
-        <div v-if="workflowMode === 'docs'" class="rounded border border-emerald-900/80 bg-[#1e1e1e] p-2.5 shrink-0 flex flex-col gap-1.5">
+        <div v-if="false && workflowMode === 'docs'" class="rounded border border-emerald-900/80 bg-[#1e1e1e] p-2.5 shrink-0 flex flex-col gap-1.5">
           <div class="flex items-center justify-between">
             <button class="text-xs font-semibold text-zinc-200 flex items-center gap-1.5 cursor-pointer" @click="collapsed.docs = !collapsed.docs">
               <i class="codicon text-xs" :class="collapsed.docs ? 'codicon-chevron-right' : 'codicon-chevron-down'" />
@@ -3023,12 +3249,12 @@ onUnmounted(() => {
             <option :value="null" disabled>Chọn Repo/Project</option>
             <option v-for="project in projects || []" :key="project.id" :value="project.id">{{ project.title }}</option>
           </select>
-          <p v-if="selectedDocsProject" class="text-[10px] text-emerald-300">Docs chuẩn sẽ thuộc Repo/Project: {{ selectedDocsProject.title }}</p>
+          <p v-if="selectedDocsProject" class="text-[10px] text-emerald-300">Docs chuẩn sẽ thuộc Repo/Project: {{ selectedDocsProject?.title }}</p>
           <p v-if="!isConnected" class="text-[10px] text-amber-300">Kết nối Task Hub để chọn Repo/Project và đồng bộ docs.</p>
           <button
             class="w-full py-1.5 px-3 rounded border border-[#333333] bg-[#252526] hover:bg-[#2d2d2d] text-zinc-200 text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
             :disabled="busy || phase === 'running' || !docsProjectId"
-            @click="startDocsGeneration"
+            @click="() => startDocsGeneration()"
           >
             Quét & tạo Docs
           </button>
@@ -3036,7 +3262,7 @@ onUnmounted(() => {
         </div>
 
         <!-- 5. TIMELINE FEED -->
-        <div class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 flex flex-col min-h-[200px] shrink-0">
+        <div v-if="false" class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 flex flex-col min-h-[200px] shrink-0">
           <div class="flex items-center justify-between mb-1.5 pb-1 border-b border-[#2d2d2d]">
             <button class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1 cursor-pointer" @click="collapsed.timeline = !collapsed.timeline">
               <i class="codicon text-xs" :class="collapsed.timeline ? 'codicon-chevron-right' : 'codicon-chevron-down'" />
@@ -3489,8 +3715,28 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- TERMINAL TAB CONTENT (ORIGINAL STUDIO / TERMINAL) -->
-        <div v-show="activeEditorTab === 'terminal'" class="flex-1 min-h-0 p-3 overflow-hidden flex flex-col gap-2">
+        <!-- CHAT-FIRST CONTENT: requests and replies remain in the primary right column -->
+        <div v-show="activeEditorTab === 'terminal'" class="flex-1 min-h-0 overflow-hidden flex flex-col bg-slate-950">
+          <header class="flex items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/70 px-5 py-3 shrink-0">
+            <div class="min-w-0"><p class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">{{ workflowTitle }} · Conversation</p><div class="mt-1 flex items-center gap-2 text-xs"><span class="truncate font-semibold text-slate-100">{{ workflowMode === 'task' ? (selectedTask?.issue_key || selectedTask?.title || 'Chọn task') : (selectedDocsProject?.title || 'Chọn project') }}</span><span class="rounded-full px-2 py-0.5 text-[10px] flex items-center gap-1.5" :class="phaseTone === 'active' ? 'bg-amber-950 text-amber-300 border border-amber-800/80' : phaseTone === 'success' ? 'bg-emerald-950 text-emerald-300' : phaseTone === 'error' ? 'bg-rose-950 text-rose-300' : 'bg-slate-800 text-slate-400'"><span v-if="phase === 'running'" class="h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping" /><span>{{ phaseLabel }}</span><span v-if="phase === 'running'" class="font-mono text-[9px] text-amber-400/80">({{ formattedDuration }})</span></span></div></div>
+            <div class="flex shrink-0 gap-1.5"><button class="rounded-lg border px-2.5 py-1.5 text-[11px] cursor-pointer transition-all flex items-center gap-1.5" :class="phase === 'running' ? 'border-cyan-500 bg-cyan-950/60 text-cyan-200 shadow-sm shadow-cyan-500/20' : 'border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700'" @click="showProcessDrawer = true"><span v-if="phase === 'running'" class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" /><span class="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" /></span><i v-else class="codicon codicon-terminal" /><span>Process</span><span v-if="processCards.length" class="ml-0.5 px-1 rounded bg-slate-900 text-cyan-300 font-mono text-[10px]">{{ processCards.length }}</span></button><button class="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-[11px] text-slate-200 hover:bg-slate-700 cursor-pointer" @click="openSessionHistory"><i class="codicon codicon-history mr-1" />Lịch sử</button></div>
+          </header>
+
+          <div ref="streamContainer" class="flex-1 min-h-0 overflow-y-auto px-5 py-6" @scroll="handleScroll">
+            <div v-if="conversationCards.length === 0" class="mx-auto flex max-w-xl flex-col items-center justify-center py-20 text-center"><div class="mb-4 grid h-12 w-12 place-items-center rounded-2xl border border-cyan-800 bg-cyan-950/40 text-cyan-300"><i class="codicon codicon-comment-discussion text-xl" /></div><h3 class="text-base font-bold text-slate-100">Bắt đầu {{ workflowTitle }}</h3><p class="mt-2 text-xs leading-relaxed text-slate-400">{{ workflowMode === 'discovery' ? 'Mô tả outcome ở composer phía dưới. Agent sẽ đọc repo, docs và context Task Hub.' : workflowMode === 'task' ? 'Chọn một Task Hub task ở cột trái, sau đó có thể thêm ghi chú trước khi agent bắt đầu.' : 'Chọn project rồi bấm gửi. Bạn có thể giới hạn phạm vi tài liệu bằng ghi chú.' }}</p></div>
+            <div v-else class="mx-auto max-w-4xl space-y-5"><article v-for="card in conversationCards" :key="card.id"><div v-if="card.type === 'user_message'" class="flex justify-end"><div class="max-w-[82%] rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm"><p class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-blue-100">Bạn · {{ card.time }}</p><MarkdownView :content="card.text" :is-user="true" /></div></div><div v-else-if="card.type === 'agent_message'" class="flex gap-3"><div class="mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-cyan-700 bg-cyan-950 text-[10px] font-bold text-cyan-300">AI</div><div class="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-slate-800 bg-slate-900/70 p-4"><div class="mb-2 flex items-center justify-between border-b border-slate-800 pb-2"><span class="text-[10px] font-bold uppercase tracking-wider text-cyan-300">{{ provider === 'antigravity' ? 'Antigravity Agent' : provider === 'claude_code' ? 'Claude Code Agent' : 'Codex Agent' }}</span><button class="text-[10px] text-slate-500 hover:text-white cursor-pointer" @click="copyCardText(card.text)">Copy</button></div><MarkdownView :content="card.text" :strip-plan-marker="true" /></div></div><div v-else class="flex items-center gap-2 py-1 text-[10px] text-slate-500"><span class="h-px flex-1 bg-slate-800" /><span>Turn hoàn thành · {{ (card.usage?.total_tokens || card.usage?.output_tokens || 0).toLocaleString() }} tokens</span><span class="h-px flex-1 bg-slate-800" /></div></article>
+              <div v-if="phase === 'running'" class="flex gap-3 items-start p-3.5 rounded-2xl border border-cyan-800/80 bg-cyan-950/30 text-xs shadow-lg shadow-cyan-950/40"><div class="relative mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-cyan-500 bg-cyan-950 text-[10px] font-bold text-cyan-300 shadow-sm shadow-cyan-500/30"><span class="absolute -top-1 -right-1 flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" /><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500" /></span>AI</div><div class="min-w-0 flex-1 space-y-1.5"><div class="flex items-center justify-between gap-2"><span class="text-[10px] font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5"><span>{{ provider === 'antigravity' ? 'Antigravity Agent' : provider === 'claude_code' ? 'Claude Code Agent' : 'Codex Agent' }}</span><span class="text-slate-500">·</span><span class="font-mono text-[10px] text-cyan-400 font-normal">{{ formattedDuration }}</span></span><button class="text-[10px] text-cyan-400 hover:text-cyan-200 underline cursor-pointer flex items-center gap-1" @click="showProcessDrawer = true"><i class="codicon codicon-terminal text-[11px]" /><span>Xem Process ({{ processCards.length }})</span></button></div><div class="flex items-center gap-2 text-slate-200"><span class="h-2 w-2 rounded-full bg-cyan-400 animate-pulse shrink-0" /><p class="truncate font-medium">{{ activeWorkingStatus }}</p></div></div></div>
+              <section v-if="workflowMode === 'discovery' && phase === 'error'" class="rounded-2xl border border-rose-800/70 bg-rose-950/20 p-4"><p class="text-[10px] font-bold uppercase tracking-wider text-rose-300">Không có phản hồi từ agent</p><h3 class="mt-1 text-base font-bold text-rose-50">Kế hoạch chưa được tạo</h3><p class="mt-2 text-xs leading-relaxed text-rose-100/80">{{ errorMessage || 'Phiên agent kết thúc trước khi gửi phản hồi.' }}</p><div class="mt-4 flex flex-wrap gap-2"><button class="rounded-lg bg-cyan-500 px-3 py-1.5 text-xs font-bold text-slate-950 hover:bg-cyan-400 cursor-pointer" @click="retryRequirementDiscovery">Chạy lại phân tích</button><button class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800 cursor-pointer" @click="openCurrentProcess('terminal')">Mở Process & log</button></div></section>
+              <section v-if="workflowMode === 'discovery' && phase === 'review'" class="rounded-2xl border border-violet-800/70 bg-violet-950/20 p-4"><div class="flex items-start justify-between gap-3"><div><p class="text-[10px] font-bold uppercase tracking-wider text-violet-300">Review kế hoạch</p><h3 class="mt-1 text-base font-bold text-violet-50">{{ discoveryPlan?.epic.title || 'Kế hoạch cần chuẩn hoá' }}</h3><p class="mt-2 text-xs text-violet-100/80">{{ discoveryPlan?.summary || discoveryPlanErrors[0] }}</p></div><button v-if="!isDiscoveryPlanValid" class="rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-amber-950 cursor-pointer" @click="requestDiscoveryPlanCorrection">Yêu cầu sửa</button></div><div v-if="discoveryPlan" class="mt-4 space-y-2"><div v-for="story in discoveryPlan.stories" :key="story.title" class="rounded-lg border border-violet-900/70 bg-slate-950/50 p-3"><div class="flex justify-between gap-2"><strong class="text-xs text-slate-100">{{ story.title }}</strong><span class="text-[10px] text-violet-300">{{ story.story_points }} pts</span></div><p class="mt-1 text-[11px] text-slate-400">{{ story.tasks.map((task) => task.title).join(' · ') }}</p></div></div></section>
+              <section v-if="(workflowMode === 'task' && phase === 'handoff') || (workflowMode === 'docs' && phase === 'review')" class="rounded-2xl border border-emerald-900/70 bg-emerald-950/20 p-4"><p class="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Review kết quả</p><p class="mt-2 text-sm text-slate-100">{{ handoff.summary || (workflowMode === 'docs' ? 'Agent đã hoàn thành phiên tạo tài liệu.' : 'Agent đã hoàn thành phiên thực thi.') }}</p><p v-if="handoff.changedFiles" class="mt-2 whitespace-pre-wrap text-[11px] text-slate-400">{{ handoff.changedFiles }}</p></section>
+            </div>
+          </div>
+
+          <div class="border-t border-slate-800 bg-slate-900/80 px-5 py-3 shrink-0"><div v-if="phase === 'running'" class="mb-2 flex gap-1.5 overflow-x-auto"><button v-for="prompt in ['Tóm tắt tiến độ', 'Chạy tests', 'Kiểm tra git status']" :key="prompt" class="shrink-0 rounded-full border border-slate-700 bg-slate-800 px-2.5 py-1 text-[10px] text-slate-300 hover:text-white cursor-pointer" @click="conversationDraft = prompt">{{ prompt }}</button></div><div v-if="errorMessage" class="mb-2 rounded-lg border border-rose-900 bg-rose-950/40 px-3 py-2 text-xs text-rose-200">{{ errorMessage }}</div><div class="flex items-end gap-2"><textarea v-model="conversationDraft" rows="2" class="min-h-[44px] flex-1 resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-cyan-500" :placeholder="composerPlaceholder" :disabled="['preflight', 'pairing', 'context'].includes(phase)" @keydown.ctrl.enter.prevent="sendConversation" /><button class="rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-bold text-slate-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer flex items-center gap-1.5" :disabled="['preflight', 'pairing', 'context'].includes(phase) || (workflowMode === 'discovery' && phase !== 'running' && !conversationDraft.trim()) || (workflowMode === 'task' && !selectedTask)" @click="sendConversation"><i v-if="phase === 'running'" class="codicon codicon-loading animate-spin text-xs" /><span>{{ composerActionLabel }}</span></button></div><p class="mt-1.5 text-[10px] text-slate-500">Ctrl + Enter để gửi · Process kỹ thuật ở panel riêng</p></div>
+        </div>
+
+        <!-- Legacy terminal/review layout retained only while migrating saved UI state. -->
+        <div v-if="false" class="flex-1 min-h-0 p-3 overflow-hidden flex flex-col gap-2">
         <!-- VIEW: PREFLIGHT / SETUP / READY -->
         <div
           v-if="['select', 'preflight', 'pairing', 'context', 'ready', 'error'].includes(phase)"
@@ -3499,10 +3745,10 @@ onUnmounted(() => {
           <div class="border-b border-slate-800 pb-3">
             <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
               <i class="codicon codicon-run text-zinc-200" />
-              {{ phase === 'ready' ? 'Sẵn sàng khởi chạy Agent' : 'Preflight & Sandbox Isolation' }}
+              {{ phase === 'select' ? `Bước 1 · Chuẩn bị ${workflowTitle}` : phase === 'ready' ? 'Sẵn sàng khởi chạy Agent' : 'Đang chuẩn bị local agent' }}
             </h3>
             <p class="text-slate-400 text-xs mt-1 leading-relaxed">
-              Desktop tạo <b>worktree Git cách ly</b> độc lập, cấu hình MCP protocol và cấp quyền full-access để Agent tự động code, test, và bàn giao mà không làm hỏng branch chính.
+              {{ phase === 'select' ? 'Chọn đúng repo/project ở panel bên trái, sau đó nhập yêu cầu hoặc chọn task. Agent settings và process kỹ thuật chỉ mở khi cần.' : 'Desktop đang tạo worktree Git cách ly và nạp MCP context để local agent làm việc an toàn.' }}
             </p>
           </div>
 
@@ -3645,7 +3891,7 @@ onUnmounted(() => {
               <div v-if="card.type === 'user_message'" class="flex justify-end">
                 <div class="max-w-[85%] rounded-2xl rounded-tr-none bg-blue-600/90 text-white px-3.5 py-2 shadow-md">
                   <div class="text-[10px] opacity-75 font-mono mb-0.5 text-blue-200">Bạn · {{ card.time }}</div>
-                  <p class="whitespace-pre-wrap leading-relaxed">{{ card.text }}</p>
+                  <MarkdownView :content="card.text" :is-user="true" />
                 </div>
               </div>
 
@@ -3667,7 +3913,7 @@ onUnmounted(() => {
                       Copy
                     </button>
                   </div>
-                  <div class="whitespace-pre-wrap text-slate-200 leading-relaxed font-sans">{{ card.text }}</div>
+                  <MarkdownView :content="card.text" :strip-plan-marker="true" />
                 </div>
               </div>
 
@@ -3870,24 +4116,16 @@ onUnmounted(() => {
                 <i class="codicon codicon-checklist text-zinc-200" />{{ workflowMode === 'discovery' ? 'Review Requirement Plan' : docsOnly ? 'Review Tài liệu Đã Tạo' : 'Structured Agent Handoff' }}
               </h3>
               <p class="text-slate-400 text-xs mt-0.5">
-                {{ workflowMode === 'discovery' ? 'Xem plan trong Terminal/Stream. Backlog chỉ được tạo khi bạn bấm phê duyệt.' : docsOnly ? 'Kiểm tra các file tài liệu trước khi đồng bộ lên Task Hub.' : 'Ghi nhận kết quả thực thi, test results, and bằng chứng hoàn thành.' }}
+                {{ workflowMode === 'discovery' ? 'Kế hoạch đã được tách khỏi process kỹ thuật. Backlog chỉ được tạo khi bạn bấm phê duyệt.' : docsOnly ? 'Kiểm tra các file tài liệu trước khi đồng bộ lên Task Hub.' : 'Ghi nhận kết quả thực thi, test results, and bằng chứng hoàn thành.' }}
               </p>
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <button
-                v-if="workflowMode === 'discovery'"
-                class="px-3 py-1.5 rounded-lg border border-violet-700 bg-violet-950/50 hover:bg-violet-900/70 text-violet-100 text-xs font-semibold transition-colors cursor-pointer"
-                title="Mở luồng agent dạng cards để đọc nhanh kế hoạch"
+                class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
+                title="Mở process kỹ thuật của local agent"
                 @click="openCurrentProcess('cards')"
               >
-                <i class="codicon codicon-preview mr-1" />Xem Preview
-              </button>
-              <button
-                class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
-                title="Mở toàn bộ process và log của local agent"
-                @click="openCurrentProcess('terminal')"
-              >
-                <i class="codicon codicon-terminal mr-1" />Xem Process
+                <i class="codicon codicon-terminal mr-1" />Process
               </button>
               <button
                 class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
@@ -3897,6 +4135,7 @@ onUnmounted(() => {
                 <i class="codicon codicon-history mr-1" />Lịch sử
               </button>
               <button
+                v-if="workflowMode !== 'discovery'"
                 class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
                 @click="copyHandoff"
               >
@@ -3905,20 +4144,16 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <div v-if="workflowMode === 'discovery'" class="rounded-xl border border-violet-900/70 bg-violet-950/20 p-4 flex flex-col gap-3">
-            <div class="flex items-start justify-between gap-3">
-              <div class="text-sm text-violet-100">
-                <span class="font-bold">Preview kế hoạch do local agent tạo.</span>
-                Kiểm tra Epic, User Story, acceptance criteria và story points trước khi phê duyệt tạo backlog qua Task Hub MCP.
-              </div>
-              <button
-                class="text-[11px] shrink-0 px-2.5 py-1.5 rounded border border-violet-700/80 bg-violet-900/40 hover:bg-violet-900/70 text-violet-100 cursor-pointer"
-                @click="openCurrentProcess('terminal')"
-              >
-                Mở full process
-              </button>
+          <div v-if="workflowMode === 'discovery'" class="space-y-3">
+            <div v-if="!isDiscoveryPlanValid" class="rounded-xl border border-amber-800/70 bg-amber-950/25 p-4">
+              <div class="flex items-start justify-between gap-3"><div><h4 class="text-sm font-bold text-amber-100">Kế hoạch cần được chuẩn hoá</h4><p class="mt-1 text-xs text-amber-200/80">Không hiển thị raw log ở đây. Hãy yêu cầu agent trả lại kế hoạch có cấu trúc trước khi duyệt.</p></div><button class="shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-amber-950 hover:bg-amber-400 cursor-pointer" :disabled="!sessionId" @click="requestDiscoveryPlanCorrection">Yêu cầu sửa</button></div>
+              <ul class="mt-3 list-disc space-y-1 pl-4 text-xs text-amber-200/80"><li v-for="error in discoveryPlanErrors" :key="error">{{ error }}</li></ul>
             </div>
-            <pre class="max-h-[390px] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-violet-900/80 bg-[#111827] p-3 text-[11px] leading-relaxed text-slate-200 font-mono">{{ discoveryPlanPreview }}</pre>
+            <template v-else-if="discoveryPlan">
+              <section class="rounded-xl border border-violet-800/70 bg-violet-950/20 p-4"><div class="flex flex-wrap items-start justify-between gap-3"><div><p class="text-[10px] font-bold uppercase tracking-wider text-violet-300">Kế hoạch đã sẵn sàng review</p><h4 class="mt-1 text-base font-bold text-violet-50">{{ discoveryPlan.epic.title }}</h4><p class="mt-2 max-w-3xl text-xs leading-relaxed text-violet-100/80">{{ discoveryPlan.summary }}</p></div><div class="flex gap-2 text-center"><span class="rounded-lg border border-violet-800 bg-violet-950 px-3 py-2"><b class="block text-base text-violet-100">{{ discoveryPlan.stories.length }}</b><small class="text-[10px] text-violet-300">Stories</small></span><span class="rounded-lg border border-violet-800 bg-violet-950 px-3 py-2"><b class="block text-base text-violet-100">{{ discoveryTaskCount }}</b><small class="text-[10px] text-violet-300">Tasks</small></span><span class="rounded-lg border border-violet-800 bg-violet-950 px-3 py-2"><b class="block text-base text-violet-100">{{ discoveryTotalPoints }}</b><small class="text-[10px] text-violet-300">Points</small></span></div></div><p v-if="discoveryPlan.epic.description" class="mt-3 border-t border-violet-900/70 pt-3 text-xs text-violet-200/80">{{ discoveryPlan.epic.description }}</p></section>
+              <div class="grid gap-3 lg:grid-cols-3"><section class="rounded-xl border border-slate-800 bg-slate-950/50 p-3"><h5 class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Giả định</h5><ul class="mt-2 space-y-1 text-xs text-slate-300"><li v-for="item in discoveryPlan.assumptions" :key="item">• {{ item }}</li><li v-if="!discoveryPlan.assumptions.length" class="text-slate-500">Không có.</li></ul></section><section class="rounded-xl border border-slate-800 bg-slate-950/50 p-3"><h5 class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Docs & kiến trúc</h5><ul class="mt-2 space-y-1 text-xs text-slate-300"><li v-for="item in [...discoveryPlan.affected_docs, ...discoveryPlan.architecture_notes]" :key="item">• {{ item }}</li><li v-if="!discoveryPlan.affected_docs.length && !discoveryPlan.architecture_notes.length" class="text-slate-500">Không có.</li></ul></section><section class="rounded-xl border border-slate-800 bg-slate-950/50 p-3"><h5 class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Rủi ro</h5><ul class="mt-2 space-y-1 text-xs text-slate-300"><li v-for="item in discoveryPlan.risks" :key="item">• {{ item }}</li><li v-if="!discoveryPlan.risks.length" class="text-slate-500">Không có.</li></ul></section></div>
+              <section class="rounded-xl border border-slate-800 bg-slate-950/40 p-3"><h5 class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Stories, tasks & dependencies</h5><div class="mt-3 space-y-3"><article v-for="(story, storyIndex) in discoveryPlan.stories" :key="`${story.title}-${storyIndex}`" class="rounded-lg border border-slate-800 bg-slate-900/50 p-3"><div class="flex items-start justify-between gap-3"><div><h6 class="text-sm font-semibold text-slate-100">{{ storyIndex + 1 }}. {{ story.title }}</h6><p class="mt-1 text-xs text-slate-400">{{ story.acceptance_criteria.join(' · ') }}</p></div><span class="rounded bg-violet-950 px-2 py-1 text-[10px] font-bold text-violet-200">{{ story.story_points }} pts</span></div><div class="mt-3 space-y-1.5"><div v-for="task in story.tasks" :key="task.ref" class="grid grid-cols-[auto_1fr_auto] items-start gap-2 rounded border border-slate-800 bg-slate-950/70 p-2"><code class="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-cyan-300">{{ task.ref }}</code><div><p class="text-xs font-medium text-slate-200">{{ task.title }}</p><p class="mt-0.5 text-[10px] text-slate-500">{{ task.acceptance_criteria.join(' · ') }}<span v-if="task.depends_on.length"> · depends on: {{ task.depends_on.join(', ') }}</span></p></div><span class="text-[10px] font-mono text-slate-400">{{ task.story_points }}pt</span></div></div></article></div></section>
+            </template>
           </div>
 
           <div v-else class="space-y-3">
@@ -4011,10 +4246,10 @@ onUnmounted(() => {
     <div class="flex items-center justify-between gap-3 px-4 py-2 border-t border-[#333333] bg-[#252526] shrink-0 text-xs select-none">
       <div class="flex items-center gap-2 flex-wrap min-w-0">
         <button
-          v-if="workflowMode === 'task' && (phase === 'select' || phase === 'error')"
+          v-if="false && workflowMode === 'task' && (phase === 'select' || phase === 'error')"
           class="px-3.5 py-1.5 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white font-semibold text-xs shadow-xs transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           :disabled="busy || !selectedTask"
-          @click="runPreflight"
+          @click="() => runPreflight()"
         >
           <i v-if="phase !== 'error'" class="codicon codicon-run mr-1" />{{ phase === 'error' ? 'Thử lại Preflight' : 'Bắt đầu Preflight' }}
         </button>
@@ -4029,8 +4264,7 @@ onUnmounted(() => {
         </button>
 
         <button
-          v-if="workflowMode === 'task' && phase === 'ready'"
-          class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+          v-if="false && workflowMode === 'task' && phase === 'ready'"
           @click="startAgent"
         >
           <i class="codicon codicon-play mr-1" />Khởi chạy Agent (Full Access)
@@ -4059,11 +4293,19 @@ onUnmounted(() => {
           @click="submitHandoff"
         >
           Submit Handoff lên Task Hub
+          class="px-3.5 py-1.5 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white font-semibold text-xs shadow-xs transition-all cursor-pointer disabled:opacity-40"
+          :disabled="!handoff.summary || !handoff.changedFiles"
+          @click="submitHandoff"
+        >
+          Submit Handoff lên Task Hub
         </button>
 
         <button
           v-if="workflowMode === 'discovery' && phase === 'review'"
           class="px-3.5 py-1.5 rounded-lg bg-violet-700 hover:bg-violet-600 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
+          :class="!isDiscoveryPlanValid ? 'opacity-40 cursor-not-allowed' : ''"
+          :disabled="!isDiscoveryPlanValid"
+          title="Chỉ tạo backlog khi kế hoạch cấu trúc hợp lệ"
           @click="createApprovedBacklog"
         >
           ✓ Duyệt & tạo Backlog
@@ -4087,7 +4329,7 @@ onUnmounted(() => {
         </button>
 
         <button
-          v-if="worktree"
+          v-if="false && worktree"
           class="px-2.5 py-1 rounded-lg border border-[#3e3e42] bg-[#333333] hover:bg-[#3e3e42] text-zinc-200 text-xs transition-colors cursor-pointer"
           @click="openWorktree"
         >
@@ -4095,7 +4337,7 @@ onUnmounted(() => {
         </button>
 
         <button
-          v-if="sessionId"
+          v-if="false && sessionId"
           class="px-2.5 py-1 rounded-lg border border-[#3e3e42] bg-[#333333] hover:bg-[#3e3e42] text-zinc-200 text-xs transition-colors cursor-pointer"
           @click="openSessionLog"
         >
@@ -4221,6 +4463,40 @@ onUnmounted(() => {
           </button>
         </div>
       </div>
+    </div>
+
+    <!-- PROCESS DRAWER: commands and logs are intentionally separate from the conversation -->
+    <div v-if="showProcessDrawer" class="fixed inset-0 z-50 bg-black/60 flex justify-end" @click.self="showProcessDrawer = false">
+      <section class="flex h-full w-full max-w-2xl flex-col border-l border-slate-700 bg-slate-950 shadow-2xl">
+        <header class="flex items-center justify-between border-b border-slate-800 px-5 py-3"><div><p class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Technical detail</p><h2 class="mt-1 text-sm font-bold text-slate-100">Process & logs</h2></div><div class="flex items-center gap-2"><button class="rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-300 hover:text-white cursor-pointer" @click="viewMode = viewMode === 'cards' ? 'terminal' : 'cards'">{{ viewMode === 'cards' ? 'Raw logs' : 'Process cards' }}</button><button class="grid h-8 w-8 place-items-center rounded-lg bg-slate-800 text-slate-400 hover:text-white cursor-pointer" @click="showProcessDrawer = false">✕</button></div></header>
+        <div v-if="viewMode === 'cards'" class="flex-1 overflow-y-auto p-4"><div v-if="processCards.length === 0" class="py-16 text-center text-xs italic text-slate-500">Chưa có command hoặc tool output.</div><div v-else class="space-y-2"><article v-for="card in processCards" :key="card.id" class="rounded-xl border border-slate-800 bg-slate-900/60 p-3"><button class="flex w-full items-center justify-between gap-3 text-left cursor-pointer" @click="card.expanded = !card.expanded"><span class="min-w-0 truncate font-mono text-xs text-slate-200"><span class="mr-2 text-cyan-400">{{ card.type === 'tool_execution' ? '⚙' : '$' }}</span>{{ card.toolName || card.command }}</span><span class="text-[10px] text-slate-500">{{ card.expanded ? 'Ẩn' : 'Xem' }}</span></button><pre v-if="card.expanded && (card.output || card.toolParameters)" class="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-black p-3 text-[10px] text-slate-300">{{ card.output || JSON.stringify(card.toolParameters, null, 2) }}</pre></article></div></div>
+        <div v-else class="flex-1 overflow-y-auto bg-black p-4 font-mono text-[11px] leading-relaxed text-slate-200"><div v-if="!rawOutput" class="py-16 text-center font-sans text-xs italic text-slate-500">Chưa có raw log.</div><div v-else class="whitespace-pre-wrap break-words" v-html="filteredTerminalHtml" /></div>
+      </section>
+    </div>
+
+    <!-- AGENT SETTINGS: advanced configuration stays out of the main workflow -->
+    <div v-if="showAgentSettings" class="fixed inset-0 z-50 bg-black/60 flex justify-end" @click.self="showAgentSettings = false">
+      <section class="h-full w-full max-w-md overflow-y-auto border-l border-slate-700 bg-slate-950 p-5 shadow-2xl">
+        <header class="mb-5 flex items-start justify-between gap-4">
+          <div><p class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Advanced</p><h2 class="mt-1 text-base font-bold text-slate-100">Agent settings</h2><p class="mt-1 text-xs text-slate-400">Lựa chọn này được lưu cho lần chạy tiếp theo.</p></div>
+          <button class="grid h-8 w-8 place-items-center rounded-lg bg-slate-800 text-slate-400 hover:text-white cursor-pointer" @click="showAgentSettings = false">✕</button>
+        </header>
+        <div class="space-y-5">
+          <div><label class="mb-2 block text-[10px] font-bold uppercase tracking-wider text-slate-500">Provider</label><div class="grid grid-cols-3 gap-2"><button v-for="p in ([{ id: 'codex', name: 'Codex' }, { id: 'claude_code', name: 'Claude' }, { id: 'antigravity', name: 'AGY' }] as const)" :key="p.id" class="rounded-lg border px-2 py-2 text-xs font-medium cursor-pointer" :class="provider === p.id ? 'border-cyan-500 bg-cyan-950/50 text-cyan-100' : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'" :disabled="busy || phase === 'running'" @click="provider = p.id">{{ p.name }}</button></div></div>
+          <div class="space-y-2"><div class="flex items-center justify-between"><label class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Model</label><div class="flex gap-1"><button class="rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-300 hover:text-white cursor-pointer" :disabled="isSyncingModels || phase === 'running'" @click="syncAvailableModels(true)"><i class="codicon codicon-refresh" :class="isSyncingModels ? 'animate-spin' : ''" /> Đồng bộ</button><button class="rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-300 hover:text-white cursor-pointer" @click="toggleCustomModelMode">{{ isCustomModel[provider] ? 'Danh sách' : 'Tuỳ chỉnh' }}</button></div></div><input v-if="isCustomModel[provider]" :value="customModelInput[provider]" @input="setCustomModel(($event.target as HTMLInputElement).value)" class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-mono text-slate-100 outline-none focus:border-cyan-500" placeholder="Nhập model ID" /><select v-else :value="activeModel" class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 outline-none focus:border-cyan-500" @change="selectModel(($event.target as HTMLSelectElement).value)"><option v-for="model in filteredProviderModels" :key="model.id" :value="model.id">{{ model.name }} · {{ model.id }}</option></select></div>
+          <button class="flex w-full items-center justify-between rounded-lg border border-slate-700 bg-slate-900 p-3 text-left hover:border-slate-600 cursor-pointer" @click="openModelsAndUsageModal"><span><span class="block text-xs font-semibold text-slate-100">Quota & usage</span><span class="mt-0.5 block text-[10px] text-slate-400">5h {{ activeQuotaGroup.fiveHourRemainingPercent }}% · Tuần {{ activeQuotaGroup.weeklyRemainingPercent }}%</span></span><i class="codicon codicon-dashboard text-slate-400" /></button>
+          <button class="w-full rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 hover:bg-slate-900 cursor-pointer" @click="showAdvancedTools = !showAdvancedTools">{{ showAdvancedTools ? 'Ẩn công cụ IDE nâng cao' : 'Mở công cụ IDE nâng cao' }}</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- ACTIVITY TIMELINE: supporting detail, not a permanent sidebar section -->
+    <div v-if="showActivityTimeline" class="fixed inset-0 z-50 bg-black/60 flex justify-end" @click.self="showActivityTimeline = false">
+      <section class="h-full w-full max-w-md overflow-y-auto border-l border-slate-700 bg-slate-950 p-5 shadow-2xl">
+        <header class="mb-4 flex items-center justify-between"><div><p class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Session detail</p><h2 class="mt-1 text-base font-bold text-slate-100">Hoạt động</h2></div><button class="grid h-8 w-8 place-items-center rounded-lg bg-slate-800 text-slate-400 hover:text-white cursor-pointer" @click="showActivityTimeline = false">✕</button></header>
+        <div v-if="timeline.length === 0" class="py-12 text-center text-xs italic text-slate-500">Chưa có hoạt động.</div>
+        <div v-else class="space-y-2"><article v-for="item in timeline" :key="item.id" class="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div class="flex justify-between gap-2"><strong class="text-xs" :class="item.tone === 'error' || item.tone === 'failed' ? 'text-rose-300' : item.tone === 'warning' ? 'text-amber-300' : item.tone === 'ok' || item.tone === 'passed' ? 'text-emerald-300' : 'text-slate-200'">{{ item.label }}</strong><time class="text-[10px] font-mono text-slate-500">{{ item.time }}</time></div><p class="mt-1 text-xs leading-relaxed text-slate-400">{{ item.detail }}</p></article></div>
+      </section>
     </div>
 
     <!-- SESSION HISTORY OVERLAY / MODAL -->

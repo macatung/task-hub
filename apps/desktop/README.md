@@ -1,109 +1,118 @@
 # ⚡ Task Companion — Desktop App (Windows)
 
-Ứng dụng mascot desktop chạy lơ lửng trên Windows, tập trung vào quản lý task, productivity và kết nối AI agent.
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](../../LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2B-blue)]()
+[![Electron](https://img.shields.io/badge/electron-34.x-47848F.svg)]()
+[![Vue](https://img.shields.io/badge/vue-3.5.x-4FC08D.svg)]()
+[![TailwindCSS](https://img.shields.io/badge/tailwindcss-4.x-38B2AC.svg)]()
+
+Ứng dụng mascot desktop chạy trên Windows, kết hợp quản lý tác vụ (Task workspace), đồng hồ Pomodoro chánh niệm, trình hiển thị Markdown/Mermaid phong phú và điều phối AI Coding Agent (Antigravity 2.0, Codex, Claude Code).
 
 ---
 
 ## ✨ Tính Năng Nổi Bật
 
-1. **Cửa Sổ Trong Suốt Lơ Lửng (Frameless Transparent Window)**:
-   - Mascot bay bổng trên màn hình với nền trong suốt tuyệt đối 100%.
-   - Kéo thả tự do (`Drag & Drop`) tới bất kỳ góc màn hình nào bạn thích.
-   - Luôn ở trên cùng (`Always-on-Top`) để bạn không bỏ lỡ những khoảnh khắc chánh niệm.
+```mermaid
+graph LR
+    Companion[Task Companion] --> AgentConsole[Supervised Agent Console]
+    Companion --> MarkdownViewer[Markdown & Mermaid Viewer]
+    Companion --> TaskDispatch[Task Dispatch & Context Packs]
+    Companion --> Pomodoro[Mindful Pomodoro & Mascot]
+    Companion --> DevicePairing[Device Pairing & Approval]
 
-2. **Task workspace**: task dispatch, Pomodoro, review, quick notes và debug.
+    AgentConsole --> Antigravity[Antigravity 2.0 IDE]
+    AgentConsole --> Codex[Codex CLI]
+    AgentConsole --> Claude[Claude Code CLI]
+```
 
-3. **AI Agent Workspace**: kết nối Codex, Antigravity và Claude Code; cấu hình MCP Task Hub cho workspace.
+1. **Cửa Sổ Trong Suốt Lơ Lửng (Frameless Transparent Mascot)**:
+   - Mascot đồng hành hiển thị trên màn hình với nền trong suốt tuyệt đối.
+   - Kéo thả tự do (`Drag & Drop`) tới bất kỳ góc màn hình nào.
+   - Chế độ ghim trên cùng (`Always-on-Top`) và hệ thống chuông định kỳ thư giãn.
 
-4. **Khay hệ thống**: mở mascot, task dispatch, agent workspace, Pomodoro, review và Task Hub.
+2. **Trung Tâm Điều Phối Tác Vụ (Task Workspace)**:
+   - Đồng bộ danh sách công việc thời gian thực với Task Hub.
+   - Xem và phê duyệt Request Discovery Plan từ AI.
+   - Hỗ trợ ghi chú nhanh (Quick Notes), bộ đếm Pomodoro và theo dõi tiến độ công việc.
 
-5. **Agent Workspace**:
-   - Mở console từ `Tasks → Agent` để làm việc với Codex, Claude Code hoặc Antigravity.
-   - Với Codex/Claude Code, chọn thư mục repository, mở một phiên CLI và gửi prompt/lệnh qua stdin; output được stream trực tiếp về desktop app.
-   - Với Antigravity 2.0 desktop, app mở `Antigravity.exe` vào workspace đã chọn và copy prompt vào clipboard để dán vào Agent panel. Bản desktop không expose `agy` stdin/stdout API.
-   - Agent Workspace bắt buộc chọn đúng một task đang mở từ Task Hub production; task không có project không thể chạy.
-   - App dùng device pairing với GitHub approval, tự lấy context pack, tạo `agent_run`, cấu hình MCP và truyền contract vào agent.
+3. **Supervised AI Agent Console**:
+   - Tích hợp điều khiển **Codex CLI**, **Claude Code** và **Antigravity 2.0 IDE**.
+   - Với **Codex / Claude Code**: Mở console PTY cô lập, stream stdin/stdout thời gian thực, quản lý phiên và sao chép log nhanh.
+   - Với **Antigravity 2.0 Desktop**: Tự động sinh file cấu hình `.agents/mcp_config.json`, đưa context pack vào clipboard và ghép nối với Antigravity Agent tools.
+   - Tự động đính kèm Verification Evidence và hoàn thành Agent Handoff về Hub.
 
-   Các CLI cần có sẵn trong `PATH` của Windows:
+4. **Trình Render Markdown & Biểu Đồ Mermaid Tích Hợp**:
+   - Hỗ trợ đầy đủ **GitHub Alerts** (`[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, `[!CAUTION]`).
+   - Checkbox tương tác cho danh sách việc cần làm (GFM Task Lists).
+   - Tô màu cú pháp cho các khối thay đổi code (Diff Highlight).
+   - Render sơ đồ cấu trúc/luồng dữ liệu trực tiếp bằng **Mermaid**.
 
-   ```powershell
-   codex --version
-   claude --version
-   agy --version
-   ```
-
-   Agent bridge chỉ cho phép ba provider trên và chạy trong thư mục mà người dùng chọn. Không nhập token vào prompt; hãy đăng nhập/authenticate từng CLI theo hướng dẫn riêng của chúng.
-
-   Với Antigravity IDE, chọn provider `Antigravity` và workspace, sau đó approve project trong browser khi app yêu cầu. Không cần nhập Project ID hay MCP token thủ công. App sẽ tạo hoặc cập nhật:
-
-   ```text
-   <workspace>/.agents/mcp_config.json
-   ```
-
-   Sau đó mở workspace này trong Antigravity IDE. Trong IDE, kiểm tra MCP ở `Settings → Customizations → Installed MCP Servers`; agent có thể dùng các tool `task-hub` để đọc task, lấy context pack, ghi lifecycle và đính verification evidence. Token chỉ tồn tại trong pairing response/config local và không được đưa vào prompt hoặc log.
-
-6. **Auto-update**:
-   - Bản đã cài tự kiểm tra GitHub Releases sau khi khởi động và định kỳ mỗi 6 giờ.
-   - Update được tải nền; app chỉ restart khi người dùng bấm `Khởi động lại và cập nhật`.
-   - Release chính thức dùng tag `desktop-v<version>`, ví dụ `desktop-v1.0.1`.
+5. **Cập Nhật Tự Động (Auto-Update)**:
+   - Tự động kiểm tra bản cập nhật mới trên GitHub Releases sau khi khởi động và định kỳ mỗi 6 giờ.
+   - Tải bản cập nhật ngầm, chỉ áp dụng khi người dùng xác nhận khởi động lại.
 
 ---
 
-## 🚀 Hướng Dẫn Khởi Chạy
+## 🚀 Hướng Dẫn Phát Triển & Đóng Gói
 
-### 1. Chạy thử nghiệm chế độ Development:
+### 1. Chạy chế độ Phát triển (Development):
 ```powershell
-cd d:\Work\macatung\desktop
+# Chạy từ thư mục gốc của repository
+npm --workspace apps/desktop run dev
+
+# Hoặc di chuyển vào thư mục apps/desktop
+cd apps/desktop
 npm run dev
 ```
 
-### 2. Đóng gói ứng dụng Windows (.exe):
+Chạy với các chế độ riêng biệt:
 ```powershell
-cd d:\Work\macatung\desktop
-npm run build
-```
-File cài đặt `.exe` sẽ được tạo tự động trong thư mục `desktop/dist/`.
-
-### 3. Phát hành bản cập nhật Windows
-
-Tăng version trong `desktop/package.json`, commit thay đổi rồi tạo tag release:
-
-```powershell
-cd d:\Work\macatung\desktop
-npm version patch
-git add package.json package-lock.json
-git commit -m "chore(desktop): release v1.0.1"
-git tag desktop-v1.0.1
-git push origin main --tags
+npm --workspace apps/desktop run dev:ide      # Mở giao diện phát triển độc lập IDE
+npm --workspace apps/desktop run dev:mascot   # Mở giao diện Mascot lơ lửng
 ```
 
-GitHub Actions sẽ kiểm tra version, build installer NSIS per-user và publish
-`.exe`, `latest.yml` cùng blockmap lên GitHub Releases.
+### 2. Kiểm thử Unit Test:
+```powershell
+npm --workspace apps/desktop run test
+```
+
+### 3. Đóng gói ứng dụng Windows (.exe):
+```powershell
+npm --workspace apps/desktop run build
+```
+Bộ cài đặt `.exe` và file `latest.yml` sẽ được tạo trong thư mục `apps/desktop/release/`.
 
 ---
 
 ## 🛠️ Cấu Trúc Mã Nguồn
 
 ```
-desktop/
+apps/desktop/
 ├── electron/
-│   ├── main.ts              # Quản lý BrowserWindow trong suốt & System Tray
-│   └── preload.ts           # Bridge API giữa Electron và Vue
+│   ├── main.ts                     # Quản lý BrowserWindow trong suốt, Tray & IPC Handlers
+│   └── preload.ts                  # Bridge API an toàn giữa Node/Electron và Vue Renderer
 ├── src/
-│   ├── audio/
-│   │   └── mindfulBellAudio.ts # Bộ tổng hợp chuông Tây Tạng 432Hz/528Hz
 │   ├── components/
-│   │   ├── ZenMascotStage.vue          # Mascot Ma Tọa Thiền (Đài sen & Hào quang)
-│   │   ├── CoderMascotStage.vue        # Mascot Ma Cà Tưng Coder (Bùa chú & Cà phê)
-│   │   ├── DhammapadaSpeechBubble.vue  # Bong bóng kệ Pháp Cú & Lời nhắc
-│   │   ├── BreathingPacer.vue          # Vòng tròn điều tức 3 nhịp thở
-│   │   └── SettingsModal.vue           # Bảng cài đặt chu kỳ nhắc nhở
-│   ├── composables/
-│   │   └── useMindfulScheduler.ts      # Bộ đếm giờ tự động định kỳ
-│   ├── data/
-│   │   └── dhammapadaVerses.ts         # Kho kệ Pháp Cú & Nhắc nhở sức khỏe
-│   ├── App.vue                         # Component điều phối chính
-│   └── main.ts
+│   │   ├── AgentConsoleModal.vue   # Bảng điều khiển phiên AI Agent (Terminal, Streaming & Status)
+│   │   ├── MarkdownView.vue        # Trình render Markdown với GitHub Alerts & Mermaid
+│   │   ├── AntigravitySkillsModal.vue # Quản lý kỹ năng và MCP Server cho Antigravity
+│   │   ├── ZenMascotStage.vue      # Mascot Ma Tọa Thiền (Đài sen & Hào quang)
+│   │   ├── CoderMascotStage.vue    # Mascot Ma Cà Tưng Coder
+│   │   ├── DhammapadaSpeechBubble.vue # Lời nhắc chánh niệm và kệ Pháp Cú
+│   │   └── SettingsModal.vue       # Cài đặt chu kỳ và tùy biến
+│   ├── utils/
+│   │   ├── markdown.ts             # Bộ parser Markdown mở rộng & Sanitizer DOMPurify
+│   │   ├── discoveryPlan.ts        # Xử lý cấu trúc Request Discovery Plan
+│   │   └── conversation.ts         # Quản lý lịch sử hội thoại Agent
+│   ├── App.vue                     # Component điều phối chính
+│   └── main.ts                     # Khởi tạo Vue Application
 ├── package.json
 └── vite.config.ts
 ```
+
+---
+
+## 📄 Bản Quyền & Giấy Phép
+
+Phát hành theo giấy phép **Apache License, Version 2.0**.
+Bản quyền © 2026 **Ma Cà Tưng (macatung.dev)**.

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
+import MarkdownView from './MarkdownView.vue';
 
 const props = defineProps<{
   workspacePath?: string;
@@ -193,7 +194,9 @@ onMounted(() => {
               <div>
                 <label class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider block mb-1">SKILL.md Instructions</label>
                 <div v-if="isLoadingContent" class="text-xs text-zinc-400 p-4">Đang tải nội dung...</div>
-                <pre v-else class="text-xs font-mono text-zinc-200 bg-[#141414] p-3 rounded-lg border border-[#2d2d2d] overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-96">{{ selectedSkill.content }}</pre>
+                <div v-else class="max-h-96 overflow-y-auto rounded-lg border border-[#2d2d2d] bg-[#141414] p-3 text-xs text-zinc-200">
+                  <MarkdownView :content="selectedSkill.content" />
+                </div>
               </div>
             </div>
             <div v-else class="flex flex-col items-center justify-center h-full text-zinc-500 gap-2">

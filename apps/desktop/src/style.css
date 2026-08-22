@@ -241,3 +241,59 @@
   font-size: 20px;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Markdown Rendering Theme Overrides                                         */
+/* -------------------------------------------------------------------------- */
+.markdown-body {
+  color: #e2e8f0;
+  font-size: 0.8125rem;
+}
+
+.ide-minimal .markdown-body .markdown-h1 {
+  color: #f8fafc !important;
+}
+
+.ide-minimal .markdown-body .markdown-h2 {
+  color: #f1f5f9 !important;
+}
+
+.ide-minimal .markdown-body .markdown-h3 {
+  color: #67e8f9 !important;
+}
+
+.ide-minimal .markdown-body .markdown-inline-code {
+  color: #a5f3fc !important;
+  background-color: #1e293b !important;
+  border-color: #475569 !important;
+}
+
+.ide-minimal .markdown-body .markdown-link {
+  color: #38bdf8 !important;
+}
+
+.ide-minimal .markdown-body .copy-code-btn {
+  background-color: #1e293b !important;
+  color: #cbd5e1 !important;
+  border-color: #475569 !important;
+}
+
+.ide-minimal .markdown-body .copy-code-btn:hover {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+.ide-minimal .markdown-body .markdown-blockquote {
+  border-left-color: #06b6d4 !important;
+  background-color: rgba(8, 51, 68, 0.25) !important;
+  color: #cbd5e1 !important;
+}
+
+.ide-minimal .markdown-body .code-block-wrapper {
+  background-color: #0d1117 !important;
+  border-color: #334155 !important;
+}
+
+.ide-minimal .markdown-body .code-block-wrapper pre {
+  background-color: transparent !important;
+  color: #e2e8f0 !important;
+}

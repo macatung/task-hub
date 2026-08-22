@@ -2315,7 +2315,7 @@ onUnmounted(() => {
     >
       <div
         :class="[
-          'w-full max-w-2xl rounded-3xl border p-6 shadow-2xl space-y-4 max-h-[88vh] overflow-y-auto custom-scrollbar transition-all',
+          'w-full max-w-4xl rounded-3xl border p-4 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar transition-all',
           isDarkMode ? 'bg-slate-900/95 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
         ]"
       >
@@ -2324,12 +2324,14 @@ onUnmounted(() => {
             <span class="mono-icon text-xl">▤</span>
             <div>
               <h3 class="font-bold text-base">Project Documents & Context Pack</h3>
-            <p class="text-xs text-slate-400">Architecture, PRD and runbook references for developers and AI agents</p>
+            <p class="text-xs text-slate-400">{{ activeProjectObject?.title || 'Project' }} · shared context for developers and AI agents</p>
             </div>
           </div>
           <button
             @click="isDocsModalOpen = false"
-            class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label="Close project documents"
+            title="Close project documents"
+            class="min-h-[44px] min-w-[44px] p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors cursor-pointer"
           >
             ✕
           </button>

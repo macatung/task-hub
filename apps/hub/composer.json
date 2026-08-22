@@ -3,7 +3,7 @@
   "type": "project",
   "description": "Open-source work management and AI agent execution hub",
   "keywords": ["task-hub", "laravel", "inertia", "mcp", "ai-agents"],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "require": {
     "php": "^8.2",
     "guzzlehttp/guzzle": "^7.8",

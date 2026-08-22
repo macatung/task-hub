@@ -69,6 +69,7 @@ contextBridge.exposeInMainWorld('desktopApi', {
     getSessionState: (sessionId: string) => ipcRenderer.invoke('agent-get-session-state', sessionId),
     deleteSavedSession: (sessionId: string) => ipcRenderer.invoke('agent-delete-session', sessionId),
     openSessionLog: (sessionId: string) => ipcRenderer.invoke('agent-open-session-log', sessionId),
+    logActivity: (cwd: string, sessionId: string | null, activity: { label: string; detail: string; tone: string }) => ipcRenderer.invoke('agent-log-activity', { cwd, sessionId, activity }),
     readFile: (cwd: string, relativePath: string) => ipcRenderer.invoke('workspace-read-file', { cwd, relativePath }),
     listFiles: (cwd: string, maxFiles?: number) => ipcRenderer.invoke('workspace-list-files', { cwd, maxFiles }),
     getGitDiff: (cwd: string) => ipcRenderer.invoke('workspace-get-git-diff', { cwd }),

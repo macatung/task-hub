@@ -13,6 +13,7 @@
     "build:vue": "vite build",
     "build:win": "npm run build",
     "build:win:publish": "vue-tsc --noEmit && vite build && electron-builder --win --publish always",
+    "test": "vitest run",
     "version:check": "node scripts/check-release-version.mjs",
     "preview": "vite preview"
   },
@@ -23,11 +24,14 @@
     "electron",
     "vue"
   ],
-  "author": "Task Hub contributors",
-  "license": "MIT",
+  "author": "Ma Cà Tưng <macatung.dev>",
+  "license": "Apache-2.0",
   "dependencies": {
     "@vscode/codicons": "^0.0.46-24",
+    "dompurify": "^3.2.4",
     "electron-updater": "^6.8.9",
+    "marked": "^16.4.2",
+    "mermaid": "^11.4.1",
     "monaco-editor": "^0.56.0",
     "node-pty": "^1.1.0",
     "vue": "^3.5.13"
@@ -36,6 +40,7 @@
     "@electron/rebuild": "^3.7.2",
     "@tailwindcss/postcss": "^4.3.3",
     "@tailwindcss/vite": "^4.0.0",
+    "@types/dompurify": "^3.0.5",
     "@vitejs/plugin-vue": "^5.2.1",
     "electron": "^34.2.0",
     "electron-builder": "^25.1.8",
@@ -44,6 +49,7 @@
     "vite": "^6.1.0",
     "vite-plugin-electron": "^0.29.0",
     "vite-plugin-electron-renderer": "^0.14.6",
+    "vitest": "^3.2.7",
     "vue-tsc": "^2.2.0"
   }
 }

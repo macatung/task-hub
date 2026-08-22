@@ -13,6 +13,9 @@ const __dirname = path.dirname(__filename);
 // Disable GPU disk cache locks that cause "Access is denied" when launching multiple instances
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
 app.commandLine.appendSwitch('disable-gpu-program-cache');
+// On this Windows environment the sandboxed GPU child process cannot load.
+// Keeping GPU work in Electron's main process avoids the renderer crash.
+app.commandLine.appendSwitch('in-process-gpu');
 
 // Single instance lock to prevent duplicate overlapping desktop pets in packaged mode
 if (app.isPackaged) {
@@ -60,6 +63,58 @@ type DesktopCredential = { taskHubUrl: string; token: string; projectId: string;
 function desktopCredentialPath() { return path.join(app.getPath('userData'), 'task-hub-credential.bin'); }
 function savedAgentWorkspacesPath() { return path.join(app.getPath('userData'), 'agent-workspaces.json'); }
 function savedSessionsPath() { return path.join(app.getPath('userData'), 'agent-saved-sessions.json'); }
+
+/**
+ * Keep run diagnostics beside the repository rather than only in Electron's
+ * opaque AppData directory.  This makes a failed local-agent run inspectable
+ * from the same worktree that produced it.
+ */
+function workspaceAgentDirectory(cwd: string) {
+  return path.join(cwd, '.macatung', 'agent');
+}
+function workspaceSessionIndexPath(cwd: string) {
+  return path.join(workspaceAgentDirectory(cwd), 'sessions.json');
+}
+function redactAgentLog(value: string) {
+  return value
+    .replace(/(Bearer\s+)[^\s"'}]+/gi, '$1[REDACTED]')
+    .replace(/("(?:authorization|token|api[_-]?key|secret)"\s*:\s*")[^"]+("?)/gi, '$1[REDACTED]$2')
+    .replace(/((?:authorization|token|api[_-]?key|secret)\s*[=:]\s*)[^\s,;]+/gi, '$1[REDACTED]');
+}
+function appendWorkspaceAgentLog(cwd: string, sessionId: string, type: string, payload: unknown) {
+  try {
+    const directory = workspaceAgentDirectory(cwd);
+    fs.mkdirSync(directory, { recursive: true });
+    const entry = JSON.stringify({ at: new Date().toISOString(), type, payload: redactAgentLog(JSON.stringify(payload)) });
+    fs.appendFileSync(path.join(directory, `${sessionId}.jsonl`), `${entry}\n`, 'utf8');
+  } catch (error) {
+    console.warn('Failed to append workspace agent log:', error);
+  }
+}
+function writeWorkspaceSessionIndex(session: PersistedSessionData) {
+  try {
+    const directory = workspaceAgentDirectory(session.worktree || session.cwd);
+    const file = workspaceSessionIndexPath(session.worktree || session.cwd);
+    fs.mkdirSync(directory, { recursive: true });
+    const existing = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : [];
+    const items = Array.isArray(existing) ? existing.filter((item) => item?.sessionId !== session.sessionId) : [];
+    items.unshift({
+      sessionId: session.sessionId,
+      provider: session.provider,
+      model: session.model,
+      kind: session.kind,
+      mode: session.mode,
+      status: session.status,
+      exitCode: session.exitCode,
+      startedAt: session.startedAt,
+      updatedAt: session.updatedAt,
+      log: `.macatung/agent/${session.sessionId}.jsonl`,
+    });
+    fs.writeFileSync(file, `${JSON.stringify(items.slice(0, 60), null, 2)}\n`, 'utf8');
+  } catch (error) {
+    console.warn('Failed to write workspace session index:', error);
+  }
+}
 
 export type PersistedSessionData = {
   sessionId: string;
@@ -119,6 +174,7 @@ function persistSessionUpdate(partial: Partial<PersistedSessionData> & { session
       ...partial,
       updatedAt: now,
     };
+  } else {
     sessions.unshift({
       provider: 'codex',
       cwd: process.cwd(),
@@ -131,6 +187,8 @@ function persistSessionUpdate(partial: Partial<PersistedSessionData> & { session
       ...partial,
     });
   }
+  const saved = sessions.find((session) => session.sessionId === partial.sessionId);
+  if (saved) writeWorkspaceSessionIndex(saved);
   writeAllSavedSessions(sessions);
 }
 
@@ -174,6 +232,14 @@ function findAntigravityExecutable() {
 }
 
 function resolveCli(command: string) {
+  // Desktop apps launched from the Start menu do not always inherit the same
+  // PATH as a developer PowerShell session. AGY is installed per-user in this
+  // location, so resolve it explicitly before falling back to `where`.
+  if (command === 'agy' && process.platform === 'win32') {
+    const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+    const bundledAgy = path.join(localAppData, 'agy', 'bin', 'agy.exe');
+    if (fs.existsSync(bundledAgy)) return bundledAgy;
+  }
   try {
     const result = execFileSync(process.platform === 'win32' ? 'where.exe' : 'which', [command], { encoding: 'utf8' });
     return result.split(/\r?\n/).map((value) => value.trim()).find(Boolean) || command;
@@ -248,9 +314,9 @@ export type DiscoveredModel = {
 
 const BASE_PRESET_MODELS: Record<AgentProvider, DiscoveredModel[]> = {
   antigravity: [
-    { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', badges: ['High', 'Fast'], description: 'Mô hình thế hệ mới nhất, tối ưu tốc độ và agentic reasoning', source: 'preset' },
-    { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', badges: ['Medium', 'Fast'], description: 'Cân bằng tốc độ cao và năng lực suy luận', source: 'preset' },
-    { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', badges: ['Medium', 'Fast'], description: 'Phản hồi nhanh cho các tác vụ lập trình phổ biến', source: 'preset' },
+    { id: 'gemini-3.7-flash-high', name: 'Gemini 3.7 Flash (High)', badges: ['High', 'Fast'], description: 'Mô hình thế hệ mới nhất, tối ưu tốc độ và agentic reasoning', source: 'preset' },
+    { id: 'gemini-3.6-flash-medium', name: 'Gemini 3.6 Flash (Medium)', badges: ['Medium', 'Fast'], description: 'Cân bằng tốc độ cao và năng lực suy luận', source: 'preset' },
+    { id: 'gemini-3.5-flash-medium', name: 'Gemini 3.5 Flash (Medium)', badges: ['Medium', 'Fast'], description: 'Phản hồi nhanh cho các tác vụ lập trình phổ biến', source: 'preset' },
     { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', badges: ['Low'], description: 'Mô hình tiêu chuẩn cho tác vụ nhẹ', source: 'preset' },
     { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', badges: ['Thinking'], description: 'Suy luận mở rộng và phân tích kiến trúc mã nguồn chuyên sâu', source: 'preset' },
     { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', badges: ['Thinking'], description: 'Mô hình phân tích cấp cao nhất cho bài toán phức tạp', source: 'preset' },
@@ -472,6 +538,48 @@ async function discoverRemoteModels(taskHubUrl?: string): Promise<Record<AgentPr
   return null;
 }
 
+function discoverAntigravityCliModels(): DiscoveredModel[] {
+  const agy = resolveCli('agy');
+  if (!agy) return [];
+  try {
+    const output = execFileSync(agy, ['models'], {
+      encoding: 'utf8',
+      timeout: 7000,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return output.split(/\r?\n/).flatMap((line) => {
+      const match = line.trim().match(/^([^\s]+)\s{2,}(.+)$/);
+      if (!match) return [];
+      const [, id, name] = match;
+      return [{ id, name, badges: inferModelBadges(id, name), description: `Model được xác nhận bởi agy CLI: ${id}`, source: 'cli' as const }];
+    });
+  } catch {
+    return [];
+  }
+}
+
+function resolveAntigravityModelId(requested?: string): string | undefined {
+  if (!requested || requested === 'default') return undefined;
+  // AGY 2.x requires the explicit reasoning level. Keep existing saved
+  // selections working even if model discovery cannot run temporarily.
+  const legacyAliases: Record<string, string> = {
+    'gemini-3.7-flash': 'gemini-3.7-flash-high',
+    'gemini-3.6-flash': 'gemini-3.6-flash-medium',
+    'gemini-3.5-flash': 'gemini-3.5-flash-medium',
+  };
+  // Do not wait for `agy models` for old selections: recent AGY builds may
+  // fetch the inventory from the network before printing it.
+  if (legacyAliases[requested]) return legacyAliases[requested];
+  const models = discoverAntigravityCliModels();
+  if (!models.length) return legacyAliases[requested] || requested;
+  if (models.some((model) => model.id === requested)) return requested;
+  const family = requested.replace(/-(?:high|medium|low)$/i, '');
+  return models.find((model) => model.id === `${family}-high`)?.id
+    || models.find((model) => model.id.startsWith(`${family}-`))?.id
+    || undefined;
+}
+
 async function getAvailableModels(provider?: AgentProvider, options?: { forceRefresh?: boolean; taskHubUrl?: string }) {
   const custom = readCustomModels();
   let cached = readCachedModels();
@@ -492,16 +600,31 @@ async function getAvailableModels(provider?: AgentProvider, options?: { forceRef
   };
 
   const providers: AgentProvider[] = provider ? [provider] : ['antigravity', 'claude_code', 'codex'];
+  const agyModels = providers.includes('antigravity') ? discoverAntigravityCliModels() : [];
+
+  if (agyModels.length) {
+    const merged = { ...(cached?.data || BASE_PRESET_MODELS), antigravity: agyModels } as Record<AgentProvider, DiscoveredModel[]>;
+    writeCachedModels(merged);
+    cached = { timestamp: Date.now(), data: merged };
+  }
 
   for (const p of providers) {
     const map = new Map<string, DiscoveredModel>();
 
-    // 1. Base presets
-    (BASE_PRESET_MODELS[p] || []).forEach((m) => map.set(m.id, { ...m, source: 'preset' }));
+    // The live agy list is authoritative: old generic preset IDs such as
+    // gemini-3.7-flash are no longer accepted by recent AGY CLI builds.
+    if (p === 'antigravity' && agyModels.length) {
+      agyModels.forEach((m) => map.set(m.id, m));
+    } else {
+      (BASE_PRESET_MODELS[p] || []).forEach((m) => map.set(m.id, { ...m, source: 'preset' }));
+    }
 
     // 2. Cached remote / Hub discovered models
-    if (cached?.data?.[p]) {
+    if (cached?.data?.[p] && !(p === 'antigravity' && agyModels.length)) {
       cached.data[p].forEach((m) => {
+        // Do not surface pre-AGY-2 generic IDs. They are kept only as an
+        // execution-time compatibility alias above.
+        if (p === 'antigravity' && ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash'].includes(m.id)) return;
         const existing = map.get(m.id);
         map.set(m.id, {
           id: m.id,
@@ -821,6 +944,8 @@ const DEFAULT_HEIGHT = 520;
 
 function getIconImage() {
   const possiblePaths = [
+    path.join(process.env.VITE_PUBLIC || '', 'macatung-mark.svg'),
+    path.join(__dirname, '../public/macatung-mark.svg'),
     path.join(__dirname, '../public/icon.png'),
     path.join(__dirname, '../../public/brand/macatung-mascot-icon.png'),
     path.join(process.cwd(), 'public/brand/macatung-mascot-icon.png'),
@@ -834,9 +959,23 @@ function getIconImage() {
     }
   }
 
-  // Fallback programmatic green/gold circle
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="#0c0a09" stroke="#00f5a0" stroke-width="2"/><circle cx="16" cy="16" r="6" fill="#ffd166"/></svg>`;
+  // Fallback stays monochrome and matches the packaged Macatung mark.
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="2" y="2" width="28" height="28" rx="8" fill="#18181B"/><g stroke="#F4F4F5" stroke-width="2" stroke-linecap="round"><path d="M16 6v3m-2-3h4"/><path d="M9 14c0-4 3-7 7-7s7 3 7 7v5c0 4-3 7-7 7s-7-3-7-7v-5Z"/><path d="M13 16h.1m5.8 0h.1" stroke-width="2.5"/><path d="M13 21c2 1.5 4 1.5 6 0"/></g></svg>`;
   return nativeImage.createFromBuffer(Buffer.from(svg));
+}
+
+function getTrayImage() {
+  const possiblePaths = [
+    path.join(process.env.VITE_PUBLIC || '', 'macatung-tray.svg'),
+    path.join(__dirname, '../public/macatung-tray.svg'),
+  ];
+  for (const trayPath of possiblePaths) {
+    if (fs.existsSync(trayPath)) {
+      const image = nativeImage.createFromPath(trayPath);
+      if (!image.isEmpty()) return image.resize({ width: 20, height: 20 });
+    }
+  }
+  return getIconImage().resize({ width: 20, height: 20 });
 }
 
 function getPreloadPath() {
@@ -1002,6 +1141,12 @@ function createWindow() {
 
   win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     console.error(`[Renderer Load Error] Code: ${errorCode}, Description: ${errorDescription}, URL: ${validatedURL}`);
+  });
+  win.webContents.on('render-process-gone', (_event, details) => {
+    console.error(`[Renderer Process Gone] reason=${details.reason} exitCode=${details.exitCode}`);
+  });
+  win.webContents.on('preload-error', (_event, preloadPath, error) => {
+    console.error(`[Preload Error] ${preloadPath}: ${error.message}`);
   });
 
   win.webContents.on('before-input-event', (event, input) => {
@@ -1457,6 +1602,11 @@ function createWindow() {
     deleteSavedSession(sessionId);
     return true;
   });
+  ipcMain.handle('agent-log-activity', (_event, payload: { cwd?: string; sessionId?: string | null; activity?: { label?: string; detail?: string; tone?: string } }) => {
+    if (!payload?.cwd) return false;
+    appendWorkspaceAgentLog(payload.cwd, payload.sessionId || 'workspace', 'ui_activity', payload.activity || {});
+    return true;
+  });
 
   ipcMain.handle('agent-open-session-log', async (_event, sessionId: string) => {
     let session = agentProcesses.get(sessionId);
@@ -1480,6 +1630,11 @@ function createWindow() {
     }
 
     if (!output && output !== '') throw new Error('Session agent không tồn tại hoặc đã bị xóa.');
+    const workspaceLog = cwd ? path.join(cwd, '.macatung', 'agent', `${sessionId}.jsonl`) : '';
+    if (workspaceLog && fs.existsSync(workspaceLog)) {
+      await shell.openPath(workspaceLog);
+      return workspaceLog;
+    }
     const logDirectory = path.join(app.getPath('logs'), 'task-companion');
     fs.mkdirSync(logDirectory, { recursive: true });
     const logPath = path.join(logDirectory, `agent-${sessionId.replace(/[^a-z0-9_-]/gi, '-')}.log`);
@@ -1517,7 +1672,10 @@ function formatAgyEvent(event: any): string {
 }
 
   const startInteractiveAgent = (_event: Electron.IpcMainInvokeEvent, { provider, cwd, prompt, kind = 'task', model }: { provider: AgentProvider; cwd: string; prompt?: string; kind?: 'task' | 'docs'; model?: string }) => {
-    const selectedModel = model && model !== 'default' ? String(model).trim() : undefined;
+    const requestedModel = model && model !== 'default' ? String(model).trim() : undefined;
+    const selectedModel = provider === 'antigravity'
+      ? resolveAntigravityModelId(requestedModel)
+      : requestedModel;
 
     if (provider === 'antigravity') {
       const agy = resolveCli('agy');
@@ -1559,6 +1717,7 @@ function formatAgyEvent(event: any): string {
           output: '',
           events: []
         });
+        appendWorkspaceAgentLog(cwd, sessionId, 'session_started', { provider, model: selectedModel, kind, mode: 'exec' });
 
         let buffer = '';
         child.stdout.on('data', (chunk: Buffer) => {
@@ -1571,6 +1730,7 @@ function formatAgyEvent(event: any): string {
             try {
               const event = JSON.parse(line);
               session.events = (session.events || []).concat(event);
+              appendWorkspaceAgentLog(session.cwd, sessionId, 'event', event);
               if (event.event === 'init' && event.conversation_id) {
                 session.threadId = event.conversation_id;
                 persistSessionUpdate({ sessionId, threadId: event.conversation_id });
@@ -1582,6 +1742,7 @@ function formatAgyEvent(event: any): string {
               win?.webContents.send('agent-output', { sessionId, stream: 'event', event, text: formattedLine || '' });
             } catch {
               session.output = `${session.output}\n${line}`.slice(-250000);
+              appendWorkspaceAgentLog(session.cwd, sessionId, 'stdout', line);
               win?.webContents.send('agent-output', { sessionId, stream: 'stdout', text: line });
             }
           }
@@ -1590,10 +1751,12 @@ function formatAgyEvent(event: any): string {
         child.stderr.on('data', (chunk: Buffer) => {
           const text = chunk.toString('utf8');
           session.output = `${session.output}\n${text}`.slice(-250000);
+          appendWorkspaceAgentLog(session.cwd, sessionId, 'stderr', text);
           win?.webContents.send('agent-output', { sessionId, stream: 'stderr', text });
         });
 
         child.on('close', (code, signal) => {
+          appendWorkspaceAgentLog(session.cwd, sessionId, 'session_finished', { code, signal: String(signal || ''), eventCount: session.events?.length || 0 });
           persistSessionUpdate({
             sessionId,
             status: code === 0 ? 'completed' : 'failed',
@@ -1627,6 +1790,7 @@ function formatAgyEvent(event: any): string {
         startedAt: new Date().toISOString(),
         output: ''
       });
+      appendWorkspaceAgentLog(cwd, sessionId, 'session_started', { provider, model: selectedModel, kind, mode: 'external' });
       return { mode: 'external', sessionId, provider, model: selectedModel, cwd, executable, promptCopied: Boolean(prompt?.trim()), capabilities: PROVIDER_CAPABILITIES[provider] };
     }
 
@@ -1669,6 +1833,7 @@ function formatAgyEvent(event: any): string {
         output: '',
         events: []
       });
+      appendWorkspaceAgentLog(cwd, sessionId, 'session_started', { provider, model: selectedModel, kind, mode: 'exec' });
 
       let buffer = '';
       child.stdout.on('data', (chunk: Buffer) => {
@@ -1681,6 +1846,7 @@ function formatAgyEvent(event: any): string {
           try {
             const event = JSON.parse(line);
             session.events = (session.events || []).concat(event);
+            appendWorkspaceAgentLog(session.cwd, sessionId, 'event', event);
             if (event.type === 'thread.started' && event.thread_id) {
               session.threadId = event.thread_id;
               persistSessionUpdate({ sessionId, threadId: event.thread_id });
@@ -1701,6 +1867,7 @@ function formatAgyEvent(event: any): string {
             win?.webContents.send('agent-output', { sessionId, stream: 'event', event, text: formattedLine || line });
           } catch {
             session.output = `${session.output}\n${line}`.slice(-250000);
+            appendWorkspaceAgentLog(session.cwd, sessionId, 'stdout', line);
             win?.webContents.send('agent-output', { sessionId, stream: 'stdout', text: line });
           }
         }
@@ -1708,13 +1875,15 @@ function formatAgyEvent(event: any): string {
 
       child.stderr.on('data', (chunk: Buffer) => {
         const text = chunk.toString('utf8');
-        if (!text.includes('Reading additional input from stdin')) {
-          session.output = `${session.output}\n${text}`.slice(-250000);
+          if (!text.includes('Reading additional input from stdin')) {
+            session.output = `${session.output}\n${text}`.slice(-250000);
+            appendWorkspaceAgentLog(session.cwd, sessionId, 'stderr', text);
           win?.webContents.send('agent-output', { sessionId, stream: 'stderr', text });
         }
       });
 
       child.on('close', (code, signal) => {
+        appendWorkspaceAgentLog(session.cwd, sessionId, 'session_finished', { code, signal: String(signal || ''), eventCount: session.events?.length || 0 });
         persistSessionUpdate({
           sessionId,
           status: code === 0 ? 'completed' : 'failed',
@@ -1761,12 +1930,18 @@ function formatAgyEvent(event: any): string {
       startedAt: new Date().toISOString(),
       output: ''
     });
+    appendWorkspaceAgentLog(cwd, sessionId, 'session_started', { provider, model: selectedModel, kind, mode: 'interactive' });
     pty.onData((text) => {
       const session = agentProcesses.get(sessionId);
-      if (session) session.output = `${session.output}${text}`.slice(-250000);
+      if (session) {
+        session.output = `${session.output}${text}`.slice(-250000);
+        appendWorkspaceAgentLog(session.cwd, sessionId, 'stdout', text);
+      }
       win?.webContents.send('agent-output', { sessionId, stream: 'stdout', text });
     });
     pty.onExit(({ exitCode, signal }) => {
+      const session = agentProcesses.get(sessionId);
+      if (session) appendWorkspaceAgentLog(session.cwd, sessionId, 'session_finished', { code: exitCode, signal: String(signal) });
       persistSessionUpdate({
         sessionId,
         status: exitCode === 0 ? 'completed' : 'failed',
@@ -2015,10 +2190,7 @@ function formatAgyEvent(event: any): string {
 }
 
 function createTray() {
-  const appIcon = getIconImage();
-  const trayIcon = appIcon.resize({ width: 20, height: 20 });
-  
-  tray = new Tray(trayIcon);
+  tray = new Tray(getTrayImage());
   tray.setToolTip('Task Hub — VS Code IDE & Mascot Nhắc Việc');
 
   const contextMenu = Menu.buildFromTemplate([
@@ -2121,6 +2293,12 @@ function createTray() {
 }
 
 app.whenReady().then(() => {
+  // Warm the local AGY model inventory before the Agent Workspace is opened.
+  // This migrates stale saved selections away from generic model IDs that the
+  // current agy CLI no longer accepts.
+  void getAvailableModels('antigravity', { forceRefresh: true }).catch((error) => {
+    console.warn('Failed to warm Antigravity model inventory:', error);
+  });
   createWindow();
   createTray();
   setupAutoUpdater();

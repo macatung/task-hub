@@ -2,6 +2,8 @@
   "name": "task-hub",
   "private": true,
   "version": "1.0.0",
+  "license": "Apache-2.0",
+  "author": "Ma Cà Tưng <macatung.dev>",
   "workspaces": ["apps/desktop", "apps/hub", "apps/runner"],
   "scripts": {
     "build": "npm --workspace apps/hub run build && npm --workspace apps/desktop run build:vue",

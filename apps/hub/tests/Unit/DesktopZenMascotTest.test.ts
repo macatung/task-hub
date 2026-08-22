@@ -12,17 +12,17 @@ import { ZEN_PHASES, useZenTimeCycle } from '../../../desktop/src/composables/us
 describe('DesktopZenMascotTest (HD Vector, 4-Phase Aura & 432Hz Chime)', () => {
   // Read component source files
   const stageVuePath = path.resolve(process.cwd(), '../desktop/src/components/ZenMascotStage.vue');
-  const stageVueContent = fs.readFileSync(stageVuePath, 'utf-8');
+  const stageVueContent = fs.existsSync(stageVuePath) ? fs.readFileSync(stageVuePath, 'utf-8') : '';
 
   const appVuePath = path.resolve(process.cwd(), '../desktop/src/App.vue');
-  const appVueContent = fs.readFileSync(appVuePath, 'utf-8');
+  const appVueContent = fs.existsSync(appVuePath) ? fs.readFileSync(appVuePath, 'utf-8') : '';
+
+  const mascotVuePath = path.resolve(process.cwd(), '../desktop/src/views/MascotView.vue');
+  const mascotVueContent = fs.existsSync(mascotVuePath) ? fs.readFileSync(mascotVuePath, 'utf-8') : '';
 
   const audioPath = path.resolve(process.cwd(), '../desktop/src/audio/mindfulBellAudio.ts');
-  const audioContent = fs.readFileSync(audioPath, 'utf-8');
+  const audioContent = fs.existsSync(audioPath) ? fs.readFileSync(audioPath, 'utf-8') : '';
 
-  // ==========================================================================
-  // TIER 1: Feature Coverage (Isolation)
-  // ==========================================================================
   describe('[T1_DESKTOP_MASCOT] Zen Time-of-Day Cycle & Phase Engine', () => {
     it('[T1_ZM_01] ZEN_PHASES defines all 4 canonical time periods with authentic Pāḷi names', () => {
       const phaseKeys = Object.keys(ZEN_PHASES);
@@ -52,19 +52,15 @@ describe('DesktopZenMascotTest (HD Vector, 4-Phase Aura & 432Hz Chime)', () => {
     it('[T1_ZM_03] useZenTimeCycle properly resolves phase by simulated hour', () => {
       const { setSimulatedHour, activeZenPhase, resetToRealTime } = useZenTimeCycle();
 
-      // Midnight: 00:00 - 05:59
       setSimulatedHour(2);
       expect(activeZenPhase.value.id).toBe('midnight');
 
-      // Dawn: 06:00 - 11:59
       setSimulatedHour(8);
       expect(activeZenPhase.value.id).toBe('dawn');
 
-      // Afternoon: 12:00 - 17:59
       setSimulatedHour(14);
       expect(activeZenPhase.value.id).toBe('afternoon');
 
-      // Twilight: 18:00 - 23:59
       setSimulatedHour(20);
       expect(activeZenPhase.value.id).toBe('twilight');
 
@@ -76,7 +72,6 @@ describe('DesktopZenMascotTest (HD Vector, 4-Phase Aura & 432Hz Chime)', () => {
     it('[T1_ZM_04] ZenMascotStage includes 8-spoke rotating Dhammacakka wheel halo', () => {
       expect(stageVueContent.includes('animate-dhammacakka-spin')).toBe(true);
       expect(stageVueContent.includes('stroke-dasharray="4 2"')).toBe(true);
-      // 8 spokes lines
       expect(stageVueContent.includes('x1="90" y1="24" x2="90" y2="116"')).toBe(true);
       expect(stageVueContent.includes('x1="44" y1="70" x2="136" y2="70"')).toBe(true);
     });
@@ -121,10 +116,11 @@ describe('DesktopZenMascotTest (HD Vector, 4-Phase Aura & 432Hz Chime)', () => {
       expect(audioContent.includes('biquadFilter') || audioContent.includes('BiquadFilter') || audioContent.includes('createBiquadFilter')).toBe(true);
     });
 
-    it('[T1_ZM_10] App.vue wires mindfulBell and ZenMascotStage chime trigger on mascot click', () => {
-      expect(appVueContent.includes('import { mindfulBell } from \'./audio/mindfulBellAudio\';')).toBe(true);
-      expect(appVueContent.includes('mindfulBell.ringBell(432')).toBe(true);
-      expect(appVueContent.includes('zenMascotRef.value?.triggerChime?.()')).toBe(true);
+    it('[T1_ZM_10] Mascot view wires mindfulBell and ZenMascotStage chime trigger on mascot click', () => {
+      const targetContent = mascotVueContent || appVueContent;
+      expect(targetContent.includes('mindfulBell') && targetContent.includes('mindfulBellAudio')).toBe(true);
+      expect(targetContent.includes('mindfulBell.ringBell(432')).toBe(true);
+      expect(targetContent.includes('zenMascotRef.value?.triggerChime?.()')).toBe(true);
     });
   });
 });
