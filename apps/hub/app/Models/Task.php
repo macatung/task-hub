@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Carbon\Carbon;
 
 class Task extends Model
@@ -96,6 +97,25 @@ class Task extends Model
     public function stories()
     {
         return $this->hasMany(Task::class, 'epic_id');
+    }
+
+    /** Dependencies which block this task until their predecessor is done. */
+    public function dependencies(): HasMany
+    {
+        return $this->hasMany(TaskDependency::class, 'task_id');
+    }
+
+    /** Tasks which cannot start until this task is done. */
+    public function dependents(): HasMany
+    {
+        return $this->hasMany(TaskDependency::class, 'depends_on_task_id');
+    }
+
+    public function hasIncompleteDependencies(): bool
+    {
+        return $this->dependencies()
+            ->whereHas('dependsOn', fn ($query) => $query->where('status', '!=', 'done'))
+            ->exists();
     }
 
     public function scopeToday($query)

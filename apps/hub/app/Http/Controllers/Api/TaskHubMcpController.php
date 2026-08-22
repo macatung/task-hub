@@ -135,6 +135,18 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
                 'end_date' => ['type' => 'string'],
                 'status' => ['type' => 'string', 'default' => 'active'],
             ], 'required' => ['project_id', 'name']]],
+            ['name' => 'create_requirement_backlog', 'description' => 'Atomically create one approved requirement backlog: reuse/create one Sprint, create one Epic, place every Story/Task under that Epic and Sprint, and save explicit task dependencies. Dependency references must name another task ref in this same request.', 'inputSchema' => ['type' => 'object', 'properties' => [
+                'project_id' => ['type' => 'integer'],
+                'sprint_id' => ['type' => 'integer', 'description' => 'Optional existing Sprint in the same project. The active sprint is reused otherwise.'],
+                'sprint' => ['type' => 'object', 'properties' => ['name' => ['type' => 'string'], 'goal' => ['type' => 'string'], 'start_date' => ['type' => 'string'], 'end_date' => ['type' => 'string']]],
+                'epic' => ['type' => 'object', 'properties' => ['title' => ['type' => 'string'], 'description' => ['type' => 'string'], 'acceptance_criteria' => ['type' => 'string'], 'story_points' => ['type' => 'integer']], 'required' => ['title']],
+                'tasks' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => [
+                    'ref' => ['type' => 'string', 'description' => 'Unique short reference, e.g. schema.'],
+                    'title' => ['type' => 'string'], 'issue_type' => ['type' => 'string'], 'description' => ['type' => 'string'],
+                    'acceptance_criteria' => ['type' => 'string'], 'story_points' => ['type' => 'integer'], 'priority' => ['type' => 'string'],
+                    'depends_on' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Task refs that must be done first.'],
+                ], 'required' => ['ref', 'title']]],
+            ], 'required' => ['project_id', 'epic', 'tasks']]],
             ['name' => 'create_work_item', 'description' => 'Create a new Task/Epic/Story work item in Task Hub.', 'inputSchema' => ['type' => 'object', 'properties' => [
                 'project_id' => ['type' => 'integer'],
                 'workspace_id' => ['type' => 'integer'],
@@ -151,6 +163,7 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
                 'start_date' => ['type' => 'string'],
                 'due_date' => ['type' => 'string'],
                 'notes' => ['type' => 'string'],
+                'depends_on_task_ids' => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Existing work item IDs that must be done before this item can start.'],
             ], 'required' => ['project_id', 'title']]],
         ];
     }
@@ -190,6 +203,7 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
             'create_workspace' => $this->createWorkspaceTool($args),
             'create_project' => $this->createProjectTool($args),
             'create_sprint' => $this->createSprintTool($args),
+            'create_requirement_backlog' => $planningService->createRequirementBacklog($args),
             'create_work_item' => $this->createWorkItemTool($args),
             default => throw new \InvalidArgumentException('Unknown tool: ' . $name),
         };
@@ -274,7 +288,17 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
                 'notes' => $args['notes'] ?? null,
             ]
         );
-        return ['success' => true, 'task' => $task];
+        foreach (array_unique(array_map('intval', $args['depends_on_task_ids'] ?? [])) as $dependsOnTaskId) {
+            if ($dependsOnTaskId === $task->id) {
+                throw new \InvalidArgumentException('A work item cannot depend on itself.');
+            }
+            $dependency = \App\Models\Task::where('project_id', $project->id)->findOrFail($dependsOnTaskId);
+            \App\Models\TaskDependency::firstOrCreate([
+                'task_id' => $task->id,
+                'depends_on_task_id' => $dependency->id,
+            ]);
+        }
+        return ['success' => true, 'task' => $task->load('dependencies.dependsOn')];
     }
 
     private function getNextAction(Request $request, array $payload): array
@@ -282,7 +306,7 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
         $args = data_get($payload, 'params.arguments', []);
         $projectId = $args['project_id'] ?? null;
         $provided = (string) $request->bearerToken();
-        $query = Task::with('project')->where('status', '!=', 'done');
+        $query = Task::with('project')->where('status', '!=', 'done')->where('issue_type', '!=', 'epic');
 
         if ($projectId) {
             $query->where('project_id', $projectId);
@@ -296,7 +320,11 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
             }
         }
 
-        $task = $query->orderByRaw("CASE WHEN status = 'in_progress' THEN 1 WHEN priority = 'urgent' THEN 2 WHEN priority = 'high' THEN 3 ELSE 4 END")->orderBy('due_date')->first();
+        $task = $query
+            ->whereDoesntHave('dependencies', fn ($dependencyQuery) => $dependencyQuery->whereHas('dependsOn', fn ($taskQuery) => $taskQuery->where('status', '!=', 'done')))
+            ->orderByRaw("CASE WHEN status = 'in_progress' THEN 1 WHEN priority = 'urgent' THEN 2 WHEN priority = 'high' THEN 3 ELSE 4 END")
+            ->orderBy('due_date')
+            ->first();
         return ['success' => true, 'data' => $task];
     }
 
@@ -323,7 +351,12 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
     {
         $project = Project::findOrFail($projectId);
         $tasks = Task::where('project_id', $projectId);
-        $taskRows = (clone $tasks)->with('sprint:id,name,status')->orderByRaw("CASE WHEN status = 'in_progress' THEN 1 WHEN status = 'review' THEN 2 WHEN priority = 'urgent' THEN 3 ELSE 4 END")->orderBy('due_date')->limit(100)->get();
+        $taskRows = (clone $tasks)
+            ->with(['sprint:id,name,status', 'epic:id,issue_key,title', 'dependencies.dependsOn:id,issue_key,title,status'])
+            ->orderByRaw("CASE WHEN status = 'in_progress' THEN 1 WHEN status = 'review' THEN 2 WHEN priority = 'urgent' THEN 3 ELSE 4 END")
+            ->orderBy('due_date')
+            ->limit(100)
+            ->get();
         $sprints = $project->sprints()->withCount(['tasks', 'tasks as completed_tasks_count' => fn ($query) => $query->where('status', 'done')])->orderByDesc('start_date')->get(['id', 'name', 'goal', 'start_date', 'end_date', 'status']);
         $runs = AgentRun::whereHas('task', fn ($query) => $query->where('project_id', $projectId))->with('evidence')->latest()->limit(20)->get();
         $releases = $project->releases()->latest('deployed_at')->limit(20)->get();

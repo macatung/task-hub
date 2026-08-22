@@ -16,7 +16,7 @@ class ApiTaskController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Task::with(['project', 'sprint', 'epic', 'documents']);
+        $query = Task::with(['project', 'sprint', 'epic', 'documents', 'dependencies.dependsOn']);
         $desktopProject = $request->attributes->get('desktop_project');
         if ($desktopProject) $query->where('project_id', $desktopProject->id);
         if ($request->user()) $query->where('workspace_id', app(WorkspaceContext::class)->resolve($request)->id);
@@ -81,6 +81,8 @@ class ApiTaskController extends Controller
             "acceptance_criteria" => "nullable|string|max:10000",
             "definition_of_done" => "nullable|string|max:10000",
             "risk_level" => "nullable|in:low,medium,high,critical",
+            "depends_on_task_ids" => "nullable|array",
+            "depends_on_task_ids.*" => "integer|exists:tasks,id",
         ]);
 
         if (empty($validated["due_date"])) {
@@ -95,8 +97,21 @@ class ApiTaskController extends Controller
             $validated['workspace_id'] = $workspace->id;
         }
 
+        $dependencyIds = array_values(array_unique($validated['depends_on_task_ids'] ?? []));
+        unset($validated['depends_on_task_ids']);
+        if ($dependencyIds !== []) {
+            $validDependencyCount = Task::where('project_id', $validated['project_id'])->whereIn('id', $dependencyIds)->count();
+            if ($validDependencyCount !== count($dependencyIds)) abort(422, 'Dependencies must belong to the same project.');
+        }
         $task = Task::create($validated);
-        $task->load(['project', 'sprint', 'epic', 'documents']);
+        foreach ($dependencyIds as $dependencyId) {
+            $dependency = Task::where('project_id', $task->project_id)->findOrFail($dependencyId);
+            \App\Models\TaskDependency::firstOrCreate([
+                'task_id' => $task->id,
+                'depends_on_task_id' => $dependency->id,
+            ]);
+        }
+        $task->load(['project', 'sprint', 'epic', 'documents', 'dependencies.dependsOn']);
         $this->track('task_created', 'task', $task->id);
 
         return response()->json([
@@ -133,7 +148,16 @@ class ApiTaskController extends Controller
             "acceptance_criteria" => "nullable|string|max:10000",
             "definition_of_done" => "nullable|string|max:10000",
             "risk_level" => "sometimes|in:low,medium,high,critical",
+            "depends_on_task_ids" => "sometimes|array",
+            "depends_on_task_ids.*" => "integer|exists:tasks,id",
         ]);
+
+        if (($validated['status'] ?? null) === 'in_progress' && $task->hasIncompleteDependencies()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This task is blocked until all dependencies are done.',
+            ], 422);
+        }
 
         if (isset($validated["status"]) && $validated["status"] === "done" && $task->status !== "done") {
             $validated["completed_at"] = Carbon::now();
@@ -145,8 +169,20 @@ class ApiTaskController extends Controller
             $workspace = app(WorkspaceContext::class)->resolve($request);
             Project::where('workspace_id', $workspace->id)->findOrFail($validated['project_id']);
         }
+        $dependencyIds = $validated['depends_on_task_ids'] ?? null;
+        unset($validated['depends_on_task_ids']);
         $task->update($validated);
-        $task->load(['project', 'sprint', 'epic', 'documents']);
+        if (is_array($dependencyIds)) {
+            $ids = array_values(array_unique(array_map('intval', $dependencyIds)));
+            if (in_array($task->id, $ids, true)) abort(422, 'A task cannot depend on itself.');
+            $validIds = Task::where('project_id', $task->project_id)->whereIn('id', $ids)->pluck('id')->all();
+            if (count($validIds) !== count($ids)) abort(422, 'Dependencies must belong to the same project.');
+            $task->dependencies()->delete();
+            foreach ($validIds as $dependencyId) {
+                \App\Models\TaskDependency::create(['task_id' => $task->id, 'depends_on_task_id' => $dependencyId]);
+            }
+        }
+        $task->load(['project', 'sprint', 'epic', 'documents', 'dependencies.dependsOn']);
         if (($validated['status'] ?? null) === 'done') {
             $this->track('task_completed', 'task', $task->id);
         }
@@ -236,6 +272,8 @@ class ApiTaskController extends Controller
     {
         $task = Task::with('project')
             ->where('status', '!=', 'done')
+            ->where('issue_type', '!=', 'epic')
+            ->whereDoesntHave('dependencies', fn ($query) => $query->whereHas('dependsOn', fn ($dependency) => $dependency->where('status', '!=', 'done')))
             ->orderByRaw("CASE WHEN status = 'in_progress' THEN 1 WHEN priority = 'urgent' THEN 2 WHEN priority = 'high' THEN 3 ELSE 4 END")
             ->orderByRaw("CASE WHEN due_date IS NULL THEN 1 ELSE 0 END")
             ->orderBy('due_date')

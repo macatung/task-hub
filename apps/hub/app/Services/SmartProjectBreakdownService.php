@@ -208,6 +208,188 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
         ];
     }
 
+    /**
+     * Create the backlog produced by one approved requirement as one coherent
+     * unit: one Epic, one Sprint whenever a usable Sprint exists, and explicit
+     * dependency edges. This is intentionally separate from the multi-sprint
+     * project bootstrap planner above.
+     */
+    public function createRequirementBacklog(array $input): array
+    {
+        return DB::transaction(function () use ($input) {
+            $project = Project::findOrFail((int) ($input['project_id'] ?? 0));
+            $workspaceId = $project->workspace_id;
+            $sprint = null;
+
+            if (!empty($input['sprint_id'])) {
+                $sprint = Sprint::where('project_id', $project->id)->findOrFail((int) $input['sprint_id']);
+            }
+
+            // Reuse the current sprint first: a request should stay together
+            // rather than silently spread work over several future sprints.
+            $sprint ??= Sprint::where('project_id', $project->id)
+                ->where('status', 'active')
+                ->orderByDesc('start_date')
+                ->first();
+
+            if (!$sprint) {
+                $sprintData = is_array($input['sprint'] ?? null) ? $input['sprint'] : [];
+                $startDate = !empty($sprintData['start_date']) ? Carbon::parse($sprintData['start_date']) : Carbon::today();
+                $sprint = Sprint::create([
+                    'project_id' => $project->id,
+                    'workspace_id' => $workspaceId,
+                    'name' => trim((string) ($sprintData['name'] ?? ('Requirement — ' . Str::limit((string) data_get($input, 'epic.title', 'Backlog'), 60, '')))),
+                    'goal' => $sprintData['goal'] ?? data_get($input, 'epic.description'),
+                    'start_date' => $startDate->toDateString(),
+                    'end_date' => !empty($sprintData['end_date']) ? Carbon::parse($sprintData['end_date'])->toDateString() : $startDate->copy()->addWeeks(2)->toDateString(),
+                    'status' => $sprintData['status'] ?? 'active',
+                ]);
+            }
+
+            $epicData = is_array($input['epic'] ?? null) ? $input['epic'] : [];
+            $epicTitle = trim((string) ($epicData['title'] ?? ''));
+            if ($epicTitle === '') {
+                throw new RuntimeException('The requirement backlog needs one Epic title.');
+            }
+
+            $epic = Task::create([
+                'project_id' => $project->id,
+                'workspace_id' => $workspaceId,
+                'sprint_id' => $sprint->id,
+                'issue_type' => 'epic',
+                'title' => $epicTitle,
+                'description' => $epicData['description'] ?? null,
+                'acceptance_criteria' => $epicData['acceptance_criteria'] ?? null,
+                'definition_of_done' => $epicData['definition_of_done'] ?? null,
+                'risk_level' => $this->validatedRiskLevel($epicData['risk_level'] ?? 'medium'),
+                'status' => 'todo',
+                'priority' => $this->validatedPriority($epicData['priority'] ?? 'high'),
+                'category' => $epicData['category'] ?? 'product',
+                'story_points' => $this->fibonacciPoints($epicData['story_points'] ?? 8),
+                'estimated_pomodoros' => max(1, min(20, (int) ($epicData['estimated_pomodoros'] ?? 4))),
+                'start_date' => $sprint->start_date,
+                'due_date' => $sprint->end_date,
+            ]);
+
+            $tasksByReference = [];
+            $createdTasks = [];
+            foreach (array_values($input['tasks'] ?? []) as $index => $taskData) {
+                if (!is_array($taskData)) continue;
+                $title = trim((string) ($taskData['title'] ?? ''));
+                if ($title === '') {
+                    throw new RuntimeException('Every requirement task needs a title.');
+                }
+                $reference = trim((string) ($taskData['ref'] ?? 'item-' . ($index + 1)));
+                if (isset($tasksByReference[$reference])) {
+                    throw new RuntimeException("Task reference [{$reference}] is duplicated.");
+                }
+
+                $issueType = $taskData['issue_type'] ?? 'task';
+                $task = Task::create([
+                    'project_id' => $project->id,
+                    'workspace_id' => $workspaceId,
+                    'sprint_id' => $sprint->id,
+                    'epic_id' => $epic->id,
+                    'issue_type' => in_array($issueType, ['story', 'task', 'bug'], true) ? $issueType : 'task',
+                    'title' => $title,
+                    'description' => $taskData['description'] ?? null,
+                    'acceptance_criteria' => $taskData['acceptance_criteria'] ?? null,
+                    'definition_of_done' => $taskData['definition_of_done'] ?? null,
+                    'risk_level' => $this->validatedRiskLevel($taskData['risk_level'] ?? 'medium'),
+                    'status' => 'todo',
+                    'priority' => $this->validatedPriority($taskData['priority'] ?? 'medium'),
+                    'category' => $taskData['category'] ?? 'general',
+                    'story_points' => $this->fibonacciPoints($taskData['story_points'] ?? 3),
+                    'estimated_pomodoros' => max(1, min(20, (int) ($taskData['estimated_pomodoros'] ?? 2))),
+                    'start_date' => $sprint->start_date,
+                    'due_date' => $sprint->end_date,
+                    'notes' => !empty($taskData['notes']) ? (string) $taskData['notes'] : null,
+                ]);
+                $tasksByReference[$reference] = $task;
+                $createdTasks[] = $task;
+            }
+
+            $this->assertRequirementDependenciesAreAcyclic($input['tasks'] ?? [], array_keys($tasksByReference));
+
+            foreach (array_values($input['tasks'] ?? []) as $index => $taskData) {
+                if (!is_array($taskData)) continue;
+                $reference = trim((string) ($taskData['ref'] ?? 'item-' . ($index + 1)));
+                $task = $tasksByReference[$reference] ?? null;
+                if (!$task) continue;
+                foreach (array_values($taskData['depends_on'] ?? []) as $dependsOnReference) {
+                    $dependsOnReference = trim((string) $dependsOnReference);
+                    $predecessor = $tasksByReference[$dependsOnReference] ?? null;
+                    if (!$predecessor) {
+                        throw new RuntimeException("Task [{$reference}] depends on unknown task reference [{$dependsOnReference}].");
+                    }
+                    if ($predecessor->id === $task->id) {
+                        throw new RuntimeException("Task [{$reference}] cannot depend on itself.");
+                    }
+                    \App\Models\TaskDependency::create([
+                        'task_id' => $task->id,
+                        'depends_on_task_id' => $predecessor->id,
+                    ]);
+                }
+            }
+
+            $createdTasks = collect($createdTasks)->map(fn (Task $task) => $task->load(['epic:id,title', 'sprint:id,name', 'dependencies.dependsOn:id,issue_key,title,status']))->all();
+
+            return [
+                'success' => true,
+                'message' => 'Approved requirement backlog created in one Epic and one Sprint with dependencies.',
+                'project' => $project,
+                'sprint' => $sprint,
+                'epic' => $epic,
+                'tasks' => $createdTasks,
+                'task_ids' => array_map(fn (Task $task) => $task->id, $createdTasks),
+            ];
+        });
+    }
+
+    private function fibonacciPoints(mixed $value): int
+    {
+        $points = (int) $value;
+        return in_array($points, [1, 2, 3, 5, 8], true) ? $points : 3;
+    }
+
+    private function validatedPriority(mixed $value): string
+    {
+        return in_array($value, ['urgent', 'high', 'medium', 'low'], true) ? $value : 'medium';
+    }
+
+    private function validatedRiskLevel(mixed $value): string
+    {
+        return in_array($value, ['low', 'medium', 'high', 'critical'], true) ? $value : 'medium';
+    }
+
+    /** Reject dependency cycles before persisting edges that would block forever. */
+    private function assertRequirementDependenciesAreAcyclic(array $taskInputs, array $knownReferences): void
+    {
+        $known = array_fill_keys($knownReferences, true);
+        $edges = [];
+        foreach (array_values($taskInputs) as $index => $taskData) {
+            if (!is_array($taskData)) continue;
+            $reference = trim((string) ($taskData['ref'] ?? 'item-' . ($index + 1)));
+            $edges[$reference] = array_map(fn ($value) => trim((string) $value), array_values($taskData['depends_on'] ?? []));
+        }
+
+        $visiting = [];
+        $visited = [];
+        $visit = function (string $reference) use (&$visit, &$visiting, &$visited, $edges, $known): void {
+            if (!isset($known[$reference])) return;
+            if (isset($visiting[$reference])) {
+                throw new RuntimeException("Dependency cycle detected at task reference [{$reference}].");
+            }
+            if (isset($visited[$reference])) return;
+            $visiting[$reference] = true;
+            foreach ($edges[$reference] ?? [] as $dependency) $visit($dependency);
+            unset($visiting[$reference]);
+            $visited[$reference] = true;
+        };
+
+        foreach ($knownReferences as $reference) $visit($reference);
+    }
+
     /** Validate and normalize provider output before preview or persistence. */
     public function normalizePlan(array $plan, array $options = []): array
     {

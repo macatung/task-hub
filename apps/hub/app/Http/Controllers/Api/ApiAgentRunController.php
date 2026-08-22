@@ -88,6 +88,13 @@ class ApiAgentRunController extends Controller
         ]);
 
         $task = !empty($validated['task_id']) ? Task::with('project.workspace')->findOrFail($validated['task_id']) : null;
+        if ($task?->hasIncompleteDependencies()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Task is blocked until all dependency tasks are done.',
+                'blocked_by' => $task->dependencies()->with('dependsOn:id,issue_key,title,status')->get(),
+            ], 422);
+        }
         $workspace = $task?->project?->workspace;
         if ($request->user()) {
             $resolved = app(WorkspaceContext::class)->resolve($request, false);

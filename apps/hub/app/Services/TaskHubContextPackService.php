@@ -10,7 +10,7 @@ class TaskHubContextPackService
 {
     public function build(?Task $task, array $options = []): array
     {
-        $task?->loadMissing(['project.documents', 'sprint', 'epic', 'agentRuns.evidence', 'documents']);
+        $task?->loadMissing(['project.documents', 'sprint', 'epic', 'agentRuns.evidence', 'documents', 'dependencies.dependsOn']);
         $project = $task?->project;
 
         $pack = [
@@ -26,6 +26,13 @@ class TaskHubContextPackService
                 'risk_level' => $task->risk_level ?: 'low',
                 'status' => $task->status,
                 'priority' => $task->priority,
+                'dependencies' => $task->dependencies->map(fn ($dependency) => [
+                    'id' => $dependency->dependsOn?->id,
+                    'issue_key' => $dependency->dependsOn?->issue_key,
+                    'title' => $dependency->dependsOn?->title,
+                    'status' => $dependency->dependsOn?->status,
+                ])->values()->all(),
+                'is_blocked' => $task->hasIncompleteDependencies(),
                 'project' => $task->project?->only(['id', 'title', 'key']),
                 'sprint' => $task->sprint?->only(['id', 'name', 'goal', 'status']),
                 'github' => $project ? [
