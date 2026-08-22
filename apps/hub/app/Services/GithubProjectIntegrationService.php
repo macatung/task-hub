@@ -9,14 +9,17 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Models\User;
+use App\Models\Workspace;
 use App\Services\ProjectKnowledgeService;
 use App\Services\CredentialVaultService;
 
 class GithubProjectIntegrationService
 {
-    public function repositories(User $user): array
+    public function repositories(User $user, ?Workspace $workspace = null): array
     {
-        $workspace = $user->workspaces()->where('is_system', false)->orderBy('workspaces.id')->first();
+        // A credential belongs to a workspace.  Do not silently read one from a
+        // different workspace just because it happens to sort first.
+        $workspace ??= $user->workspaces()->where('is_system', false)->orderBy('workspaces.id')->first();
         $credential = $workspace ? app(CredentialVaultService::class)->resolve($workspace, null, 'github') : null;
         $token = $credential ? app(CredentialVaultService::class)->reveal($credential) : null;
         $token = $token ?: $this->secret($user->github_access_token);

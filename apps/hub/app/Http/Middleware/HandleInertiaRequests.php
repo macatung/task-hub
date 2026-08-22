@@ -16,6 +16,14 @@ class HandleInertiaRequests extends Middleware
      */
     protected $rootView = 'app';
 
+    public function handle(Request $request, \Closure $next)
+    {
+        if ($request->is('mcp*') || $request->is('api/*')) {
+            return $next($request);
+        }
+        return parent::handle($request, $next);
+    }
+
     /**
      * Determines the current asset version.
      *

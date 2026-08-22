@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
 use App\Services\GithubProjectIntegrationService;
 use App\Services\WorkspaceContext;
@@ -13,7 +14,10 @@ class ApiProjectController extends Controller
 {
     public function githubRepositories(Request $request, GithubProjectIntegrationService $integration)
     {
-        try { return response()->json(['success' => true, 'data' => $integration->repositories($request->user())]); }
+        try {
+            $workspace = app(WorkspaceContext::class)->resolve($request);
+            return response()->json(['success' => true, 'data' => $integration->repositories($request->user(), $workspace)]);
+        }
         catch (\Throwable $e) { return response()->json(['success' => false, 'message' => $e->getMessage()], 422); }
     }
 
@@ -29,10 +33,11 @@ class ApiProjectController extends Controller
 
     public function index(Request $request)
     {
-        $query = Project::withCount('tasks');
-        if ($request->user()) $query->where('workspace_id', app(WorkspaceContext::class)->resolve($request)->id);
-
-        $projects = $query->orderBy('title', 'asc')->get();
+        $workspace = app(WorkspaceContext::class)->resolve($request);
+        $projects = Project::where('workspace_id', $workspace->id)
+            ->withCount('tasks')
+            ->orderBy('title')
+            ->get();
 
         return response()->json([
             'success' => true,
@@ -46,6 +51,21 @@ class ApiProjectController extends Controller
         abort_unless($project instanceof Project, 401);
 
         $project->loadCount('tasks');
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'project' => $project->only(['id', 'title', 'slug', 'key', 'description', 'category', 'color', 'tags']),
+                'tasks_endpoint' => '/api/v1/desktop/tasks?project_id=' . $project->id,
+                'authenticated_via' => 'desktop_project_credential',
+            ],
+        ]);
+    }
+
+    public function show(Request $request, $id)
+    {
+        $project = Project::withCount('tasks')->findOrFail($id);
+        if ($request->user()) abort_unless((int) $project->workspace_id === (int) app(WorkspaceContext::class)->resolve($request)->id, 404);
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -93,11 +113,20 @@ class ApiProjectController extends Controller
             'description' => 'nullable|string',
             'tags' => 'nullable|array|max:20',
             'tags.*' => 'string|max:40',
+            'task_hub_mcp_token' => 'nullable|string|max:500',
+            'clear_task_hub_mcp_token' => 'nullable|boolean',
         ]);
 
         if (isset($validated['title']) && $validated['title'] !== $project->title) {
             $validated['slug'] = Str::slug($validated['title']) . '-' . Str::random(4);
         }
+
+        if (!empty($validated['clear_task_hub_mcp_token'])) {
+            $project->task_hub_mcp_token = null;
+        } elseif (!empty($validated['task_hub_mcp_token'])) {
+            $project->task_hub_mcp_token = Crypt::encryptString(trim($validated['task_hub_mcp_token']));
+        }
+        unset($validated['task_hub_mcp_token'], $validated['clear_task_hub_mcp_token']);
 
         $project->update($validated);
 
@@ -163,5 +192,83 @@ class ApiProjectController extends Controller
         } catch (\Throwable $e) {
             return response()->json(['success' => false, 'message' => 'Unable to synchronize GitHub: ' . $e->getMessage()], 422);
         }
+    }
+
+    public function getMcpInfo(Project $project, GithubProjectIntegrationService $integration)
+    {
+        $hasToken = !empty($project->task_hub_mcp_token);
+        $token = $hasToken ? $integration->secret($project->task_hub_mcp_token) : null;
+        $maskedToken = $token ? (substr($token, 0, 8) . '...' . substr($token, -6)) : null;
+        $mcpUrl = url('/mcp');
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'project_id' => $project->id,
+                'project_title' => $project->title,
+                'has_token' => $hasToken,
+                'token' => $token,
+                'masked_token' => $maskedToken,
+                'server_url' => $mcpUrl,
+                'configs' => [
+                    'antigravity' => [
+                        'mcpServers' => [
+                            'task-hub' => [
+                                'serverUrl' => $mcpUrl,
+                                'headers' => [
+                                    'Authorization' => 'Bearer ' . ($token ?: 'YOUR_TASK_HUB_MCP_TOKEN'),
+                                ],
+                            ],
+                        ],
+                    ],
+                    'cursor' => [
+                        'mcpServers' => [
+                            'task-hub' => [
+                                'url' => $mcpUrl,
+                                'headers' => [
+                                    'Authorization' => 'Bearer ' . ($token ?: 'YOUR_TASK_HUB_MCP_TOKEN'),
+                                ],
+                            ],
+                        ],
+                    ],
+                    'claude_desktop' => [
+                        'mcpServers' => [
+                            'task-hub' => [
+                                'url' => $mcpUrl,
+                                'headers' => [
+                                    'Authorization' => 'Bearer ' . ($token ?: 'YOUR_TASK_HUB_MCP_TOKEN'),
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    public function generateMcpToken(Project $project, GithubProjectIntegrationService $integration)
+    {
+        $token = 'th_mcp_' . Str::random(48);
+        $project->task_hub_mcp_token = Crypt::encryptString($token);
+        $project->save();
+
+        return $this->getMcpInfo($project, $integration);
+    }
+
+    public function saveMcpToken(Request $request, Project $project, GithubProjectIntegrationService $integration)
+    {
+        $validated = $request->validate([
+            'token' => 'nullable|string|max:500',
+            'clear' => 'nullable|boolean',
+        ]);
+
+        if (!empty($validated['clear'])) {
+            $project->task_hub_mcp_token = null;
+        } elseif (!empty($validated['token'])) {
+            $project->task_hub_mcp_token = Crypt::encryptString(trim($validated['token']));
+        }
+        $project->save();
+
+        return $this->getMcpInfo($project, $integration);
     }
 }

@@ -46,13 +46,47 @@ class ApiAgentRunnerController extends Controller
         return response()->json(['success' => true, 'data' => AgentRunner::latest()->get()]);
     }
 
+    /** Dashboard projection for the current workspace; it never exposes runner tokens. */
+    public function dashboard(Request $request)
+    {
+        $workspace = app(\App\Services\WorkspaceContext::class)->resolve($request);
+        $staleAfter = now()->subSeconds((int) env('TASK_HUB_RUNNER_STALE_SECONDS', 90));
+        $runners = AgentRunner::query()->whereHas('runs', fn ($q) => $q->where('workspace_id', $workspace->id))
+            ->withCount(['runs as active_runs_count' => fn ($q) => $q->whereIn('status', ['claimed', 'preparing', 'running', 'waiting_input'])])
+            ->withMin(['runs as next_lease_expires_at' => fn ($q) => $q->whereIn('status', ['claimed', 'preparing', 'running', 'waiting_input'])], 'lease_expires_at')
+            ->latest('last_heartbeat_at')->get()->map(function (AgentRunner $runner) use ($staleAfter) {
+                $health = $runner->revoked_at ? 'revoked' : (!$runner->last_heartbeat_at || $runner->last_heartbeat_at->lt($staleAfter) ? 'offline' : $runner->status);
+                return ['id' => $runner->id, 'name' => $runner->name, 'hostname' => $runner->hostname, 'version' => $runner->version,
+                    'capabilities' => $runner->capabilities, 'health' => $health, 'last_heartbeat_at' => $runner->last_heartbeat_at?->toIso8601String(),
+                    'active_runs_count' => $runner->active_runs_count, 'next_lease_expires_at' => $runner->next_lease_expires_at ? \Carbon\Carbon::parse($runner->next_lease_expires_at)->toIso8601String() : null,
+                    'latest_error' => $runner->runs()->whereNotNull('failure_reason')->latest('updated_at')->value('failure_reason')];
+            })->values();
+        return response()->json(['success' => true, 'data' => $runners, 'generated_at' => now()->toIso8601String()]);
+    }
+
     public function heartbeat(Request $request, AgentRunner $agentRunner)
     {
         $this->ensureEnabled();
         $this->runner($request, $agentRunner);
-        $data = $request->validate(['status' => 'nullable|in:online,busy,offline', 'capabilities' => 'nullable|array', 'metadata' => 'nullable|array']);
+        $data = $request->validate([
+            'status' => 'nullable|in:online,busy,offline', 'capabilities' => 'nullable|array', 'metadata' => 'nullable|array',
+            'active_run_ids' => 'nullable|array', 'active_run_ids.*' => 'integer',
+        ]);
+        $activeRunIds = collect($data['active_run_ids'] ?? [])->map(fn ($id) => (int) $id)->unique()->values();
+        unset($data['active_run_ids']);
         $agentRunner->update(array_merge($data, ['last_heartbeat_at' => now(), 'status' => $data['status'] ?? 'online']));
-        return response()->json(['success' => true, 'data' => $agentRunner->fresh()]);
+        $leaseSeconds = (int) env('TASK_HUB_RUNNER_LEASE_SECONDS', 120);
+        if ($activeRunIds->isNotEmpty()) {
+            AgentRun::where('runner_id', $agentRunner->id)->whereIn('id', $activeRunIds)
+                ->whereIn('status', ['claimed', 'preparing', 'running', 'waiting_input'])
+                ->update(['lease_expires_at' => now()->addSeconds($leaseSeconds)]);
+        }
+        $commands = AgentRun::where('runner_id', $agentRunner->id)->whereNotNull('cancel_requested_at')
+            ->whereIn('status', ['claimed', 'preparing', 'running', 'waiting_input'])
+            ->get(['id', 'cancel_requested_at'])
+            ->map(fn (AgentRun $run) => ['type' => 'cancel', 'run_id' => $run->id, 'requested_at' => $run->cancel_requested_at?->toIso8601String()])
+            ->values();
+        return response()->json(['success' => true, 'data' => $agentRunner->fresh(), 'commands' => $commands]);
     }
 
     public function revoke(Request $request, AgentRunner $agentRunner)

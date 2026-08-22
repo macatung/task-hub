@@ -41,4 +41,16 @@ Desktop: preflight provider/repository → create or reuse worktree → pair and
 
 Server: register → heartbeat → atomically claim provider job → resolve credential → depth-1 clone/branch → run provider with redacted logs → post events/status → await handoff/review.
 
+## Hub ↔ local agent protocol
+
+Task Hub is the control plane and source of truth for repository context, project-document metadata, work items, run state, evidence, approvals and reports. A local runner is an execution plane: it owns only its local worktree and provider process. It never needs an inbound port; all traffic is authenticated HTTPS initiated by the runner.
+
+| Direction | Transport and operations | Reliability rule |
+| --- | --- | --- |
+| Runner → Hub | Register once, heartbeat with active run IDs, claim a compatible queued run, append idempotent redacted logs/events, submit handoff/evidence. | Every run has a lease. A heartbeat renews only leases belonging to that runner. |
+| Hub → Runner | The heartbeat response contains commands such as `cancel`; claim supplies the current task context and scoped run assignment. | Commands are safe to repeat; the runner records cancellation as an event and stops its local child process. |
+| Hub → browser | SSE/WebSocket may update the UI from persisted run events/logs. | Browser realtime is not required for runner delivery or recovery. |
+
+The runner polls for work rather than accepting unsolicited connections, which works through NAT and VPNs. If a runner disappears, its lease expires and the Hub may make the run claimable again. Secrets must be fetched only from the scoped credential endpoint, used ephemerally, and excluded from logs, task context and reports.
+
 Source paths inspected: `apps/hub/routes/web.php`, `apps/hub/routes/console.php`, `apps/hub/bootstrap/app.php`, `apps/hub/app/Services/TaskHubContextPackService.php`, `apps/hub/app/Services/CredentialVaultService.php`, `apps/hub/app/Http/Controllers/Api/ApiAgentRunnerController.php`, `apps/hub/app/Http/Controllers/Api/TaskHubMcpController.php`, `apps/desktop/electron/main.ts`, `apps/desktop/electron/preload.ts`, `apps/runner/src/index.mjs`, `apps/runner/src/provider.mjs`, `infra/docker/compose.yml`, `apps/hub/database/migrations`, `packages/contracts`.

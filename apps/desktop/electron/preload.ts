@@ -8,6 +8,14 @@ contextBridge.exposeInMainWorld('desktopApi', {
   resizeWindow: (width: number, height: number) => ipcRenderer.send('window-resize', { width, height }),
   toggleFullscreen: (fullscreen: boolean) => ipcRenderer.invoke('window-toggle-fullscreen', fullscreen),
   setIgnoreMouseEvents: (ignore: boolean, forward: boolean) => ipcRenderer.send('window-ignore-mouse-events', { ignore, forward }),
+  getAppMode: () => ipcRenderer.invoke('app-get-mode'),
+  setAppMode: (mode: 'ide' | 'mascot') => ipcRenderer.invoke('app-set-mode', mode),
+  toggleAppMode: () => ipcRenderer.invoke('app-toggle-mode'),
+  onAppModeChange: (callback: (mode: 'ide' | 'mascot') => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, mode: 'ide' | 'mascot') => callback(mode);
+    ipcRenderer.on('app-mode-changed', listener);
+    return () => ipcRenderer.removeListener('app-mode-changed', listener);
+  },
   onTrayAction: (callback: (action: string) => void) => {
     ipcRenderer.on('tray-action', (_event, action) => callback(action));
   },

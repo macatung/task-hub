@@ -27,10 +27,15 @@ Route::get('/auth/github/callback', [GithubAuthController::class, 'callback'])->
 Route::post('/auth/github/logout', [GithubAuthController::class, 'logout'])->name('auth.github.logout');
 
 // MCP Model Context Protocol Endpoint
-Route::post('/mcp', [TaskHubMcpController::class, 'handle'])->name('mcp.handle');
-Route::post('/api/mcp', [TaskHubMcpController::class, 'handle']);
-Route::post('/api/tasks/mcp', [TaskHubMcpController::class, 'handle']);
-Route::post('/api/v1/mcp', [TaskHubMcpController::class, 'handle']);
+Route::match(['get', 'post', 'options'], '/mcp', [TaskHubMcpController::class, 'handle'])
+    ->name('mcp.handle')
+    ->withoutMiddleware([\App\Http\Middleware\HandleInertiaRequests::class, \App\Http\Middleware\TrackVisitorAnalytics::class]);
+Route::match(['get', 'post', 'options'], '/api/mcp', [TaskHubMcpController::class, 'handle'])
+    ->withoutMiddleware([\App\Http\Middleware\HandleInertiaRequests::class, \App\Http\Middleware\TrackVisitorAnalytics::class]);
+Route::match(['get', 'post', 'options'], '/api/tasks/mcp', [TaskHubMcpController::class, 'handle'])
+    ->withoutMiddleware([\App\Http\Middleware\HandleInertiaRequests::class, \App\Http\Middleware\TrackVisitorAnalytics::class]);
+Route::match(['get', 'post', 'options'], '/api/v1/mcp', [TaskHubMcpController::class, 'handle'])
+    ->withoutMiddleware([\App\Http\Middleware\HandleInertiaRequests::class, \App\Http\Middleware\TrackVisitorAnalytics::class]);
 
 // Desktop Agent Pairing Web UI
 Route::get('/desktop/pairing/{pairingId}/approve', [DesktopPairingController::class, 'approveForm'])->name('desktop.pairing.form');
@@ -51,6 +56,7 @@ $registerApiRoutes = function () {
     Route::delete('/workspaces/{workspace}/credentials/{credential}', [WorkspaceCredentialController::class, 'destroy'])->middleware('auth');
     Route::post('/runners/register', [ApiAgentRunnerController::class, 'register']);
     Route::get('/runners', [ApiAgentRunnerController::class, 'index']);
+    Route::get('/runners/dashboard', [ApiAgentRunnerController::class, 'dashboard'])->middleware('auth');
     Route::post('/runners/{agentRunner}/heartbeat', [ApiAgentRunnerController::class, 'heartbeat']);
     Route::post('/runners/{agentRunner}/revoke', [ApiAgentRunnerController::class, 'revoke']);
     Route::get('/runners/{agentRunner}/jobs/claim', [ApiAgentRunnerController::class, 'claim']);
@@ -76,6 +82,7 @@ $registerApiRoutes = function () {
     Route::post('/tasks/work-items/{task}/reject', [ApiAgentRunController::class, 'reject']);
     Route::post('/tasks/github/webhook', [ApiAgentRunController::class, 'githubWebhook']);
     Route::get('/tasks/agent-runs', [ApiAgentRunController::class, 'index']);
+    Route::get('/tasks/agent-runs/stream', [ApiAgentRunController::class, 'stream'])->middleware('auth');
     Route::post('/tasks/agent-runs', [ApiAgentRunController::class, 'store']);
     Route::get('/tasks/agent-runs/{agentRun}', [ApiAgentRunController::class, 'show']);
     Route::patch('/tasks/agent-runs/{agentRun}', [ApiAgentRunController::class, 'update']);
@@ -96,6 +103,9 @@ $registerApiRoutes = function () {
     Route::get('/projects/{project}/github', [ApiProjectController::class, 'githubStatus']);
     Route::post('/projects/{project}/github/connect', [ApiProjectController::class, 'connectGithub'])->middleware('auth');
     Route::post('/projects/{project}/github/sync', [ApiProjectController::class, 'syncGithub'])->middleware('auth');
+    Route::get('/projects/{project}/mcp', [ApiProjectController::class, 'getMcpInfo'])->middleware('auth');
+    Route::post('/projects/{project}/mcp/token', [ApiProjectController::class, 'saveMcpToken'])->middleware('auth');
+    Route::post('/projects/{project}/mcp/generate-token', [ApiProjectController::class, 'generateMcpToken'])->middleware('auth');
     Route::get('/projects/{project}/documents', [ApiProjectDocumentController::class, 'index']);
     Route::post('/projects/{project}/documents', [ApiProjectDocumentController::class, 'store']);
     Route::post('/projects/{project}/documents/import-manifest', [ApiProjectDocumentController::class, 'importManifest']);

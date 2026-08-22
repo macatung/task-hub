@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AgentRun;
 use App\Models\AgentRunEvent;
+use App\Models\AgentRunLog;
 use App\Models\GithubEvent;
 use App\Models\Task;
 use App\Models\Project;
@@ -33,6 +34,41 @@ class ApiAgentRunController extends Controller
     {
         if (request()->user()) abort_unless((int) $agentRun->workspace_id === (int) app(WorkspaceContext::class)->resolve(request())->id, 404);
         return response()->json(['success' => true, 'data' => $agentRun->load(['task.project', 'evidence', 'events'])]);
+    }
+
+    /**
+     * Lightweight SSE feed for the web UI. Runner delivery remains HTTP polling;
+     * this only projects the persisted event/log timeline to authenticated users.
+     */
+    public function stream(Request $request)
+    {
+        $workspace = app(WorkspaceContext::class)->resolve($request);
+        $after = max(0, $request->integer('after', 0));
+        $afterLog = max(0, $request->integer('after_log', 0));
+        $runId = $request->integer('run_id');
+        return response()->stream(function () use ($workspace, $after, $runId) {
+            $events = AgentRunEvent::query()->where('id', '>', $after)
+                ->whereHas('agentRun', fn ($q) => $q->where('workspace_id', $workspace->id))
+                ->when($runId, fn ($q) => $q->where('agent_run_id', $runId))
+                ->orderBy('id')->limit(100)->get();
+            foreach ($events as $event) {
+                echo 'id: ' . $event->id . "\n";
+                echo "event: agent-run\n";
+                echo 'data: ' . json_encode(['id' => $event->id, 'run_id' => $event->agent_run_id, 'type' => $event->event_type, 'status' => $event->status, 'payload' => $event->payload, 'occurred_at' => $event->occurred_at?->toIso8601String()], JSON_UNESCAPED_UNICODE) . "\n\n";
+            }
+            $logs = AgentRunLog::query()->where('id', '>', $afterLog)
+                ->whereHas('agentRun', fn ($q) => $q->where('workspace_id', $workspace->id))
+                ->when($runId, fn ($q) => $q->where('agent_run_id', $runId))
+                ->orderBy('id')->limit(100)->get();
+            foreach ($logs as $log) {
+                echo 'id: log-' . $log->id . "\n";
+                echo "event: agent-log\n";
+                echo 'data: ' . json_encode(['id' => $log->id, 'run_id' => $log->agent_run_id, 'stream' => $log->stream, 'content' => $log->content, 'occurred_at' => $log->occurred_at?->toIso8601String()], JSON_UNESCAPED_UNICODE) . "\n\n";
+            }
+            echo ": keepalive\n\n";
+            if (function_exists('ob_flush')) @ob_flush();
+            flush();
+        }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache, no-transform', 'X-Accel-Buffering' => 'no']);
     }
 
     public function store(Request $request, TaskHubContextPackService $contextService)
@@ -141,8 +177,16 @@ class ApiAgentRunController extends Controller
             'artifact_url' => 'nullable|url|max:500',
             'commit_sha' => 'nullable|string|max:80',
             'metadata' => 'nullable|array',
+            'idempotency_key' => 'nullable|uuid',
         ]);
+        $idempotencyKey = $validated['idempotency_key'] ?? $request->header('Idempotency-Key');
+        if ($idempotencyKey) {
+            $existing = $agentRun->evidence()->where('metadata->idempotency_key', $idempotencyKey)->first();
+            if ($existing) return response()->json(['success' => true, 'duplicate' => true, 'data' => $existing]);
+        }
+        unset($validated['idempotency_key']);
         $validated['task_id'] = $validated['task_id'] ?? $agentRun->task_id;
+        $validated['metadata'] = array_merge($validated['metadata'] ?? [], $idempotencyKey ? ['idempotency_key' => $idempotencyKey] : []);
         $evidence = $agentRun->evidence()->create($validated);
         $this->recordEvent($agentRun, 'evidence_attached', $agentRun->status, ['evidence_id' => $evidence->id, 'type' => $evidence->evidence_type]);
         return response()->json(['success' => true, 'data' => $evidence], 201);
@@ -161,13 +205,20 @@ class ApiAgentRunController extends Controller
             'commit_sha' => 'nullable|string|max:80',
             'pull_request_url' => 'nullable|url|max:500',
             'blockers' => 'nullable|string|max:10000',
+            'idempotency_key' => 'nullable|uuid',
         ]);
+        $idempotencyKey = $validated['idempotency_key'] ?? $request->header('Idempotency-Key');
+        if ($idempotencyKey && data_get($agentRun->metadata, 'handoff.idempotency_key') === $idempotencyKey) {
+            return response()->json(['success' => true, 'duplicate' => true, 'data' => $agentRun->fresh()->load(['evidence', 'events'])]);
+        }
+        unset($validated['idempotency_key']);
 
-        $run = DB::transaction(function () use ($agentRun, $validated) {
+        $run = DB::transaction(function () use ($agentRun, $validated, $idempotencyKey) {
             $metadata = array_merge($agentRun->metadata ?: [], [
                 'handoff' => [
                     'changed_files' => array_values($validated['changed_files']),
                     'blockers' => $validated['blockers'] ?? null,
+                    'idempotency_key' => $idempotencyKey,
                     'submitted_at' => now()->toIso8601String(),
                 ],
             ]);
@@ -289,10 +340,25 @@ class ApiAgentRunController extends Controller
             if ($eventName === 'pull_request') {
                 $fields['pull_request_url'] = data_get($payload, 'pull_request.html_url');
                 if (in_array(data_get($payload, 'action'), ['opened', 'reopened', 'synchronize'], true)) $fields['status'] = 'needs_review';
+                if ($fields['pull_request_url']) $run->evidence()->create([
+                    'task_id' => $run->task_id, 'evidence_type' => 'pull_request', 'status' => 'passed',
+                    'artifact_url' => $fields['pull_request_url'], 'commit_sha' => $commit,
+                    'summary' => 'GitHub pull request ' . data_get($payload, 'action', 'updated'),
+                    'metadata' => ['source' => 'github_webhook', 'event' => $eventName],
+                ]);
             }
-            if ($eventName === 'check_run' && data_get($payload, 'check_run.conclusion') === 'failure') {
-                $fields['status'] = 'failed';
-                $fields['failure_reason'] = 'GitHub check failed: ' . data_get($payload, 'check_run.name', 'unknown check');
+            if ($eventName === 'check_run' && data_get($payload, 'check_run.conclusion')) {
+                $passed = data_get($payload, 'check_run.conclusion') === 'success';
+                $run->evidence()->create([
+                    'task_id' => $run->task_id, 'evidence_type' => 'ci_check', 'status' => $passed ? 'passed' : 'failed',
+                    'command' => data_get($payload, 'check_run.name'), 'artifact_url' => data_get($payload, 'check_run.details_url'),
+                    'commit_sha' => $commit, 'summary' => 'GitHub check: ' . data_get($payload, 'check_run.conclusion'),
+                    'metadata' => ['source' => 'github_webhook', 'event' => $eventName],
+                ]);
+                if (!$passed) {
+                    $fields['status'] = 'failed';
+                    $fields['failure_reason'] = 'GitHub check failed: ' . data_get($payload, 'check_run.name', 'unknown check');
+                }
             }
             $run->update($fields);
             $this->recordEvent($run, 'github_' . $eventName, $fields['status'] ?? $run->status, ['repository' => $repository, 'commit_sha' => $commit]);
@@ -323,7 +389,7 @@ class ApiAgentRunController extends Controller
                 ['id' => 'claude-sonnet-4.6-thinking', 'name' => 'Claude Sonnet 4.6 (Thinking)', 'badges' => ['Next-Gen', 'Thinking'], 'description' => 'Mô hình Sonnet thế hệ mới tối ưu agentic workflow'],
                 ['id' => 'claude-opus-4.6-thinking', 'name' => 'Claude Opus 4.6 (Thinking)', 'badges' => ['Deep Analysis', 'Thinking'], 'description' => 'Phân tích hệ thống lớn & cấu trúc logic phức tạp'],
                 ['id' => 'claude-3-5-sonnet-20241022', 'name' => 'Claude 3.5 Sonnet (v2)', 'badges' => ['Balanced', 'Fast'], 'description' => 'Mô hình lập trình tiêu chuẩn ổn định'],
-                ['id' => 'claude-3-5-haiku-20241022', 'name' => 'Claude 3.5 Haiku', badges: ['Super Fast'], 'description' => 'Tốc độ cực nhanh cho tasks nhỏ và refactor nhẹ'],
+                ['id' => 'claude-3-5-haiku-20241022', 'name' => 'Claude 3.5 Haiku', 'badges' => ['Super Fast'], 'description' => 'Tốc độ cực nhanh cho tasks nhỏ và refactor nhẹ'],
                 ['id' => 'claude-3-opus-20240229', 'name' => 'Claude 3 Opus', 'badges' => ['Deep Analysis'], 'description' => 'Phân tích hệ thống lớn & bài toán phức tạp'],
                 ['id' => 'default', 'name' => 'CLI Default', 'badges' => ['Default'], 'description' => 'Cấu hình mặc định của Claude Code CLI'],
             ],

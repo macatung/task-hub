@@ -10,9 +10,20 @@ paths:
         '201': { description: Runner registered and token issued once }
   /api/v1/runners/{runner_id}/heartbeat:
     post:
-      summary: Update runner liveness and capabilities
+      summary: Update runner liveness, renew active leases, and receive commands
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [online, busy, offline] }
+                active_run_ids:
+                  type: array
+                  items: { type: integer }
       responses:
-        '200': { description: Heartbeat accepted }
+        '200': { description: Heartbeat accepted; response may contain idempotent commands such as cancel. }
   /api/v1/runners/{runner_id}/jobs/claim:
     get:
       summary: Atomically lease the next compatible server run

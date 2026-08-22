@@ -14,10 +14,12 @@ const __dirname = path.dirname(__filename);
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
 app.commandLine.appendSwitch('disable-gpu-program-cache');
 
-// Single instance lock to prevent duplicate overlapping desktop pets
-const gotTheLock = app.requestSingleInstanceLock();
-if (!gotTheLock) {
-  app.quit();
+// Single instance lock to prevent duplicate overlapping desktop pets in packaged mode
+if (app.isPackaged) {
+  const gotTheLock = app.requestSingleInstanceLock();
+  if (!gotTheLock) {
+    app.quit();
+  }
 }
 
 // The built directory structure
@@ -805,24 +807,112 @@ function getPreloadPath() {
   return path.join(__dirname, 'preload.js');
 }
 
+export type AppMode = 'ide' | 'mascot';
+let currentMode: AppMode = 'ide';
+
+function appModeConfigPath(): string {
+  return path.join(app.getPath('userData'), 'app-mode.json');
+}
+
+function readSavedAppMode(): AppMode {
+  try {
+    for (const arg of process.argv) {
+      if (arg.startsWith('--mode=')) {
+        const val = arg.split('=')[1]?.trim().toLowerCase();
+        if (val === 'ide' || val === 'mascot') return val;
+      }
+      if (arg === '--ide') return 'ide';
+      if (arg === '--mascot') return 'mascot';
+    }
+    const envMode = process.env.VITE_APP_MODE || process.env.APP_MODE;
+    if (envMode === 'ide' || envMode === 'mascot') return envMode;
+
+    const file = appModeConfigPath();
+    if (fs.existsSync(file)) {
+      const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+      if (data?.mode === 'ide' || data?.mode === 'mascot') return data.mode;
+    }
+  } catch (e) {
+    console.warn('Failed to read saved app mode:', e);
+  }
+  return 'ide';
+}
+
+function writeSavedAppMode(mode: AppMode) {
+  try {
+    const file = appModeConfigPath();
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ mode, updatedAt: new Date().toISOString() }, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('Failed to write saved app mode:', e);
+  }
+}
+
+function applyAppMode(mode: AppMode) {
+  currentMode = mode;
+  writeSavedAppMode(mode);
+
+  if (!win) return currentMode;
+
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+
+  if (mode === 'ide') {
+    const ideWidth = Math.min(1360, Math.max(1024, screenWidth - 100));
+    const ideHeight = Math.min(880, Math.max(700, screenHeight - 60));
+    const x = Math.max(0, Math.round((screenWidth - ideWidth) / 2));
+    const y = Math.max(0, Math.round((screenHeight - ideHeight) / 2));
+
+    win.setAlwaysOnTop(false);
+    win.setMinimumSize(960, 600);
+    win.setBounds({ x, y, width: ideWidth, height: ideHeight });
+    win.show();
+    win.focus();
+  } else {
+    const mascotWidth = 640;
+    const mascotHeight = 520;
+    const x = Math.max(0, screenWidth - mascotWidth - 20);
+    const y = Math.max(0, screenHeight - mascotHeight - 20);
+
+    win.setAlwaysOnTop(true);
+    win.setMinimumSize(320, 240);
+    win.setBounds({ x, y, width: mascotWidth, height: mascotHeight });
+    win.show();
+  }
+
+  win.webContents.send('app-mode-changed', currentMode);
+  return currentMode;
+}
+
 function createWindow() {
+  currentMode = readSavedAppMode();
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
   const appIcon = getIconImage();
   const preloadFile = getPreloadPath();
 
+  const isIde = currentMode === 'ide';
+  const initialWidth = isIde ? Math.min(1360, Math.max(1024, screenWidth - 100)) : DEFAULT_WIDTH;
+  const initialHeight = isIde ? Math.min(880, Math.max(700, screenHeight - 60)) : DEFAULT_HEIGHT;
+  const initialX = isIde ? Math.max(0, Math.round((screenWidth - initialWidth) / 2)) : screenWidth - DEFAULT_WIDTH - 20;
+  const initialY = isIde ? Math.max(0, Math.round((screenHeight - initialHeight) / 2)) : screenHeight - DEFAULT_HEIGHT - 20;
+
   win = new BrowserWindow({
-    width: DEFAULT_WIDTH,
-    height: DEFAULT_HEIGHT,
-    x: screenWidth - DEFAULT_WIDTH - 20,
-    y: screenHeight - DEFAULT_HEIGHT - 20,
-    transparent: true,
+    width: initialWidth,
+    height: initialHeight,
+    x: initialX,
+    y: initialY,
+    minWidth: isIde ? 960 : 320,
+    minHeight: isIde ? 600 : 240,
+    transparent: !isIde,
     frame: false,
-    alwaysOnTop: true,
-    hasShadow: false,
+    alwaysOnTop: !isIde,
+    hasShadow: true,
     resizable: true,
     skipTaskbar: false,
     icon: appIcon,
+    show: true,
+    backgroundColor: isIde ? '#1e1e1e' : undefined,
     webPreferences: {
       preload: preloadFile,
       nodeIntegration: false,
@@ -837,6 +927,34 @@ function createWindow() {
   } else {
     win.loadFile(path.join(process.env.DIST || path.join(__dirname, '../dist'), 'index.html'));
   }
+
+  win.show();
+  win.focus();
+
+  win.webContents.on('did-finish-load', () => {
+    console.log('[Electron] Page finished loading. App mode:', currentMode);
+    win?.webContents.send('app-mode-changed', currentMode);
+  });
+
+  win.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    const levelStr = level === 0 ? 'INFO' : level === 1 ? 'WARN' : 'ERROR';
+    console.log(`[Renderer ${levelStr}] ${message} (${sourceId}:${line})`);
+  });
+
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error(`[Renderer Load Error] Code: ${errorCode}, Description: ${errorDescription}, URL: ${validatedURL}`);
+  });
+
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' || ((input.control || input.meta) && input.shift && input.key.toLowerCase() === 'i')) {
+      win?.webContents.toggleDevTools();
+      event.preventDefault();
+    }
+  });
+
+  ipcMain.handle('app-get-mode', () => currentMode);
+  ipcMain.handle('app-set-mode', (_event, mode: AppMode) => applyAppMode(mode));
+  ipcMain.handle('app-toggle-mode', () => applyAppMode(currentMode === 'ide' ? 'mascot' : 'ide'));
 
   ipcMain.on('window-close', () => {
     if (win) win.hide();
@@ -1828,35 +1946,37 @@ function createTray() {
   const trayIcon = appIcon.resize({ width: 20, height: 20 });
   
   tray = new Tray(trayIcon);
-  tray.setToolTip('Ma Tọa Thiền — Task Companion');
+  tray.setToolTip('Task Hub — VS Code IDE & Mascot Nhắc Việc');
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: '🧙‍♂️ Hiển thị / Ẩn Mascot',
+      label: '💻 Bản 1: Mở Task Hub IDE (VS Code Mode)',
       click: () => {
-        if (win) {
-          if (win.isVisible()) win.hide();
-          else win.show();
-        }
+        applyAppMode('ide');
+      },
+    },
+    {
+      label: '🧘 Bản 2: Mở Mascot Nhắc Việc (Companion Mode)',
+      click: () => {
+        applyAppMode('mascot');
       },
     },
     { type: 'separator' },
     {
-      label: '📋 Mở Task Dispatch',
-      click: () => {
-        if (win) { win.show(); win.webContents.send('tray-action', 'open-dispatch'); }
-      },
-    },
-    {
-      label: '🤖 Mở Agent Workspace',
-      click: () => {
-        if (win) { win.show(); win.webContents.send('tray-action', 'open-agent'); }
-      },
-    },
-    {
-      label: '🍅 Bật Đồng Hồ Pomodoro Deep Work',
+      label: '📋 Danh sách Task hôm nay',
       click: () => {
         if (win) {
+          if (currentMode !== 'mascot') applyAppMode('mascot');
+          win.show();
+          win.webContents.send('tray-action', 'open-dispatch');
+        }
+      },
+    },
+    {
+      label: '🍅 Bật Pomodoro tập trung',
+      click: () => {
+        if (win) {
+          if (currentMode !== 'mascot') applyAppMode('mascot');
           win.show();
           win.webContents.send('tray-action', 'open-pomodoro');
         }
@@ -1866,15 +1986,17 @@ function createTray() {
       label: '🦆 Debug cùng Rubber Duck',
       click: () => {
         if (win) {
+          if (currentMode !== 'mascot') applyAppMode('mascot');
           win.show();
           win.webContents.send('tray-action', 'open-duck');
         }
       },
     },
     {
-      label: '📋 Task Notes & Scratchpad',
+      label: '📝 Task Notes & Scratchpad',
       click: () => {
         if (win) {
+          if (currentMode !== 'mascot') applyAppMode('mascot');
           win.show();
           win.webContents.send('tray-action', 'open-notes');
         }
@@ -1917,7 +2039,10 @@ function createTray() {
   tray.on('double-click', () => {
     if (win) {
       if (win.isVisible()) win.hide();
-      else win.show();
+      else {
+        win.show();
+        win.focus();
+      }
     }
   });
 }
@@ -1930,8 +2055,18 @@ app.whenReady().then(() => {
     void checkForUpdates();
   }, 10_000);
 
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
     if (win) {
+      for (const arg of argv) {
+        if (arg.startsWith('--mode=')) {
+          const val = arg.split('=')[1]?.trim().toLowerCase();
+          if (val === 'ide' || val === 'mascot') {
+            applyAppMode(val);
+          }
+        }
+        if (arg === '--ide') applyAppMode('ide');
+        if (arg === '--mascot') applyAppMode('mascot');
+      }
       if (win.isMinimized()) win.restore();
       win.show();
       win.focus();

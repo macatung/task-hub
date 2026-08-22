@@ -1,142 +1,179 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue';
-import ZenMascotStage from './components/ZenMascotStage.vue';
-import TaskDispatchModal from './components/TaskDispatchModal.vue';
-import PomodoroTimer from './components/PomodoroTimer.vue';
-import EveningReviewModal from './components/EveningReviewModal.vue';
-import RubberDuckModal from './components/RubberDuckModal.vue';
-import QuickNotesModal from './components/QuickNotesModal.vue';
-import CommandPaletteModal from './components/CommandPaletteModal.vue';
-import DailyFocusBar from './components/DailyFocusBar.vue';
-import AgentConsoleModal from './components/AgentConsoleModal.vue';
-import TaskHubSetupModal from './components/TaskHubSetupModal.vue';
-import UpdateStatus from './components/UpdateStatus.vue';
-import MacatungIcon from './components/MacatungIcon.vue';
+import { onMounted, onUnmounted, ref, nextTick } from 'vue';
+import IdeView from './views/IdeView.vue';
+import MascotView from './views/MascotView.vue';
 import { useTaskSync, TaskItem } from './composables/useTaskSync';
 import { sfx } from './audio/soundEffects';
-import { mindfulBell } from './audio/mindfulBellAudio';
 
-const { tasks, projects, agentTasks, activeTask, isOnline, credential, setCredential, clearCredential, loadCredential, fetchAgentTasks, createTask, toggleTaskComplete, incrementPomodoro } = useTaskSync();
-const isHovered = ref(false);
-const zenMascotRef = ref<InstanceType<typeof ZenMascotStage> | null>(null);
-const TASK_HUB_URL = (import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev';
-type ActiveModal = 'palette' | 'dispatch' | 'review' | 'pomodoro' | 'duck' | 'notes' | 'agent' | 'taskhub' | null;
-const activeModal = ref<ActiveModal>(null);
-const agentFullscreen = ref(false);
-const resizeAgentWindow = () => (window as any).desktopApi?.resizeWindow?.(1180, 760);
-const restoreCompactWindow = async () => { if (agentFullscreen.value) { await (window as any).desktopApi?.toggleFullscreen?.(false); agentFullscreen.value = false; } (window as any).desktopApi?.resizeWindow?.(640, 520); };
+export type ActiveMascotModal = 'palette' | 'dispatch' | 'review' | 'pomodoro' | 'duck' | 'notes' | 'taskhub' | null;
+type AppMode = 'ide' | 'mascot';
 
-const openWebAction = (path = '/tasks') => {
-  const url = `${TASK_HUB_URL}${path}`;
-  if ((window as any).desktopApi?.openExternal) (window as any).desktopApi.openExternal(url);
-  else window.open(url, '_blank');
-};
+const {
+  tasks,
+  projects,
+  agentTasks,
+  activeTask,
+  isOnline,
+  credential,
+  setCredential,
+  clearCredential,
+  loadCredential,
+  fetchAgentTasks,
+  createTask,
+  toggleTaskComplete,
+  incrementPomodoro,
+} = useTaskSync();
 
-const closeAll = () => { if (activeModal.value === 'agent') void restoreCompactWindow(); activeModal.value = null; };
-const openModal = (modal: ActiveModal) => {
-  activeModal.value = activeModal.value === modal ? null : modal;
-  sfx.playClick();
-};
-const openAgentWorkspace = async () => {
-  openModal('agent');
-  resizeAgentWindow();
-  await loadCredential();
-  await fetchAgentTasks();
-};
-const handleMascotClick = () => {
-  mindfulBell.ringBell(432, 5.5);
-  zenMascotRef.value?.triggerChime?.();
-  if (!activeModal.value) {
-    openModal('dispatch');
-  } else {
-    closeAll();
+const currentMode = ref<AppMode>('ide');
+const mascotViewRef = ref<InstanceType<typeof MascotView> | null>(null);
+
+const setAppMode = async (mode: AppMode) => {
+  currentMode.value = mode;
+  if ((window as any).desktopApi?.setAppMode) {
+    await (window as any).desktopApi.setAppMode(mode);
+  }
+  if (mode === 'ide') {
+    await loadCredential();
+    await fetchAgentTasks();
   }
 };
 
-let isDragging = false;
-let startScreenX = 0;
-let startScreenY = 0;
-let hasMoved = false;
-const onMascotMouseDown = (event: MouseEvent) => {
-  if (event.button !== 0) return;
-  isDragging = true; hasMoved = false; startScreenX = event.screenX; startScreenY = event.screenY;
-  const onMouseMove = (moveEvent: MouseEvent) => {
-    if (!isDragging) return;
-    const dx = moveEvent.screenX - startScreenX; const dy = moveEvent.screenY - startScreenY;
-    if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1) {
-      hasMoved = true; startScreenX = moveEvent.screenX; startScreenY = moveEvent.screenY;
-      (window as any).desktopApi?.moveWindow?.(dx, dy);
-    }
-  };
-  const onMouseUp = () => {
-    isDragging = false; window.removeEventListener('mousemove', onMouseMove); window.removeEventListener('mouseup', onMouseUp);
-    if (!hasMoved) handleMascotClick();
-  };
-  window.addEventListener('mousemove', onMouseMove); window.addEventListener('mouseup', onMouseUp);
+const toggleAppMode = async () => {
+  const next = currentMode.value === 'ide' ? 'mascot' : 'ide';
+  await setAppMode(next);
 };
 
-const handleCreateTask = (title: string, priority = 'high', projectId?: number) => { createTask(title, priority, projectId); sfx.playSuccess(); };
-const handleStartPomodoro = (task: TaskItem) => { activeTask.value = task; openModal('pomodoro'); };
-const handlePomodoroCompleted = (task: TaskItem) => { incrementPomodoro(task); sfx.playSuccess(); };
-const handleTaskHubConnected = async (next: any) => { await setCredential(next); activeModal.value = 'dispatch'; sfx.playSuccess(); };
-const handleTaskHubDisconnect = async () => { await clearCredential(); activeModal.value = null; };
-const hideMascot = () => (window as any).desktopApi?.close?.();
-const checkForUpdates = () => (window as any).desktopApi?.updater?.check?.();
-const installUpdate = () => (window as any).desktopApi?.updater?.install?.();
-const handleKeyDown = (event: KeyboardEvent) => {
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); openModal('palette'); }
-  else if (event.key === 'Escape') closeAll();
+const handleCreateTask = (title: string, priority = 'high', projectId?: number) => {
+  createTask(title, priority, projectId);
+  sfx.playSuccess();
 };
 
-onMounted(() => {
-  window.addEventListener('keydown', handleKeyDown);
-  (window as any).desktopApi?.onTrayAction?.((action: string) => {
-    const actions: Record<string, ActiveModal> = { 'open-dispatch': 'dispatch', 'open-review': 'review', 'open-pomodoro': 'pomodoro', 'open-duck': 'duck', 'open-notes': 'notes', 'open-taskhub': 'taskhub' };
-    if (action === 'open-agent') void openAgentWorkspace();
-    else if (actions[action]) openModal(actions[action]);
-    if (action === 'open-tasks') openWebAction('/tasks');
-    if (action === 'check-updates') checkForUpdates();
-    if (action === 'install-update') installUpdate();
+const handleStartPomodoro = (task: TaskItem) => {
+  activeTask.value = task;
+  if (currentMode.value === 'ide') {
+    void setAppMode('mascot');
+  }
+  nextTick(() => {
+    mascotViewRef.value?.openModal?.('pomodoro');
   });
+};
+
+const handlePomodoroCompleted = (task: TaskItem) => {
+  incrementPomodoro(task);
+  sfx.playSuccess();
+};
+
+const handleTaskHubConnected = async (next: any) => {
+  await setCredential(next);
+  sfx.playSuccess();
+};
+
+const handleTaskHubDisconnect = async () => {
+  await clearCredential();
+};
+
+const handleCloseWindow = () => {
+  (window as any).desktopApi?.close?.();
+};
+
+const handleGlobalKeyDown = (event: KeyboardEvent) => {
+  // Ctrl+Shift+M or Cmd+Shift+M -> Toggle between IDE and Mascot mode
+  if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'm') {
+    event.preventDefault();
+    void toggleAppMode();
+  }
+};
+
+onMounted(async () => {
+  window.addEventListener('keydown', handleGlobalKeyDown);
+
+  // Initialize mode from Electron
+  if ((window as any).desktopApi?.getAppMode) {
+    try {
+      const mode = await (window as any).desktopApi.getAppMode();
+      if (mode === 'ide' || mode === 'mascot') {
+        currentMode.value = mode;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Listen for mode changes from Electron (e.g. CLI or Tray actions)
+  (window as any).desktopApi?.onAppModeChange?.((mode: AppMode) => {
+    currentMode.value = mode;
+    if (mode === 'ide') {
+      void loadCredential();
+      void fetchAgentTasks();
+    }
+  });
+
+  // Listen for Tray actions
+  (window as any).desktopApi?.onTrayAction?.(async (action: string) => {
+    const mascotModals: Record<string, ActiveMascotModal> = {
+      'open-dispatch': 'dispatch',
+      'open-review': 'review',
+      'open-pomodoro': 'pomodoro',
+      'open-duck': 'duck',
+      'open-notes': 'notes',
+      'open-taskhub': 'taskhub',
+    };
+
+    if (action === 'open-agent') {
+      await setAppMode('ide');
+    } else if (mascotModals[action]) {
+      if (currentMode.value !== 'mascot') {
+        await setAppMode('mascot');
+      }
+      nextTick(() => {
+        mascotViewRef.value?.openModal?.(mascotModals[action]);
+      });
+    }
+  });
+
+  if (currentMode.value === 'ide') {
+    await loadCredential();
+    await fetchAgentTasks();
+  }
 });
-onUnmounted(() => window.removeEventListener('keydown', handleKeyDown));
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleGlobalKeyDown);
+});
 </script>
 
 <template>
-  <div class="w-full h-full p-4 flex items-end justify-end relative select-none bg-transparent overflow-visible font-sans">
-    <div class="absolute right-3 top-3 z-40 pointer-events-auto"><UpdateStatus /></div>
-    <div class="absolute inset-0 z-30 pointer-events-none flex items-end justify-end p-3 sm:p-4 overflow-hidden">
-    <div class="w-full max-h-[calc(100vh-1rem)] mr-0 sm:mr-3 mb-0 sm:mb-2 overflow-hidden" :class="[activeModal ? 'pointer-events-auto' : 'pointer-events-none', agentFullscreen ? 'max-w-none max-h-none h-full mr-0 mb-0' : activeModal === 'agent' ? 'max-w-[min(1280px,calc(100vw-1rem))]' : 'max-w-[min(960px,calc(100vw-1rem))]']">
-      <CommandPaletteModal v-if="activeModal === 'palette'" @close="activeModal = null" @create-task="handleCreateTask" @start-pomodoro="openModal('pomodoro')" @open-duck="openModal('duck')" @open-notes="openModal('notes')" @open-dispatch="openModal('dispatch')" @open-review="openModal('review')" @check-updates="checkForUpdates" @install-update="installUpdate" />
-      <TaskDispatchModal v-if="activeModal === 'dispatch'" :tasks="tasks" :projects="projects" :is-online="isOnline" :credential="credential" @close="activeModal = null" @start-pomodoro="handleStartPomodoro" @toggle-complete="toggleTaskComplete" @create-task="handleCreateTask" />
-      <AgentConsoleModal v-if="activeModal === 'agent'" :tasks="agentTasks" :initial-task="activeTask" :is-connected="Boolean(credential)" :desktop-credential="credential" @close="closeAll" @fullscreen-change="agentFullscreen = $event" />
-      <TaskHubSetupModal v-if="activeModal === 'taskhub'" :credential="credential" @close="activeModal = null" @connected="handleTaskHubConnected" @disconnect="handleTaskHubDisconnect" />
-      <PomodoroTimer v-if="activeModal === 'pomodoro'" :active-task="activeTask" @pomodoro-completed="handlePomodoroCompleted" @close="activeModal = null" />
-      <EveningReviewModal v-if="activeModal === 'review'" :tasks="tasks" @close="activeModal = null" />
-      <RubberDuckModal v-if="activeModal === 'duck'" @close="activeModal = null" />
-      <QuickNotesModal v-if="activeModal === 'notes'" @close="activeModal = null" />
-    </div>
-    </div>
+  <main class="w-full h-full select-none overflow-hidden font-sans" :class="currentMode === 'ide' ? 'bg-[#1e1e1e]' : 'bg-transparent'">
+    <!-- 1. VS CODE IDE MODE -->
+    <IdeView
+      v-if="currentMode === 'ide'"
+      :tasks="agentTasks"
+      :initial-task="activeTask"
+      :is-connected="Boolean(credential)"
+      :desktop-credential="credential"
+      @switch-mode="setAppMode('mascot')"
+      @close="handleCloseWindow"
+    />
 
-    <div class="mascot-shell no-drag relative flex flex-col items-center cursor-pointer active:scale-98 transition-transform z-20 shrink-0 mr-2 mb-2" @mouseenter="isHovered = true" @mouseleave="isHovered = false" @mousedown="onMascotMouseDown" title="Mở Tasks và kéo để di chuyển">
-      <nav class="no-drag absolute -top-12 right-0 flex items-center gap-1 rounded-2xl border border-slate-700/80 bg-slate-950/98 p-1.5 shadow-2xl ring-1 ring-white/10 backdrop-blur-xl transition-all duration-200" :class="isHovered ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none translate-y-1 opacity-0'" aria-label="Task Companion actions" @click.stop @mousedown.stop>
-        <button class="dock-button text-violet-300" title="Command center (Ctrl+K)" @click="openModal('palette')">⌘</button>
-        <button class="dock-button text-blue-300" title="AI Agent" @click="openAgentWorkspace"><MacatungIcon name="agent" /></button>
-        <button class="dock-button text-amber-300" title="Tasks hôm nay" @click="openModal('dispatch')">✓</button>
-        <button class="dock-button text-emerald-300" :title="credential ? 'Task Hub connected' : 'Connect Task Hub SaaS'" @click="openModal('taskhub')"><MacatungIcon name="shield" /></button>
-        <button class="dock-button text-sky-300" title="Mở Task Hub" @click="openWebAction('/tasks')"><MacatungIcon name="arrow" /></button>
-        <button class="dock-button text-slate-300" title="Ẩn mascot" @click="hideMascot">×</button>
-      </nav>
-
-      <ZenMascotStage ref="zenMascotRef" :is-hovered="isHovered" />
-      <DailyFocusBar :tasks="tasks" />
-    </div>
-  </div>
+    <!-- 2. MASCOT REMINDER COMPANION MODE -->
+    <MascotView
+      v-else-if="currentMode === 'mascot'"
+      ref="mascotViewRef"
+      :tasks="tasks"
+      :projects="projects"
+      :active-task="activeTask"
+      :is-online="isOnline"
+      :credential="credential"
+      @switch-mode="setAppMode('ide')"
+      @create-task="handleCreateTask"
+      @toggle-complete="toggleTaskComplete"
+      @start-pomodoro="handleStartPomodoro"
+      @pomodoro-completed="handlePomodoroCompleted"
+      @set-credential="handleTaskHubConnected"
+      @clear-credential="handleTaskHubDisconnect"
+    />
+  </main>
 </template>
 
 <style scoped>
-.no-drag { -webkit-app-region: no-drag; }
-.mascot-shell::before { content: ''; position: absolute; top: -3.75rem; left: -1.25rem; right: -1.25rem; height: 3.75rem; z-index: 0; }
-.dock-button { width: 1.9rem; height: 1.9rem; display: grid; place-items: center; border-radius: .7rem; font-size: .85rem; font-weight: 700; transition: background-color .15s, transform .15s; cursor: pointer; }
-.dock-button:hover { background: rgb(30 41 59); transform: translateY(-1px); }
 </style>

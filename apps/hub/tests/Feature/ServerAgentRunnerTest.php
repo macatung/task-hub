@@ -67,6 +67,30 @@ class ServerAgentRunnerTest extends TestCase
         $this->assertDatabaseHas('agent_run_logs', ['agent_run_id' => $run->id, 'content' => 'Authorization: Bearer [REDACTED]']);
     }
 
+    public function test_heartbeat_renews_active_lease_and_delivers_cancellation_command(): void
+    {
+        config(['services.task_hub.runner_registration_token' => 'bootstrap-secret']);
+        $registration = $this->withHeaders(['X-Task-Hub-Runner-Registration' => 'bootstrap-secret'])
+            ->postJson('/api/v1/runners/register', ['name' => 'codex-runner'])->assertCreated();
+        $token = $registration->json('token');
+        $runnerId = $registration->json('runner.id');
+        $user = User::factory()->create();
+        $workspace = Workspace::create(['name' => 'Tenant', 'slug' => 'tenant-' . $user->id, 'owner_id' => $user->id]);
+        $workspace->members()->attach($user->id, ['role' => 'owner']);
+        $run = AgentRun::create([
+            'workspace_id' => $workspace->id, 'runner_id' => $runnerId, 'provider' => 'codex',
+            'status' => 'running', 'execution_mode' => 'server', 'cancel_requested_at' => now(),
+            'lease_expires_at' => now()->subMinute(),
+        ]);
+
+        $response = $this->withToken($token)->postJson('/api/v1/runners/' . $runnerId . '/heartbeat', [
+            'status' => 'busy', 'active_run_ids' => [$run->id],
+        ])->assertOk();
+
+        $response->assertJsonPath('commands.0.type', 'cancel')->assertJsonPath('commands.0.run_id', $run->id);
+        $this->assertTrue($run->fresh()->lease_expires_at->isFuture());
+    }
+
     public function test_runner_cannot_write_to_a_run_owned_by_another_runner(): void
     {
         config(['services.task_hub.runner_registration_token' => 'bootstrap-secret']);

@@ -31,7 +31,9 @@ class TaskHubAgentWorkflowTest extends TestCase
 
     public function test_agent_run_receives_context_and_can_attach_evidence(): void
     {
+        $project = Project::create(['slug' => 'sync-adapter', 'title' => 'Sync Adapter', 'tagline' => 'Sync', 'description' => 'Test project', 'type' => 'work', 'category' => 'tools']);
         $task = Task::create([
+            'project_id' => $project->id,
             'title' => 'Implement sync adapter',
             'description' => 'Connect the task hub to coding agents.',
             'acceptance_criteria' => "- MCP returns the work item\n- Evidence is stored",
@@ -72,7 +74,7 @@ class TaskHubAgentWorkflowTest extends TestCase
 
     public function test_agent_events_and_github_webhooks_are_idempotent(): void
     {
-        $run = AgentRun::create(['provider' => 'claude_code', 'agent_session_id' => 'session-2']);
+        $run = AgentRun::create(['provider' => 'claude_code', 'agent_session_id' => 'session-2', 'repository' => 'owner/repo', 'commit_sha' => str_repeat('b', 40)]);
         $eventId = '11111111-1111-4111-8111-111111111111';
 
         $payload = ['event_id' => $eventId, 'event_type' => 'test_finished', 'status' => 'needs_review', 'payload' => ['passed' => true]];
@@ -87,6 +89,7 @@ class TaskHubAgentWorkflowTest extends TestCase
             ->postJson('/api/tasks/github/webhook', ['repository' => ['full_name' => 'owner/repo']])
             ->assertJsonPath('duplicate', true);
         $this->assertDatabaseCount('github_events', 1);
+        $this->assertDatabaseHas('verification_evidence', ['agent_run_id' => $run->id, 'evidence_type' => 'ci_check', 'status' => 'passed']);
     }
 
     public function test_mcp_lists_tools_and_requires_token_when_configured(): void
@@ -163,7 +166,8 @@ class TaskHubAgentWorkflowTest extends TestCase
 
     public function test_structured_handoff_creates_evidence_and_requests_review(): void
     {
-        $task = Task::create(['title' => 'Finish agent handoff']);
+        $project = Project::create(['slug' => 'handoff-project', 'title' => 'Handoff Project', 'tagline' => 'Handoff', 'description' => 'Test project', 'type' => 'work', 'category' => 'tools']);
+        $task = Task::create(['project_id' => $project->id, 'title' => 'Finish agent handoff']);
         $run = AgentRun::create(['task_id' => $task->id, 'provider' => 'codex', 'agent_session_id' => 'handoff-session', 'status' => 'running']);
         $this->postJson('/api/tasks/agent-runs/' . $run->id . '/handoff', [
             'summary' => 'Implemented the requested agent workspace.',

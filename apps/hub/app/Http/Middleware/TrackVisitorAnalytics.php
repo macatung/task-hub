@@ -19,7 +19,7 @@ class TrackVisitorAnalytics
         $response = $next($request);
 
         // Only track successful GET requests on public facing routes
-        if ($request->isMethod('GET') && !$request->is('admin*') && !$request->is('api*') && !$request->is('build*') && !$request->is('assets*')) {
+        if ($request->isMethod('GET') && !$request->is('admin*') && !$request->is('api*') && !$request->is('mcp*') && !$request->is('build*') && !$request->is('assets*')) {
             try {
                 $userAgent = $request->userAgent() ?? '';
                 $ip = $request->ip() ?? '127.0.0.1';

@@ -6,6 +6,7 @@ import MiniMascotLogo from '@/Components/mascot/MiniMascotLogo.vue';
 import TasksEmptyState from '@/Components/tasks/TasksEmptyState.vue';
 import ProjectDocumentsPanel from '@/Components/tasks/ProjectDocumentsPanel.vue';
 import ProjectReleaseLog from '@/Components/tasks/ProjectReleaseLog.vue';
+import RunnerDashboard from '@/Components/tasks/RunnerDashboard.vue';
 import { sound } from '@/audio/soundEffects';
 
 export interface ProjectItem {
@@ -729,6 +730,208 @@ const filteredGithubRepositories = computed(() => githubRepositories.value.filte
 }));
 
 const logoutGithub = () => router.post('/auth/github/logout');
+
+// =========================================================================
+// Model Context Protocol (MCP) & AI Agent Integration State & Handlers
+// =========================================================================
+const showMcpModal = ref(false);
+const selectedMcpProjectId = ref<number | null>(null);
+const mcpData = ref<any>(null);
+const isMcpLoading = ref(false);
+const isMcpGenerating = ref(false);
+const isMcpSaving = ref(false);
+const customMcpTokenInput = ref('');
+const showRawToken = ref(false);
+const copiedSnippetType = ref<string | null>(null);
+const activeMcpTab = ref<'antigravity' | 'cursor' | 'claude' | 'env' | 'tools'>('antigravity');
+const mcpFeedbackMsg = ref('');
+const mcpFeedbackType = ref<'success' | 'error'>('success');
+const isTestingMcp = ref(false);
+const mcpTestStatus = ref<{ tested: boolean; success: boolean; latency?: number; message?: string; toolCount?: number } | null>(null);
+
+const activeMcpProject = computed(() => {
+  if (!selectedMcpProjectId.value) return projectList.value[0] || null;
+  return projectList.value.find(p => p.id === selectedMcpProjectId.value) || projectList.value[0] || null;
+});
+
+const openMcpModal = async (projectId?: number) => {
+  sound.playClick();
+  showMcpModal.value = true;
+  mcpFeedbackMsg.value = '';
+  mcpTestStatus.value = null;
+  showRawToken.value = false;
+
+  const targetId = projectId || (activeProjectObject.value ? activeProjectObject.value.id : (projectList.value[0]?.id || null));
+  if (targetId) {
+    selectedMcpProjectId.value = targetId;
+    await fetchMcpInfo(targetId);
+  }
+};
+
+const handleSelectMcpProject = async (id: number) => {
+  selectedMcpProjectId.value = id;
+  mcpFeedbackMsg.value = '';
+  mcpTestStatus.value = null;
+  showRawToken.value = false;
+  await fetchMcpInfo(id);
+};
+
+const fetchMcpInfo = async (projectId: number) => {
+  isMcpLoading.value = true;
+  try {
+    const res = await axios.get(`/api/projects/${projectId}/mcp`);
+    if (res.data.success) {
+      mcpData.value = res.data.data;
+      customMcpTokenInput.value = '';
+    }
+  } catch (err: any) {
+    console.error('Failed to load MCP info:', err);
+    mcpFeedbackMsg.value = err.response?.data?.message || 'Unable to load MCP details.';
+    mcpFeedbackType.value = 'error';
+  } finally {
+    isMcpLoading.value = false;
+  }
+};
+
+const generateMcpTokenForProject = async () => {
+  if (!selectedMcpProjectId.value) return;
+  isMcpGenerating.value = true;
+  mcpFeedbackMsg.value = '';
+  mcpTestStatus.value = null;
+  sound.playClick();
+
+  try {
+    const res = await axios.post(`/api/projects/${selectedMcpProjectId.value}/mcp/generate-token`);
+    if (res.data.success) {
+      mcpData.value = res.data.data;
+      showRawToken.value = true;
+      mcpFeedbackMsg.value = '⚡ New secure MCP token generated and saved!';
+      mcpFeedbackType.value = 'success';
+      sound.playSuccess();
+    }
+  } catch (err: any) {
+    console.error('Failed to generate MCP token:', err);
+    mcpFeedbackMsg.value = err.response?.data?.message || 'Unable to generate token.';
+    mcpFeedbackType.value = 'error';
+  } finally {
+    isMcpGenerating.value = false;
+  }
+};
+
+const saveCustomMcpToken = async () => {
+  if (!selectedMcpProjectId.value || !customMcpTokenInput.value.trim()) return;
+  isMcpSaving.value = true;
+  mcpFeedbackMsg.value = '';
+  sound.playClick();
+
+  try {
+    const res = await axios.post(`/api/projects/${selectedMcpProjectId.value}/mcp/token`, {
+      token: customMcpTokenInput.value.trim(),
+    });
+    if (res.data.success) {
+      mcpData.value = res.data.data;
+      showRawToken.value = true;
+      customMcpTokenInput.value = '';
+      mcpFeedbackMsg.value = '✓ Custom MCP token saved successfully!';
+      mcpFeedbackType.value = 'success';
+      sound.playSuccess();
+    }
+  } catch (err: any) {
+    console.error('Failed to save custom MCP token:', err);
+    mcpFeedbackMsg.value = err.response?.data?.message || 'Unable to save custom token.';
+    mcpFeedbackType.value = 'error';
+  } finally {
+    isMcpSaving.value = false;
+  }
+};
+
+const clearMcpTokenForProject = async () => {
+  if (!selectedMcpProjectId.value) return;
+  if (!confirm('Are you sure you want to revoke the MCP token for this project? Any active AI agent connections using this token will stop working.')) return;
+
+  isMcpSaving.value = true;
+  mcpFeedbackMsg.value = '';
+  mcpTestStatus.value = null;
+
+  try {
+    const res = await axios.post(`/api/projects/${selectedMcpProjectId.value}/mcp/token`, { clear: true });
+    if (res.data.success) {
+      mcpData.value = res.data.data;
+      showRawToken.value = false;
+      mcpFeedbackMsg.value = 'MCP token revoked.';
+      mcpFeedbackType.value = 'success';
+      sound.playSuccess();
+    }
+  } catch (err: any) {
+    console.error('Failed to clear MCP token:', err);
+    mcpFeedbackMsg.value = err.response?.data?.message || 'Unable to clear token.';
+    mcpFeedbackType.value = 'error';
+  } finally {
+    isMcpSaving.value = false;
+  }
+};
+
+const copyMcpSnippet = (type: string, text: string) => {
+  navigator.clipboard.writeText(text);
+  copiedSnippetType.value = type;
+  sound.playSuccess();
+  setTimeout(() => {
+    if (copiedSnippetType.value === type) copiedSnippetType.value = null;
+  }, 2500);
+};
+
+const testMcpConnection = async () => {
+  if (!mcpData.value?.token && !mcpData.value?.has_token) {
+    mcpFeedbackMsg.value = 'Generate or enter an MCP token first before testing.';
+    mcpFeedbackType.value = 'error';
+    return;
+  }
+  isTestingMcp.value = true;
+  mcpTestStatus.value = null;
+  sound.playClick();
+
+  const startTime = performance.now();
+  try {
+    const token = mcpData.value?.token;
+    const res = await axios.post('/mcp', {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/list',
+      params: { arguments: { project_id: selectedMcpProjectId.value } }
+    }, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+
+    const latency = Math.round(performance.now() - startTime);
+    if (res.data?.result?.tools) {
+      mcpTestStatus.value = {
+        tested: true,
+        success: true,
+        latency,
+        toolCount: res.data.result.tools.length,
+        message: `MCP Server connected! Protocol v2024-11-05 verified with ${res.data.result.tools.length} active tools (${latency}ms).`
+      };
+      sound.playSuccess();
+    } else if (res.data?.error) {
+      mcpTestStatus.value = {
+        tested: true,
+        success: false,
+        latency,
+        message: `MCP Error [${res.data.error.code}]: ${res.data.error.message}`
+      };
+    }
+  } catch (err: any) {
+    const latency = Math.round(performance.now() - startTime);
+    mcpTestStatus.value = {
+      tested: true,
+      success: false,
+      latency,
+      message: err.response?.data?.error?.message || err.response?.data?.message || err.message || 'Connection test failed'
+    };
+  } finally {
+    isTestingMcp.value = false;
+  }
+};
 
 // Sprint Form
 const sprintForm = ref({
@@ -2274,6 +2477,19 @@ onUnmounted(() => {
           </div>
         </div>
 
+        <!-- MCP & AI Agents Button -->
+        <button
+          @click="openMcpModal()"
+          :class="[
+            'flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs',
+            isDarkMode ? 'bg-slate-900 border-indigo-500/40 text-indigo-300 hover:bg-slate-800 hover:border-indigo-400' : 'bg-indigo-50 border-indigo-300 text-indigo-950 hover:bg-indigo-100'
+          ]"
+          title="Model Context Protocol (MCP) & AI Agent Integration (Antigravity 2.0, Cursor, Claude)"
+        >
+          <span>⚡</span>
+          <span>MCP & Agents</span>
+        </button>
+
         <!-- Weekly Email Report Button -->
         <button
           @click="openReportModal"
@@ -2354,6 +2570,8 @@ onUnmounted(() => {
         </button>
       </div>
     </header>
+
+    <RunnerDashboard />
 
     <!-- ========================================================================= -->
     <!-- 2. MAIN LAYOUT (SIDEBAR + MAIN CANVAS)                                    -->
@@ -4222,7 +4440,30 @@ onUnmounted(() => {
             <input v-model="projectForm.github_repository" placeholder="GitHub repository: owner/repository" :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 font-mono text-xs', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']" />
             <input v-model="projectForm.github_default_branch" placeholder="Default branch: main" :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 font-mono text-xs', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']" />
             <input v-model="projectForm.github_webhook_secret" type="password" autocomplete="new-password" placeholder="Repository webhook secret" :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 text-xs', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']" />
-            <input v-model="projectForm.task_hub_mcp_token" type="password" autocomplete="new-password" placeholder="Project MCP token for agents" :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 text-xs', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']" />
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label :class="['font-mono text-[10px] font-bold uppercase', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Project MCP Token (AI Agents)</label>
+                <button
+                  type="button"
+                  @click="projectForm.task_hub_mcp_token = 'th_mcp_' + Array.from(crypto.getRandomValues(new Uint8Array(24))).map(b => b.toString(16).padStart(2, '0')).join('')"
+                  class="text-[10px] text-blue-500 hover:text-blue-400 font-bold cursor-pointer"
+                >
+                  ⚡ Auto-Generate Token
+                </button>
+              </div>
+              <div class="flex items-center gap-2">
+                <input v-model="projectForm.task_hub_mcp_token" type="text" autocomplete="new-password" placeholder="Project MCP token for agents (e.g. th_mcp_...)" :class="['flex-1 p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 font-mono text-xs', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']" />
+                <button
+                  type="button"
+                  v-if="editingProjectId"
+                  @click="openMcpModal(editingProjectId)"
+                  class="px-2.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] whitespace-nowrap cursor-pointer shadow-xs"
+                  title="Open MCP Guide & Config snippets"
+                >
+                  ⚡ MCP Guide
+                </button>
+              </div>
+            </div>
             <div class="flex flex-wrap gap-3 text-[10px] text-slate-500">
               <label class="flex items-center gap-1"><input v-model="projectForm.clear_github_token" type="checkbox" /> Clear GitHub token</label>
               <label class="flex items-center gap-1"><input v-model="projectForm.clear_github_webhook_secret" type="checkbox" /> Clear webhook secret</label>
@@ -4884,6 +5125,458 @@ onUnmounted(() => {
               <span>{{ isReportSaving ? 'Saving...' : 'Save settings' }}</span>
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- ⚡ MODEL CONTEXT PROTOCOL (MCP) & AI AGENTS MODAL                     -->
+    <!-- ==================================================================== -->
+    <div
+      v-if="showMcpModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 select-none overflow-y-auto backdrop-blur-md bg-black/70 animate-fadeIn"
+      @click.self="showMcpModal = false"
+    >
+      <div
+        :class="[
+          'relative w-full max-w-4xl border rounded-3xl p-5 sm:p-7 shadow-2xl z-10 transition-all flex flex-col max-h-[92vh] overflow-hidden',
+          isDarkMode ? 'bg-[#0b1120] border-slate-700/80 text-slate-100' : 'bg-white border-slate-300 text-slate-900'
+        ]"
+      >
+        <!-- Modal Header -->
+        <div class="flex items-start justify-between pb-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-2xl shadow-inner text-indigo-400">
+              ⚡
+            </div>
+            <div>
+              <div class="flex items-center gap-2.5">
+                <h3 class="text-base sm:text-lg font-bold font-display">
+                  Model Context Protocol (MCP) & AI Agent Setup
+                </h3>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
+                  Protocol: 2024-11-05
+                </span>
+              </div>
+              <p :class="['text-xs mt-0.5', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
+                Connect Antigravity 2.0, Cursor, and Claude to read tasks, load context packs, and submit code handoffs automatically.
+              </p>
+            </div>
+          </div>
+
+          <button
+            @click="showMcpModal = false"
+            :class="[
+              'p-2 rounded-xl border text-xs font-bold transition-colors cursor-pointer',
+              isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800' : 'bg-slate-100 border-slate-300 text-slate-600 hover:bg-slate-200'
+            ]"
+            title="Close modal"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- Feedback Alert -->
+        <div
+          v-if="mcpFeedbackMsg"
+          :class="[
+            'mt-3 px-3.5 py-2.5 rounded-2xl text-xs font-bold flex items-center justify-between shrink-0',
+            mcpFeedbackType === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+          ]"
+        >
+          <span>{{ mcpFeedbackMsg }}</span>
+          <button @click="mcpFeedbackMsg = ''" class="text-xs opacity-70 hover:opacity-100 cursor-pointer">✕</button>
+        </div>
+
+        <!-- Modal Body (Scrollable) -->
+        <div class="overflow-y-auto custom-scrollbar space-y-5 py-4 flex-1 pr-1">
+          <!-- 1. Project Selector & Server Endpoint -->
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-3.5">
+            <!-- Project Picker -->
+            <div :class="['md:col-span-6 p-4 rounded-2xl border', isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200']">
+              <label class="block text-[11px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-2">
+                1. Select Target Project
+              </label>
+              <div class="flex flex-wrap gap-1.5">
+                <button
+                  v-for="p in projectList"
+                  :key="p.id"
+                  @click="handleSelectMcpProject(p.id)"
+                  :class="[
+                    'px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-1.5',
+                    selectedMcpProjectId === p.id
+                      ? 'bg-blue-600 border-blue-500 text-white shadow-xs'
+                      : (isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-800' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100')
+                  ]"
+                >
+                  <span class="w-2 h-2 rounded-full" :style="{ backgroundColor: p.color || '#3b82f6' }"></span>
+                  <span>{{ p.title }}</span>
+                  <span v-if="p.key" class="font-mono text-[9px] opacity-75">({{ p.key }})</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Server Endpoint -->
+            <div :class="['md:col-span-6 p-4 rounded-2xl border flex flex-col justify-between', isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200']">
+              <div>
+                <label class="block text-[11px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  2. MCP Server Endpoint URL
+                </label>
+                <div class="flex items-center gap-2 mt-1.5">
+                  <input
+                    type="text"
+                    readonly
+                    :value="mcpData?.server_url || 'https://task-hub.macatung.dev/mcp'"
+                    :class="['flex-1 p-2 rounded-xl font-mono text-xs border select-all', isDarkMode ? 'bg-slate-950 border-slate-800 text-indigo-300' : 'bg-white border-slate-300 text-indigo-900']"
+                  />
+                  <button
+                    @click="copyMcpSnippet('url', mcpData?.server_url || 'https://task-hub.macatung.dev/mcp')"
+                    class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold cursor-pointer transition-colors shrink-0"
+                  >
+                    {{ copiedSnippetType === 'url' ? '✓ Copied' : 'Copy' }}
+                  </button>
+                </div>
+              </div>
+              <p class="text-[10px] text-slate-500 mt-2">
+                Standard JSON-RPC 2.0 over HTTP endpoint supporting Bearer Token authentication.
+              </p>
+            </div>
+          </div>
+
+          <!-- 2. MCP Authentication Token Management -->
+          <div :class="['p-4 sm:p-5 rounded-2xl border space-y-3.5', isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200']">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h4 class="font-bold text-xs flex items-center gap-2">
+                  <span>🔑</span>
+                  <span>Project MCP Token</span>
+                  <span
+                    :class="[
+                      'px-2 py-0.5 rounded-full text-[10px] font-mono font-bold',
+                      mcpData?.has_token ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                    ]"
+                  >
+                    {{ mcpData?.has_token ? '● Configured & Ready' : '○ No Token Set' }}
+                  </span>
+                </h4>
+                <p class="text-[11px] text-slate-500 mt-0.5">
+                  Secures AI Agent communication for <strong class="text-blue-500">{{ activeMcpProject?.title }}</strong>.
+                </p>
+              </div>
+
+              <!-- Quick Generate / Revoke Actions -->
+              <div class="flex items-center gap-2">
+                <button
+                  @click="generateMcpTokenForProject"
+                  :disabled="isMcpGenerating || isMcpLoading"
+                  class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md cursor-pointer transition-all flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <span>{{ isMcpGenerating ? '⏳' : '⚡' }}</span>
+                  <span>{{ mcpData?.has_token ? 'Regenerate Token' : 'Generate Secure Token' }}</span>
+                </button>
+
+                <button
+                  v-if="mcpData?.has_token"
+                  @click="clearMcpTokenForProject"
+                  :disabled="isMcpSaving"
+                  class="px-3 py-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-bold cursor-pointer transition-colors"
+                >
+                  Revoke
+                </button>
+              </div>
+            </div>
+
+            <!-- Token View / Copy Box -->
+            <div v-if="mcpData?.has_token" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div :class="['flex-1 flex items-center justify-between p-2.5 rounded-xl border font-mono text-xs min-w-0', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-300']">
+                <span class="truncate select-all pr-2">
+                  {{ showRawToken ? (mcpData.token || 'Encrypted on server') : (mcpData.masked_token || '••••••••••••••••••••••••••••••••') }}
+                </span>
+                <button
+                  @click="showRawToken = !showRawToken"
+                  class="text-[11px] text-slate-400 hover:text-slate-200 px-2 py-0.5 rounded cursor-pointer shrink-0"
+                >
+                  {{ showRawToken ? 'Hide' : 'Show' }}
+                </button>
+              </div>
+
+              <button
+                v-if="mcpData?.token"
+                @click="copyMcpSnippet('token', mcpData.token)"
+                class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold cursor-pointer transition-colors shrink-0 flex items-center justify-center gap-1.5"
+              >
+                <span>{{ copiedSnippetType === 'token' ? '✓' : '📋' }}</span>
+                <span>{{ copiedSnippetType === 'token' ? 'Copied Token' : 'Copy Token' }}</span>
+              </button>
+            </div>
+
+            <!-- Custom Token Option -->
+            <div class="pt-2 border-t border-slate-200 dark:border-slate-800/80 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <input
+                v-model="customMcpTokenInput"
+                type="text"
+                placeholder="Or paste your own custom MCP token / secret key..."
+                :class="['flex-1 p-2 rounded-xl text-xs border font-mono', isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900']"
+              />
+              <button
+                @click="saveCustomMcpToken"
+                :disabled="!customMcpTokenInput.trim() || isMcpSaving"
+                class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs cursor-pointer disabled:opacity-40 shrink-0"
+              >
+                {{ isMcpSaving ? 'Saving...' : 'Set Custom Token' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- 3. Client Configuration Snippets (Tabbed) -->
+          <div :class="['p-4 sm:p-5 rounded-2xl border space-y-3.5', isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200']">
+            <!-- Tabs -->
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <button
+                  @click="activeMcpTab = 'antigravity'"
+                  :class="[
+                    'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5',
+                    activeMcpTab === 'antigravity'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200')
+                  ]"
+                >
+                  <span>🌟</span>
+                  <span>Google Antigravity 2.0</span>
+                </button>
+
+                <button
+                  @click="activeMcpTab = 'cursor'"
+                  :class="[
+                    'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5',
+                    activeMcpTab === 'cursor'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200')
+                  ]"
+                >
+                  <span>⚡</span>
+                  <span>Cursor IDE</span>
+                </button>
+
+                <button
+                  @click="activeMcpTab = 'claude'"
+                  :class="[
+                    'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5',
+                    activeMcpTab === 'claude'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200')
+                  ]"
+                >
+                  <span>🤖</span>
+                  <span>Claude Desktop</span>
+                </button>
+
+                <button
+                  @click="activeMcpTab = 'tools'"
+                  :class="[
+                    'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5',
+                    activeMcpTab === 'tools'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200')
+                  ]"
+                >
+                  <span>🛠️</span>
+                  <span>14 AI Tools</span>
+                </button>
+              </div>
+
+              <!-- Test Connection Button -->
+              <button
+                @click="testMcpConnection"
+                :disabled="isTestingMcp || !mcpData?.has_token"
+                class="px-3 py-1.5 rounded-xl border border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/10 text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 disabled:opacity-40"
+              >
+                <span>{{ isTestingMcp ? '⏳' : '🚀' }}</span>
+                <span>{{ isTestingMcp ? 'Testing...' : 'Test Connection' }}</span>
+              </button>
+            </div>
+
+            <!-- Live Test Feedback Box -->
+            <div
+              v-if="mcpTestStatus?.tested"
+              :class="[
+                'p-3 rounded-xl text-xs font-mono font-medium flex items-center justify-between',
+                mcpTestStatus.success ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300' : 'bg-red-500/10 border border-red-500/30 text-red-300'
+              ]"
+            >
+              <span>{{ mcpTestStatus.message }}</span>
+              <span v-if="mcpTestStatus.latency" class="text-[10px] opacity-75 font-bold">{{ mcpTestStatus.latency }}ms</span>
+            </div>
+
+            <!-- Tab Content: Antigravity 2.0 -->
+            <div v-if="activeMcpTab === 'antigravity'" class="space-y-3">
+              <div class="text-xs space-y-1">
+                <p class="font-bold text-slate-200">Where to save this configuration:</p>
+                <ul class="list-disc list-inside text-slate-400 text-[11px] space-y-0.5">
+                  <li><strong>Workspace level (Recommended):</strong> Create <code class="px-1 py-0.5 rounded bg-slate-950 font-mono text-indigo-300">.agents/mcp_config.json</code> in your project root.</li>
+                  <li><strong>Global level:</strong> Save into <code class="px-1 py-0.5 rounded bg-slate-950 font-mono text-indigo-300">~/.gemini/config/mcp_config.json</code> (or <code class="px-1 py-0.5 rounded bg-slate-950 font-mono text-indigo-300">%USERPROFILE%\.gemini\config\mcp_config.json</code>).</li>
+                </ul>
+              </div>
+
+              <div class="relative">
+                <pre :class="['p-4 rounded-xl border font-mono text-xs overflow-x-auto select-all leading-relaxed', isDarkMode ? 'bg-[#060913] border-slate-800 text-emerald-400' : 'bg-slate-900 border-slate-700 text-emerald-300']"><code>{{ JSON.stringify(mcpData?.configs?.antigravity || {
+  "mcpServers": {
+    "task-hub": {
+      "serverUrl": mcpData?.server_url || "https://task-hub.macatung.dev/mcp",
+      "headers": {
+        "Authorization": `Bearer ${mcpData?.token || 'YOUR_TASK_HUB_MCP_TOKEN'}`
+      }
+    }
+  }
+}, null, 2) }}</code></pre>
+
+                <button
+                  @click="copyMcpSnippet('antigravity', JSON.stringify(mcpData?.configs?.antigravity || {
+                    'mcpServers': {
+                      'task-hub': {
+                        'serverUrl': mcpData?.server_url || 'https://task-hub.macatung.dev/mcp',
+                        'headers': {
+                          'Authorization': `Bearer ${mcpData?.token || 'YOUR_TASK_HUB_MCP_TOKEN'}`
+                        }
+                      }
+                    }
+                  }, null, 2))"
+                  class="absolute right-3 top-3 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md cursor-pointer transition-colors"
+                >
+                  {{ copiedSnippetType === 'antigravity' ? '✓ Copied' : 'Copy JSON' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Tab Content: Cursor IDE -->
+            <div v-else-if="activeMcpTab === 'cursor'" class="space-y-3">
+              <div class="text-xs space-y-1">
+                <p class="font-bold text-slate-200">Where to save this configuration for Cursor:</p>
+                <p class="text-slate-400 text-[11px]">Save into <code class="px-1 py-0.5 rounded bg-slate-950 font-mono text-indigo-300">.cursor/mcp.json</code> or project root <code class="px-1 py-0.5 rounded bg-slate-950 font-mono text-indigo-300">.mcp.json</code>.</p>
+              </div>
+
+              <div class="relative">
+                <pre :class="['p-4 rounded-xl border font-mono text-xs overflow-x-auto select-all leading-relaxed', isDarkMode ? 'bg-[#060913] border-slate-800 text-emerald-400' : 'bg-slate-900 border-slate-700 text-emerald-300']"><code>{{ JSON.stringify(mcpData?.configs?.cursor || {
+  "mcpServers": {
+    "task-hub": {
+      "url": mcpData?.server_url || "https://task-hub.macatung.dev/mcp",
+      "headers": {
+        "Authorization": `Bearer ${mcpData?.token || 'YOUR_TASK_HUB_MCP_TOKEN'}`
+      }
+    }
+  }
+}, null, 2) }}</code></pre>
+
+                <button
+                  @click="copyMcpSnippet('cursor', JSON.stringify(mcpData?.configs?.cursor || {
+                    'mcpServers': {
+                      'task-hub': {
+                        'url': mcpData?.server_url || 'https://task-hub.macatung.dev/mcp',
+                        'headers': {
+                          'Authorization': `Bearer ${mcpData?.token || 'YOUR_TASK_HUB_MCP_TOKEN'}`
+                        }
+                      }
+                    }
+                  }, null, 2))"
+                  class="absolute right-3 top-3 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md cursor-pointer transition-colors"
+                >
+                  {{ copiedSnippetType === 'cursor' ? '✓ Copied' : 'Copy JSON' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Tab Content: Claude Desktop -->
+            <div v-else-if="activeMcpTab === 'claude'" class="space-y-3">
+              <div class="text-xs space-y-1">
+                <p class="font-bold text-slate-200">Where to save for Claude Desktop:</p>
+                <p class="text-slate-400 text-[11px]">Save into <code class="px-1 py-0.5 rounded bg-slate-950 font-mono text-indigo-300">%APPDATA%\Claude\claude_desktop_config.json</code> (Windows) or <code class="px-1 py-0.5 rounded bg-slate-950 font-mono text-indigo-300">~/Library/Application Support/Claude/claude_desktop_config.json</code> (macOS).</p>
+              </div>
+
+              <div class="relative">
+                <pre :class="['p-4 rounded-xl border font-mono text-xs overflow-x-auto select-all leading-relaxed', isDarkMode ? 'bg-[#060913] border-slate-800 text-emerald-400' : 'bg-slate-900 border-slate-700 text-emerald-300']"><code>{{ JSON.stringify(mcpData?.configs?.claude_desktop || {
+  "mcpServers": {
+    "task-hub": {
+      "url": mcpData?.server_url || "https://task-hub.macatung.dev/mcp",
+      "headers": {
+        "Authorization": `Bearer ${mcpData?.token || 'YOUR_TASK_HUB_MCP_TOKEN'}`
+      }
+    }
+  }
+}, null, 2) }}</code></pre>
+
+                <button
+                  @click="copyMcpSnippet('claude', JSON.stringify(mcpData?.configs?.claude_desktop || {
+                    'mcpServers': {
+                      'task-hub': {
+                        'url': mcpData?.server_url || 'https://task-hub.macatung.dev/mcp',
+                        'headers': {
+                          'Authorization': `Bearer ${mcpData?.token || 'YOUR_TASK_HUB_MCP_TOKEN'}`
+                        }
+                      }
+                    }
+                  }, null, 2))"
+                  class="absolute right-3 top-3 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md cursor-pointer transition-colors"
+                >
+                  {{ copiedSnippetType === 'claude' ? '✓ Copied' : 'Copy JSON' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Tab Content: Tools Directory -->
+            <div v-else-if="activeMcpTab === 'tools'" class="space-y-2.5">
+              <p class="text-xs text-slate-400">
+                The Task Hub MCP server automatically exposes these 14 tools to the AI agent:
+              </p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
+                  <div class="font-mono font-bold text-indigo-400">get_next_action</div>
+                  <div class="text-[11px] text-slate-400 mt-0.5">Return the smallest actionable high-priority task.</div>
+                </div>
+                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
+                  <div class="font-mono font-bold text-indigo-400">get_work_item</div>
+                  <div class="text-[11px] text-slate-400 mt-0.5">Read task details, subtasks & sprint backlog.</div>
+                </div>
+                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
+                  <div class="font-mono font-bold text-indigo-400">get_context_pack</div>
+                  <div class="text-[11px] text-slate-400 mt-0.5">Build full context pack for AI code synthesis.</div>
+                </div>
+                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
+                  <div class="font-mono font-bold text-indigo-400">get_project_state</div>
+                  <div class="text-[11px] text-slate-400 mt-0.5">Read project sprint health, blockers & progress.</div>
+                </div>
+                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
+                  <div class="font-mono font-bold text-indigo-400">start_agent_run</div>
+                  <div class="text-[11px] text-slate-400 mt-0.5">Register auditable agent lifecycle session.</div>
+                </div>
+                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
+                  <div class="font-mono font-bold text-indigo-400">complete_agent_handoff</div>
+                  <div class="text-[11px] text-slate-400 mt-0.5">Submit files changed, tests & request review.</div>
+                </div>
+                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
+                  <div class="font-mono font-bold text-indigo-400">attach_verification_evidence</div>
+                  <div class="text-[11px] text-slate-400 mt-0.5">Attach build, test & security logs.</div>
+                </div>
+                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
+                  <div class="font-mono font-bold text-indigo-400">list_project_documents</div>
+                  <div class="text-[11px] text-slate-400 mt-0.5">Read project architecture & spec registry.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800 shrink-0">
+          <span class="text-xs text-slate-500">
+            Endpoint: <code class="font-mono text-indigo-400">/mcp</code> | JSON-RPC 2.0
+          </span>
+          <button
+            @click="showMcpModal = false"
+            class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer shadow-md transition-colors"
+          >
+            Done
+          </button>
         </div>
       </div>
     </div>

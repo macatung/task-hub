@@ -14,14 +14,28 @@ let runnerId = process.env.RUNNER_ID || null;
 let token = process.env.TASK_HUB_RUNNER_TOKEN || null;
 let stopping = false;
 const active = new Map();
+const cancelledRuns = new Set();
 
 const capabilities = Object.fromEntries(PROVIDERS.map((provider) => [provider, PROVIDER_CAPABILITIES[provider] || []]));
 
 async function request(url, options = {}) {
-  const response = await fetch(`${HUB_URL}${url}`, { ...options, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) } });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.message || `Hub request failed (${response.status})`);
-  return body;
+  const retries = Number(process.env.RUNNER_REQUEST_RETRIES || 4);
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const response = await fetch(`${HUB_URL}${url}`, { ...options, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) } });
+      const body = await response.json().catch(() => ({}));
+      if (response.ok) return body;
+      // Authentication and validation errors are permanent; retries would only duplicate work.
+      if ([400, 401, 403, 404, 409, 422].includes(response.status)) throw new Error(body.message || `Hub request failed (${response.status})`);
+      lastError = new Error(body.message || `Hub request failed (${response.status})`);
+    } catch (error) {
+      lastError = error;
+      if (/\((400|401|403|404|409|422)\)$/.test(error.message)) throw error;
+    }
+    if (attempt < retries) await new Promise((resolve) => setTimeout(resolve, Math.min(1000 * (2 ** attempt), 8000) + Math.floor(Math.random() * 250)));
+  }
+  throw lastError;
 }
 
 async function register() {
@@ -32,7 +46,19 @@ async function register() {
 }
 
 async function heartbeat(status = 'online') {
-  if (runnerId) await request(`/api/v1/runners/${runnerId}/heartbeat`, { method: 'POST', body: JSON.stringify({ status, capabilities }) });
+  if (!runnerId) return;
+  const body = await request(`/api/v1/runners/${runnerId}/heartbeat`, {
+    method: 'POST',
+    body: JSON.stringify({ status, capabilities, active_run_ids: [...active.keys()] }),
+  });
+  for (const command of body.commands || []) {
+    if (command.type !== 'cancel') continue;
+    const firstCancellation = !cancelledRuns.has(command.run_id);
+    cancelledRuns.add(command.run_id);
+    const child = active.get(command.run_id);
+    if (child && !child.killed) child.kill('SIGTERM');
+    if (firstCancellation) await emit(command.run_id, 'run_cancelled', 'cancelled', { requested_at: command.requested_at });
+  }
 }
 
 function emit(runId, eventType, status, payload = {}) {
@@ -86,11 +112,13 @@ async function execute(run) {
   await emit(run.id, 'preparing', 'preparing');
   const credential = await request(`/api/v1/runners/${runnerId}/jobs/${run.id}/credential?provider=github`).catch(() => ({}));
   const workspace = await prepare(run, credential.credential || null);
+  if (cancelledRuns.delete(run.id)) return;
   const model = run.metadata?.model || run.model || run.metadata?.context?.model || null;
   const [command, args] = commandFor(run.provider, process.env, model);
   const context = run.metadata?.context || {};
   const prompt = `Task Hub supervised server run. Work only on task ${run.task_id || run.id}. Do not merge, deploy, access secrets, or perform external changes. Implement the task, run the declared tests, and finish with a structured handoff.\n\n${JSON.stringify(context)}`;
   const result = await runProcess(command, args, workspace.dir, prompt, run.id);
+  if (cancelledRuns.delete(run.id)) return;
   if (result.code !== 0) { await emit(run.id, 'agent_failed', 'failed', { exit_code: result.code, signal: result.signal }); return; }
   await emit(run.id, 'agent_finished', 'waiting_input', { exit_code: 0, branch: workspace.branch });
   await request(`/api/v1/agent-runs/${run.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'waiting_input', branch: workspace.branch, metadata: { runner_workspace: workspace.dir } }) }).catch(() => {});

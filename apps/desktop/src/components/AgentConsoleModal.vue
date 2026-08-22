@@ -14,16 +14,23 @@ declare global {
   }
 }
 
-const props = defineProps<{
-  tasks: TaskItem[];
-  initialTask?: TaskItem | null;
-  isConnected?: boolean;
-  desktopCredential?: { taskHubUrl: string; token: string; projectId: string } | null;
-}>();
+const props = withDefaults(
+  defineProps<{
+    tasks: TaskItem[];
+    initialTask?: TaskItem | null;
+    isConnected?: boolean;
+    desktopCredential?: { taskHubUrl: string; token: string; projectId: string } | null;
+    isStandalone?: boolean;
+  }>(),
+  {
+    isStandalone: false,
+  }
+);
 
 const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'fullscreen-change', value: boolean): void;
+  (e: 'switch-mode', mode: 'mascot'): void;
 }>();
 
 type Phase = 'select' | 'preflight' | 'pairing' | 'context' | 'ready' | 'running' | 'handoff' | 'review' | 'error';
@@ -111,6 +118,262 @@ const isCustomModel = ref<Record<Provider, boolean>>({
   claude_code: false,
   antigravity: false,
 });
+
+const sourceWorkspace = ref(localStorage.getItem('task_companion_agent_workspace') || '');
+const savedWorkspaces = ref<string[]>([]);
+const worktree = ref('');
+const taskId = ref<number | null>(props.initialTask?.id || null);
+const taskSearch = ref('');
+const setupState = ref<any>(null);
+const setupBusy = ref(false);
+const docsOnly = ref(false);
+
+const taskHubUrl = ref(localStorage.getItem('task_hub_base_url') || 'https://task-hub.macatung.dev');
+const credential = ref<{ token: string; projectId: string } | null>(null);
+const contextPack = ref<any>(null);
+const runId = ref<number | null>(null);
+const sessionId = ref<string | null>(null);
+
+// Stream & Event Cards State
+type StreamCard = {
+  id: string;
+  type: 'agent_message' | 'command_execution' | 'tool_execution' | 'user_message' | 'turn_completed' | 'info';
+  text?: string;
+  command?: string;
+  toolName?: string;
+  toolParameters?: any;
+  output?: string;
+  status?: string;
+  exitCode?: number | null;
+  duration?: string;
+  expanded?: boolean;
+  usage?: { input_tokens: number; output_tokens: number; cached_input_tokens?: number; total_tokens?: number };
+  time: string;
+};
+
+const streamCards = ref<StreamCard[]>([]);
+const viewMode = ref<'cards' | 'terminal'>('cards');
+const rawOutput = ref('');
+const terminalHtml = ref('');
+const plainOutput = ref('');
+const logSearchQuery = ref('');
+const autoScroll = ref(true);
+const streamContainer = ref<HTMLElement | null>(null);
+const terminalContainer = ref<HTMLElement | null>(null);
+const isScrolledUp = ref(false);
+const followUp = ref('');
+const errorMessage = ref('');
+const preflight = ref<any>(null);
+const timeline = ref<Array<{ id: string; label: string; detail: string; tone: 'ok' | 'passed' | 'failed' | 'error' | 'warning' | 'active' | 'muted'; time: string }>>([]);
+
+// Collapsible sidebar sections
+const collapsed = ref({
+  workspace: false,
+  tasks: false,
+  docs: false,
+  timeline: false,
+});
+
+// Running Timer State
+const runDurationSeconds = ref(0);
+let durationTimer: ReturnType<typeof setInterval> | undefined;
+
+// Structured Handoff State
+const handoff = ref({
+  summary: '',
+  changedFiles: '',
+  tests: 'npm test',
+  testStatus: 'passed',
+  testSummary: '',
+  commitSha: '',
+  pullRequestUrl: '',
+  blockers: '',
+});
+
+let pollTimer: ReturnType<typeof setInterval> | undefined;
+let renderTimer: ReturnType<typeof setTimeout> | undefined;
+let removeOutput: (() => void) | undefined;
+let removeExit: (() => void) | undefined;
+
+const STORAGE_KEY = 'task_companion_agent_workspace_state_v2';
+
+const selectedTask = computed(() => props.tasks.find((task) => task.id === taskId.value) || null);
+
+const activeModel = computed<string>(() => {
+  if (isCustomModel.value[provider.value] && customModelInput.value[provider.value]?.trim()) {
+    return customModelInput.value[provider.value].trim();
+  }
+  return selectedModels.value[provider.value] || 'default';
+});
+
+const currentModelOption = computed(() => {
+  const list = modelsState.value[provider.value] || PROVIDER_MODELS[provider.value] || [];
+  return list.find((m) => m.id === activeModel.value) || null;
+});
+
+const filteredProviderModels = computed(() => {
+  const list = modelsState.value[provider.value] || PROVIDER_MODELS[provider.value] || [];
+  const q = modelSearchQuery.value.trim().toLowerCase();
+  if (!q) return list;
+  return list.filter((m) =>
+    m.name.toLowerCase().includes(q) ||
+    m.id.toLowerCase().includes(q) ||
+    (m.badges && m.badges.some((b) => b.toLowerCase().includes(q)))
+  );
+});
+
+const activeModelLabel = computed(() => {
+  if (isCustomModel.value[provider.value] && customModelInput.value[provider.value]?.trim()) {
+    return customModelInput.value[provider.value].trim();
+  }
+  return currentModelOption.value?.name || activeModel.value;
+});
+
+const activeModelBadge = computed(() => {
+  if (isCustomModel.value[provider.value]) return 'Custom';
+  if (currentModelOption.value?.badges?.length) return currentModelOption.value.badges[0];
+  return currentModelOption.value?.badge || 'Model';
+});
+
+const getBadgeClass = (badge: string) => {
+  const b = badge.toLowerCase();
+  if (b.includes('high') || b.includes('flagship') || b.includes('foundational')) return 'bg-[#1b3a24] border-[#276738] text-[#73c991]';
+  if (b.includes('fast') || b.includes('ultra')) return 'bg-[#1b2f3f] border-[#234c6b] text-[#70b8ff]';
+  if (b.includes('thinking') || b.includes('reasoning')) return 'bg-[#31233f] border-[#4c3263] text-[#c59bee]';
+  return 'bg-[#2d2d2d] border-[#3e3e42] text-[#cccccc]';
+};
+
+const saveWorkspaceState = () => {
+  try {
+    const payload = {
+      phase: phase.value,
+      provider: provider.value,
+      model: activeModel.value,
+      selectedModels: selectedModels.value,
+      customModelInput: customModelInput.value,
+      isCustomModel: isCustomModel.value,
+      sourceWorkspace: sourceWorkspace.value,
+      worktree: worktree.value,
+      taskId: taskId.value,
+      docsOnly: docsOnly.value,
+      sessionId: sessionId.value,
+      runId: runId.value,
+      streamCards: streamCards.value,
+      timeline: timeline.value,
+      rawOutput: rawOutput.value,
+      handoff: handoff.value,
+      preflight: preflight.value,
+      viewMode: viewMode.value,
+      runDurationSeconds: runDurationSeconds.value,
+      savedAt: Date.now(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+
+    if (sessionId.value && window.desktopApi?.agent?.saveSessionState) {
+      window.desktopApi.agent.saveSessionState({
+        sessionId: sessionId.value,
+        provider: provider.value,
+        model: activeModel.value,
+        sourceWorkspace: sourceWorkspace.value,
+        worktree: worktree.value,
+        taskId: taskId.value,
+        taskTitle: selectedTask.value?.title || (docsOnly.value ? 'Tạo bộ tài liệu Repo (Docs)' : undefined),
+        issueKey: selectedTask.value?.issue_key,
+        mode: 'exec',
+        kind: docsOnly.value ? 'docs' : 'task',
+        status: phase.value === 'running' ? 'running' : 'completed',
+        streamCards: streamCards.value,
+        timeline: timeline.value,
+        output: rawOutput.value,
+        handoff: handoff.value,
+        durationSeconds: runDurationSeconds.value,
+      });
+    }
+  } catch (e) {
+    console.warn('Failed to save agent workspace state:', e);
+  }
+};
+
+const addTimeline = (label: string, detail: string, tone: 'ok' | 'passed' | 'failed' | 'error' | 'warning' | 'active' | 'muted' = 'muted') => {
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  timeline.value.unshift({ id: `${Date.now()}-${Math.random()}`, label, detail, tone, time });
+  if (timeline.value.length > 50) timeline.value.pop();
+  saveWorkspaceState();
+};
+
+const filteredTasks = computed(() => {
+  const query = taskSearch.value.trim().toLowerCase();
+  return props.tasks.filter((task) => !query || [task.title, task.issue_key, task.project?.title].filter(Boolean).join(' ').toLowerCase().includes(query));
+});
+
+const busy = computed(() => ['preflight', 'pairing', 'context'].includes(phase.value));
+
+const phaseLabel = computed(() => {
+  const map: Record<Phase, string> = {
+    select: 'Chuẩn bị',
+    preflight: 'Preflight',
+    pairing: 'Kết nối Task Hub',
+    context: 'Nạp Context & MCP',
+    ready: 'Sẵn sàng khởi chạy',
+    running: docsOnly.value ? 'Đang tạo tài liệu' : 'Agent đang chạy',
+    handoff: 'Bàn giao & Nghiệm thu',
+    review: 'Review kết quả',
+    error: 'Cần chú ý',
+  };
+  return map[phase.value];
+});
+
+const phaseTone = computed(() => {
+  if (phase.value === 'error') return 'error';
+  if (['ready', 'review'].includes(phase.value)) return 'success';
+  if (['preflight', 'pairing', 'context', 'running'].includes(phase.value)) return 'active';
+  return 'neutral';
+});
+
+const formattedDuration = computed(() => {
+  const minutes = Math.floor(runDurationSeconds.value / 60);
+  const seconds = runDurationSeconds.value % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+});
+
+const lineCount = computed(() => {
+  if (!rawOutput.value) return 0;
+  return (rawOutput.value.match(/\n/g) || []).length + 1;
+});
+
+const filteredTerminalHtml = computed(() => {
+  if (!logSearchQuery.value.trim()) return terminalHtml.value;
+  const q = logSearchQuery.value.trim().toLowerCase();
+  const lines = terminalHtml.value.split('\n');
+  return lines.filter((l) => l.toLowerCase().includes(q)).join('\n');
+});
+
+const selectModel = (modelId: string) => {
+  isCustomModel.value[provider.value] = false;
+  selectedModels.value[provider.value] = modelId;
+  addTimeline('Model selected', `${provider.value.toUpperCase()} → ${modelId}`, 'ok');
+  saveWorkspaceState();
+};
+
+const setCustomModel = (customId: string) => {
+  isCustomModel.value[provider.value] = true;
+  customModelInput.value[provider.value] = customId;
+  saveWorkspaceState();
+};
+
+const toggleCustomModelMode = () => {
+  isCustomModel.value[provider.value] = !isCustomModel.value[provider.value];
+  saveWorkspaceState();
+};
+
+const toggleFullscreen = async () => {
+  isFullscreen.value = (await window.desktopApi?.toggleFullscreen?.(!isFullscreen.value)) ?? !isFullscreen.value;
+  emit('fullscreen-change', isFullscreen.value);
+};
+
+const handleMinimizeWindow = () => {
+  (window as any).desktopApi?.minimize?.();
+};
 
 const syncAvailableModels = async (forceRefresh = false) => {
   if (isSyncingModels.value) return;
@@ -280,11 +543,39 @@ const showSkillsModal = ref(false);
 const showScheduledTasksModal = ref(false);
 const showSettingsPermissionsModal = ref(false);
 
-export type ActivityType = 'agent' | 'explorer' | 'diff' | 'skills' | 'schedule' | 'models' | 'history' | 'settings';
+export type ActivityType = 'agent' | 'workspaces' | 'explorer' | 'diff' | 'skills' | 'schedule' | 'models' | 'history' | 'settings';
 export type EditorTabType = 'terminal' | 'monaco' | 'context' | 'evidence' | 'subagents' | 'tasks' | 'artifacts';
 
 const activeActivity = ref<ActivityType>('agent');
 const activeEditorTab = ref<EditorTabType>('terminal');
+
+const workspaceSearchQuery = ref('');
+const manualWorkspaceInput = ref('');
+
+const filteredSavedWorkspaces = computed(() => {
+  const q = workspaceSearchQuery.value.trim().toLowerCase();
+  if (!q) return savedWorkspaces.value;
+  return savedWorkspaces.value.filter((w) => w.toLowerCase().includes(q));
+});
+
+const addManualWorkspacePath = async () => {
+  const p = manualWorkspaceInput.value.trim();
+  if (!p) return;
+  try {
+    const list = await window.desktopApi?.agent?.saveWorkspace?.(p);
+    if (list) {
+      savedWorkspaces.value = list;
+    } else if (!savedWorkspaces.value.includes(p)) {
+      savedWorkspaces.value = [p, ...savedWorkspaces.value];
+    }
+    sourceWorkspace.value = p;
+    localStorage.setItem('task_companion_agent_workspace', p);
+    manualWorkspaceInput.value = '';
+    addTimeline('Workspace added', p, 'ok');
+  } catch (err: any) {
+    errorMessage.value = err?.message || 'Đường dẫn thư mục không hợp lệ.';
+  }
+};
 
 // Antigravity 2.0 Subagents & Tasks tracking state
 const activeSubagents = ref<Array<{ id: string; role: string; type: string; model: string; state: string; stateDetail?: string }>>([
@@ -459,7 +750,9 @@ watch(
 
 const selectActivity = (act: ActivityType) => {
   activeActivity.value = act;
-  if (act === 'explorer') {
+  if (act === 'workspaces') {
+    void loadSavedWorkspaces();
+  } else if (act === 'explorer') {
     void loadWorkspaceFiles();
   } else if (act === 'diff') {
     void loadGitDiff();
@@ -655,269 +948,6 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
     commandPaletteSearch.value = '';
   } else if (e.key === 'Escape' && showCommandPalette.value) {
     showCommandPalette.value = false;
-  }
-};
-
-const activeModel = computed<string>(() => {
-  if (isCustomModel.value[provider.value] && customModelInput.value[provider.value]?.trim()) {
-    return customModelInput.value[provider.value].trim();
-  }
-  return selectedModels.value[provider.value] || 'default';
-});
-
-const currentModelOption = computed(() => {
-  const list = modelsState.value[provider.value] || PROVIDER_MODELS[provider.value] || [];
-  return list.find((m) => m.id === activeModel.value) || null;
-});
-
-const filteredProviderModels = computed(() => {
-  const list = modelsState.value[provider.value] || PROVIDER_MODELS[provider.value] || [];
-  const q = modelSearchQuery.value.trim().toLowerCase();
-  if (!q) return list;
-  return list.filter((m) =>
-    m.name.toLowerCase().includes(q) ||
-    m.id.toLowerCase().includes(q) ||
-    (m.badges && m.badges.some((b) => b.toLowerCase().includes(q)))
-  );
-});
-
-const activeModelLabel = computed(() => {
-  if (isCustomModel.value[provider.value] && customModelInput.value[provider.value]?.trim()) {
-    return customModelInput.value[provider.value].trim();
-  }
-  return currentModelOption.value?.name || activeModel.value;
-});
-
-const activeModelBadge = computed(() => {
-  if (isCustomModel.value[provider.value]) return 'Custom';
-  if (currentModelOption.value?.badges?.length) return currentModelOption.value.badges[0];
-  return currentModelOption.value?.badge || 'Model';
-});
-
-const getBadgeClass = (badge: string) => {
-  const b = badge.toLowerCase();
-  if (b.includes('high') || b.includes('flagship')) return 'bg-emerald-950/80 border-emerald-800/80 text-emerald-300';
-  if (b.includes('fast') || b.includes('ultra')) return 'bg-cyan-950/80 border-cyan-800/80 text-cyan-300';
-  if (b.includes('thinking') || b.includes('reasoning')) return 'bg-purple-950/80 border-purple-800/80 text-purple-300';
-  if (b.includes('recommended') || b.includes('context') || b.includes('foundational')) return 'bg-amber-950/80 border-amber-800/80 text-amber-300';
-  if (b.includes('security') || b.includes('specialized')) return 'bg-rose-950/80 border-rose-800/80 text-rose-300';
-  if (b.includes('open') || b.includes('weights')) return 'bg-indigo-950/80 border-indigo-800/80 text-indigo-300';
-  if (b.includes('saved') || b.includes('custom')) return 'bg-sky-950/80 border-sky-800/80 text-sky-300';
-  if (b.includes('medium') || b.includes('balanced')) return 'bg-slate-800 border-slate-700 text-slate-300';
-  if (b.includes('low')) return 'bg-slate-900 border-slate-800 text-slate-400';
-  return 'bg-slate-800 border-slate-700 text-slate-300';
-};
-
-const selectModel = (modelId: string) => {
-  isCustomModel.value[provider.value] = false;
-  selectedModels.value[provider.value] = modelId;
-  addTimeline('Model selected', `${provider.value.toUpperCase()} → ${modelId}`, 'ok');
-  saveWorkspaceState();
-};
-
-const setCustomModel = (customId: string) => {
-  isCustomModel.value[provider.value] = true;
-  customModelInput.value[provider.value] = customId;
-  saveWorkspaceState();
-};
-
-watch(provider, () => {
-  void syncAvailableModels(false);
-});
-
-const toggleCustomModelMode = () => {
-  isCustomModel.value[provider.value] = !isCustomModel.value[provider.value];
-  saveWorkspaceState();
-};
-
-const sourceWorkspace = ref(localStorage.getItem('task_companion_agent_workspace') || '');
-const savedWorkspaces = ref<string[]>([]);
-const worktree = ref('');
-const taskId = ref<number | null>(props.initialTask?.id || null);
-const taskSearch = ref('');
-const setupState = ref<any>(null);
-const setupBusy = ref(false);
-const docsOnly = ref(false);
-
-const taskHubUrl = ref(localStorage.getItem('task_hub_base_url') || 'https://task-hub.macatung.dev');
-const credential = ref<{ token: string; projectId: string } | null>(null);
-const contextPack = ref<any>(null);
-const runId = ref<number | null>(null);
-const sessionId = ref<string | null>(null);
-
-// Stream & Event Cards State
-type StreamCard = {
-  id: string;
-  type: 'agent_message' | 'command_execution' | 'tool_execution' | 'user_message' | 'turn_completed' | 'info';
-  text?: string;
-  command?: string;
-  toolName?: string;
-  toolParameters?: any;
-  output?: string;
-  status?: string;
-  exitCode?: number | null;
-  duration?: string;
-  expanded?: boolean;
-  usage?: { input_tokens: number; output_tokens: number; cached_input_tokens?: number; total_tokens?: number };
-  time: string;
-};
-
-const streamCards = ref<StreamCard[]>([]);
-const viewMode = ref<'cards' | 'terminal'>('cards');
-const rawOutput = ref('');
-const terminalHtml = ref('');
-const plainOutput = ref('');
-const logSearchQuery = ref('');
-const autoScroll = ref(true);
-const streamContainer = ref<HTMLElement | null>(null);
-const terminalContainer = ref<HTMLElement | null>(null);
-const isScrolledUp = ref(false);
-const followUp = ref('');
-const errorMessage = ref('');
-const preflight = ref<any>(null);
-const timeline = ref<Array<{ id: string; label: string; detail: string; tone: 'ok' | 'passed' | 'failed' | 'error' | 'warning' | 'active' | 'muted'; time: string }>>([]);
-
-// Collapsible sidebar sections
-const collapsed = ref({
-  workspace: false,
-  tasks: false,
-  docs: false,
-  timeline: false,
-});
-
-// Running Timer State
-const runDurationSeconds = ref(0);
-let durationTimer: ReturnType<typeof setInterval> | undefined;
-
-// Structured Handoff State
-const handoff = ref({
-  summary: '',
-  changedFiles: '',
-  tests: 'npm test',
-  testStatus: 'passed',
-  testSummary: '',
-  commitSha: '',
-  pullRequestUrl: '',
-  blockers: '',
-});
-
-let pollTimer: ReturnType<typeof setInterval> | undefined;
-let renderTimer: ReturnType<typeof setTimeout> | undefined;
-let removeOutput: (() => void) | undefined;
-let removeExit: (() => void) | undefined;
-
-const STORAGE_KEY = 'task_companion_agent_workspace_state_v2';
-
-const selectedTask = computed(() => props.tasks.find((task) => task.id === taskId.value) || null);
-
-const filteredTasks = computed(() => {
-  const query = taskSearch.value.trim().toLowerCase();
-  return props.tasks.filter((task) => !query || [task.title, task.issue_key, task.project?.title].filter(Boolean).join(' ').toLowerCase().includes(query));
-});
-
-const busy = computed(() => ['preflight', 'pairing', 'context'].includes(phase.value));
-
-const phaseLabel = computed(() => {
-  const map: Record<Phase, string> = {
-    select: 'Chuẩn bị',
-    preflight: 'Preflight',
-    pairing: 'Kết nối Task Hub',
-    context: 'Nạp Context & MCP',
-    ready: 'Sẵn sàng khởi chạy',
-    running: docsOnly.value ? 'Đang tạo tài liệu' : 'Agent đang chạy',
-    handoff: 'Bàn giao & Nghiệm thu',
-    review: 'Review kết quả',
-    error: 'Cần chú ý',
-  };
-  return map[phase.value];
-});
-
-const phaseTone = computed(() => {
-  if (phase.value === 'error') return 'error';
-  if (['ready', 'review'].includes(phase.value)) return 'success';
-  if (['preflight', 'pairing', 'context', 'running'].includes(phase.value)) return 'active';
-  return 'neutral';
-});
-
-const formattedDuration = computed(() => {
-  const minutes = Math.floor(runDurationSeconds.value / 60);
-  const seconds = runDurationSeconds.value % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-});
-
-const lineCount = computed(() => {
-  if (!rawOutput.value) return 0;
-  return (rawOutput.value.match(/\n/g) || []).length + 1;
-});
-
-const filteredTerminalHtml = computed(() => {
-  if (!logSearchQuery.value.trim()) return terminalHtml.value;
-  const q = logSearchQuery.value.trim().toLowerCase();
-  const lines = terminalHtml.value.split('\n');
-  return lines.filter((l) => l.toLowerCase().includes(q)).join('\n');
-});
-
-const addTimeline = (label: string, detail: string, tone: 'ok' | 'passed' | 'failed' | 'error' | 'warning' | 'active' | 'muted' = 'muted') => {
-  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  timeline.value.unshift({ id: `${Date.now()}-${Math.random()}`, label, detail, tone, time });
-  if (timeline.value.length > 50) timeline.value.pop();
-  saveWorkspaceState();
-};
-
-const toggleFullscreen = async () => {
-  isFullscreen.value = (await window.desktopApi?.toggleFullscreen?.(!isFullscreen.value)) ?? !isFullscreen.value;
-  emit('fullscreen-change', isFullscreen.value);
-};
-
-// PERSISTENCE: Save state to localStorage
-const saveWorkspaceState = () => {
-  try {
-    const payload = {
-      phase: phase.value,
-      provider: provider.value,
-      model: activeModel.value,
-      selectedModels: selectedModels.value,
-      customModelInput: customModelInput.value,
-      isCustomModel: isCustomModel.value,
-      sourceWorkspace: sourceWorkspace.value,
-      worktree: worktree.value,
-      taskId: taskId.value,
-      docsOnly: docsOnly.value,
-      sessionId: sessionId.value,
-      runId: runId.value,
-      streamCards: streamCards.value,
-      timeline: timeline.value,
-      rawOutput: rawOutput.value,
-      handoff: handoff.value,
-      preflight: preflight.value,
-      viewMode: viewMode.value,
-      runDurationSeconds: runDurationSeconds.value,
-      savedAt: Date.now(),
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-
-    if (sessionId.value && window.desktopApi?.agent?.saveSessionState) {
-      window.desktopApi.agent.saveSessionState({
-        sessionId: sessionId.value,
-        provider: provider.value,
-        model: activeModel.value,
-        sourceWorkspace: sourceWorkspace.value,
-        worktree: worktree.value,
-        taskId: taskId.value,
-        taskTitle: selectedTask.value?.title || (docsOnly.value ? 'Tạo bộ tài liệu Repo (Docs)' : undefined),
-        issueKey: selectedTask.value?.issue_key,
-        mode: 'exec',
-        kind: docsOnly.value ? 'docs' : 'task',
-        status: phase.value === 'running' ? 'running' : 'completed',
-        streamCards: streamCards.value,
-        timeline: timeline.value,
-        output: rawOutput.value,
-        handoff: handoff.value,
-        durationSeconds: runDurationSeconds.value,
-      });
-    }
-  } catch (e) {
-    console.warn('Failed to save agent workspace state:', e);
   }
 };
 
@@ -1817,8 +1847,12 @@ onUnmounted(() => {
 
 <template>
   <div
-    class="agent-workspace no-drag min-w-0 w-full max-w-[1240px] max-h-[calc(100vh-1rem)] h-[min(94vh,860px)] rounded-2xl border border-slate-700/80 bg-slate-950/98 text-slate-100 shadow-2xl backdrop-blur-2xl flex flex-col overflow-hidden font-sans select-none"
-    :class="isFullscreen ? 'max-w-none max-h-none h-full rounded-none border-0' : ''"
+    class="agent-workspace no-drag min-w-0 w-full flex flex-col overflow-hidden font-sans select-none"
+    :class="[
+      isStandalone || isFullscreen
+        ? 'w-full h-full max-w-none max-h-none rounded-none border-0'
+        : 'max-w-[1240px] max-h-[calc(100vh-1rem)] h-[min(94vh,860px)] rounded-2xl border border-slate-700/80 bg-slate-950/98 text-slate-100 shadow-2xl backdrop-blur-2xl'
+    ]"
     @mousedown.stop
   >
     <!-- 1. VS CODE WORKBENCH TITLE BAR -->
@@ -1827,7 +1861,7 @@ onUnmounted(() => {
       <div class="flex items-center gap-3 min-w-0">
         <div class="flex items-center gap-1.5 text-cyan-400 font-bold font-mono">
           <MacatungIcon name="agent" :size="16" />
-          <span class="hidden sm:inline text-zinc-200">Task Hub IDE</span>
+          <span class="hidden sm:inline text-zinc-200 font-semibold">Task Hub IDE</span>
         </div>
 
         <!-- VS Code Top Menus -->
@@ -1857,24 +1891,42 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <!-- Right: Model Badge & Window Controls -->
+      <!-- Right: Model Badge, Mascot Switch & Window Controls -->
       <div class="flex items-center gap-1.5 shrink-0">
+        <!-- Switch to Mascot Mode Button -->
+        <button
+          class="h-6 px-2.5 rounded bg-[#2d2d2d] hover:bg-[#383838] border border-[#3e3e42] text-zinc-300 text-[11px] font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
+          @click="emit('switch-mode', 'mascot')"
+          title="Chuyển sang Mascot Nhắc Việc (Ctrl+Shift+M)"
+        >
+          <i class="codicon codicon-device-desktop text-xs text-zinc-400" />
+          <span>Mascot Nhắc việc</span>
+        </button>
+
         <!-- Quick Quota Button -->
         <button
-          class="h-6 px-2 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/80 text-emerald-300 text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+          class="h-6 px-2 rounded bg-[#252526] hover:bg-[#2d2d2d] border border-[#3e3e42] text-zinc-300 text-[11px] font-medium flex items-center gap-1 cursor-pointer transition-colors"
           @click="openModelsAndUsageModal"
           title="Models & Usage Quota"
         >
-          <i class="codicon codicon-pulse text-xs" />
+          <i class="codicon codicon-pulse text-xs text-blue-400" />
           <span>{{ activeQuotaGroup.fiveHourRemainingPercent }}%</span>
         </button>
 
         <!-- Provider Pill -->
-        <span class="px-2 py-0.5 rounded bg-[#252526] border border-[#3e3e42] text-[10px] font-mono text-cyan-300 font-bold uppercase">
+        <span class="px-2 py-0.5 rounded bg-[#252526] border border-[#3e3e42] text-[10px] font-mono text-zinc-300 font-bold uppercase">
           {{ provider === 'antigravity' ? 'AGY' : provider.toUpperCase() }}
         </span>
 
-        <!-- Fullscreen & Close -->
+        <!-- Window Controls -->
+        <button
+          class="w-7 h-6 rounded hover:bg-[#333333] text-zinc-400 hover:text-white grid place-items-center transition-colors cursor-pointer text-xs"
+          title="Thu nhỏ cửa sổ"
+          @click="handleMinimizeWindow"
+        >
+          <i class="codicon codicon-chrome-minimize" />
+        </button>
+
         <button
           class="w-7 h-6 rounded hover:bg-[#333333] text-zinc-400 hover:text-white grid place-items-center transition-colors cursor-pointer text-xs"
           :title="isFullscreen ? 'Thu nhỏ' : 'Toàn màn hình'"
@@ -1901,11 +1953,11 @@ onUnmounted(() => {
         <div class="flex flex-col items-center gap-1.5 w-full">
           <!-- + New Conversation -->
           <button
-            class="w-10 h-10 rounded flex items-center justify-center text-cyan-300 hover:text-white hover:bg-[#007acc] transition-colors cursor-pointer"
+            class="w-10 h-10 rounded flex items-center justify-center text-zinc-300 hover:text-white hover:bg-[#007acc] transition-colors cursor-pointer"
             @click="startNewConversation"
             title="Cuộc trò chuyện mới (+ New Conversation)"
           >
-            <i class="codicon codicon-add text-lg font-bold" />
+            <i class="codicon codicon-add text-lg" />
           </button>
 
           <div class="w-6 h-px bg-[#444444] my-0.5" />
@@ -1919,6 +1971,20 @@ onUnmounted(() => {
           >
             <span v-if="activeActivity === 'agent'" class="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-[#007acc] rounded-r" />
             <i class="codicon codicon-copilot text-lg" />
+          </button>
+
+          <!-- Workspaces Manager Tab -->
+          <button
+            class="w-10 h-10 rounded flex items-center justify-center transition-colors cursor-pointer relative"
+            :class="activeActivity === 'workspaces' ? 'text-white bg-[#252526]' : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#3e3e42]'"
+            @click="selectActivity('workspaces')"
+            title="Quản lý Workspace"
+          >
+            <span v-if="activeActivity === 'workspaces'" class="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-[#007acc] rounded-r" />
+            <i class="codicon codicon-root-folder text-lg" />
+            <span v-if="savedWorkspaces.length" class="absolute top-1.5 right-1 px-1 py-0.2 rounded-full bg-[#3e3e42] text-[8px] font-bold text-zinc-300 font-mono leading-none">
+              {{ savedWorkspaces.length }}
+            </span>
           </button>
 
           <!-- Explorer Tab -->
@@ -1953,7 +2019,7 @@ onUnmounted(() => {
             @click="selectActivity('skills')"
             title="Skills, MCP & Customizations"
           >
-            <i class="codicon codicon-sparkle text-lg text-amber-400" />
+            <i class="codicon codicon-extensions text-lg" />
           </button>
 
           <!-- Scheduled Tasks & Timers Tab -->
@@ -2007,41 +2073,175 @@ onUnmounted(() => {
       </nav>
 
       <!-- PRIMARY SIDEBAR (NATURALLY SCROLLABLE) -->
-      <aside class="w-[320px] lg:w-[360px] sidebar-scrollable flex flex-col gap-3 p-3.5 border-r border-[#2b2b2b] bg-[#252526] overflow-y-auto shrink-0 max-h-full pb-8">
+      <aside class="w-[320px] lg:w-[360px] sidebar-scrollable flex flex-col gap-3 p-3 border-r border-[#2b2b2b] bg-[#252526] overflow-y-auto shrink-0 max-h-full pb-8 text-zinc-300">
         <!-- SIDEBAR TITLE BAR -->
-        <div class="flex items-center justify-between px-1 pb-1 border-b border-[#333333] shrink-0">
+        <div class="flex items-center justify-between px-1 pb-1.5 border-b border-[#333333] shrink-0">
           <span class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider font-mono">
-            {{ activeActivity === 'explorer' ? 'EXPLORER' : activeActivity === 'diff' ? 'SOURCE CONTROL' : activeActivity === 'history' ? 'SAVED SESSIONS' : 'AGENT WORKSPACE' }}
+            {{ activeActivity === 'workspaces' ? 'WORKSPACES' : activeActivity === 'explorer' ? 'EXPLORER' : activeActivity === 'diff' ? 'SOURCE CONTROL' : activeActivity === 'history' ? 'SAVED SESSIONS' : 'AGENT WORKSPACE' }}
           </span>
-          <button
-            v-if="activeActivity === 'explorer'"
-            class="text-[10px] text-zinc-400 hover:text-white cursor-pointer px-1 py-0.5 rounded hover:bg-[#333333]"
-            @click="loadWorkspaceFiles"
-            title="Làm mới danh sách file"
-          >
-            🔄
-          </button>
-          <button
-            v-if="activeActivity === 'diff'"
-            class="text-[10px] text-zinc-400 hover:text-white cursor-pointer px-1 py-0.5 rounded hover:bg-[#333333]"
-            @click="loadGitDiff"
-            title="Làm mới Git Diff"
-          >
-            🔄
-          </button>
+          <div class="flex items-center gap-1">
+            <button
+              v-if="activeActivity === 'workspaces'"
+              class="text-[11px] text-zinc-400 hover:text-white cursor-pointer px-1.5 py-0.5 rounded hover:bg-[#333333] flex items-center gap-1"
+              @click="addWorkspaceFolder"
+              title="Thêm thư mục workspace"
+            >
+              <i class="codicon codicon-add text-xs" />
+              <span>Thêm</span>
+            </button>
+            <button
+              v-if="activeActivity === 'explorer'"
+              class="text-[11px] text-zinc-400 hover:text-white cursor-pointer p-1 rounded hover:bg-[#333333]"
+              @click="loadWorkspaceFiles"
+              title="Làm mới danh sách file"
+            >
+              <i class="codicon codicon-refresh text-xs" />
+            </button>
+            <button
+              v-if="activeActivity === 'diff'"
+              class="text-[11px] text-zinc-400 hover:text-white cursor-pointer p-1 rounded hover:bg-[#333333]"
+              @click="loadGitDiff"
+              title="Làm mới Git Diff"
+            >
+              <i class="codicon codicon-refresh text-xs" />
+            </button>
+          </div>
+        </div>
+
+        <!-- WORKSPACES MANAGEMENT PANEL -->
+        <div v-if="activeActivity === 'workspaces'" class="flex flex-col gap-2.5 flex-1">
+          <!-- Add Workspace Section -->
+          <div class="flex flex-col gap-2 p-2.5 rounded bg-[#1e1e1e] border border-[#333333]">
+            <span class="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
+              <i class="codicon codicon-folder-opened text-zinc-400" />
+              <span>Thêm Workspace</span>
+            </span>
+
+            <button
+              class="w-full py-1.5 px-3 rounded bg-[#0e639c] hover:bg-[#1177bb] text-white text-xs font-medium flex items-center justify-center gap-2 cursor-pointer transition-colors"
+              @click="addWorkspaceFolder"
+            >
+              <i class="codicon codicon-folder-opened text-xs" />
+              <span>Chọn thư mục từ máy tính</span>
+            </button>
+
+            <!-- Manual Path Input -->
+            <div class="flex items-center gap-1 mt-0.5">
+              <input
+                v-model="manualWorkspaceInput"
+                class="flex-1 px-2 py-1 rounded bg-[#252526] border border-[#3e3e42] text-xs font-mono text-zinc-200 placeholder-zinc-500 outline-none focus:border-[#007acc]"
+                placeholder="D:\Projects\my-repo..."
+                @keydown.enter="addManualWorkspacePath"
+              />
+              <button
+                class="px-2 py-1 rounded bg-[#2d2d2d] hover:bg-[#383838] text-zinc-300 text-xs cursor-pointer border border-[#3e3e42]"
+                title="Thêm đường dẫn"
+                @click="addManualWorkspacePath"
+              >
+                <i class="codicon codicon-add text-xs" />
+              </button>
+            </div>
+          </div>
+
+          <!-- Search Filter -->
+          <div v-if="savedWorkspaces.length > 1" class="relative">
+            <input
+              v-model="workspaceSearchQuery"
+              class="w-full pl-7 pr-2.5 py-1 rounded bg-[#1e1e1e] border border-[#333333] text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-[#007acc]"
+              placeholder="Lọc danh sách workspace..."
+            />
+            <i class="codicon codicon-search absolute left-2 top-1/2 -translate-y-1/2 text-xs text-zinc-500" />
+          </div>
+
+          <!-- Workspaces List -->
+          <div class="flex flex-col gap-1.5 overflow-y-auto max-h-[calc(100vh-280px)] pr-0.5">
+            <div
+              v-for="w in filteredSavedWorkspaces"
+              :key="w"
+              class="p-2.5 rounded border text-left flex flex-col gap-1.5 transition-all group"
+              :class="w === sourceWorkspace ? 'border-[#007acc] bg-[#0e639c]/15 text-white' : 'border-[#333333] bg-[#1e1e1e] text-zinc-300 hover:border-[#444444]'"
+            >
+              <div class="flex items-center justify-between gap-1.5">
+                <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                  <i class="codicon codicon-root-folder text-sm shrink-0" :class="w === sourceWorkspace ? 'text-[#007acc]' : 'text-zinc-400'" />
+                  <span class="font-semibold text-xs truncate" :title="w">
+                    {{ w.split(/[/\\]/).pop() || w }}
+                  </span>
+                </div>
+                <span
+                  v-if="w === sourceWorkspace"
+                  class="px-1.5 py-0.2 rounded bg-[#0e639c] text-white text-[9px] font-mono font-semibold shrink-0 uppercase"
+                >
+                  Active
+                </span>
+              </div>
+
+              <!-- Full Path -->
+              <span class="text-[10px] font-mono text-zinc-400 truncate" :title="w">{{ w }}</span>
+
+              <!-- Action Bar -->
+              <div class="flex items-center justify-between border-t border-[#2d2d2d] pt-1.5 mt-0.5">
+                <div class="flex items-center gap-1">
+                  <button
+                    v-if="w !== sourceWorkspace"
+                    class="px-2 py-0.5 rounded bg-[#2d2d2d] hover:bg-[#383838] text-zinc-300 text-[11px] cursor-pointer"
+                    @click="selectWorkspace(w)"
+                  >
+                    Chọn
+                  </button>
+                  <button
+                    class="px-2 py-0.5 rounded bg-[#2d2d2d] hover:bg-[#383838] text-zinc-300 text-[11px] cursor-pointer flex items-center gap-1"
+                    title="Mở Explorer xem tệp"
+                    @click="selectWorkspace(w); selectActivity('explorer')"
+                  >
+                    <i class="codicon codicon-files text-xs" />
+                    <span>Files</span>
+                  </button>
+                  <button
+                    class="px-2 py-0.5 rounded bg-[#2d2d2d] hover:bg-[#383838] text-zinc-300 text-[11px] cursor-pointer flex items-center gap-1"
+                    title="Chạy Quick Setup"
+                    @click="selectWorkspace(w); runQuickSetup()"
+                  >
+                    <i class="codicon codicon-tools text-xs" />
+                    <span>Setup</span>
+                  </button>
+                </div>
+
+                <button
+                  class="w-5 h-5 rounded hover:bg-[#383838] text-zinc-500 hover:text-rose-400 grid place-items-center transition-colors cursor-pointer"
+                  title="Xóa khỏi danh sách lưu"
+                  @click.stop="removeSavedWorkspace(w)"
+                >
+                  <i class="codicon codicon-trash text-xs" />
+                </button>
+              </div>
+            </div>
+
+            <!-- Empty State -->
+            <div v-if="filteredSavedWorkspaces.length === 0" class="p-4 rounded bg-[#1e1e1e] border border-[#333333] text-center text-xs text-zinc-400 flex flex-col items-center gap-2">
+              <i class="codicon codicon-folder text-2xl text-zinc-500" />
+              <p>Chưa có workspace nào được lưu.</p>
+              <button
+                class="px-3 py-1 rounded bg-[#0e639c] text-white text-xs font-medium cursor-pointer hover:bg-[#1177bb]"
+                @click="addWorkspaceFolder"
+              >
+                + Thêm Workspace
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- EXPLORER PANEL -->
-        <div v-if="activeActivity === 'explorer'" class="flex flex-col gap-2 flex-1">
+        <div v-else-if="activeActivity === 'explorer'" class="flex flex-col gap-2 flex-1">
           <p class="text-[11px] text-zinc-400 font-mono truncate px-1 flex items-center gap-1.5" :title="activeCwd">
-            <i class="codicon codicon-root-folder text-amber-400" />
+            <i class="codicon codicon-root-folder text-zinc-400" />
             <span class="truncate font-semibold">{{ activeCwd ? activeCwd.split('\\').pop() : 'Chưa chọn workspace' }}</span>
           </p>
           <div v-if="isLoadingFiles" class="text-xs text-zinc-400 p-3 flex items-center gap-2">
-            <i class="codicon codicon-loading animate-spin text-cyan-400" />
+            <i class="codicon codicon-loading animate-spin text-zinc-400" />
             <span>Đang quét tệp workspace...</span>
           </div>
-          <div v-else-if="workspaceFiles.length === 0" class="text-xs text-zinc-500 p-3 bg-[#1e1e1e] rounded-lg border border-[#333333]">
+          <div v-else-if="workspaceFiles.length === 0" class="text-xs text-zinc-500 p-3 bg-[#1e1e1e] rounded border border-[#333333]">
             Không có tệp nào hoặc chưa mở workspace.
           </div>
           <div v-else class="space-y-0.5 overflow-y-auto max-h-[calc(100vh-280px)] font-mono text-[11px]">
@@ -2061,13 +2261,13 @@ onUnmounted(() => {
         <!-- SOURCE CONTROL / GIT DIFF PANEL (AFTER CHANGES) -->
         <div v-else-if="activeActivity === 'diff'" class="flex flex-col gap-2 flex-1">
           <!-- Diff Summary Header -->
-          <div class="p-2.5 rounded-lg bg-[#1e1e1e] border border-[#333333] flex flex-col gap-1.5 shrink-0">
+          <div class="p-2.5 rounded bg-[#1e1e1e] border border-[#333333] flex flex-col gap-1.5 shrink-0">
             <div class="flex items-center justify-between text-xs">
               <span class="font-semibold text-zinc-200 flex items-center gap-1.5">
-                <i class="codicon codicon-source-control text-cyan-400" />
+                <i class="codicon codicon-source-control text-zinc-400" />
                 <span>Diff sau thay đổi</span>
               </span>
-              <span v-if="isLoadingDiff" class="codicon codicon-loading animate-spin text-cyan-400" />
+              <span v-if="isLoadingDiff" class="codicon codicon-loading animate-spin text-zinc-400" />
               <button
                 v-else
                 class="text-[10px] text-zinc-400 hover:text-white px-1 py-0.5 rounded hover:bg-[#333333] cursor-pointer"
@@ -2090,7 +2290,7 @@ onUnmounted(() => {
             <!-- Action Button to Populate Handoff -->
             <button
               v-if="gitDiffData.diffs.length > 0"
-              class="w-full mt-1 py-1 px-2 rounded bg-[#094771] hover:bg-[#007acc] text-white text-[11px] font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+              class="w-full mt-1 py-1 px-2 rounded bg-[#094771] hover:bg-[#007acc] text-white text-[11px] font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5"
               @click="populateHandoffFromDiff"
               title="Điền danh sách file thay đổi và số dòng diff vào mẫu bàn giao Handoff"
             >
@@ -2100,10 +2300,10 @@ onUnmounted(() => {
           </div>
 
           <!-- Empty State -->
-          <div v-if="gitDiffData.diffs.length === 0" class="text-xs text-zinc-400 p-4 bg-[#1e1e1e] rounded-lg border border-[#333333] flex flex-col items-center gap-2 text-center">
+          <div v-if="gitDiffData.diffs.length === 0" class="text-xs text-zinc-400 p-4 bg-[#1e1e1e] rounded border border-[#333333] flex flex-col items-center gap-2 text-center">
             <i class="codicon codicon-check text-emerald-400 text-2xl" />
             <p class="font-medium text-zinc-300">Không có thay đổi mã nguồn.</p>
-            <p class="text-[11px] text-zinc-500">Working tree hoàn toàn sạch hoặc chưa có file nào được chỉnh sửa.</p>
+            <p class="text-[11px] text-zinc-500">Working tree sạch hoặc chưa có file nào được chỉnh sửa.</p>
           </div>
 
           <!-- Changed Files List -->
@@ -2111,8 +2311,8 @@ onUnmounted(() => {
             <div
               v-for="d in gitDiffData.diffs"
               :key="d.file"
-              class="w-full p-2 rounded-lg text-left flex items-center justify-between gap-1.5 transition-colors cursor-pointer border group"
-              :class="selectedDiffFile?.file === d.file ? 'border-[#007acc] bg-[#094771]/30 text-white shadow-xs' : 'border-[#333333] bg-[#1e1e1e] text-zinc-300 hover:border-[#444444]'"
+              class="w-full p-2 rounded text-left flex items-center justify-between gap-1.5 transition-colors cursor-pointer border group"
+              :class="selectedDiffFile?.file === d.file ? 'border-[#007acc] bg-[#094771]/30 text-white' : 'border-[#333333] bg-[#1e1e1e] text-zinc-300 hover:border-[#444444]'"
               @click="openDiffInMonaco(d)"
             >
               <div class="min-w-0 flex items-center gap-1.5 flex-1">
@@ -2131,13 +2331,13 @@ onUnmounted(() => {
                 </span>
                 <span
                   class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase shrink-0 font-mono"
-                  :class="d.status === 'M' ? 'bg-amber-950 text-amber-300 border border-amber-800' : d.status === 'A' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-rose-950 text-rose-300 border border-rose-800'"
+                  :class="d.status === 'M' ? 'bg-[#2d2d2d] text-amber-300 border border-[#3e3e42]' : d.status === 'A' ? 'bg-[#2d2d2d] text-emerald-300 border border-[#3e3e42]' : 'bg-[#2d2d2d] text-rose-300 border border-[#3e3e42]'"
                 >
                   {{ d.status || 'M' }}
                 </span>
                 <!-- Revert Single File Button -->
                 <button
-                  class="w-5 h-5 rounded hover:bg-rose-950 hover:text-rose-300 text-zinc-500 grid place-items-center transition-colors cursor-pointer"
+                  class="w-5 h-5 rounded hover:bg-[#383838] hover:text-rose-300 text-zinc-500 grid place-items-center transition-colors cursor-pointer"
                   title="Khôi phục (Revert) file này về HEAD"
                   @click.stop="revertDiffFile(d.file)"
                 >
@@ -2151,102 +2351,82 @@ onUnmounted(() => {
         <!-- DEFAULT AGENT WORKSPACE CONTROLS -->
         <template v-else>
         <!-- 1. PROVIDER SELECTOR -->
-        <div class="rounded-xl border border-slate-800/80 bg-slate-900/40 p-3 shrink-0">
-          <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">AI Execution Provider</label>
+        <div class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 shrink-0">
+          <label class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">AI Execution Provider</label>
           <div class="grid grid-cols-3 gap-1.5">
             <button
-              v-for="p in ([{ id: 'codex', name: 'Codex', tag: 'Native Stream' }, { id: 'claude_code', name: 'Claude', tag: 'Auto' }, { id: 'antigravity', name: 'AGY', tag: 'IDE' }] as const)"
+              v-for="p in ([{ id: 'codex', name: 'Codex', tag: 'Native' }, { id: 'claude_code', name: 'Claude', tag: 'Auto' }, { id: 'antigravity', name: 'AGY', tag: 'IDE' }] as const)"
               :key="p.id"
-              class="px-2.5 py-2 rounded-lg border text-xs font-semibold flex flex-col items-center gap-0.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              class="px-2 py-1.5 rounded border text-xs font-medium flex flex-col items-center gap-0.5 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               :class="
                 provider === p.id
-                  ? 'border-cyan-500 bg-cyan-950/40 text-cyan-200 shadow-sm shadow-cyan-950/50'
-                  : 'border-slate-800 bg-slate-900/80 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                  ? 'border-[#007acc] bg-[#0e639c]/25 text-white'
+                  : 'border-[#333333] bg-[#252526] text-zinc-400 hover:border-[#444444] hover:text-zinc-200'
               "
               :disabled="busy || phase === 'running'"
               @click="provider = p.id"
             >
               <span>{{ p.name }}</span>
-              <span class="text-[9px] font-mono px-1 rounded" :class="provider === p.id ? 'bg-cyan-500/20 text-cyan-300' : 'bg-slate-800 text-slate-500'">{{ p.tag }}</span>
+              <span class="text-[9px] font-mono px-1 rounded" :class="provider === p.id ? 'bg-[#007acc]/30 text-zinc-200' : 'bg-[#2d2d2d] text-zinc-500'">{{ p.tag }}</span>
             </button>
           </div>
         </div>
 
         <!-- 1.05 QUOTA & LIMITS QUICK BAR -->
         <div
-          class="rounded-xl border border-slate-800/80 bg-slate-900/40 p-2.5 shrink-0 flex items-center justify-between gap-2 hover:border-emerald-700/60 hover:bg-slate-900/70 transition-all cursor-pointer group"
+          class="rounded border border-[#333333] bg-[#1e1e1e] p-2 shrink-0 flex items-center justify-between gap-2 hover:border-[#444444] transition-all cursor-pointer group"
           @click="openModelsAndUsageModal"
-          title="Bấm để xem và quản lý Models & Quota Usage (% còn lại và thời gian reset)"
+          title="Bấm để xem và quản lý Models & Quota Usage"
         >
           <div class="flex items-center gap-2 min-w-0">
-            <div class="w-7 h-7 rounded-lg bg-emerald-950/80 border border-emerald-800/70 flex items-center justify-center text-emerald-400 text-xs shrink-0">
-              ⚡
-            </div>
+            <i class="codicon codicon-dashboard text-zinc-400 text-sm shrink-0" />
             <div class="flex flex-col min-w-0">
               <div class="flex items-center gap-1.5">
-                <span class="text-xs font-semibold text-slate-200 group-hover:text-emerald-300 transition-colors truncate">Models & Quota</span>
-                <span class="text-[8px] font-mono px-1 rounded bg-slate-800 text-slate-400 font-medium shrink-0">{{ activeQuotaGroup.name }}</span>
+                <span class="text-xs font-semibold text-zinc-200 group-hover:text-white transition-colors truncate">Models & Quota</span>
+                <span class="text-[8px] font-mono px-1 rounded bg-[#2d2d2d] text-zinc-400 font-medium shrink-0">{{ activeQuotaGroup.name }}</span>
               </div>
-              <span class="text-[10px] text-slate-400 truncate">
-                5h: <strong class="text-emerald-400 font-mono">{{ activeQuotaGroup.fiveHourRemainingPercent }}%</strong> · Tuần: <strong class="text-emerald-400 font-mono">{{ activeQuotaGroup.weeklyRemainingPercent }}%</strong>
+              <span class="text-[10px] text-zinc-400 truncate">
+                5h: <strong class="text-zinc-200 font-mono">{{ activeQuotaGroup.fiveHourRemainingPercent }}%</strong> · Tuần: <strong class="text-zinc-200 font-mono">{{ activeQuotaGroup.weeklyRemainingPercent }}%</strong>
               </span>
             </div>
           </div>
-          <div class="flex items-center gap-1.5 shrink-0">
-            <!-- Mini Circular Ring -->
-            <div class="relative w-6 h-6 flex items-center justify-center">
-              <svg class="w-6 h-6 -rotate-90" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="9" class="stroke-slate-800" stroke-width="2.5" fill="none" />
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="9"
-                  class="stroke-emerald-400 transition-all duration-500"
-                  stroke-width="2.5"
-                  stroke-linecap="round"
-                  fill="none"
-                  :stroke-dasharray="2 * Math.PI * 9"
-                  :stroke-dashoffset="(2 * Math.PI * 9) * (1 - activeQuotaGroup.fiveHourRemainingPercent / 100)"
-                />
-              </svg>
-            </div>
-            <span class="text-slate-500 group-hover:text-slate-300 text-xs">➔</span>
-          </div>
+          <i class="codicon codicon-chevron-right text-zinc-500 text-xs" />
         </div>
 
-        <!-- 1.1 AI MODEL SELECTOR (IDE-STYLE LIST + AUTO-SYNC DISCOVERY) -->
-        <div class="rounded-xl border border-slate-800/80 bg-slate-900/40 p-3 flex flex-col gap-2 shrink-0">
+        <!-- 1.1 AI MODEL SELECTOR -->
+        <div class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 flex flex-col gap-2 shrink-0">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-1.5">
-              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Model</label>
-              <span class="text-[9px] font-mono text-slate-500">({{ filteredProviderModels.length }})</span>
+              <label class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Model</label>
+              <span class="text-[9px] font-mono text-zinc-500">({{ filteredProviderModels.length }})</span>
               <span
                 v-if="modelSyncTimestamp"
-                class="text-[8px] font-mono text-emerald-400/80 px-1 py-0.2 rounded bg-emerald-950/40 border border-emerald-800/40"
+                class="text-[8px] font-mono text-zinc-400 px-1 py-0.2 rounded bg-[#2d2d2d] border border-[#3e3e42]"
                 :title="`Đồng bộ từ Task Hub & CLI lúc ${modelSyncTimestamp}`"
               >
                 ● {{ modelSyncSource === 'live' ? 'Live' : 'Đồng bộ' }}
               </span>
             </div>
-            <div class="flex items-center gap-1.5">
+            <div class="flex items-center gap-1">
               <!-- Auto-sync / Refresh Models Button -->
               <button
-                class="px-1.5 py-0.5 rounded text-[9px] font-semibold transition-colors cursor-pointer border flex items-center gap-1 bg-slate-950 border-slate-800 text-slate-400 hover:text-cyan-300 hover:border-slate-700 disabled:opacity-50"
+                class="px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors cursor-pointer border flex items-center gap-1 bg-[#252526] border-[#333333] text-zinc-400 hover:text-white hover:border-[#444444] disabled:opacity-50"
                 :disabled="isSyncingModels || busy || phase === 'running'"
                 @click="syncAvailableModels(true)"
                 title="Tự động quét và lấy danh sách model mới nhất từ Task Hub & CLI"
               >
-                <span :class="isSyncingModels ? 'animate-spin inline-block' : ''">🔄</span>
-                <span>{{ isSyncingModels ? 'Đang quét...' : 'Đồng bộ' }}</span>
+                <i class="codicon codicon-refresh text-xs" :class="isSyncingModels ? 'animate-spin' : ''" />
+                <span>{{ isSyncingModels ? 'Quét...' : 'Đồng bộ' }}</span>
               </button>
 
               <button
-                class="px-1.5 py-0.5 rounded text-[9px] font-semibold transition-colors cursor-pointer border"
-                :class="isCustomModel[provider] ? 'bg-amber-950 border-amber-800 text-amber-300' : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'"
+                class="px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors cursor-pointer border flex items-center gap-1"
+                :class="isCustomModel[provider] ? 'bg-[#0e639c]/30 border-[#007acc] text-white' : 'bg-[#252526] border-[#333333] text-zinc-400 hover:text-zinc-200'"
                 @click="toggleCustomModelMode"
                 :title="isCustomModel[provider] ? 'Chuyển về danh sách có sẵn' : 'Nhập model ID tùy chỉnh'"
               >
-                {{ isCustomModel[provider] ? '✏️ Tùy chỉnh (Bật)' : '✏️ Tùy chỉnh' }}
+                <i class="codicon codicon-edit text-xs" />
+                <span>Tùy chỉnh</span>
               </button>
             </div>
           </div>
@@ -2255,55 +2435,56 @@ onUnmounted(() => {
           <div v-if="!isCustomModel[provider]" class="relative">
             <input
               v-model="modelSearchQuery"
-              class="w-full px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-950/80 text-[11px] text-slate-200 placeholder-slate-500 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-colors"
-              placeholder="🔍 Lọc model..."
+              class="w-full pl-7 pr-6 py-1 rounded bg-[#252526] border border-[#333333] text-[11px] text-zinc-200 placeholder-zinc-500 outline-none focus:border-[#007acc] transition-colors"
+              placeholder="Lọc model..."
             />
+            <i class="codicon codicon-search absolute left-2 top-1/2 -translate-y-1/2 text-xs text-zinc-500" />
             <button
               v-if="modelSearchQuery"
-              class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-[10px] cursor-pointer"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-xs cursor-pointer"
               @click="modelSearchQuery = ''"
             >
-              ✕
+              <i class="codicon codicon-close" />
             </button>
           </div>
 
           <!-- IDE-Style Model List Items -->
           <div
             v-if="!isCustomModel[provider]"
-            class="space-y-1 max-h-[260px] overflow-y-auto pr-1 sidebar-scrollable"
+            class="space-y-1 max-h-[220px] overflow-y-auto pr-0.5 sidebar-scrollable"
           >
             <div
               v-for="m in filteredProviderModels"
               :key="m.id"
-              class="w-full px-2.5 py-2 rounded-lg border text-left flex items-center justify-between gap-2 transition-all cursor-pointer group"
+              class="w-full px-2 py-1.5 rounded border text-left flex items-center justify-between gap-2 transition-all cursor-pointer group"
               :class="
                 !isCustomModel[provider] && activeModel === m.id
-                  ? 'border-cyan-500/80 bg-cyan-950/40 text-cyan-200 shadow-xs ring-1 ring-cyan-500/30'
-                  : 'border-slate-800/80 bg-slate-950/70 text-slate-300 hover:border-slate-700 hover:bg-slate-900/80'
+                  ? 'border-[#007acc] bg-[#0e639c]/20 text-white'
+                  : 'border-[#333333] bg-[#252526] text-zinc-300 hover:border-[#444444]'
               "
               @click="selectModel(m.id)"
             >
               <div class="flex flex-col gap-0.5 min-w-0 flex-1">
                 <div class="flex items-center gap-1.5">
-                  <span class="text-xs font-semibold truncate group-hover:text-white" :class="activeModel === m.id ? 'text-cyan-200' : 'text-slate-200'">
+                  <span class="text-xs font-medium truncate group-hover:text-white" :class="activeModel === m.id ? 'text-white font-semibold' : 'text-zinc-300'">
                     {{ m.name }}
                   </span>
-                  <span v-if="m.source === 'hub'" class="text-[8px] font-mono px-1 rounded bg-blue-950/70 text-blue-300 border border-blue-800/60 shrink-0">
+                  <span v-if="m.source === 'hub'" class="text-[8px] font-mono px-1 rounded bg-[#2d2d2d] text-zinc-400 border border-[#3e3e42] shrink-0">
                     HUB
                   </span>
-                  <span v-else-if="m.source === 'custom'" class="text-[8px] font-mono px-1 rounded bg-sky-950/70 text-sky-300 border border-sky-800/60 shrink-0">
+                  <span v-else-if="m.source === 'custom'" class="text-[8px] font-mono px-1 rounded bg-[#2d2d2d] text-zinc-400 border border-[#3e3e42] shrink-0">
                     SAVED
                   </span>
                 </div>
-                <span class="text-[9px] font-mono text-slate-500 truncate">{{ m.id }}</span>
+                <span class="text-[9px] font-mono text-zinc-500 truncate">{{ m.id }}</span>
               </div>
 
-              <!-- Multi-Badge Pills (High, Fast, Thinking, etc.) -->
+              <!-- Multi-Badge Pills -->
               <div class="flex items-center gap-1 shrink-0 flex-wrap justify-end">
                 <span
                   v-for="b in (m.badges || [m.badge].filter(Boolean))"
                   :key="b"
-                  class="text-[8px] font-mono px-1.5 py-0.2 rounded border font-semibold uppercase tracking-tight"
+                  class="text-[8px] font-mono px-1 py-0.2 rounded border font-medium uppercase tracking-tight"
                   :class="getBadgeClass(b)"
                 >
                   {{ b }}
@@ -2312,112 +2493,104 @@ onUnmounted(() => {
                 <!-- Delete button for custom saved models -->
                 <button
                   v-if="m.source === 'custom'"
-                  class="text-slate-500 hover:text-rose-400 p-0.5 ml-0.5 text-[10px] cursor-pointer"
+                  class="text-zinc-500 hover:text-rose-400 p-0.5 ml-0.5 cursor-pointer"
                   title="Xóa model tùy chỉnh này"
                   @click.stop="deleteCustomModelOption(m.id)"
                 >
-                  🗑️
+                  <i class="codicon codicon-trash text-xs" />
                 </button>
 
                 <!-- Selected Checkmark Icon -->
-                <span
+                <i
                   v-if="activeModel === m.id"
-                  class="text-xs font-bold text-cyan-400 ml-1 shrink-0"
-                  title="Đang chọn"
-                >
-                  ✓
-                </span>
+                  class="codicon codicon-check text-xs text-[#007acc] ml-0.5 shrink-0 font-bold"
+                />
               </div>
             </div>
 
-            <div v-if="filteredProviderModels.length === 0" class="text-center py-4 text-[10px] text-slate-500 italic">
+            <div v-if="filteredProviderModels.length === 0" class="text-center py-3 text-[10px] text-zinc-500 italic">
               Không tìm thấy model phù hợp.
             </div>
           </div>
 
           <!-- Custom Model Free Text Input Mode -->
           <div v-if="isCustomModel[provider]" class="pt-1 flex flex-col gap-2">
-            <div class="flex items-center justify-between text-[10px] text-amber-400 font-medium">
-              <span>Model ID / Tên tùy chỉnh:</span>
-              <span class="text-slate-500 font-mono text-[9px]">Flag: {{ provider === 'codex' ? '-m' : '--model' }}</span>
+            <div class="flex items-center justify-between text-[10px] text-zinc-400 font-medium">
+              <span>Model ID tùy chỉnh:</span>
+              <span class="text-zinc-500 font-mono text-[9px]">{{ provider === 'codex' ? '-m' : '--model' }}</span>
             </div>
-            <div class="flex items-center gap-1.5">
+            <div class="flex items-center gap-1">
               <input
                 :value="customModelInput[provider]"
                 @input="setCustomModel(($event.target as HTMLInputElement).value)"
-                class="w-full px-2.5 py-2 rounded-lg border border-amber-800/80 bg-slate-950 text-xs font-mono text-amber-200 placeholder-slate-600 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 transition-colors flex-1"
-                :placeholder="provider === 'codex' ? 'vd: gpt-5.6-sol, gpt-4o-mini...' : provider === 'claude_code' ? 'vd: claude-3-7-sonnet-20250219...' : 'vd: gemini-3.7-flash, gemini-2.5-pro...'"
+                class="w-full px-2.5 py-1.5 rounded border border-[#3e3e42] bg-[#252526] text-xs font-mono text-zinc-200 placeholder-zinc-600 outline-none focus:border-[#007acc] transition-colors flex-1"
+                :placeholder="provider === 'codex' ? 'vd: gpt-5.6-sol, gpt-4o-mini...' : provider === 'claude_code' ? 'vd: claude-3-7-sonnet...' : 'vd: gemini-2.5-flash...'"
                 :disabled="busy || phase === 'running'"
               />
               <button
                 v-if="customModelInput[provider]?.trim()"
-                class="px-2.5 py-2 rounded-lg border border-sky-700 bg-sky-950/80 hover:bg-sky-900 text-sky-200 text-xs font-semibold shrink-0 cursor-pointer transition-colors"
+                class="px-2 py-1.5 rounded border border-[#3e3e42] bg-[#2d2d2d] hover:bg-[#383838] text-zinc-200 text-xs font-medium shrink-0 cursor-pointer transition-colors flex items-center gap-1"
                 @click="saveCustomModelOption"
-                title="Lưu model này vào danh sách để dùng cho các lần sau"
+                title="Lưu model này vào danh sách"
               >
-                💾 Lưu
+                <i class="codicon codicon-save text-xs" />
+                <span>Lưu</span>
               </button>
             </div>
-            <p class="text-[10px] text-slate-400 leading-tight">
-              Nhập model ID chính xác được hỗ trợ bởi CLI {{ provider }}. Bấm <strong>💾 Lưu</strong> để thêm vĩnh viễn vào danh sách.
-            </p>
-          </div>
-
-          <!-- Model Description Hint -->
-          <div v-if="currentModelOption?.description && !isCustomModel[provider]" class="text-[10px] text-slate-400 bg-slate-950/80 rounded-lg p-2 border border-slate-800/70 leading-relaxed">
-            💡 {{ currentModelOption.description }}
           </div>
         </div>
 
-        <!-- 2. WORKSPACE FOLDER -->
-        <div class="rounded-xl border border-slate-800/80 bg-slate-900/40 p-3 flex flex-col gap-2 shrink-0">
+        <!-- 2. REPOSITORY WORKSPACE -->
+        <div class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 flex flex-col gap-2 shrink-0">
           <div class="flex items-center justify-between">
-            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Repository Workspace</span>
-            <div class="flex items-center gap-1.5">
+            <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Workspace</span>
+            <div class="flex items-center gap-1">
               <button
-                class="px-2 py-0.5 rounded-md border border-slate-700 bg-slate-800/60 hover:bg-slate-700 text-[10px] text-slate-300 transition-colors cursor-pointer"
-                @click="chooseWorkspace"
+                class="px-2 py-0.5 rounded border border-[#333333] bg-[#252526] hover:bg-[#2d2d2d] text-[10px] text-zinc-300 transition-colors cursor-pointer flex items-center gap-1"
+                @click="selectActivity('workspaces')"
+                title="Mở bảng quản lý tất cả Workspaces"
               >
-                📁 Chọn thư mục
+                <i class="codicon codicon-root-folder text-xs" />
+                <span>Quản lý</span>
               </button>
               <button
-                class="px-2 py-0.5 rounded-md border border-emerald-800/80 bg-emerald-950/40 hover:bg-emerald-900/60 text-[10px] text-emerald-300 transition-colors cursor-pointer disabled:opacity-50"
-                :disabled="setupBusy"
-                @click="runQuickSetup"
+                class="px-2 py-0.5 rounded border border-[#333333] bg-[#252526] hover:bg-[#2d2d2d] text-[10px] text-zinc-300 transition-colors cursor-pointer flex items-center gap-1"
+                @click="chooseWorkspace"
+                title="Chọn thư mục"
               >
-                {{ setupBusy ? 'Đang setup…' : '⚡ Quick setup' }}
+                <i class="codicon codicon-folder text-xs" />
+                <span>Đổi</span>
               </button>
             </div>
           </div>
 
-          <div class="p-2 rounded-lg bg-slate-950/80 border border-slate-800/80 flex items-center gap-2">
-            <span class="text-xs">📂</span>
-            <span class="text-xs font-mono text-slate-300 truncate flex-1" :title="sourceWorkspace || 'Chưa chọn repository'">
+          <div class="p-2 rounded bg-[#252526] border border-[#333333] flex items-center gap-2">
+            <i class="codicon codicon-root-folder text-zinc-400 text-xs shrink-0" />
+            <span class="text-xs font-mono text-zinc-300 truncate flex-1" :title="sourceWorkspace || 'Chưa chọn repository'">
               {{ sourceWorkspace || 'Chưa chọn repository' }}
             </span>
           </div>
 
-          <!-- SAVED WORKSPACES -->
-          <div v-if="savedWorkspaces.length > 0" class="pt-1">
-            <div class="flex items-center justify-between text-[10px] text-slate-400 mb-1.5">
-              <span>Đã lưu gần đây:</span>
-              <span class="font-mono text-slate-500">{{ savedWorkspaces.length }}/12</span>
+          <!-- SAVED WORKSPACES QUICK BAR -->
+          <div v-if="savedWorkspaces.length > 0" class="pt-0.5">
+            <div class="flex items-center justify-between text-[10px] text-zinc-400 mb-1">
+              <span>Đã lưu ({{ savedWorkspaces.length }}):</span>
             </div>
-            <div class="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
+            <div class="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
               <div
                 v-for="w in savedWorkspaces"
                 :key="w"
-                class="group flex items-center gap-1 pl-2 pr-1 py-1 rounded-md border text-[10px] transition-colors cursor-pointer"
-                :class="w === sourceWorkspace ? 'border-cyan-500/80 bg-cyan-950/30 text-cyan-200' : 'border-slate-800 bg-slate-900 text-slate-400 hover:border-slate-700 hover:text-slate-300'"
+                class="group flex items-center gap-1 pl-2 pr-1 py-0.5 rounded border text-[10px] transition-colors cursor-pointer"
+                :class="w === sourceWorkspace ? 'border-[#007acc] bg-[#0e639c]/20 text-white' : 'border-[#333333] bg-[#252526] text-zinc-400 hover:border-[#444444] hover:text-zinc-200'"
                 @click="selectWorkspace(w)"
               >
-                <span class="truncate max-w-[120px]" :title="w">{{ w.split('\\').pop() || w }}</span>
+                <span class="truncate max-w-[110px]" :title="w">{{ w.split(/[/\\]/).pop() || w }}</span>
                 <button
-                  class="w-3.5 h-3.5 rounded grid place-items-center hover:bg-rose-900/50 hover:text-rose-300 text-slate-500 transition-colors"
+                  class="w-3.5 h-3.5 rounded grid place-items-center hover:bg-[#383838] hover:text-rose-400 text-zinc-500 transition-colors"
                   title="Xóa"
                   @click.stop="removeSavedWorkspace(w)"
                 >
-                  ×
+                  <i class="codicon codicon-close text-[8px]" />
                 </button>
               </div>
             </div>
@@ -2425,76 +2598,78 @@ onUnmounted(() => {
         </div>
 
         <!-- 3. TASK HUB & TASK SELECTOR -->
-        <div class="rounded-xl border border-slate-800/80 bg-slate-900/40 p-3 flex flex-col gap-2 shrink-0">
+        <div class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 flex flex-col gap-2 shrink-0">
           <div class="flex items-center justify-between">
-            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nhiệm vụ Task Hub</span>
-            <span class="text-[10px] font-mono text-slate-400">{{ filteredTasks.length }} tasks</span>
+            <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Nhiệm vụ Task Hub</span>
+            <span class="text-[10px] font-mono text-zinc-400">{{ filteredTasks.length }} tasks</span>
           </div>
 
           <div class="relative">
             <input
               v-model="taskSearch"
-              class="w-full px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-950 text-xs text-slate-200 placeholder-slate-500 outline-none focus:border-cyan-500 transition-colors"
-              placeholder="🔍 Tìm theo title, issue key..."
+              class="w-full pl-7 pr-2.5 py-1 rounded border border-[#333333] bg-[#252526] text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-[#007acc] transition-colors"
+              placeholder="Tìm theo title, issue key..."
               :disabled="busy"
             />
+            <i class="codicon codicon-search absolute left-2 top-1/2 -translate-y-1/2 text-xs text-zinc-500" />
           </div>
 
-          <div v-if="!isConnected" class="p-2.5 rounded-lg border border-amber-900/60 bg-amber-950/30 text-[11px] text-amber-200">
-            Chưa kết nối Task Hub SaaS. Bạn có thể dùng tính năng <b>Quét repo → Tạo tài liệu</b> trực tiếp.
+          <div v-if="!isConnected" class="p-2 rounded border border-[#333333] bg-[#252526] text-[11px] text-zinc-400">
+            Chưa kết nối Task Hub SaaS. Bạn có thể chọn thư mục workspace và khởi chạy độc lập.
           </div>
-          <div v-else-if="filteredTasks.length === 0" class="p-2.5 text-center rounded-lg border border-slate-800 bg-slate-950/40 text-[11px] text-slate-500">
+          <div v-else-if="filteredTasks.length === 0" class="p-2 text-center rounded border border-[#333333] bg-[#252526] text-[11px] text-zinc-500">
             Không có task nào phù hợp.
           </div>
-          <div v-else class="max-h-32 overflow-y-auto space-y-1.5 pr-0.5">
+          <div v-else class="max-h-28 overflow-y-auto space-y-1 pr-0.5">
             <button
               v-for="task in filteredTasks"
               :key="task.id"
-              class="w-full p-2 rounded-lg border text-left text-xs transition-all cursor-pointer flex flex-col gap-1"
+              class="w-full p-2 rounded border text-left text-xs transition-all cursor-pointer flex flex-col gap-1"
               :class="
                 task.id === taskId
-                  ? 'border-blue-500/80 bg-blue-950/40 text-blue-100 shadow-sm'
-                  : 'border-slate-800/80 bg-slate-950/60 text-slate-300 hover:border-slate-700'
+                  ? 'border-[#007acc] bg-[#0e639c]/20 text-white'
+                  : 'border-[#333333] bg-[#252526] text-zinc-300 hover:border-[#444444]'
               "
               @click="taskId = task.id"
             >
               <div class="flex items-center justify-between gap-1">
-                <span class="font-mono font-bold text-[11px]" :class="task.id === taskId ? 'text-blue-300' : 'text-slate-400'">
+                <span class="font-mono font-bold text-[11px]" :class="task.id === taskId ? 'text-white' : 'text-zinc-400'">
                   {{ task.issue_key || `#${task.id}` }}
                 </span>
-                <span class="px-1.5 py-0.2 rounded text-[9px] font-semibold uppercase" :class="task.status === 'done' ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-800 text-slate-400'">
+                <span class="px-1.5 py-0.2 rounded text-[9px] font-semibold uppercase bg-[#2d2d2d] text-zinc-300 border border-[#3e3e42]">
                   {{ task.status }}
                 </span>
               </div>
-              <p class="text-xs text-slate-200 truncate font-medium">{{ task.title }}</p>
+              <p class="text-xs text-zinc-200 truncate font-medium">{{ task.title }}</p>
             </button>
           </div>
 
           <!-- SELECTED TASK PREVIEW -->
-          <div v-if="selectedTask" class="p-2 rounded-lg border border-blue-900/60 bg-blue-950/20 text-xs">
-            <div class="font-bold text-blue-300 flex items-center justify-between">
+          <div v-if="selectedTask" class="p-2 rounded border border-[#007acc]/40 bg-[#0e639c]/10 text-xs">
+            <div class="font-semibold text-white flex items-center justify-between">
               <span>{{ selectedTask.issue_key || `#${selectedTask.id}` }}</span>
-              <span class="text-[10px] text-slate-400">{{ selectedTask.project?.title || 'Project' }}</span>
+              <span class="text-[10px] text-zinc-400">{{ selectedTask.project?.title || 'Project' }}</span>
             </div>
-            <p class="text-slate-300 text-[11px] mt-1 font-medium">{{ selectedTask.title }}</p>
-            <p v-if="selectedTask.acceptance_criteria" class="text-slate-400 text-[10px] mt-1 line-clamp-2 italic">
+            <p class="text-zinc-300 text-[11px] mt-1 font-medium">{{ selectedTask.title }}</p>
+            <p v-if="selectedTask.acceptance_criteria" class="text-zinc-400 text-[10px] mt-1 line-clamp-2 italic">
               {{ selectedTask.acceptance_criteria }}
             </p>
           </div>
         </div>
 
         <!-- 4. QUICK ACTION: DOCS GENERATOR -->
-        <div class="rounded-xl border border-cyan-900/60 bg-gradient-to-r from-cyan-950/30 to-blue-950/30 p-3 shrink-0">
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-xs font-bold text-cyan-200 flex items-center gap-1.5">
-              <span>📄</span> Quét repo → Tạo tài liệu
+        <div class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 shrink-0 flex flex-col gap-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
+              <i class="codicon codicon-book text-zinc-400" />
+              <span>Quét repo → Tạo tài liệu</span>
             </span>
           </div>
-          <p class="text-[10px] text-slate-400 leading-relaxed mb-2.5">
+          <p class="text-[10px] text-zinc-400 leading-relaxed">
             Agent quét toàn bộ cấu trúc repo, tạo tự động bộ tài liệu chuẩn (Brief, PRD, Architecture, QA, Runbook) vào <code>docs/</code>.
           </p>
           <button
-            class="w-full py-1.5 px-3 rounded-lg border border-cyan-600/80 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-200 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+            class="w-full py-1.5 px-3 rounded border border-[#333333] bg-[#252526] hover:bg-[#2d2d2d] text-zinc-200 text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
             :disabled="busy || phase === 'running'"
             @click="startDocsGeneration"
           >
@@ -2502,22 +2677,23 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <!-- 5. TIMELINE FEED (COMFORTABLE & NEVER SQUISHED) -->
-        <div class="rounded-xl border border-slate-800/80 bg-slate-900/40 p-3 flex flex-col min-h-[240px] shrink-0">
-          <div class="flex items-center justify-between mb-2 pb-1 border-b border-slate-800/60">
-            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-              <span>⚡</span> Activity Timeline
+        <!-- 5. TIMELINE FEED -->
+        <div class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 flex flex-col min-h-[200px] shrink-0">
+          <div class="flex items-center justify-between mb-1.5 pb-1 border-b border-[#2d2d2d]">
+            <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+              <i class="codicon codicon-history text-xs" />
+              <span>Activity Timeline</span>
             </span>
-            <span class="text-[9px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded">{{ timeline.length }} events</span>
+            <span class="text-[9px] font-mono text-zinc-400 bg-[#252526] px-1.5 py-0.5 rounded">{{ timeline.length }}</span>
           </div>
-          <div class="space-y-2 overflow-y-auto max-h-[300px] pr-1">
-            <div v-if="timeline.length === 0" class="text-[10px] text-slate-500 text-center py-6 italic">
+          <div class="space-y-1.5 overflow-y-auto max-h-[260px] pr-0.5">
+            <div v-if="timeline.length === 0" class="text-[10px] text-zinc-500 text-center py-6 italic">
               Chưa có sự kiện nào.
             </div>
             <div
               v-for="item in timeline"
               :key="item.id"
-              class="p-2 rounded-lg bg-slate-950/80 border border-slate-800/60 text-[10px] flex flex-col gap-0.5 shadow-sm"
+              class="p-2 rounded bg-[#252526] border border-[#333333] text-[10px] flex flex-col gap-0.5"
             >
               <div class="flex items-center justify-between">
                 <span
@@ -2529,16 +2705,14 @@ onUnmounted(() => {
                       ? 'text-rose-400'
                       : item.tone === 'warning'
                       ? 'text-amber-400'
-                      : item.tone === 'active'
-                      ? 'text-cyan-400'
-                      : 'text-slate-300'
+                      : 'text-zinc-200'
                   "
                 >
                   {{ item.label }}
                 </span>
-                <span class="font-mono text-[9px] text-slate-500">{{ item.time }}</span>
+                <span class="font-mono text-[9px] text-zinc-500">{{ item.time }}</span>
               </div>
-              <p class="text-slate-400 break-words leading-tight">{{ item.detail }}</p>
+              <p class="text-zinc-400 break-words leading-tight">{{ item.detail }}</p>
             </div>
           </div>
         </div>
@@ -3545,6 +3719,15 @@ onUnmounted(() => {
 
         <!-- Encoding -->
         <span class="hover:bg-white/20 px-1.5 py-0.2 rounded cursor-pointer">UTF-8</span>
+
+        <!-- Mascot Mode Switcher in Status Bar -->
+        <span
+          class="bg-violet-950 hover:bg-violet-900 border border-violet-700/80 text-violet-200 px-2 py-0.2 rounded font-medium flex items-center gap-1 cursor-pointer transition-colors"
+          title="Chuyển sang Mascot Nhắc Việc (Ctrl+Shift+M)"
+          @click="emit('switch-mode', 'mascot')"
+        >
+          <span>🧘 Mascot Nhắc Việc</span>
+        </span>
 
         <!-- Core Marker -->
         <span class="bg-white/25 px-1.5 py-0.2 rounded font-mono font-bold text-[10px]">VS Code Core</span>

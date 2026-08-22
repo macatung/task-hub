@@ -18,9 +18,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->trustProxies(at: '*');
 
-        // API routes are consumed by the desktop client and authenticate with
-        // bearer/device credentials, not the browser session CSRF cookie.
+        // API routes and MCP endpoints are consumed by agents and tools
+        // authenticating with bearer/device credentials, not browser session CSRF cookies.
         $middleware->validateCsrfTokens(except: [
+            'mcp',
+            'mcp/*',
             'api/*',
             'api/v1/*',
         ]);
