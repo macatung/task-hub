@@ -1716,6 +1716,37 @@ const startRequirementDiscovery = async () => {
   }
 };
 
+const hasFixableEnvironmentIssue = computed(() =>
+  Boolean(preflight.value?.checks?.some((check: any) => check.fixable))
+);
+
+const repairEnvironment = async () => {
+  if (!sourceWorkspace.value) await addWorkspaceFolder();
+  if (!sourceWorkspace.value) return;
+  setupBusy.value = true;
+  errorMessage.value = '';
+  addTimeline('Environment repair', 'Đang tự sửa .env, dependencies và Git worktree metadata an toàn...', 'active');
+  try {
+    const result = await window.desktopApi.agent.repairEnvironment(provider.value, sourceWorkspace.value);
+    setupState.value = result;
+    preflight.value = result.preflight;
+    result.checks.forEach((check: any) => addTimeline(`Repair · ${check.id}`, check.message, check.status));
+    if (result.ok) {
+      phase.value = 'select';
+      addTimeline('Environment ready', 'Môi trường đã được sửa và kiểm tra lại. Có thể bắt đầu preflight.', 'ok');
+    } else {
+      phase.value = 'error';
+      errorMessage.value = 'Vẫn còn mục cần xử lý thủ công. Xem chi tiết trong danh sách kiểm tra.';
+    }
+  } catch (error: any) {
+    phase.value = 'error';
+    errorMessage.value = error.message || 'Không thể tự sửa môi trường.';
+    addTimeline('Environment repair failed', errorMessage.value, 'error');
+  } finally {
+    setupBusy.value = false;
+  }
+};
+
 const createApprovedBacklog = async () => {
   if (!props.desktopCredential || !docsProjectId.value || !requirementText.value.trim() || !worktree.value) return;
   phase.value = 'running';
@@ -3475,8 +3506,14 @@ onUnmounted(() => {
                   {{ check.status === 'passed' ? '✓' : check.status === 'failed' ? '✗' : '⚠' }}
                 </span>
                 <div class="flex-1">
-                  <div class="font-semibold text-xs capitalize">{{ check.id.replace(/_/g, ' ') }}</div>
+                  <div class="font-semibold text-xs capitalize flex items-center gap-1.5">
+                    <span>{{ check.id.replace(/_/g, ' ') }}</span>
+                    <span v-if="check.fixable" class="px-1.5 py-0.5 rounded border border-zinc-600 text-[9px] font-mono uppercase text-zinc-300">
+                      Có thể tự sửa
+                    </span>
+                  </div>
                   <div class="text-[11px] opacity-90 mt-0.5">{{ check.message }}</div>
+                  <div v-if="check.fixHint" class="text-[10px] opacity-70 mt-1">{{ check.fixHint }}</div>
                 </div>
               </div>
             </div>
@@ -3901,6 +3938,15 @@ onUnmounted(() => {
           @click="runPreflight"
         >
           <i v-if="phase !== 'error'" class="codicon codicon-run mr-1" />{{ phase === 'error' ? 'Thử lại Preflight' : 'Bắt đầu Preflight' }}
+        </button>
+
+        <button
+          v-if="phase === 'error' && sourceWorkspace"
+          class="px-3.5 py-1.5 rounded-lg border border-zinc-500 bg-zinc-200 hover:bg-white text-zinc-950 font-semibold text-xs transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          :disabled="setupBusy"
+          @click="repairEnvironment"
+        >
+          <i class="codicon codicon-tools mr-1" />{{ setupBusy ? 'Đang tự sửa...' : hasFixableEnvironmentIssue ? 'Tự sửa & kiểm tra lại' : 'Dọn môi trường & kiểm tra lại' }}
         </button>
 
         <button

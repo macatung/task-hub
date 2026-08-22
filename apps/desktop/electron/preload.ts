@@ -48,6 +48,7 @@ contextBridge.exposeInMainWorld('desktopApi', {
     removeWorkspace: (cwd: string) => ipcRenderer.invoke('agent-remove-workspace', cwd),
     preflight: (provider: 'codex' | 'claude_code' | 'antigravity', cwd: string) => ipcRenderer.invoke('agent-preflight', { provider, cwd }),
     quickSetup: (cwd: string, installDependencies = true) => ipcRenderer.invoke('agent-quick-setup', { cwd, installDependencies }),
+    repairEnvironment: (provider: 'codex' | 'claude_code' | 'antigravity', cwd: string) => ipcRenderer.invoke('agent-repair-environment', { provider, cwd }),
     createWorktree: (repository: string, issueKey: string) => ipcRenderer.invoke('agent-create-worktree', { repository, issueKey }),
     openWorkspace: (cwd: string) => ipcRenderer.invoke('agent-open-workspace', cwd),
     cleanupWorktree: (repository: string, worktree: string) => ipcRenderer.invoke('agent-cleanup-worktree', { repository, worktree }),

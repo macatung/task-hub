@@ -667,10 +667,18 @@ function disableAgentGuardrails(worktree: string) {
   if (fs.existsSync(hooks)) fs.rmSync(hooks, { recursive: true, force: true });
 }
 
+type EnvironmentCheck = {
+  id: string;
+  status: 'passed' | 'failed' | 'warning';
+  message: string;
+  fixable?: boolean;
+  fixHint?: string;
+};
+
 function preflightAgent(provider: AgentProvider, cwd: string) {
-  const checks: Array<{ id: string; status: 'passed' | 'failed' | 'warning'; message: string }> = [];
+  const checks: EnvironmentCheck[] = [];
   const cli = provider === 'antigravity' ? (resolveCli('agy') || findAntigravityExecutable()) : resolveCli(AGENT_COMMANDS[provider].command);
-  checks.push({ id: 'provider', status: cli ? 'passed' : 'failed', message: cli ? `${provider} đã sẵn sàng.` : `Không tìm thấy ${provider}. Hãy cài CLI hoặc cấu hình đường dẫn.` });
+  checks.push({ id: 'provider', status: cli ? 'passed' : 'failed', message: cli ? `${provider} đã sẵn sàng.` : `Không tìm thấy ${provider}. Hãy cài CLI hoặc cấu hình đường dẫn.`, fixable: false, fixHint: 'Cài hoặc đăng nhập CLI của provider rồi kiểm tra lại.' });
   if (!cwd || !fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) return { ok: false, provider, capabilities: PROVIDER_CAPABILITIES[provider], checks: [...checks, { id: 'workspace', status: 'failed' as const, message: 'Chọn thư mục repository hợp lệ.' }] };
   try {
     const root = git(cwd, ['rev-parse', '--show-toplevel']);
@@ -682,6 +690,17 @@ function preflightAgent(provider: AgentProvider, cwd: string) {
     if (upstream) { try { divergence = git(root, ['rev-list', '--left-right', '--count', `${upstream}...HEAD`]); } catch { /* Ignore unavailable comparison. */ } }
     checks.push({ id: 'remote', status: remote ? (upstream && divergence !== '0\t0' ? 'warning' : 'passed') : 'warning', message: remote ? `origin: ${remote}${upstream ? ` · ${upstream}${divergence ? ` · behind/ahead ${divergence}` : ''}` : ' · chưa có upstream tracking branch.'}` : 'Chưa cấu hình remote origin; local repo chưa được xác nhận đồng bộ với Task Hub/GitHub.' });
     checks.push({ id: 'working_tree', status: dirty ? 'warning' : 'passed', message: dirty ? 'Workspace có thay đổi chưa commit; worktree riêng sẽ dùng base commit hiện tại.' : 'Workspace sạch.' });
+    const envExample = path.join(root, '.env.example');
+    const envFile = path.join(root, '.env');
+    if (fs.existsSync(envExample) && !fs.existsSync(envFile)) {
+      checks.push({ id: 'environment_file', status: 'warning', message: 'Thiếu .env; có thể tạo an toàn từ .env.example.', fixable: true, fixHint: 'Tự sửa sẽ sao chép .env.example thành .env.' });
+    }
+    if (fs.existsSync(path.join(root, 'package-lock.json')) && !fs.existsSync(path.join(root, 'node_modules'))) {
+      checks.push({ id: 'node_dependencies', status: 'warning', message: 'Thiếu Node dependencies (node_modules).', fixable: true, fixHint: 'Tự sửa sẽ chạy npm ci trong workspace.' });
+    }
+    if (fs.existsSync(path.join(root, 'composer.lock')) && !fs.existsSync(path.join(root, 'vendor'))) {
+      checks.push({ id: 'php_dependencies', status: 'warning', message: 'Thiếu PHP dependencies (vendor).', fixable: true, fixHint: 'Tự sửa sẽ chạy composer install.' });
+    }
     return { ok: Boolean(cli), provider, capabilities: PROVIDER_CAPABILITIES[provider], repository: root, baseCommit: git(root, ['rev-parse', 'HEAD']), remote, upstream, divergence, checks };
   } catch {
     checks.push({ id: 'repository', status: 'failed', message: 'Workspace phải là Git repository.' });
@@ -691,7 +710,7 @@ function preflightAgent(provider: AgentProvider, cwd: string) {
 
 function quickSetupEnvironment(cwd: string, installDependencies = true) {
   if (!cwd || !fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) throw new Error('Workspace phải là thư mục hợp lệ.');
-  const checks: Array<{ id: string; status: 'passed' | 'failed' | 'warning'; message: string }> = [];
+  const checks: EnvironmentCheck[] = [];
   const run = (id: string, command: string, args: string[], message: string) => {
     const executable = resolveCli(command);
     if (!executable) { checks.push({ id, status: 'warning', message: `${command} chưa được cài; bỏ qua.` }); return; }
@@ -705,9 +724,39 @@ function quickSetupEnvironment(cwd: string, installDependencies = true) {
   if (fs.existsSync(envExample) && !fs.existsSync(envFile)) { fs.copyFileSync(envExample, envFile); checks.push({ id: 'env', status: 'passed', message: 'Created .env from .env.example.' }); }
   else if (fs.existsSync(envFile)) checks.push({ id: 'env', status: 'passed', message: '.env already exists; kept local values.' });
   else checks.push({ id: 'env', status: 'warning', message: 'No .env.example found; skipped environment file setup.' });
-  if (installDependencies && fs.existsSync(path.join(repository, 'package-lock.json'))) run('node_dependencies', 'npm', ['ci'], 'Installed Node dependencies with npm ci.');
-  if (installDependencies && fs.existsSync(path.join(repository, 'composer.lock'))) run('php_dependencies', 'composer', ['install', '--no-interaction', '--prefer-dist'], 'Installed PHP dependencies with Composer.');
+  if (installDependencies && fs.existsSync(path.join(repository, 'package-lock.json'))) {
+    if (fs.existsSync(path.join(repository, 'node_modules'))) checks.push({ id: 'node_dependencies', status: 'passed', message: 'Node dependencies đã có; không cài lại.' });
+    else run('node_dependencies', 'npm', ['ci'], 'Installed Node dependencies with npm ci.');
+  }
+  if (installDependencies && fs.existsSync(path.join(repository, 'composer.lock'))) {
+    if (fs.existsSync(path.join(repository, 'vendor'))) checks.push({ id: 'php_dependencies', status: 'passed', message: 'PHP dependencies đã có; không cài lại.' });
+    else run('php_dependencies', 'composer', ['install', '--no-interaction', '--prefer-dist'], 'Installed PHP dependencies with Composer.');
+  }
   return { ok: checks.every((check) => check.status !== 'failed'), repository, checks };
+}
+
+function repairEnvironment(provider: AgentProvider, cwd: string) {
+  const checks: EnvironmentCheck[] = [];
+  try {
+    const setup = quickSetupEnvironment(cwd, true);
+    checks.push(...setup.checks);
+    try {
+      const repository = git(cwd, ['rev-parse', '--show-toplevel']);
+      git(repository, ['worktree', 'prune']);
+      checks.push({ id: 'worktree_metadata', status: 'passed', message: 'Đã dọn Git worktree metadata cũ.' });
+    } catch {
+      checks.push({ id: 'worktree_metadata', status: 'warning', message: 'Không thể dọn worktree metadata; sẽ dùng trạng thái hiện có.' });
+    }
+  } catch (error: any) {
+    checks.push({ id: 'environment_setup', status: 'failed', message: error?.message || 'Không thể tự sửa workspace.' });
+  }
+  const preflight = preflightAgent(provider, cwd);
+  return {
+    ok: preflight.ok,
+    provider,
+    checks: [...checks, ...preflight.checks],
+    preflight,
+  };
 }
 
 function createAgentWorktree(repository: string, issueKey: string) {
@@ -1080,6 +1129,7 @@ function createWindow() {
   });
   ipcMain.handle('agent-preflight', (_event, { provider, cwd }: { provider: AgentProvider; cwd: string }) => preflightAgent(provider, cwd));
   ipcMain.handle('agent-quick-setup', (_event, { cwd, installDependencies }: { cwd: string; installDependencies?: boolean }) => quickSetupEnvironment(cwd, installDependencies !== false));
+  ipcMain.handle('agent-repair-environment', (_event, { provider, cwd }: { provider: AgentProvider; cwd: string }) => repairEnvironment(provider, cwd));
   ipcMain.handle('agent-create-worktree', (_event, { repository, issueKey }: { repository: string; issueKey: string }) => createAgentWorktree(repository, issueKey));
   ipcMain.handle('agent-open-workspace', async (_event, cwd: string) => shell.openPath(cwd));
   ipcMain.handle('agent-cleanup-worktree', (_event, { repository, worktree }: { repository: string; worktree: string }) => {
@@ -1381,12 +1431,17 @@ function createWindow() {
     };
     fs.mkdirSync(configDirectory, { recursive: true });
     fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
-    const gitExclude = path.join(cwd, '.git', 'info', 'exclude');
-    if (fs.existsSync(path.join(cwd, '.git'))) {
+    // In a Git worktree, .git is a file that points to the real git directory.
+    // Resolve the path through Git instead of assuming .git/info is a directory.
+    try {
+      const gitExcludeOutput = git(cwd, ['rev-parse', '--git-path', 'info/exclude']);
+      const gitExclude = path.isAbsolute(gitExcludeOutput) ? gitExcludeOutput : path.resolve(cwd, gitExcludeOutput);
       fs.mkdirSync(path.dirname(gitExclude), { recursive: true });
       const existing = fs.existsSync(gitExclude) ? fs.readFileSync(gitExclude, 'utf8') : '';
       const relative = path.relative(cwd, configPath).replace(/\\/g, '/');
       if (!existing.split(/\r?\n/).includes(relative)) fs.appendFileSync(gitExclude, `${existing && !existing.endsWith('\n') ? '\n' : ''}${relative}\n`, 'utf8');
+    } catch {
+      // MCP config is still valid; exclusion is only a best-effort convenience for non-Git folders.
     }
     return { path: configPath, server: 'task-hub' };
   });
