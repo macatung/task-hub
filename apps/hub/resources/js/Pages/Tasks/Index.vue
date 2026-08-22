@@ -102,6 +102,7 @@ export interface AgentRunItem {
   summary?: string | null;
   started_at?: string | null;
   finished_at?: string | null;
+  metadata?: { model?: string; [key: string]: any } | null;
   evidence?: Array<{ id: number; evidence_type: string; status: string; command?: string; summary?: string }>;
 }
 
@@ -543,12 +544,24 @@ const loadAgentRuns = async (taskId: number) => {
   }
 };
 
-const startAgentRun = async (provider: string) => {
+const selectedProviderModel = ref<Record<string, string>>({
+  codex: 'gpt-5.6-sol',
+  claude_code: 'claude-3-7-sonnet-20250219',
+  antigravity: 'gemini-3.7-flash',
+});
+
+const startAgentRun = async (provider: string, model?: string) => {
   if (!selectedTask.value) return;
+  const targetModel = model || selectedProviderModel.value[provider] || undefined;
   try {
-    const res = await axios.post('/api/tasks/agent-runs', { task_id: selectedTask.value.id, provider, execution_mode: 'desktop' });
+    const res = await axios.post('/api/tasks/agent-runs', {
+      task_id: selectedTask.value.id,
+      provider,
+      model: targetModel,
+      execution_mode: 'desktop',
+    });
     selectedAgentRuns.value.unshift(res.data.data);
-    agentRunFeedback.value = `Created a local ${provider} run. Open Task Companion to execute it with the agent installed on your machine.`;
+    agentRunFeedback.value = `Created a local ${provider} (${targetModel || 'default'}) run. Open Task Companion to execute it with the agent installed on your machine.`;
   } catch (err: any) {
     agentRunFeedback.value = err.response?.data?.message || 'Unable to create agent run.';
   }
@@ -3970,15 +3983,21 @@ onUnmounted(() => {
                 <label :class="['font-mono text-xs font-bold uppercase', isDarkMode ? 'text-slate-300' : 'text-slate-700']">Agent Run</label>
                 <span v-if="isAgentRunsLoading" class="text-[10px] text-slate-500">Loading…</span>
               </div>
-              <div class="grid grid-cols-2 gap-1.5">
-                <button v-for="provider in ['codex', 'claude_code', 'antigravity']" :key="`local-${provider}`" @click="startAgentRun(provider)" class="rounded-lg border px-2 py-2 text-[10px] font-bold cursor-pointer hover:border-blue-500" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-200' : 'border-slate-300 bg-white text-slate-800'">
-                  {{ provider === 'claude_code' ? 'Local Claude' : provider === 'antigravity' ? 'Local Antigravity' : 'Local Codex' }}
+              <div class="grid grid-cols-3 gap-1.5">
+                <button v-for="provider in ['codex', 'claude_code', 'antigravity']" :key="`local-${provider}`" @click="startAgentRun(provider)" class="rounded-lg border px-2 py-2 text-[10px] font-bold cursor-pointer hover:border-blue-500 flex flex-col items-center gap-0.5" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-200' : 'border-slate-300 bg-white text-slate-800'">
+                  <span>{{ provider === 'claude_code' ? 'Local Claude' : provider === 'antigravity' ? 'Local AGY' : 'Local Codex' }}</span>
+                  <span class="text-[8px] font-mono text-slate-400 opacity-80">{{ selectedProviderModel[provider] }}</span>
                 </button>
               </div>
               <p v-if="agentRunFeedback" class="text-[11px] leading-relaxed text-blue-600 dark:text-blue-300">{{ agentRunFeedback }}</p>
               <div v-for="run in selectedAgentRuns" :key="run.id" :class="['rounded-xl border p-3 space-y-2', isDarkMode ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white']">
                 <div class="flex items-center justify-between gap-2 text-xs">
-                  <span class="font-bold">{{ run.provider }} · {{ run.execution_mode || 'desktop' }}</span>
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="font-bold">{{ run.provider }} · {{ run.execution_mode || 'desktop' }}</span>
+                    <span v-if="run.metadata?.model" class="rounded px-1.5 py-0.2 font-mono text-[9px] border" :class="isDarkMode ? 'border-slate-700 bg-slate-800 text-cyan-300' : 'border-slate-200 bg-slate-100 text-cyan-700'">
+                      {{ run.metadata.model }}
+                    </span>
+                  </div>
                   <span class="rounded-full border px-2 py-0.5 font-mono text-[10px]">{{ run.status }}</span>
                 </div>
                 <p v-if="run.branch || run.commit_sha" class="font-mono text-[10px] text-slate-500 truncate">{{ run.branch || 'no branch' }} · {{ run.commit_sha || 'no commit' }}</p>

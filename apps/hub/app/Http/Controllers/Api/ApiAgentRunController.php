@@ -40,6 +40,7 @@ class ApiAgentRunController extends Controller
         $validated = $request->validate([
             'task_id' => 'nullable|exists:tasks,id',
             'provider' => 'required|in:' . implode(',', self::PROVIDERS),
+            'model' => 'nullable|string|max:120',
             'agent_session_id' => 'nullable|string|max:191',
             'repository' => 'nullable|string|max:255',
             'branch' => 'nullable|string|max:255',
@@ -64,8 +65,9 @@ class ApiAgentRunController extends Controller
         }
         $context = $validated['context'] ?? $contextService->build($task, $validated);
         $instruction = $validated['instruction'] ?? [];
+        $selectedModel = $validated['model'] ?? ($context['model'] ?? ($instruction['model'] ?? null));
 
-        $run = DB::transaction(function () use ($validated, $context, $instruction, $contextService, $task, $workspace) {
+        $run = DB::transaction(function () use ($validated, $context, $instruction, $contextService, $task, $workspace, $selectedModel) {
             $run = AgentRun::create([
                 'task_id' => $task?->id,
                 'workspace_id' => $workspace?->id,
@@ -79,9 +81,9 @@ class ApiAgentRunController extends Controller
                 'run_type' => $validated['run_type'] ?? 'implementation',
                 'context_hash' => $context['context_hash'] ?? null,
                 'instruction_hash' => $contextService->instructionHash($instruction),
-                'metadata' => ['context' => $context],
+                'metadata' => array_merge(['context' => $context], $selectedModel ? ['model' => $selectedModel] : []),
             ]);
-            $this->recordEvent($run, 'run_created', 'queued', ['context_hash' => $run->context_hash]);
+            $this->recordEvent($run, 'run_created', 'queued', array_merge(['context_hash' => $run->context_hash], $selectedModel ? ['model' => $selectedModel] : []));
             return $run;
         });
 
@@ -295,5 +297,120 @@ class ApiAgentRunController extends Controller
             $run->update($fields);
             $this->recordEvent($run, 'github_' . $eventName, $fields['status'] ?? $run->status, ['repository' => $repository, 'commit_sha' => $commit]);
         }
+    }
+
+    public function models(Request $request)
+    {
+        $provider = $request->string('provider')->toString();
+        $models = [
+            'antigravity' => [
+                ['id' => 'gemini-3.7-flash', 'name' => 'Gemini 3.7 Flash', 'badges' => ['High', 'Fast'], 'description' => 'Mô hình thế hệ mới nhất, tối ưu tốc độ và agentic reasoning'],
+                ['id' => 'gemini-3.6-flash', 'name' => 'Gemini 3.6 Flash', 'badges' => ['Medium', 'Fast'], 'description' => 'Cân bằng tốc độ cao và năng lực suy luận'],
+                ['id' => 'gemini-3.5-flash', 'name' => 'Gemini 3.5 Flash', 'badges' => ['Medium', 'Fast'], 'description' => 'Phản hồi nhanh cho các tác vụ lập trình phổ biến'],
+                ['id' => 'gemini-3.1-pro', 'name' => 'Gemini 3.1 Pro', 'badges' => ['Low'], 'description' => 'Mô hình tiêu chuẩn cho tác vụ nhẹ'],
+                ['id' => 'claude-sonnet-4.6-thinking', 'name' => 'Claude Sonnet 4.6 (Thinking)', 'badges' => ['Thinking'], 'description' => 'Suy luận mở rộng và phân tích kiến trúc mã nguồn chuyên sâu'],
+                ['id' => 'claude-opus-4.6-thinking', 'name' => 'Claude Opus 4.6 (Thinking)', 'badges' => ['Thinking'], 'description' => 'Mô hình phân tích cấp cao nhất cho bài toán phức tạp'],
+                ['id' => 'gpt-oss-120b', 'name' => 'GPT-OSS 120B (Medium)', 'badges' => ['Open Weights', 'Medium'], 'description' => 'Mô hình mã nguồn mở 120B hiệu năng cao'],
+                ['id' => 'gemini-2.5-pro', 'name' => 'Gemini 2.5 Pro', 'badges' => ['Recommended', '1M+ Context'], 'description' => 'Mô hình mạnh nhất của DeepMind, context 1M+'],
+                ['id' => 'gemini-2.5-flash', 'name' => 'Gemini 2.5 Flash', 'badges' => ['Fast & Smart'], 'description' => 'Tốc độ cao kèm khả năng suy luận xuất sắc'],
+                ['id' => 'gemini-2.0-flash', 'name' => 'Gemini 2.0 Flash', 'badges' => ['Ultra Fast'], 'description' => 'Phản hồi tức thì cho các tác vụ lặp lại'],
+                ['id' => 'gemini-2.0-pro-exp', 'name' => 'Gemini 2.0 Pro Exp', 'badges' => ['Experimental'], 'description' => 'Bản thử nghiệm năng lực giải thuật và code gen'],
+                ['id' => 'default', 'name' => 'IDE / CLI Default', 'badges' => ['Default'], 'description' => 'Cấu hình mặc định của Antigravity'],
+            ],
+            'claude_code' => [
+                ['id' => 'claude-3-7-sonnet-20250219', 'name' => 'Claude 3.7 Sonnet', 'badges' => ['High', 'Recommended'], 'description' => 'Tối ưu hoá cao nhất cho coding, kiến trúc & hybrid reasoning'],
+                ['id' => 'claude-3-7-sonnet-thinking', 'name' => 'Claude 3.7 (Thinking)', 'badges' => ['High', 'Thinking'], 'description' => 'Kích hoạt extended thinking cho các refactor phức tạp'],
+                ['id' => 'claude-sonnet-4.6-thinking', 'name' => 'Claude Sonnet 4.6 (Thinking)', 'badges' => ['Next-Gen', 'Thinking'], 'description' => 'Mô hình Sonnet thế hệ mới tối ưu agentic workflow'],
+                ['id' => 'claude-opus-4.6-thinking', 'name' => 'Claude Opus 4.6 (Thinking)', 'badges' => ['Deep Analysis', 'Thinking'], 'description' => 'Phân tích hệ thống lớn & cấu trúc logic phức tạp'],
+                ['id' => 'claude-3-5-sonnet-20241022', 'name' => 'Claude 3.5 Sonnet (v2)', 'badges' => ['Balanced', 'Fast'], 'description' => 'Mô hình lập trình tiêu chuẩn ổn định'],
+                ['id' => 'claude-3-5-haiku-20241022', 'name' => 'Claude 3.5 Haiku', badges: ['Super Fast'], 'description' => 'Tốc độ cực nhanh cho tasks nhỏ và refactor nhẹ'],
+                ['id' => 'claude-3-opus-20240229', 'name' => 'Claude 3 Opus', 'badges' => ['Deep Analysis'], 'description' => 'Phân tích hệ thống lớn & bài toán phức tạp'],
+                ['id' => 'default', 'name' => 'CLI Default', 'badges' => ['Default'], 'description' => 'Cấu hình mặc định của Claude Code CLI'],
+            ],
+            'codex' => [
+                ['id' => 'gpt-5.6-sol', 'name' => 'GPT-5.6 Sol', 'badges' => ['High', 'Flagship'], 'description' => 'Mô hình flagship mạnh nhất thế hệ GPT-5.6 cho reasoning, research & agentic coding'],
+                ['id' => 'gpt-5.6-terra', 'name' => 'GPT-5.6 Terra', 'badges' => ['Medium', 'Fast'], 'description' => 'Mô hình cân bằng hoàn hảo giữa trí tuệ và tốc độ cho tác vụ production'],
+                ['id' => 'gpt-5.6-luna', 'name' => 'GPT-5.6 Luna', 'badges' => ['Low', 'Ultra Fast'], 'description' => 'Mô hình nhẹ tối ưu tốc độ và chi phí cho khối lượng công việc lớn'],
+                ['id' => 'gpt-5.6-cyber', 'name' => 'GPT-5.6 Cyber', 'badges' => ['Specialized', 'Security'], 'description' => 'Mô hình chuyên biệt phân tích an toàn thông tin & audit bảo mật mã nguồn'],
+                ['id' => 'o3-pro', 'name' => 'o3-pro', 'badges' => ['High', 'Deep Reasoning'], 'description' => 'Suy luận chuyên sâu mở rộng cho các bài toán kiến trúc & giải thuật khó'],
+                ['id' => 'o3', 'name' => 'o3', 'badges' => ['High', 'Reasoning'], 'description' => 'Mô hình suy luận logic đa bước mạnh mẽ thế hệ o-series'],
+                ['id' => 'o3-mini', 'name' => 'o3-mini', 'badges' => ['Fast Reasoning', 'High'], 'description' => 'Suy luận logic cao cấp với tốc độ phản hồi nhanh chóng'],
+                ['id' => 'gpt-5', 'name' => 'GPT-5 (Foundational)', 'badges' => ['High', 'Foundational'], 'description' => 'Mô hình nền tảng thế hệ GPT-5'],
+                ['id' => 'gpt-4.1', 'name' => 'GPT-4.1', 'badges' => ['Balanced', 'Fast'], 'description' => 'Phiên bản tối ưu hiệu năng cao cho tasks coding hàng ngày'],
+                ['id' => 'gpt-4.1-mini', 'name' => 'GPT-4.1 mini', 'badges' => ['Ultra Fast'], 'description' => 'Mô hình siêu nhẹ tốc độ cao'],
+                ['id' => 'o1', 'name' => 'o1', 'badges' => ['Deep Reasoning'], 'description' => 'Suy luận từng bước giải quyết bài toán khó'],
+                ['id' => 'gpt-4.5-preview', 'name' => 'GPT-4.5 Preview', 'badges' => ['High Quality', 'Large Context'], 'description' => 'Khả năng hiểu ngữ cảnh sâu và kiến trúc phức tạp'],
+                ['id' => 'gpt-4o', 'name' => 'GPT-4o', 'badges' => ['Omni', 'Fast'], 'description' => 'Cân bằng tốc độ và chất lượng thực thi'],
+                ['id' => 'gpt-4o-mini', 'name' => 'GPT-4o mini', 'badges' => ['Ultra Fast'], 'description' => 'Mô hình nhỏ gọn tốc độ cao'],
+                ['id' => 'gpt-oss-120b', 'name' => 'GPT-OSS 120B (Medium)', 'badges' => ['Open Weights', 'Medium'], 'description' => 'Mô hình mã nguồn mở 120B tham số'],
+                ['id' => 'default', 'name' => 'CLI Default', 'badges' => ['Default'], 'description' => 'Cấu hình mặc định của Codex CLI'],
+            ],
+        ];
+
+        if ($provider && isset($models[$provider])) {
+            return response()->json([
+                'success' => true,
+                'provider' => $provider,
+                'updated_at' => now()->toIso8601String(),
+                'data' => $models[$provider]
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'updated_at' => now()->toIso8601String(),
+            'data' => $models
+        ]);
+    }
+
+    public function quota(Request $request)
+    {
+        if ($request->isMethod('post')) {
+            $quota = $request->input('quota', []);
+            \Illuminate\Support\Facades\Cache::put('agent_runner_latest_quota', $quota, now()->addDays(7));
+            return response()->json([
+                'success' => true,
+                'message' => 'Quota usage synced successfully.',
+                'data' => $quota
+            ]);
+        }
+
+        $cachedQuota = \Illuminate\Support\Facades\Cache::get('agent_runner_latest_quota', [
+            'plan' => 'Google AI Ultra',
+            'planTier' => 'Highest rate limits',
+            'enableCreditOverages' => false,
+            'gemini' => [
+                'id' => 'gemini',
+                'name' => 'Gemini Models',
+                'provider' => 'antigravity',
+                'weeklyRemainingPercent' => 69,
+                'weeklyResetIn' => '4 days, 9 hours',
+                'fiveHourRemainingPercent' => 93,
+                'fiveHourResetIn' => '3 hours, 50 minutes',
+            ],
+            'claudeGpt' => [
+                'id' => 'claude_gpt',
+                'name' => 'Claude and GPT models',
+                'provider' => 'claude_code',
+                'weeklyRemainingPercent' => 100,
+                'weeklyResetIn' => '7 days',
+                'fiveHourRemainingPercent' => 100,
+                'fiveHourResetIn' => '5 hours',
+            ],
+            'codex' => [
+                'id' => 'codex',
+                'name' => 'Codex Models',
+                'provider' => 'codex',
+                'weeklyRemainingPercent' => 98,
+                'weeklyResetIn' => '6 days, 20 hours',
+                'fiveHourRemainingPercent' => 95,
+                'fiveHourResetIn' => '4 hours, 30 minutes',
+            ],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $cachedQuota
+        ]);
     }
 }

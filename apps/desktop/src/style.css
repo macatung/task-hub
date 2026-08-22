@@ -58,3 +58,42 @@
 .animate-pulse-aura {
   animation: pulseAura 3s ease-in-out infinite;
 }
+
+/* VS Code Official Core Color Tokens & Typography */
+:root {
+  --vscode-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --vscode-editor-font: 'Consolas', 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+  --vscode-bg-workbench: #181818;
+  --vscode-bg-editor: #1e1e1e;
+  --vscode-bg-sidebar: #252526;
+  --vscode-bg-activity: #333333;
+  --vscode-bg-status: #007acc;
+  --vscode-border: #2d2d2d;
+  --vscode-highlight: #094771;
+  --vscode-active-border: #007acc;
+}
+
+.vscode-theme {
+  font-family: var(--vscode-font-family);
+  color: #cccccc;
+  background-color: var(--vscode-bg-editor);
+}
+
+.vscode-editor-font {
+  font-family: var(--vscode-editor-font);
+}
+
+/* VS Code Codicon Size Adjustments */
+.codicon {
+  font-size: 16px;
+  line-height: 1;
+  display: inline-block;
+  vertical-align: middle;
+}
+.codicon-sm {
+  font-size: 13px;
+}
+.codicon-lg {
+  font-size: 20px;
+}
+

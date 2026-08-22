@@ -47,4 +47,122 @@ describe('Desktop agent execution workspace', () => {
     expect(uiSource).toContain('savedSessions');
     expect(mainSource).toContain('--conversation');
   });
+
+  it('supports model selection for Codex, Claude Code, and Antigravity', () => {
+    // UI state and presets
+    expect(uiSource).toContain('PROVIDER_MODELS');
+    expect(uiSource).toContain('selectedModels');
+    expect(uiSource).toContain('activeModel');
+    expect(uiSource).toContain('selectModel');
+    expect(uiSource).toContain('customModelInput');
+    expect(uiSource).toContain('isCustomModel');
+    expect(uiSource).toContain('filteredProviderModels');
+    expect(uiSource).toContain('gpt-5.6-sol');
+    expect(uiSource).toContain('gpt-5.6-terra');
+    expect(uiSource).toContain('o3-pro');
+    expect(uiSource).toContain('gpt-4.1');
+    expect(uiSource).toContain('claude-3-7-sonnet-20250219');
+    expect(uiSource).toContain('gemini-3.7-flash');
+    expect(uiSource).toContain('claude-sonnet-4.6-thinking');
+    expect(uiSource).toContain('gemini-2.5-pro');
+
+    // Desktop main process CLI execution with model flags
+    expect(mainSource).toContain("'-m', selectedModel");
+    expect(mainSource).toContain("'--model', selectedModel");
+    expect(mainSource).toContain('model?: string');
+  });
+
+  it('supports automatic model discovery, sync from Hub/CLI, and custom model persistence', () => {
+    // Main process discovery and persistence
+    expect(mainSource).toContain('agent-list-available-models');
+    expect(mainSource).toContain('agent-save-custom-model');
+    expect(mainSource).toContain('agent-delete-custom-model');
+    expect(mainSource).toContain('getAvailableModels');
+    expect(mainSource).toContain('inferModelBadges');
+    expect(mainSource).toContain('models-cache.json');
+    expect(mainSource).toContain('models-custom.json');
+
+    // UI dynamic state and triggers
+    expect(uiSource).toContain('modelsState');
+    expect(uiSource).toContain('syncAvailableModels');
+    expect(uiSource).toContain('saveCustomModelOption');
+    expect(uiSource).toContain('deleteCustomModelOption');
+    expect(uiSource).toContain('isSyncingModels');
+  });
+
+  it('supports Models & Usage Quota Bridge, rolling limit calculation, and UI modal', () => {
+    // Main process Quota storage and IPC
+    expect(mainSource).toContain('agent-get-quota-usage');
+    expect(mainSource).toContain('agent-sync-quota-usage');
+    expect(mainSource).toContain('agent-update-quota-settings');
+    expect(mainSource).toContain('readQuotaState');
+    expect(mainSource).toContain('quota-usage.json');
+    expect(mainSource).toContain('recordTokenUsageToQuota');
+
+    // UI state & Modal matching screenshot
+    expect(uiSource).toContain('Models & Usage');
+    expect(uiSource).toContain('quotaUsageState');
+    expect(uiSource).toContain('Weekly Limit Remaining');
+    expect(uiSource).toContain('Five Hour Limit Remaining');
+    expect(uiSource).toContain('Enable AI Credit Overages');
+    expect(uiSource).toContain('Your Plan:');
+  });
+
+  it('supports VS Code Core shell architecture, Monaco Editor & Diff engine, and Activity Bar', () => {
+    // Main process workspace and diff IPCs
+    expect(mainSource).toContain('workspace-read-file');
+    expect(mainSource).toContain('workspace-list-files');
+    expect(mainSource).toContain('workspace-get-git-diff');
+
+    // UI VS Code Core Components & Status Bar
+    expect(uiSource).toContain('MonacoEditorView');
+    expect(uiSource).toContain('activeActivity');
+    expect(uiSource).toContain('activeEditorTab');
+    expect(uiSource).toContain('EXPLORER');
+    expect(uiSource).toContain('SOURCE CONTROL');
+    expect(uiSource).toContain('VS Code Core');
+    expect(uiSource).toContain('#007acc');
+  });
+
+  it('supports post-change diff inspector, line addition/deletion statistics, file reverting, and auto-handoff sync', () => {
+    // Main process diff stats & revert IPCs
+    expect(mainSource).toContain('workspace-revert-file');
+    expect(mainSource).toContain('workspace-stage-file');
+    expect(mainSource).toContain('numstat');
+    expect(mainSource).toContain('totalAdditions');
+    expect(mainSource).toContain('totalDeletions');
+
+    // UI Post-change Diff Banner, Inspector & Revert Button
+    expect(uiSource).toContain('totalAdditions');
+    expect(uiSource).toContain('totalDeletions');
+    expect(uiSource).toContain('revertDiffFile');
+    expect(uiSource).toContain('populateHandoffFromDiff');
+    expect(uiSource).toContain('Diff sau thay đổi');
+    expect(uiSource).toContain('Xem Diff ngay');
+  });
+
+  it('implements authentic Antigravity 2.0 Studio layout, auxiliary pane, slash commands, skills & scheduling', () => {
+    // Backend Skills, MCP, Scheduling, Permissions IPCs
+    expect(mainSource).toContain('agent-list-skills');
+    expect(mainSource).toContain('agent-read-skill');
+    expect(mainSource).toContain('agent-list-mcp-servers');
+    expect(mainSource).toContain('agent-list-rules');
+    expect(mainSource).toContain('agent-list-scheduled-tasks');
+    expect(mainSource).toContain('agent-create-schedule');
+    expect(mainSource).toContain('agent-get-permissions');
+    expect(mainSource).toContain('agent-save-permissions');
+
+    // UI Antigravity 2.0 Navigation, Auxiliary Tabs & Modals
+    expect(uiSource).toContain('startNewConversation');
+    expect(uiSource).toContain('AntigravitySkillsModal');
+    expect(uiSource).toContain('AntigravityScheduledTasksModal');
+    expect(uiSource).toContain('AntigravitySettingsPermissionsModal');
+    expect(uiSource).toContain('activeSubagents');
+    expect(uiSource).toContain('slashCommands');
+    expect(uiSource).toContain('/goal');
+    expect(uiSource).toContain('/schedule');
+    expect(uiSource).toContain('/grill-me');
+    expect(uiSource).toContain('/teamwork-preview');
+    expect(uiSource).toContain('/learn');
+  });
 });

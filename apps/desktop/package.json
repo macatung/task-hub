@@ -24,7 +24,9 @@
   "author": "Task Hub contributors",
   "license": "MIT",
   "dependencies": {
+    "@vscode/codicons": "^0.0.46-24",
     "electron-updater": "^6.8.9",
+    "monaco-editor": "^0.56.0",
     "node-pty": "^1.1.0",
     "vue": "^3.5.13"
   },

@@ -4,10 +4,11 @@ export const PROVIDER_CAPABILITIES = {
   antigravity: ['external_only'],
 };
 
-export function commandFor(provider, env = {}) {
-  if (provider === 'codex') return [env.CODEX_COMMAND || 'codex', ['exec', '--full-auto']];
-  if (provider === 'claude_code') return [env.CLAUDE_COMMAND || 'claude', ['-p']];
-  if (provider === 'antigravity') return [env.ANTIGRAVITY_COMMAND || 'agy', []];
+export function commandFor(provider, env = {}, model = null) {
+  const modelStr = model && model !== 'default' ? String(model).trim() : null;
+  if (provider === 'codex') return [env.CODEX_COMMAND || 'codex', ['exec', '--full-auto', ...(modelStr ? ['-m', modelStr] : [])]];
+  if (provider === 'claude_code') return [env.CLAUDE_COMMAND || 'claude', ['-p', ...(modelStr ? ['--model', modelStr] : [])]];
+  if (provider === 'antigravity') return [env.ANTIGRAVITY_COMMAND || 'agy', [...(modelStr ? ['--model', modelStr] : [])]];
   throw new Error(`Unsupported provider: ${provider}`);
 }
 

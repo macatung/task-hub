@@ -2,6 +2,10 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import type { TaskItem } from '../composables/useTaskSync';
 import MacatungIcon from './MacatungIcon.vue';
+import MonacoEditorView from './MonacoEditorView.vue';
+import AntigravitySkillsModal from './AntigravitySkillsModal.vue';
+import AntigravityScheduledTasksModal from './AntigravityScheduledTasksModal.vue';
+import AntigravitySettingsPermissionsModal from './AntigravitySettingsPermissionsModal.vue';
 import { ansiToHtml, stripAnsiToPlainText, escapeHtml } from '../utils/ansi';
 
 declare global {
@@ -25,9 +29,706 @@ const emit = defineEmits<{
 type Phase = 'select' | 'preflight' | 'pairing' | 'context' | 'ready' | 'running' | 'handoff' | 'review' | 'error';
 type Provider = 'codex' | 'claude_code' | 'antigravity';
 
+type ModelOption = {
+  id: string;
+  name: string;
+  badges: string[];
+  badge?: string;
+  description?: string;
+  source?: 'preset' | 'hub' | 'cli' | 'custom';
+};
+
+const PROVIDER_MODELS: Record<Provider, ModelOption[]> = {
+  antigravity: [
+    { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', badges: ['High', 'Fast'], description: 'Mô hình thế hệ mới nhất, tối ưu tốc độ và agentic reasoning' },
+    { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', badges: ['Medium', 'Fast'], description: 'Cân bằng tốc độ cao và năng lực suy luận' },
+    { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', badges: ['Medium', 'Fast'], description: 'Phản hồi nhanh cho các tác vụ lập trình phổ biến' },
+    { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', badges: ['Low'], description: 'Mô hình tiêu chuẩn cho tác vụ nhẹ' },
+    { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', badges: ['Thinking'], description: 'Suy luận mở rộng và phân tích kiến trúc mã nguồn chuyên sâu' },
+    { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', badges: ['Thinking'], description: 'Mô hình phân tích cấp cao nhất cho bài toán phức tạp' },
+    { id: 'gpt-oss-120b', name: 'GPT-OSS 120B (Medium)', badges: ['Open Weights', 'Medium'], description: 'Mô hình mã nguồn mở 120B hiệu năng cao' },
+    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', badges: ['Recommended', '1M+ Context'], description: 'Mô hình mạnh nhất của DeepMind, context 1M+' },
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', badges: ['Fast & Smart'], description: 'Tốc độ cao kèm khả năng suy luận xuất sắc' },
+    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', badges: ['Ultra Fast'], description: 'Phản hồi tức thì cho các tác vụ lặp lại' },
+    { id: 'gemini-2.0-pro-exp', name: 'Gemini 2.0 Pro Exp', badges: ['Experimental'], description: 'Bản thử nghiệm năng lực giải thuật và code gen' },
+    { id: 'default', name: 'IDE / CLI Default', badges: ['Default'], description: 'Cấu hình mặc định của Antigravity' },
+  ],
+  claude_code: [
+    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', badges: ['High', 'Recommended'], description: 'Tối ưu hoá cao nhất cho coding, kiến trúc & hybrid reasoning' },
+    { id: 'claude-3-7-sonnet-thinking', name: 'Claude 3.7 (Thinking)', badges: ['High', 'Thinking'], description: 'Kích hoạt extended thinking cho các refactor phức tạp' },
+    { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', badges: ['Next-Gen', 'Thinking'], description: 'Mô hình Sonnet thế hệ mới tối ưu agentic workflow' },
+    { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', badges: ['Deep Analysis', 'Thinking'], description: 'Phân tích hệ thống lớn & cấu trúc logic phức tạp' },
+    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (v2)', badges: ['Balanced', 'Fast'], description: 'Mô hình lập trình tiêu chuẩn ổn định' },
+    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', badges: ['Super Fast'], description: 'Tốc độ cực nhanh cho tasks nhỏ và refactor nhẹ' },
+    { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', badges: ['Deep Analysis'], description: 'Phân tích hệ thống lớn & bài toán phức tạp' },
+    { id: 'default', name: 'CLI Default', badges: ['Default'], description: 'Cấu hình mặc định của Claude Code CLI' },
+  ],
+  codex: [
+    { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', badges: ['High', 'Flagship'], description: 'Mô hình flagship mạnh nhất thế hệ GPT-5.6 cho reasoning, research & agentic coding' },
+    { id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra', badges: ['Medium', 'Fast'], description: 'Mô hình cân bằng hoàn hảo giữa trí tuệ và tốc độ cho tác vụ production' },
+    { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', badges: ['Low', 'Ultra Fast'], description: 'Mô hình nhẹ tối ưu tốc độ và chi phí cho khối lượng công việc lớn' },
+    { id: 'gpt-5.6-cyber', name: 'GPT-5.6 Cyber', badges: ['Specialized', 'Security'], description: 'Mô hình chuyên biệt phân tích an toàn thông tin & audit bảo mật mã nguồn' },
+    { id: 'o3-pro', name: 'o3-pro', badges: ['High', 'Deep Reasoning'], description: 'Suy luận chuyên sâu mở rộng cho các bài toán kiến trúc & giải thuật khó' },
+    { id: 'o3', name: 'o3', badges: ['High', 'Reasoning'], description: 'Mô hình suy luận logic đa bước mạnh mẽ thế hệ o-series' },
+    { id: 'o3-mini', name: 'o3-mini', badges: ['Fast Reasoning', 'High'], description: 'Suy luận logic cao cấp với tốc độ phản hồi nhanh chóng' },
+    { id: 'gpt-5', name: 'GPT-5 (Foundational)', badges: ['High', 'Foundational'], description: 'Mô hình nền tảng thế hệ GPT-5' },
+    { id: 'gpt-4.1', name: 'GPT-4.1', badges: ['Balanced', 'Fast'], description: 'Phiên bản tối ưu hiệu năng cao cho tasks coding hàng ngày' },
+    { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', badges: ['Ultra Fast'], description: 'Mô hình siêu nhẹ tốc độ cao' },
+    { id: 'o1', name: 'o1', badges: ['Deep Reasoning'], description: 'Suy luận từng bước giải quyết bài toán khó' },
+    { id: 'gpt-4.5-preview', name: 'GPT-4.5 Preview', badges: ['High Quality', 'Large Context'], description: 'Khả năng hiểu ngữ cảnh sâu và kiến trúc phức tạp' },
+    { id: 'gpt-4o', name: 'GPT-4o', badges: ['Omni', 'Fast'], description: 'Cân bằng tốc độ và chất lượng thực thi' },
+    { id: 'gpt-4o-mini', name: 'GPT-4o mini', badges: ['Ultra Fast'], description: 'Mô hình nhỏ gọn tốc độ cao' },
+    { id: 'gpt-oss-120b', name: 'GPT-OSS 120B (Medium)', badges: ['Open Weights', 'Medium'], description: 'Mô hình mã nguồn mở 120B tham số' },
+    { id: 'default', name: 'CLI Default', badges: ['Default'], description: 'Cấu hình mặc định của Codex CLI' },
+  ],
+};
+
 const phase = ref<Phase>('select');
 const provider = ref<Provider>('codex');
 const isFullscreen = ref(false);
+const modelSearchQuery = ref('');
+const modelsState = ref<Record<Provider, ModelOption[]>>({
+  antigravity: [...PROVIDER_MODELS.antigravity],
+  claude_code: [...PROVIDER_MODELS.claude_code],
+  codex: [...PROVIDER_MODELS.codex],
+});
+const isSyncingModels = ref(false);
+const modelSyncTimestamp = ref<string | null>(null);
+const modelSyncSource = ref<'preset' | 'live' | 'cache'>('preset');
+
+const selectedModels = ref<Record<Provider, string>>({
+  codex: 'gpt-5.6-sol',
+  claude_code: 'claude-3-7-sonnet-20250219',
+  antigravity: 'gemini-3.7-flash',
+});
+const customModelInput = ref<Record<Provider, string>>({
+  codex: '',
+  claude_code: '',
+  antigravity: '',
+});
+const isCustomModel = ref<Record<Provider, boolean>>({
+  codex: false,
+  claude_code: false,
+  antigravity: false,
+});
+
+const syncAvailableModels = async (forceRefresh = false) => {
+  if (isSyncingModels.value) return;
+  isSyncingModels.value = true;
+  try {
+    const res: any = await (window as any).desktopApi?.agent?.listAvailableModels?.(provider.value, {
+      forceRefresh,
+      taskHubUrl: localStorage.getItem('task_companion_hub_url') || undefined,
+    });
+    if (res?.ok && res?.models) {
+      if (Array.isArray(res.models)) {
+        modelsState.value[provider.value] = res.models;
+      } else if (typeof res.models === 'object') {
+        Object.keys(res.models).forEach((p) => {
+          if (modelsState.value[p as Provider]) {
+            modelsState.value[p as Provider] = res.models[p];
+          }
+        });
+      }
+      if (res.syncedAt) {
+        modelSyncTimestamp.value = new Date(res.syncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      if (res.source) {
+        modelSyncSource.value = res.source;
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to sync available models:', err);
+  } finally {
+    isSyncingModels.value = false;
+  }
+};
+
+const saveCustomModelOption = async () => {
+  const customId = customModelInput.value[provider.value]?.trim();
+  if (!customId) return;
+  try {
+    const res: any = await (window as any).desktopApi?.agent?.saveCustomModel?.(provider.value, {
+      id: customId,
+      name: customId,
+    });
+    if (res?.ok && res?.models) {
+      if (Array.isArray(res.models)) {
+        modelsState.value[provider.value] = res.models;
+      } else if (typeof res.models === 'object' && res.models[provider.value]) {
+        modelsState.value[provider.value] = res.models[provider.value];
+      }
+    }
+    isCustomModel.value[provider.value] = false;
+    selectedModels.value[provider.value] = customId;
+    addTimeline('Model saved & selected', `${provider.value.toUpperCase()} → ${customId}`, 'ok');
+    saveWorkspaceState();
+  } catch (err) {
+    console.warn('Failed to save custom model:', err);
+  }
+};
+
+const deleteCustomModelOption = async (modelId: string) => {
+  try {
+    const res: any = await (window as any).desktopApi?.agent?.deleteCustomModel?.(provider.value, modelId);
+    if (res?.ok && res?.models) {
+      if (Array.isArray(res.models)) {
+        modelsState.value[provider.value] = res.models;
+      } else if (typeof res.models === 'object' && res.models[provider.value]) {
+        modelsState.value[provider.value] = res.models[provider.value];
+      }
+    }
+    if (selectedModels.value[provider.value] === modelId) {
+      selectedModels.value[provider.value] = modelsState.value[provider.value]?.[0]?.id || 'default';
+    }
+    saveWorkspaceState();
+  } catch (err) {
+    console.warn('Failed to delete custom model:', err);
+  }
+};
+
+const showModelsAndUsageModal = ref(false);
+const isSyncingQuota = ref(false);
+const quotaUsageState = ref({
+  plan: 'Google AI Ultra',
+  planTier: 'Highest rate limits',
+  enableCreditOverages: false,
+  gemini: {
+    id: 'gemini',
+    name: 'Gemini Models',
+    provider: 'antigravity',
+    weeklyRemainingPercent: 69,
+    weeklyResetIn: '4 days, 9 hours',
+    fiveHourRemainingPercent: 93,
+    fiveHourResetIn: '3 hours, 50 minutes',
+  },
+  claudeGpt: {
+    id: 'claude_gpt',
+    name: 'Claude and GPT models',
+    provider: 'claude_code',
+    weeklyRemainingPercent: 100,
+    weeklyResetIn: '7 days',
+    fiveHourRemainingPercent: 100,
+    fiveHourResetIn: '5 hours',
+  },
+  codex: {
+    id: 'codex',
+    name: 'Codex Models',
+    provider: 'codex',
+    weeklyRemainingPercent: 98,
+    weeklyResetIn: '6 days, 20 hours',
+    fiveHourRemainingPercent: 95,
+    fiveHourResetIn: '4 hours, 30 minutes',
+  },
+});
+
+const activeQuotaGroup = computed(() => {
+  if (provider.value === 'antigravity') {
+    return quotaUsageState.value.gemini || { name: 'Gemini Models', weeklyRemainingPercent: 69, fiveHourRemainingPercent: 93 };
+  }
+  if (provider.value === 'claude_code') {
+    return quotaUsageState.value.claudeGpt || { name: 'Claude and GPT models', weeklyRemainingPercent: 100, fiveHourRemainingPercent: 100 };
+  }
+  return quotaUsageState.value.codex || { name: 'Codex Models', weeklyRemainingPercent: 98, fiveHourRemainingPercent: 95 };
+});
+
+const loadQuotaUsage = async () => {
+  try {
+    const res = await (window as any).desktopApi?.agent?.getQuotaUsage?.();
+    if (res) {
+      quotaUsageState.value = { ...quotaUsageState.value, ...res };
+    }
+  } catch (err) {
+    console.warn('Failed to load quota usage:', err);
+  }
+};
+
+const refreshQuotaUsage = async () => {
+  if (isSyncingQuota.value) return;
+  isSyncingQuota.value = true;
+  try {
+    const res = await (window as any).desktopApi?.agent?.syncQuotaUsage?.(localStorage.getItem('task_companion_hub_url') || undefined);
+    if (res) {
+      quotaUsageState.value = { ...quotaUsageState.value, ...res };
+      addTimeline('Quota synced', 'Đã đồng bộ thông số Quota & Rate limits mới nhất.', 'ok');
+    }
+  } catch (err) {
+    console.warn('Failed to refresh quota:', err);
+  } finally {
+    isSyncingQuota.value = false;
+  }
+};
+
+const toggleCreditOverages = async () => {
+  quotaUsageState.value.enableCreditOverages = !quotaUsageState.value.enableCreditOverages;
+  try {
+    await (window as any).desktopApi?.agent?.updateQuotaSettings?.({
+      enableCreditOverages: quotaUsageState.value.enableCreditOverages,
+    });
+  } catch (err) {
+    console.warn('Failed to update credit overages:', err);
+  }
+};
+
+const openModelsAndUsageModal = () => {
+  void loadQuotaUsage();
+  showModelsAndUsageModal.value = true;
+};
+
+// Antigravity 2.0 Modals
+const showSkillsModal = ref(false);
+const showScheduledTasksModal = ref(false);
+const showSettingsPermissionsModal = ref(false);
+
+export type ActivityType = 'agent' | 'explorer' | 'diff' | 'skills' | 'schedule' | 'models' | 'history' | 'settings';
+export type EditorTabType = 'terminal' | 'monaco' | 'context' | 'evidence' | 'subagents' | 'tasks' | 'artifacts';
+
+const activeActivity = ref<ActivityType>('agent');
+const activeEditorTab = ref<EditorTabType>('terminal');
+
+// Antigravity 2.0 Subagents & Tasks tracking state
+const activeSubagents = ref<Array<{ id: string; role: string; type: string; model: string; state: string; stateDetail?: string }>>([
+  { id: 'sub-self-01', role: 'Code Refactor Specialist', type: 'self', model: 'Gemini 3.7 Flash', state: 'idle', stateDetail: 'Sẵn sàng tiếp nhận nhiệm vụ chuyên sâu' },
+  { id: 'sub-research-01', role: 'Codebase Researcher', type: 'research', model: 'Gemini 3.7 Flash', state: 'idle', stateDetail: 'Sẵn sàng khảo sát tài liệu và mã nguồn' }
+]);
+
+const activeBackgroundTasks = ref<Array<{ id: string; name: string; status: 'running' | 'completed' | 'failed'; duration: string; progress?: string }>>([]);
+
+// Antigravity 2.0 Slash Commands
+const slashCommands = [
+  { cmd: '/goal', label: '/goal', desc: 'Thực thi tự động dài hạn đến khi hoàn thành mục tiêu', icon: 'codicon-milestone' },
+  { cmd: '/schedule', label: '/schedule', desc: 'Lên lịch hẹn thực thi định kỳ hoặc hẹn giờ 1 lần', icon: 'codicon-history' },
+  { cmd: '/browser', label: '/browser', desc: 'Tự động hóa trình duyệt và trích xuất dữ liệu web', icon: 'codicon-globe' },
+  { cmd: '/grill-me', label: '/grill-me', desc: 'Phỏng vấn chi tiết để làm rõ yêu cầu thiết kế và kiến trúc', icon: 'codicon-comment-discussion' },
+  { cmd: '/teamwork-preview', label: '/teamwork-preview', desc: 'Phối hợp đa agent thực thi song song theo nhóm', icon: 'codicon-organization' },
+  { cmd: '/learn', label: '/learn', desc: 'Lưu ghi nhớ và bài học kinh nghiệm vào project rules', icon: 'codicon-book' },
+  { cmd: '/diff', label: '/diff', desc: 'Mở trình soi mã nguồn Monaco Diff Inspector', icon: 'codicon-diff' },
+  { cmd: '/clear', label: '/clear', desc: 'Xóa sạch màn hình Terminal stream', icon: 'codicon-clear-all' },
+];
+
+const showSlashMenu = ref(false);
+const slashFilter = ref('');
+
+const filteredSlashCommands = computed(() => {
+  if (!slashFilter.value) return slashCommands;
+  const q = slashFilter.value.toLowerCase();
+  return slashCommands.filter(c => c.cmd.toLowerCase().includes(q) || c.desc.toLowerCase().includes(q));
+});
+
+const insertSlashCommand = (cmd: string) => {
+  followUp.value = `${cmd} `;
+  showSlashMenu.value = false;
+};
+
+watch(
+  () => followUp.value,
+  (val) => {
+    if (val.startsWith('/')) {
+      showSlashMenu.value = true;
+      slashFilter.value = val.slice(1);
+    } else {
+      showSlashMenu.value = false;
+    }
+  }
+);
+
+const startNewConversation = () => {
+  if (phase.value === 'running') {
+    const ok = confirm('Agent đang chạy. Bạn có muốn dừng phiên hiện tại và bắt đầu phiên mới?');
+    if (!ok) return;
+    void stopAgent();
+  }
+  followUp.value = '';
+  rawOutput.value = '';
+  terminalHtml.value = '';
+  plainOutput.value = '';
+  phase.value = 'ready';
+  activeEditorTab.value = 'terminal';
+  selectedDiffFile.value = null;
+  selectedEditorFile.value = null;
+  addTimeline('New Session', 'Đã khởi tạo phiên làm việc mới của Antigravity 2.0', 'ok');
+};
+
+const activeCwd = computed(() => worktree.value || sourceWorkspace.value || '');
+
+const workspaceFiles = ref<Array<{ path: string; isDir: boolean; name: string }>>([]);
+const isLoadingFiles = ref(false);
+
+type DiffItem = {
+  file: string;
+  status: string;
+  original: string;
+  modified: string;
+  patch: string;
+  additions?: number;
+  deletions?: number;
+};
+
+const gitDiffData = ref<{
+  dirtyFiles: Array<{ status: string; file: string }>;
+  diffs: Array<DiffItem>;
+  totalAdditions?: number;
+  totalDeletions?: number;
+  totalChangedFiles?: number;
+}>({ dirtyFiles: [], diffs: [], totalAdditions: 0, totalDeletions: 0, totalChangedFiles: 0 });
+const isLoadingDiff = ref(false);
+
+const selectedDiffFile = ref<DiffItem | null>(null);
+const selectedEditorFile = ref<{ path: string; content: string } | null>(null);
+
+const loadWorkspaceFiles = async () => {
+  const dir = activeCwd.value;
+  if (!dir) return;
+  isLoadingFiles.value = true;
+  try {
+    const list = await (window as any).desktopApi?.agent?.listFiles?.(dir, 300);
+    if (Array.isArray(list)) {
+      workspaceFiles.value = list;
+    }
+  } catch (err) {
+    console.warn('Failed to list workspace files:', err);
+  } finally {
+    isLoadingFiles.value = false;
+  }
+};
+
+const loadGitDiff = async () => {
+  const dir = activeCwd.value;
+  if (!dir) return;
+  isLoadingDiff.value = true;
+  try {
+    const res = await (window as any).desktopApi?.agent?.getGitDiff?.(dir);
+    if (res && Array.isArray(res.diffs)) {
+      gitDiffData.value = {
+        dirtyFiles: res.dirtyFiles || [],
+        diffs: res.diffs || [],
+        totalAdditions: res.totalAdditions ?? res.diffs.reduce((acc: number, d: any) => acc + (d.additions || 0), 0),
+        totalDeletions: res.totalDeletions ?? res.diffs.reduce((acc: number, d: any) => acc + (d.deletions || 0), 0),
+        totalChangedFiles: res.totalChangedFiles ?? res.diffs.length,
+      };
+      if (!selectedDiffFile.value && res.diffs.length > 0) {
+        selectedDiffFile.value = res.diffs[0];
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to get git diff:', err);
+  } finally {
+    isLoadingDiff.value = false;
+  }
+};
+
+const revertDiffFile = async (filePath: string) => {
+  const dir = activeCwd.value;
+  if (!dir || !filePath) return;
+  const ok = confirm(`Bạn có chắc muốn khôi phục (revert) tệp "${filePath}" về trạng thái trước khi Agent sửa đổi?`);
+  if (!ok) return;
+  try {
+    const res = await (window as any).desktopApi?.agent?.revertFile?.(dir, filePath);
+    if (res?.success) {
+      addTimeline('File Reverted', `Đã khôi phục file: ${filePath}`, 'ok');
+      await loadGitDiff();
+      if (selectedDiffFile.value?.file === filePath) {
+        selectedDiffFile.value = gitDiffData.value.diffs[0] || null;
+      }
+    } else {
+      errorMessage.value = res?.message || 'Không thể revert file.';
+    }
+  } catch (err: any) {
+    errorMessage.value = err.message || 'Lỗi khi revert file.';
+  }
+};
+
+const populateHandoffFromDiff = () => {
+  if (!gitDiffData.value.diffs.length) return;
+  const fileList = gitDiffData.value.diffs.map((d: any) => `${d.file} (+${d.additions || 0} -${d.deletions || 0})`).join('\n');
+  handoff.value.changedFiles = fileList;
+  if (!handoff.value.summary) {
+    handoff.value.summary = `Agent đã hoàn thành sửa đổi trên ${gitDiffData.value.totalChangedFiles || gitDiffData.value.diffs.length} tệp tin (+${gitDiffData.value.totalAdditions || 0} / -${gitDiffData.value.totalDeletions || 0} dòng).`;
+  }
+  activeEditorTab.value = 'evidence';
+};
+
+watch(
+  () => phase.value,
+  (newPhase) => {
+    if (newPhase === 'handoff' || newPhase === 'review') {
+      void loadGitDiff();
+    }
+  }
+);
+
+const selectActivity = (act: ActivityType) => {
+  activeActivity.value = act;
+  if (act === 'explorer') {
+    void loadWorkspaceFiles();
+  } else if (act === 'diff') {
+    void loadGitDiff();
+  } else if (act === 'skills') {
+    showSkillsModal.value = true;
+  } else if (act === 'schedule') {
+    showScheduledTasksModal.value = true;
+  } else if (act === 'models') {
+    openModelsAndUsageModal();
+  } else if (act === 'history') {
+    openSessionHistory();
+  } else if (act === 'settings') {
+    showSettingsPermissionsModal.value = true;
+  }
+};
+
+const openFileInMonaco = async (fileItem: { path: string; isDir: boolean }) => {
+  if (fileItem.isDir || !activeCwd.value) return;
+  try {
+    const content = await (window as any).desktopApi?.agent?.readFile?.(activeCwd.value, fileItem.path);
+    selectedEditorFile.value = { path: fileItem.path, content: content || '' };
+    selectedDiffFile.value = null;
+    activeEditorTab.value = 'monaco';
+  } catch (err) {
+    console.warn('Failed to read file:', err);
+  }
+};
+
+const getFileIconClass = (path: string, isDir: boolean): { icon: string; color: string } => {
+  if (isDir) return { icon: 'codicon-folder', color: 'text-amber-400' };
+  const ext = path.split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case 'vue':
+      return { icon: 'codicon-symbol-class', color: 'text-emerald-400' };
+    case 'ts':
+    case 'tsx':
+      return { icon: 'codicon-file-code', color: 'text-blue-400' };
+    case 'js':
+    case 'jsx':
+    case 'mjs':
+      return { icon: 'codicon-file-code', color: 'text-yellow-400' };
+    case 'json':
+      return { icon: 'codicon-json', color: 'text-yellow-300' };
+    case 'css':
+    case 'scss':
+    case 'less':
+      return { icon: 'codicon-symbol-color', color: 'text-cyan-400' };
+    case 'html':
+      return { icon: 'codicon-code', color: 'text-orange-400' };
+    case 'md':
+    case 'markdown':
+      return { icon: 'codicon-markdown', color: 'text-sky-300' };
+    case 'php':
+      return { icon: 'codicon-file-code', color: 'text-purple-400' };
+    case 'py':
+      return { icon: 'codicon-file-code', color: 'text-blue-300' };
+    case 'sql':
+      return { icon: 'codicon-database', color: 'text-amber-300' };
+    case 'sh':
+    case 'bat':
+    case 'ps1':
+      return { icon: 'codicon-terminal', color: 'text-emerald-300' };
+    case 'yml':
+    case 'yaml':
+      return { icon: 'codicon-gear', color: 'text-rose-400' };
+    default:
+      return { icon: 'codicon-file', color: 'text-zinc-400' };
+  }
+};
+
+const openDiffInMonaco = (diffItem: DiffItem) => {
+  selectedDiffFile.value = diffItem;
+  selectedEditorFile.value = null;
+  activeEditorTab.value = 'monaco';
+};
+
+// VS Code Command Palette
+const showCommandPalette = ref(false);
+const commandPaletteSearch = ref('');
+
+type VSCommand = {
+  id: string;
+  title: string;
+  category: string;
+  icon: string;
+  shortcut?: string;
+  action: () => void | Promise<void>;
+};
+
+const vsCommands = computed<VSCommand[]>(() => [
+  {
+    id: 'run-codex',
+    category: 'Agent',
+    title: 'Switch Provider to OpenAI Codex (Native Stream)',
+    icon: 'codicon-copilot',
+    action: () => { provider.value = 'codex'; activeActivity.value = 'agent'; },
+  },
+  {
+    id: 'run-claude',
+    category: 'Agent',
+    title: 'Switch Provider to Claude Code (Auto Tool Execution)',
+    icon: 'codicon-sparkle',
+    action: () => { provider.value = 'claude_code'; activeActivity.value = 'agent'; },
+  },
+  {
+    id: 'run-agy',
+    category: 'Agent',
+    title: 'Switch Provider to Google Antigravity (IDE Direct)',
+    icon: 'codicon-hubot',
+    action: () => { provider.value = 'antigravity'; activeActivity.value = 'agent'; },
+  },
+  {
+    id: 'sync-models',
+    category: 'Models & Quota',
+    title: 'Auto-Discover & Sync Available Models from Hub & CLI',
+    icon: 'codicon-refresh',
+    shortcut: 'Ctrl+Shift+R',
+    action: () => syncAvailableModels(true),
+  },
+  {
+    id: 'open-quota',
+    category: 'Models & Quota',
+    title: 'Open Models & Quota Usage (% 5-Hour & Weekly Remaining)',
+    icon: 'codicon-pulse',
+    action: () => openModelsAndUsageModal(),
+  },
+  {
+    id: 'git-diff',
+    category: 'Git',
+    title: 'View Working Tree Changes in Monaco Diff Editor',
+    icon: 'codicon-diff',
+    shortcut: 'Ctrl+Shift+G',
+    action: () => { selectActivity('diff'); activeEditorTab.value = 'monaco'; },
+  },
+  {
+    id: 'browse-files',
+    category: 'View',
+    title: 'Open File Explorer Tree in Sidebar',
+    icon: 'codicon-files',
+    shortcut: 'Ctrl+Shift+E',
+    action: () => { selectActivity('explorer'); },
+  },
+  {
+    id: 'terminal-view',
+    category: 'View',
+    title: 'Show Terminal & Live Stream Output',
+    icon: 'codicon-terminal',
+    shortcut: 'Ctrl+`',
+    action: () => { activeEditorTab.value = 'terminal'; },
+  },
+  {
+    id: 'generate-docs',
+    category: 'Docs',
+    title: 'Scan Repo & Generate Complete Documentation Suite',
+    icon: 'codicon-book',
+    action: () => startDocsGeneration(),
+  },
+  {
+    id: 'preflight',
+    category: 'Preflight',
+    title: 'Run Isolation Preflight & Worktree Setup',
+    icon: 'codicon-play',
+    action: () => runPreflight(),
+  },
+  {
+    id: 'fullscreen',
+    category: 'View',
+    title: 'Toggle Fullscreen Mode',
+    icon: 'codicon-screen-full',
+    shortcut: 'F11',
+    action: () => toggleFullscreen(),
+  },
+]);
+
+const filteredCommands = computed(() => {
+  const q = commandPaletteSearch.value.trim().toLowerCase();
+  if (!q) return vsCommands.value;
+  return vsCommands.value.filter(
+    (c) => c.title.toLowerCase().includes(q) || c.category.toLowerCase().includes(q)
+  );
+});
+
+const executeCommand = (cmd: VSCommand) => {
+  showCommandPalette.value = false;
+  commandPaletteSearch.value = '';
+  void cmd.action();
+};
+
+const handleGlobalKeydown = (e: KeyboardEvent) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+    e.preventDefault();
+    showCommandPalette.value = !showCommandPalette.value;
+    commandPaletteSearch.value = '';
+  } else if (e.key === 'Escape' && showCommandPalette.value) {
+    showCommandPalette.value = false;
+  }
+};
+
+const activeModel = computed<string>(() => {
+  if (isCustomModel.value[provider.value] && customModelInput.value[provider.value]?.trim()) {
+    return customModelInput.value[provider.value].trim();
+  }
+  return selectedModels.value[provider.value] || 'default';
+});
+
+const currentModelOption = computed(() => {
+  const list = modelsState.value[provider.value] || PROVIDER_MODELS[provider.value] || [];
+  return list.find((m) => m.id === activeModel.value) || null;
+});
+
+const filteredProviderModels = computed(() => {
+  const list = modelsState.value[provider.value] || PROVIDER_MODELS[provider.value] || [];
+  const q = modelSearchQuery.value.trim().toLowerCase();
+  if (!q) return list;
+  return list.filter((m) =>
+    m.name.toLowerCase().includes(q) ||
+    m.id.toLowerCase().includes(q) ||
+    (m.badges && m.badges.some((b) => b.toLowerCase().includes(q)))
+  );
+});
+
+const activeModelLabel = computed(() => {
+  if (isCustomModel.value[provider.value] && customModelInput.value[provider.value]?.trim()) {
+    return customModelInput.value[provider.value].trim();
+  }
+  return currentModelOption.value?.name || activeModel.value;
+});
+
+const activeModelBadge = computed(() => {
+  if (isCustomModel.value[provider.value]) return 'Custom';
+  if (currentModelOption.value?.badges?.length) return currentModelOption.value.badges[0];
+  return currentModelOption.value?.badge || 'Model';
+});
+
+const getBadgeClass = (badge: string) => {
+  const b = badge.toLowerCase();
+  if (b.includes('high') || b.includes('flagship')) return 'bg-emerald-950/80 border-emerald-800/80 text-emerald-300';
+  if (b.includes('fast') || b.includes('ultra')) return 'bg-cyan-950/80 border-cyan-800/80 text-cyan-300';
+  if (b.includes('thinking') || b.includes('reasoning')) return 'bg-purple-950/80 border-purple-800/80 text-purple-300';
+  if (b.includes('recommended') || b.includes('context') || b.includes('foundational')) return 'bg-amber-950/80 border-amber-800/80 text-amber-300';
+  if (b.includes('security') || b.includes('specialized')) return 'bg-rose-950/80 border-rose-800/80 text-rose-300';
+  if (b.includes('open') || b.includes('weights')) return 'bg-indigo-950/80 border-indigo-800/80 text-indigo-300';
+  if (b.includes('saved') || b.includes('custom')) return 'bg-sky-950/80 border-sky-800/80 text-sky-300';
+  if (b.includes('medium') || b.includes('balanced')) return 'bg-slate-800 border-slate-700 text-slate-300';
+  if (b.includes('low')) return 'bg-slate-900 border-slate-800 text-slate-400';
+  return 'bg-slate-800 border-slate-700 text-slate-300';
+};
+
+const selectModel = (modelId: string) => {
+  isCustomModel.value[provider.value] = false;
+  selectedModels.value[provider.value] = modelId;
+  addTimeline('Model selected', `${provider.value.toUpperCase()} → ${modelId}`, 'ok');
+  saveWorkspaceState();
+};
+
+const setCustomModel = (customId: string) => {
+  isCustomModel.value[provider.value] = true;
+  customModelInput.value[provider.value] = customId;
+  saveWorkspaceState();
+};
+
+watch(provider, () => {
+  void syncAvailableModels(false);
+});
+
+const toggleCustomModelMode = () => {
+  isCustomModel.value[provider.value] = !isCustomModel.value[provider.value];
+  saveWorkspaceState();
+};
 
 const sourceWorkspace = ref(localStorage.getItem('task_companion_agent_workspace') || '');
 const savedWorkspaces = ref<string[]>([]);
@@ -174,6 +875,10 @@ const saveWorkspaceState = () => {
     const payload = {
       phase: phase.value,
       provider: provider.value,
+      model: activeModel.value,
+      selectedModels: selectedModels.value,
+      customModelInput: customModelInput.value,
+      isCustomModel: isCustomModel.value,
       sourceWorkspace: sourceWorkspace.value,
       worktree: worktree.value,
       taskId: taskId.value,
@@ -195,6 +900,7 @@ const saveWorkspaceState = () => {
       window.desktopApi.agent.saveSessionState({
         sessionId: sessionId.value,
         provider: provider.value,
+        model: activeModel.value,
         sourceWorkspace: sourceWorkspace.value,
         worktree: worktree.value,
         taskId: taskId.value,
@@ -238,6 +944,17 @@ const switchSession = async (sess: any) => {
   stopDurationTimer();
 
   provider.value = sess.provider || 'codex';
+  if (sess.model) {
+    const prov = (sess.provider || 'codex') as Provider;
+    const existsInPresets = (PROVIDER_MODELS[prov] || []).some((m) => m.id === sess.model);
+    if (existsInPresets) {
+      selectedModels.value[prov] = sess.model;
+      isCustomModel.value[prov] = false;
+    } else {
+      customModelInput.value[prov] = sess.model;
+      isCustomModel.value[prov] = true;
+    }
+  }
   sourceWorkspace.value = sess.sourceWorkspace || sess.cwd || '';
   worktree.value = sess.worktree || sess.cwd || '';
   taskId.value = sess.taskId ?? null;
@@ -297,6 +1014,26 @@ const restoreWorkspaceState = async () => {
 
     if (state) {
       if (state.provider) provider.value = state.provider;
+      if (state.selectedModels && typeof state.selectedModels === 'object') {
+        selectedModels.value = { ...selectedModels.value, ...state.selectedModels };
+      }
+      if (state.customModelInput && typeof state.customModelInput === 'object') {
+        customModelInput.value = { ...customModelInput.value, ...state.customModelInput };
+      }
+      if (state.isCustomModel && typeof state.isCustomModel === 'object') {
+        isCustomModel.value = { ...isCustomModel.value, ...state.isCustomModel };
+      }
+      if (state.model) {
+        const prov = (state.provider || provider.value) as Provider;
+        const existsInPresets = (PROVIDER_MODELS[prov] || []).some((m) => m.id === state.model);
+        if (existsInPresets) {
+          selectedModels.value[prov] = state.model;
+          isCustomModel.value[prov] = false;
+        } else {
+          customModelInput.value[prov] = state.model;
+          isCustomModel.value[prov] = true;
+        }
+      }
       if (state.sourceWorkspace) sourceWorkspace.value = state.sourceWorkspace;
       if (state.worktree) worktree.value = state.worktree;
       if (state.taskId !== undefined) taskId.value = state.taskId;
@@ -380,7 +1117,7 @@ const startNewRun = () => {
 };
 
 // Watchers for auto-saving
-watch([phase, provider, sourceWorkspace, worktree, taskId, docsOnly, sessionId, runId, streamCards, timeline, rawOutput, handoff, viewMode], () => {
+watch([phase, provider, selectedModels, customModelInput, isCustomModel, sourceWorkspace, worktree, taskId, docsOnly, sessionId, runId, streamCards, timeline, rawOutput, handoff, viewMode], () => {
   saveWorkspaceState();
 }, { deep: true });
 
@@ -682,10 +1419,10 @@ const verifyTaskHub = async () => {
 };
 
 const contract = () =>
-  `TASK HUB CONTRACT\nWork only on ${selectedTask.value?.issue_key || `task-${taskId.value}`}. You have full execution permissions in this isolated worktree; do not ask for human approval before running commands, editing files, testing, committing, pushing, merging, or deploying when those actions are required by the task. Use Task Hub MCP for lifecycle/evidence and end with summary, changed files, tests, commit/PR and blockers.\n\nCONTEXT:\n${JSON.stringify(contextPack.value, null, 2)}`;
+  `TASK HUB CONTRACT\nProvider: ${provider.value}\nModel: ${activeModel.value} (${activeModelLabel.value})\nWork only on ${selectedTask.value?.issue_key || `task-${taskId.value}`}. You have full execution permissions in this isolated worktree; do not ask for human approval before running commands, editing files, testing, committing, pushing, merging, or deploying when those actions are required by the task. Use Task Hub MCP for lifecycle/evidence and end with summary, changed files, tests, commit/PR and blockers.\n\nCONTEXT:\n${JSON.stringify(contextPack.value, null, 2)}`;
 
 const docsPrompt = () =>
-  `You are generating Task Hub standard documentation in a supervised worktree. First scan repository structure, package manifests, entry points, configuration, public interfaces, database/migrations, tests, and existing documentation. Create or update ONLY these canonical files under docs/: PROJECT_DOCUMENTS.md, PROJECT_BRIEF.md, PRD.md, ARCHITECTURE.md, QA_PLAN.md, and RELEASE_RUNBOOK.md. PROJECT_DOCUMENTS.md MUST use the exact Task Hub registry marker <!-- task-hub:document-registry:v1 --> and these five rows/types: brief→docs/PROJECT_BRIEF.md, prd→docs/PRD.md, architecture→docs/ARCHITECTURE.md, qa_plan→docs/QA_PLAN.md, release_runbook→docs/RELEASE_RUNBOOK.md. Each core document must have stable headings: Purpose, Scope, Current State, Constraints, Open Questions; add domain-specific sections only after those. Base every statement on files you actually inspected; mark unknowns as TODO instead of guessing. Include source paths and an As-of commit/date in each document. Do not modify application source code, credentials, lockfiles, generated output, README, or deployment state. Do not commit, push, merge, or deploy. Finish with a summary of scanned areas, created/updated canonical files, and documentation gaps. These files will be synced by Task Hub and passed into future task context, so preserve the schema and paths exactly.`;
+  `You are generating Task Hub standard documentation in a supervised worktree. Model: ${activeModel.value} (${activeModelLabel.value}). First scan repository structure, package manifests, entry points, configuration, public interfaces, database/migrations, tests, and existing documentation. Create or update ONLY these canonical files under docs/: PROJECT_DOCUMENTS.md, PROJECT_BRIEF.md, PRD.md, ARCHITECTURE.md, QA_PLAN.md, and RELEASE_RUNBOOK.md. PROJECT_DOCUMENTS.md MUST use the exact Task Hub registry marker <!-- task-hub:document-registry:v1 --> and these five rows/types: brief→docs/PROJECT_BRIEF.md, prd→docs/PRD.md, architecture→docs/ARCHITECTURE.md, qa_plan→docs/QA_PLAN.md, release_runbook→docs/RELEASE_RUNBOOK.md. Each core document must have stable headings: Purpose, Scope, Current State, Constraints, Open Questions; add domain-specific sections only after those. Base every statement on files you actually inspected; mark unknowns as TODO instead of guessing. Include source paths and an As-of commit/date in each document. Do not modify application source code, credentials, lockfiles, generated output, README, or deployment state. Do not commit, push, merge, or deploy. Finish with a summary of scanned areas, created/updated canonical files, and documentation gaps. These files will be synced by Task Hub and passed into future task context, so preserve the schema and paths exactly.`;
 
 const startPairing = async () => {
   if (!selectedTask.value) return;
@@ -728,7 +1465,7 @@ const runPreflight = async () => {
     return;
   }
   phase.value = 'preflight';
-  addTimeline('Preflight', `Kiểm tra ${provider.value} và repository...`, 'active');
+  addTimeline('Preflight', `Kiểm tra ${provider.value} (${activeModel.value}) và repository...`, 'active');
   try {
     preflight.value = await window.desktopApi.agent.preflight(provider.value, sourceWorkspace.value);
     preflight.value.checks.forEach((check: any) => addTimeline(check.id, check.message, check.status));
@@ -764,7 +1501,7 @@ const startDocsGeneration = async () => {
     return;
   }
   phase.value = 'preflight';
-  addTimeline('Docs scan', `Kiểm tra ${provider.value} và repository...`, 'active');
+  addTimeline('Docs scan', `Kiểm tra ${provider.value} (${activeModel.value}) và repository...`, 'active');
   try {
     preflight.value = await window.desktopApi.agent.preflight(provider.value, sourceWorkspace.value);
     preflight.value.checks.forEach((check: any) => addTimeline(check.id, check.message, check.status));
@@ -781,17 +1518,17 @@ const startDocsGeneration = async () => {
     runDurationSeconds.value = 0;
     startDurationTimer();
 
-    const result = await window.desktopApi.agent.startInteractive(provider.value, worktree.value, docsPrompt(), 'docs');
+    const result = await window.desktopApi.agent.startInteractive(provider.value, worktree.value, docsPrompt(), 'docs', activeModel.value);
     sessionId.value = result.sessionId;
     localStorage.setItem('task_companion_active_session', result.sessionId);
 
     if (result.mode === 'external') {
-      rawOutput.value = 'Agent đang chạy trong ứng dụng bên ngoài (Antigravity). Hãy hoàn tất rồi dừng phiên để review.\n';
+      rawOutput.value = `Agent đang chạy trong ứng dụng bên ngoài (Antigravity · ${activeModel.value}). Hãy hoàn tất rồi dừng phiên để review.\n`;
       updateTerminalRender();
     }
     addTimeline(
       'Docs agent started',
-      result.mode === 'external' ? 'Prompt đã gửi cho Antigravity.' : `${provider.value} đang quét repository và tạo tài liệu...`,
+      result.mode === 'external' ? `Prompt đã gửi cho Antigravity (${activeModel.value}).` : `${provider.value} (${activeModel.value}) đang quét repository và tạo tài liệu...`,
       'ok'
     );
   } catch (error: any) {
@@ -827,13 +1564,13 @@ const loadContext = async () => {
           agent_session_id: session,
           repository: contextPack.value.repository,
           branch: preflight.value?.branch || contextPack.value.branch,
-          context: contextPack.value,
-          instruction: { contract: 'full_access_task_execution', approval_mode: 'none' },
+          context: { ...contextPack.value, model: activeModel.value },
+          instruction: { contract: 'full_access_task_execution', approval_mode: 'none', model: activeModel.value },
         },
       })
     );
     runId.value = run?.data?.id || run?.id || null;
-    addTimeline('Context ready', 'Nạp Context pack + cấu hình MCP thành công (Full Access).', 'ok');
+    addTimeline('Context ready', `Nạp Context pack + cấu hình MCP thành công (Full Access · ${activeModel.value}).`, 'ok');
     phase.value = 'ready';
   } catch (error: any) {
     phase.value = 'error';
@@ -851,6 +1588,7 @@ const updateRun = async (status: string, summary?: string) => {
         status,
         summary,
         metadata: {
+          model: activeModel.value,
           worktree_path: worktree.value,
           base_commit: preflight.value?.baseCommit,
           provider_capabilities: preflight.value?.capabilities,
@@ -871,13 +1609,13 @@ const startAgent = async () => {
     startDurationTimer();
     await updateRun('running');
 
-    const result = await window.desktopApi.agent.startInteractive(provider.value, worktree.value, contract(), 'task');
+    const result = await window.desktopApi.agent.startInteractive(provider.value, worktree.value, contract(), 'task', activeModel.value);
     sessionId.value = result.sessionId;
     localStorage.setItem('task_companion_active_session', result.sessionId);
 
     addTimeline(
       'Agent started',
-      result.mode === 'external' ? 'Antigravity đã mở · prompt đã copy.' : `${provider.value} execution đã kích hoạt với full quyền.`,
+      result.mode === 'external' ? `Antigravity (${activeModel.value}) đã mở · prompt đã copy.` : `${provider.value} (${activeModel.value}) execution đã kích hoạt với full quyền.`,
       'ok'
     );
     if (result.mode === 'external') {
@@ -1024,6 +1762,8 @@ const openSessionLog = async () => {
 onMounted(() => {
   void loadSavedWorkspaces();
   void restoreWorkspaceState();
+  void syncAvailableModels(false);
+  void loadQuotaUsage();
 
   removeOutput = window.desktopApi?.agent?.onOutput((event: any) => {
     if (event.sessionId === sessionId.value) {
@@ -1060,6 +1800,8 @@ onMounted(() => {
       saveWorkspaceState();
     }
   });
+
+  window.addEventListener('keydown', handleGlobalKeydown);
 });
 
 onUnmounted(() => {
@@ -1069,6 +1811,7 @@ onUnmounted(() => {
   if (renderTimer) clearTimeout(renderTimer);
   removeOutput?.();
   removeExit?.();
+  window.removeEventListener('keydown', handleGlobalKeydown);
 });
 </script>
 
@@ -1078,93 +1821,335 @@ onUnmounted(() => {
     :class="isFullscreen ? 'max-w-none max-h-none h-full rounded-none border-0' : ''"
     @mousedown.stop
   >
-    <!-- TOP HEADER -->
-    <header class="flex items-center justify-between px-5 py-3 border-b border-slate-800/80 bg-slate-900/40 shrink-0">
+    <!-- 1. VS CODE WORKBENCH TITLE BAR -->
+    <header class="h-9 px-3 bg-[#1e1e1e] border-b border-[#2d2d2d] flex items-center justify-between text-xs shrink-0 select-none text-zinc-300">
+      <!-- Left: Logo & VS Code Menu -->
       <div class="flex items-center gap-3 min-w-0">
-        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 shadow-inner">
-          <MacatungIcon name="agent" :size="20" />
-        </span>
-        <div class="min-w-0">
-          <div class="flex items-center gap-2 flex-wrap">
-            <h2 class="font-bold text-sm text-slate-100 tracking-tight">Agent Run Workspace</h2>
-            <span
-              class="px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide"
-              :class="
-                phaseTone === 'error'
-                  ? 'bg-rose-950/80 border border-rose-800/60 text-rose-300'
-                  : phaseTone === 'success'
-                  ? 'bg-emerald-950/80 border border-emerald-800/60 text-emerald-300'
-                  : phaseTone === 'active'
-                  ? 'bg-cyan-950/80 border border-cyan-800/60 text-cyan-300 animate-pulse'
-                  : 'bg-slate-800 border border-slate-700 text-slate-300'
-              "
-            >
-              {{ phaseLabel }}
-            </span>
-            <span v-if="phase === 'running'" class="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-800/80 border border-slate-700 text-[10px] text-cyan-300 font-mono">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-              {{ formattedDuration }}
-            </span>
-          </div>
-          <p class="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-            <span class="text-slate-500 font-mono uppercase text-[10px]">Pipeline:</span>
-            <span>Preflight</span>
-            <span class="text-slate-600">→</span>
-            <span>Worktree</span>
-            <span class="text-slate-600">→</span>
-            <span class="text-cyan-400 font-medium">Full-access execution</span>
-            <span class="text-slate-600">→</span>
-            <span>Handoff</span>
-            <span class="text-slate-600">→</span>
-            <span>Review</span>
-          </p>
+        <div class="flex items-center gap-1.5 text-cyan-400 font-bold font-mono">
+          <MacatungIcon name="agent" :size="16" />
+          <span class="hidden sm:inline text-zinc-200">Task Hub IDE</span>
+        </div>
+
+        <!-- VS Code Top Menus -->
+        <div class="hidden md:flex items-center gap-1 text-[11px] text-zinc-400">
+          <button class="px-1.5 py-0.5 rounded hover:bg-[#333333] hover:text-white cursor-pointer" @click="selectActivity('explorer')">File</button>
+          <button class="px-1.5 py-0.5 rounded hover:bg-[#333333] hover:text-white cursor-pointer" @click="showCommandPalette = true">Edit</button>
+          <button class="px-1.5 py-0.5 rounded hover:bg-[#333333] hover:text-white cursor-pointer" @click="selectActivity('diff')">Selection</button>
+          <button class="px-1.5 py-0.5 rounded hover:bg-[#333333] hover:text-white cursor-pointer" @click="showCommandPalette = true">View</button>
+          <button class="px-1.5 py-0.5 rounded hover:bg-[#333333] hover:text-white cursor-pointer" @click="selectActivity('agent')">Run Agent</button>
+          <button class="px-1.5 py-0.5 rounded hover:bg-[#333333] hover:text-white cursor-pointer" @click="activeEditorTab = 'terminal'">Terminal</button>
+          <button class="px-1.5 py-0.5 rounded hover:bg-[#333333] hover:text-white cursor-pointer" @click="showCommandPalette = true">Help</button>
         </div>
       </div>
 
-      <div class="flex items-center gap-2 shrink-0">
-        <!-- SESSION HISTORY BUTTON -->
+      <!-- Center: VS Code Command Palette Search Trigger -->
+      <div class="flex-1 max-w-md mx-4">
         <button
-          class="h-8 px-2.5 rounded-lg border border-slate-700/80 bg-slate-900/60 hover:bg-slate-800 text-slate-300 hover:text-white text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-          title="Xem danh sách các phiên làm việc đã lưu"
-          @click="openSessionHistory"
+          class="w-full h-6 px-3 rounded bg-[#252526] hover:bg-[#2d2d2d] border border-[#3e3e42] text-[11px] text-zinc-400 flex items-center justify-between gap-2 transition-colors cursor-pointer"
+          @click="showCommandPalette = true; commandPaletteSearch = '';"
+          title="Mở Command Palette (Ctrl+P / ⌘P)"
         >
-          <span>📜</span>
-          <span class="text-[11px] hidden sm:inline">Lịch sử phiên</span>
-          <span v-if="savedSessions.length" class="px-1.5 py-0.2 rounded-full bg-cyan-900/80 text-cyan-300 text-[9px] font-mono font-bold">{{ savedSessions.length }}</span>
+          <div class="flex items-center gap-1.5 truncate">
+            <i class="codicon codicon-search text-zinc-400 text-xs" />
+            <span class="truncate font-mono">{{ activeCwd ? activeCwd.split('\\').pop() : 'task-hub' }} — Command Palette</span>
+          </div>
+          <span class="px-1 rounded bg-[#333333] text-[10px] font-mono text-zinc-400 shrink-0">Ctrl+P</span>
+        </button>
+      </div>
+
+      <!-- Right: Model Badge & Window Controls -->
+      <div class="flex items-center gap-1.5 shrink-0">
+        <!-- Quick Quota Button -->
+        <button
+          class="h-6 px-2 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-800/80 text-emerald-300 text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+          @click="openModelsAndUsageModal"
+          title="Models & Usage Quota"
+        >
+          <i class="codicon codicon-pulse text-xs" />
+          <span>{{ activeQuotaGroup.fiveHourRemainingPercent }}%</span>
         </button>
 
-        <!-- START NEW RUN BUTTON -->
-        <button
-          class="h-8 px-2.5 rounded-lg border border-slate-700/80 bg-slate-900/60 hover:bg-slate-800 text-slate-300 hover:text-white text-xs transition-colors flex items-center gap-1 cursor-pointer"
-          title="Tạo phiên làm việc mới (Reset Workspace)"
-          @click="startNewRun"
-        >
-          <span>🔄</span>
-          <span class="text-[11px] hidden sm:inline">Phiên mới</span>
-        </button>
+        <!-- Provider Pill -->
+        <span class="px-2 py-0.5 rounded bg-[#252526] border border-[#3e3e42] text-[10px] font-mono text-cyan-300 font-bold uppercase">
+          {{ provider === 'antigravity' ? 'AGY' : provider.toUpperCase() }}
+        </span>
 
+        <!-- Fullscreen & Close -->
         <button
-          class="h-8 px-2.5 rounded-lg border border-slate-700/80 bg-slate-900/60 hover:bg-slate-800 text-slate-300 hover:text-white text-xs transition-colors flex items-center gap-1 cursor-pointer"
-          :title="isFullscreen ? 'Thu nhỏ' : 'Mở toàn màn hình'"
+          class="w-7 h-6 rounded hover:bg-[#333333] text-zinc-400 hover:text-white grid place-items-center transition-colors cursor-pointer text-xs"
+          :title="isFullscreen ? 'Thu nhỏ' : 'Toàn màn hình'"
           @click="toggleFullscreen"
         >
-          <span class="text-sm leading-none">{{ isFullscreen ? '↙' : '↗' }}</span>
-          <span class="text-[11px] hidden sm:inline">{{ isFullscreen ? 'Thu nhỏ' : 'Toàn màn hình' }}</span>
+          <i class="codicon" :class="isFullscreen ? 'codicon-screen-normal' : 'codicon-screen-full'" />
         </button>
+
         <button
-          class="h-8 w-8 rounded-lg bg-slate-900/60 hover:bg-rose-950/60 hover:border-rose-800 border border-slate-700/80 text-slate-400 hover:text-rose-300 grid place-items-center transition-colors cursor-pointer text-sm font-bold"
-          title="Đóng cửa sổ (Tiến độ vẫn được lưu tự động)"
+          class="w-7 h-6 rounded hover:bg-rose-900/80 text-zinc-400 hover:text-white grid place-items-center transition-colors cursor-pointer text-xs font-bold"
+          title="Đóng cửa sổ"
           @click="emit('close')"
         >
-          ✕
+          <i class="codicon codicon-close" />
         </button>
       </div>
     </header>
 
-    <!-- MAIN BODY GRID (2 COLUMNS) -->
-    <div class="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[340px_minmax(0,1fr)] lg:grid-cols-[380px_minmax(0,1fr)] overflow-hidden">
-      <!-- LEFT CONTROL SIDEBAR (NATURALLY SCROLLABLE) -->
-      <aside class="sidebar-scrollable flex flex-col gap-3 p-4 border-r border-slate-800/80 bg-slate-950/70 overflow-y-auto min-w-0 max-h-full pb-8">
+    <!-- MAIN BODY: VS CODE SHELL (ACTIVITY BAR + SIDEBAR + EDITOR) -->
+    <div class="flex min-h-0 flex-1 overflow-hidden">
+      <!-- 1. ANTIGRAVITY 2.0 ACTIVITY BAR -->
+      <nav class="w-12 bg-[#333333] border-r border-[#252526] flex flex-col justify-between items-center py-2 shrink-0 select-none z-10">
+        <!-- Top Icons -->
+        <div class="flex flex-col items-center gap-1.5 w-full">
+          <!-- + New Conversation -->
+          <button
+            class="w-10 h-10 rounded flex items-center justify-center text-cyan-300 hover:text-white hover:bg-[#007acc] transition-colors cursor-pointer"
+            @click="startNewConversation"
+            title="Cuộc trò chuyện mới (+ New Conversation)"
+          >
+            <i class="codicon codicon-add text-lg font-bold" />
+          </button>
+
+          <div class="w-6 h-px bg-[#444444] my-0.5" />
+
+          <!-- Agent Workspace Tab -->
+          <button
+            class="w-10 h-10 rounded flex items-center justify-center transition-colors cursor-pointer relative"
+            :class="activeActivity === 'agent' ? 'text-white bg-[#252526]' : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#3e3e42]'"
+            @click="selectActivity('agent')"
+            title="Agent Canvas (Codex, Claude, AGY)"
+          >
+            <span v-if="activeActivity === 'agent'" class="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-[#007acc] rounded-r" />
+            <i class="codicon codicon-copilot text-lg" />
+          </button>
+
+          <!-- Explorer Tab -->
+          <button
+            class="w-10 h-10 rounded flex items-center justify-center transition-colors cursor-pointer relative"
+            :class="activeActivity === 'explorer' ? 'text-white bg-[#252526]' : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#3e3e42]'"
+            @click="selectActivity('explorer')"
+            title="Explorer (Ctrl+Shift+E)"
+          >
+            <span v-if="activeActivity === 'explorer'" class="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-[#007acc] rounded-r" />
+            <i class="codicon codicon-files text-lg" />
+          </button>
+
+          <!-- Source Control / Git Diff Tab -->
+          <button
+            class="w-10 h-10 rounded flex items-center justify-center transition-colors cursor-pointer relative"
+            :class="activeActivity === 'diff' ? 'text-white bg-[#252526]' : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#3e3e42]'"
+            @click="selectActivity('diff')"
+            title="Source Control & Git Diff (Ctrl+Shift+G)"
+          >
+            <span v-if="activeActivity === 'diff'" class="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-[#007acc] rounded-r" />
+            <i class="codicon codicon-source-control text-lg" />
+            <span v-if="gitDiffData.dirtyFiles.length" class="absolute top-1.5 right-1 px-1 py-0.2 rounded-full bg-[#007acc] text-[8px] font-bold text-white font-mono leading-none">
+              {{ gitDiffData.dirtyFiles.length }}
+            </span>
+          </button>
+
+          <!-- Skills & Customizations Tab -->
+          <button
+            class="w-10 h-10 rounded flex items-center justify-center transition-colors cursor-pointer relative"
+            :class="activeActivity === 'skills' ? 'text-white bg-[#252526]' : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#3e3e42]'"
+            @click="selectActivity('skills')"
+            title="Skills, MCP & Customizations"
+          >
+            <i class="codicon codicon-sparkle text-lg text-amber-400" />
+          </button>
+
+          <!-- Scheduled Tasks & Timers Tab -->
+          <button
+            class="w-10 h-10 rounded flex items-center justify-center transition-colors cursor-pointer relative"
+            :class="activeActivity === 'schedule' ? 'text-white bg-[#252526]' : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#3e3e42]'"
+            @click="selectActivity('schedule')"
+            title="Scheduled Tasks & Timers (Cron)"
+          >
+            <i class="codicon codicon-history text-lg" />
+          </button>
+
+          <!-- Models & Quota Tab -->
+          <button
+            class="w-10 h-10 rounded flex items-center justify-center transition-colors cursor-pointer relative"
+            :class="activeActivity === 'models' ? 'text-white bg-[#252526]' : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#3e3e42]'"
+            @click="selectActivity('models')"
+            title="Models & Usage Quota"
+          >
+            <i class="codicon codicon-dashboard text-lg" />
+          </button>
+
+          <!-- Session History Tab -->
+          <button
+            class="w-10 h-10 rounded flex items-center justify-center transition-colors cursor-pointer relative"
+            :class="activeActivity === 'history' ? 'text-white bg-[#252526]' : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#3e3e42]'"
+            @click="selectActivity('history')"
+            title="Conversation History"
+          >
+            <i class="codicon codicon-comment-discussion text-lg" />
+          </button>
+        </div>
+
+        <!-- Bottom Icons -->
+        <div class="flex flex-col items-center gap-1 w-full pb-1">
+          <button
+            class="w-10 h-10 rounded flex items-center justify-center text-zinc-400 hover:text-white hover:bg-[#3e3e42] transition-colors cursor-pointer"
+            @click="openModelsAndUsageModal"
+            title="Account & Plan"
+          >
+            <i class="codicon codicon-account text-lg" />
+          </button>
+          <button
+            class="w-10 h-10 rounded flex items-center justify-center text-zinc-400 hover:text-white hover:bg-[#3e3e42] transition-colors cursor-pointer"
+            @click="selectActivity('settings')"
+            title="Antigravity Settings & Permissions"
+          >
+            <i class="codicon codicon-settings-gear text-lg" />
+          </button>
+        </div>
+      </nav>
+
+      <!-- PRIMARY SIDEBAR (NATURALLY SCROLLABLE) -->
+      <aside class="w-[320px] lg:w-[360px] sidebar-scrollable flex flex-col gap-3 p-3.5 border-r border-[#2b2b2b] bg-[#252526] overflow-y-auto shrink-0 max-h-full pb-8">
+        <!-- SIDEBAR TITLE BAR -->
+        <div class="flex items-center justify-between px-1 pb-1 border-b border-[#333333] shrink-0">
+          <span class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider font-mono">
+            {{ activeActivity === 'explorer' ? 'EXPLORER' : activeActivity === 'diff' ? 'SOURCE CONTROL' : activeActivity === 'history' ? 'SAVED SESSIONS' : 'AGENT WORKSPACE' }}
+          </span>
+          <button
+            v-if="activeActivity === 'explorer'"
+            class="text-[10px] text-zinc-400 hover:text-white cursor-pointer px-1 py-0.5 rounded hover:bg-[#333333]"
+            @click="loadWorkspaceFiles"
+            title="Làm mới danh sách file"
+          >
+            🔄
+          </button>
+          <button
+            v-if="activeActivity === 'diff'"
+            class="text-[10px] text-zinc-400 hover:text-white cursor-pointer px-1 py-0.5 rounded hover:bg-[#333333]"
+            @click="loadGitDiff"
+            title="Làm mới Git Diff"
+          >
+            🔄
+          </button>
+        </div>
+
+        <!-- EXPLORER PANEL -->
+        <div v-if="activeActivity === 'explorer'" class="flex flex-col gap-2 flex-1">
+          <p class="text-[11px] text-zinc-400 font-mono truncate px-1 flex items-center gap-1.5" :title="activeCwd">
+            <i class="codicon codicon-root-folder text-amber-400" />
+            <span class="truncate font-semibold">{{ activeCwd ? activeCwd.split('\\').pop() : 'Chưa chọn workspace' }}</span>
+          </p>
+          <div v-if="isLoadingFiles" class="text-xs text-zinc-400 p-3 flex items-center gap-2">
+            <i class="codicon codicon-loading animate-spin text-cyan-400" />
+            <span>Đang quét tệp workspace...</span>
+          </div>
+          <div v-else-if="workspaceFiles.length === 0" class="text-xs text-zinc-500 p-3 bg-[#1e1e1e] rounded-lg border border-[#333333]">
+            Không có tệp nào hoặc chưa mở workspace.
+          </div>
+          <div v-else class="space-y-0.5 overflow-y-auto max-h-[calc(100vh-280px)] font-mono text-[11px]">
+            <button
+              v-for="f in workspaceFiles"
+              :key="f.path"
+              class="w-full px-2 py-1 rounded text-left flex items-center gap-1.5 transition-colors cursor-pointer truncate group"
+              :class="selectedEditorFile?.path === f.path ? 'bg-[#37373d] text-white font-semibold' : 'text-zinc-300 hover:bg-[#2a2d2e] hover:text-white'"
+              @click="openFileInMonaco(f)"
+            >
+              <i class="codicon text-xs shrink-0" :class="[getFileIconClass(f.path, f.isDir).icon, getFileIconClass(f.path, f.isDir).color]" />
+              <span class="truncate">{{ f.path }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- SOURCE CONTROL / GIT DIFF PANEL (AFTER CHANGES) -->
+        <div v-else-if="activeActivity === 'diff'" class="flex flex-col gap-2 flex-1">
+          <!-- Diff Summary Header -->
+          <div class="p-2.5 rounded-lg bg-[#1e1e1e] border border-[#333333] flex flex-col gap-1.5 shrink-0">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-zinc-200 flex items-center gap-1.5">
+                <i class="codicon codicon-source-control text-cyan-400" />
+                <span>Diff sau thay đổi</span>
+              </span>
+              <span v-if="isLoadingDiff" class="codicon codicon-loading animate-spin text-cyan-400" />
+              <button
+                v-else
+                class="text-[10px] text-zinc-400 hover:text-white px-1 py-0.5 rounded hover:bg-[#333333] cursor-pointer"
+                @click="loadGitDiff"
+                title="Làm mới lại Diff"
+              >
+                <i class="codicon codicon-refresh" />
+              </button>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="flex items-center justify-between text-[11px] font-mono border-t border-[#2d2d2d] pt-1.5">
+              <span class="text-zinc-400">{{ gitDiffData.diffs.length }} tệp thay đổi</span>
+              <div class="flex items-center gap-1.5 font-bold">
+                <span class="text-emerald-400">+{{ gitDiffData.totalAdditions || 0 }}</span>
+                <span class="text-rose-400">-{{ gitDiffData.totalDeletions || 0 }}</span>
+              </div>
+            </div>
+
+            <!-- Action Button to Populate Handoff -->
+            <button
+              v-if="gitDiffData.diffs.length > 0"
+              class="w-full mt-1 py-1 px-2 rounded bg-[#094771] hover:bg-[#007acc] text-white text-[11px] font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+              @click="populateHandoffFromDiff"
+              title="Điền danh sách file thay đổi và số dòng diff vào mẫu bàn giao Handoff"
+            >
+              <i class="codicon codicon-checklist" />
+              <span>Điền vào Handoff Summary</span>
+            </button>
+          </div>
+
+          <!-- Empty State -->
+          <div v-if="gitDiffData.diffs.length === 0" class="text-xs text-zinc-400 p-4 bg-[#1e1e1e] rounded-lg border border-[#333333] flex flex-col items-center gap-2 text-center">
+            <i class="codicon codicon-check text-emerald-400 text-2xl" />
+            <p class="font-medium text-zinc-300">Không có thay đổi mã nguồn.</p>
+            <p class="text-[11px] text-zinc-500">Working tree hoàn toàn sạch hoặc chưa có file nào được chỉnh sửa.</p>
+          </div>
+
+          <!-- Changed Files List -->
+          <div v-else class="space-y-1 overflow-y-auto max-h-[calc(100vh-320px)] font-mono text-[11px]">
+            <div
+              v-for="d in gitDiffData.diffs"
+              :key="d.file"
+              class="w-full p-2 rounded-lg text-left flex items-center justify-between gap-1.5 transition-colors cursor-pointer border group"
+              :class="selectedDiffFile?.file === d.file ? 'border-[#007acc] bg-[#094771]/30 text-white shadow-xs' : 'border-[#333333] bg-[#1e1e1e] text-zinc-300 hover:border-[#444444]'"
+              @click="openDiffInMonaco(d)"
+            >
+              <div class="min-w-0 flex items-center gap-1.5 flex-1">
+                <i class="codicon text-xs shrink-0" :class="[getFileIconClass(d.file, false).icon, getFileIconClass(d.file, false).color]" />
+                <div class="min-w-0 flex-1">
+                  <p class="truncate font-semibold text-zinc-200 group-hover:text-white" :title="d.file">{{ d.file.split(/[/\\]/).pop() }}</p>
+                  <p class="truncate text-[9px] text-zinc-500 font-mono">{{ d.file }}</p>
+                </div>
+              </div>
+
+              <!-- Stats & Revert Action -->
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span v-if="d.additions || d.deletions" class="text-[10px] font-mono">
+                  <span class="text-emerald-400">+{{ d.additions || 0 }}</span>
+                  <span class="text-rose-400 ml-0.5">-{{ d.deletions || 0 }}</span>
+                </span>
+                <span
+                  class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase shrink-0 font-mono"
+                  :class="d.status === 'M' ? 'bg-amber-950 text-amber-300 border border-amber-800' : d.status === 'A' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-rose-950 text-rose-300 border border-rose-800'"
+                >
+                  {{ d.status || 'M' }}
+                </span>
+                <!-- Revert Single File Button -->
+                <button
+                  class="w-5 h-5 rounded hover:bg-rose-950 hover:text-rose-300 text-zinc-500 grid place-items-center transition-colors cursor-pointer"
+                  title="Khôi phục (Revert) file này về HEAD"
+                  @click.stop="revertDiffFile(d.file)"
+                >
+                  <i class="codicon codicon-discard text-xs" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DEFAULT AGENT WORKSPACE CONTROLS -->
+        <template v-else>
         <!-- 1. PROVIDER SELECTOR -->
         <div class="rounded-xl border border-slate-800/80 bg-slate-900/40 p-3 shrink-0">
           <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">AI Execution Provider</label>
@@ -1184,6 +2169,203 @@ onUnmounted(() => {
               <span>{{ p.name }}</span>
               <span class="text-[9px] font-mono px-1 rounded" :class="provider === p.id ? 'bg-cyan-500/20 text-cyan-300' : 'bg-slate-800 text-slate-500'">{{ p.tag }}</span>
             </button>
+          </div>
+        </div>
+
+        <!-- 1.05 QUOTA & LIMITS QUICK BAR -->
+        <div
+          class="rounded-xl border border-slate-800/80 bg-slate-900/40 p-2.5 shrink-0 flex items-center justify-between gap-2 hover:border-emerald-700/60 hover:bg-slate-900/70 transition-all cursor-pointer group"
+          @click="openModelsAndUsageModal"
+          title="Bấm để xem và quản lý Models & Quota Usage (% còn lại và thời gian reset)"
+        >
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="w-7 h-7 rounded-lg bg-emerald-950/80 border border-emerald-800/70 flex items-center justify-center text-emerald-400 text-xs shrink-0">
+              ⚡
+            </div>
+            <div class="flex flex-col min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-semibold text-slate-200 group-hover:text-emerald-300 transition-colors truncate">Models & Quota</span>
+                <span class="text-[8px] font-mono px-1 rounded bg-slate-800 text-slate-400 font-medium shrink-0">{{ activeQuotaGroup.name }}</span>
+              </div>
+              <span class="text-[10px] text-slate-400 truncate">
+                5h: <strong class="text-emerald-400 font-mono">{{ activeQuotaGroup.fiveHourRemainingPercent }}%</strong> · Tuần: <strong class="text-emerald-400 font-mono">{{ activeQuotaGroup.weeklyRemainingPercent }}%</strong>
+              </span>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <!-- Mini Circular Ring -->
+            <div class="relative w-6 h-6 flex items-center justify-center">
+              <svg class="w-6 h-6 -rotate-90" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="9" class="stroke-slate-800" stroke-width="2.5" fill="none" />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="9"
+                  class="stroke-emerald-400 transition-all duration-500"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  fill="none"
+                  :stroke-dasharray="2 * Math.PI * 9"
+                  :stroke-dashoffset="(2 * Math.PI * 9) * (1 - activeQuotaGroup.fiveHourRemainingPercent / 100)"
+                />
+              </svg>
+            </div>
+            <span class="text-slate-500 group-hover:text-slate-300 text-xs">➔</span>
+          </div>
+        </div>
+
+        <!-- 1.1 AI MODEL SELECTOR (IDE-STYLE LIST + AUTO-SYNC DISCOVERY) -->
+        <div class="rounded-xl border border-slate-800/80 bg-slate-900/40 p-3 flex flex-col gap-2 shrink-0">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Model</label>
+              <span class="text-[9px] font-mono text-slate-500">({{ filteredProviderModels.length }})</span>
+              <span
+                v-if="modelSyncTimestamp"
+                class="text-[8px] font-mono text-emerald-400/80 px-1 py-0.2 rounded bg-emerald-950/40 border border-emerald-800/40"
+                :title="`Đồng bộ từ Task Hub & CLI lúc ${modelSyncTimestamp}`"
+              >
+                ● {{ modelSyncSource === 'live' ? 'Live' : 'Đồng bộ' }}
+              </span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <!-- Auto-sync / Refresh Models Button -->
+              <button
+                class="px-1.5 py-0.5 rounded text-[9px] font-semibold transition-colors cursor-pointer border flex items-center gap-1 bg-slate-950 border-slate-800 text-slate-400 hover:text-cyan-300 hover:border-slate-700 disabled:opacity-50"
+                :disabled="isSyncingModels || busy || phase === 'running'"
+                @click="syncAvailableModels(true)"
+                title="Tự động quét và lấy danh sách model mới nhất từ Task Hub & CLI"
+              >
+                <span :class="isSyncingModels ? 'animate-spin inline-block' : ''">🔄</span>
+                <span>{{ isSyncingModels ? 'Đang quét...' : 'Đồng bộ' }}</span>
+              </button>
+
+              <button
+                class="px-1.5 py-0.5 rounded text-[9px] font-semibold transition-colors cursor-pointer border"
+                :class="isCustomModel[provider] ? 'bg-amber-950 border-amber-800 text-amber-300' : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'"
+                @click="toggleCustomModelMode"
+                :title="isCustomModel[provider] ? 'Chuyển về danh sách có sẵn' : 'Nhập model ID tùy chỉnh'"
+              >
+                {{ isCustomModel[provider] ? '✏️ Tùy chỉnh (Bật)' : '✏️ Tùy chỉnh' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Search Filter -->
+          <div v-if="!isCustomModel[provider]" class="relative">
+            <input
+              v-model="modelSearchQuery"
+              class="w-full px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-950/80 text-[11px] text-slate-200 placeholder-slate-500 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-colors"
+              placeholder="🔍 Lọc model..."
+            />
+            <button
+              v-if="modelSearchQuery"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 text-[10px] cursor-pointer"
+              @click="modelSearchQuery = ''"
+            >
+              ✕
+            </button>
+          </div>
+
+          <!-- IDE-Style Model List Items -->
+          <div
+            v-if="!isCustomModel[provider]"
+            class="space-y-1 max-h-[260px] overflow-y-auto pr-1 sidebar-scrollable"
+          >
+            <div
+              v-for="m in filteredProviderModels"
+              :key="m.id"
+              class="w-full px-2.5 py-2 rounded-lg border text-left flex items-center justify-between gap-2 transition-all cursor-pointer group"
+              :class="
+                !isCustomModel[provider] && activeModel === m.id
+                  ? 'border-cyan-500/80 bg-cyan-950/40 text-cyan-200 shadow-xs ring-1 ring-cyan-500/30'
+                  : 'border-slate-800/80 bg-slate-950/70 text-slate-300 hover:border-slate-700 hover:bg-slate-900/80'
+              "
+              @click="selectModel(m.id)"
+            >
+              <div class="flex flex-col gap-0.5 min-w-0 flex-1">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs font-semibold truncate group-hover:text-white" :class="activeModel === m.id ? 'text-cyan-200' : 'text-slate-200'">
+                    {{ m.name }}
+                  </span>
+                  <span v-if="m.source === 'hub'" class="text-[8px] font-mono px-1 rounded bg-blue-950/70 text-blue-300 border border-blue-800/60 shrink-0">
+                    HUB
+                  </span>
+                  <span v-else-if="m.source === 'custom'" class="text-[8px] font-mono px-1 rounded bg-sky-950/70 text-sky-300 border border-sky-800/60 shrink-0">
+                    SAVED
+                  </span>
+                </div>
+                <span class="text-[9px] font-mono text-slate-500 truncate">{{ m.id }}</span>
+              </div>
+
+              <!-- Multi-Badge Pills (High, Fast, Thinking, etc.) -->
+              <div class="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                <span
+                  v-for="b in (m.badges || [m.badge].filter(Boolean))"
+                  :key="b"
+                  class="text-[8px] font-mono px-1.5 py-0.2 rounded border font-semibold uppercase tracking-tight"
+                  :class="getBadgeClass(b)"
+                >
+                  {{ b }}
+                </span>
+
+                <!-- Delete button for custom saved models -->
+                <button
+                  v-if="m.source === 'custom'"
+                  class="text-slate-500 hover:text-rose-400 p-0.5 ml-0.5 text-[10px] cursor-pointer"
+                  title="Xóa model tùy chỉnh này"
+                  @click.stop="deleteCustomModelOption(m.id)"
+                >
+                  🗑️
+                </button>
+
+                <!-- Selected Checkmark Icon -->
+                <span
+                  v-if="activeModel === m.id"
+                  class="text-xs font-bold text-cyan-400 ml-1 shrink-0"
+                  title="Đang chọn"
+                >
+                  ✓
+                </span>
+              </div>
+            </div>
+
+            <div v-if="filteredProviderModels.length === 0" class="text-center py-4 text-[10px] text-slate-500 italic">
+              Không tìm thấy model phù hợp.
+            </div>
+          </div>
+
+          <!-- Custom Model Free Text Input Mode -->
+          <div v-if="isCustomModel[provider]" class="pt-1 flex flex-col gap-2">
+            <div class="flex items-center justify-between text-[10px] text-amber-400 font-medium">
+              <span>Model ID / Tên tùy chỉnh:</span>
+              <span class="text-slate-500 font-mono text-[9px]">Flag: {{ provider === 'codex' ? '-m' : '--model' }}</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <input
+                :value="customModelInput[provider]"
+                @input="setCustomModel(($event.target as HTMLInputElement).value)"
+                class="w-full px-2.5 py-2 rounded-lg border border-amber-800/80 bg-slate-950 text-xs font-mono text-amber-200 placeholder-slate-600 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30 transition-colors flex-1"
+                :placeholder="provider === 'codex' ? 'vd: gpt-5.6-sol, gpt-4o-mini...' : provider === 'claude_code' ? 'vd: claude-3-7-sonnet-20250219...' : 'vd: gemini-3.7-flash, gemini-2.5-pro...'"
+                :disabled="busy || phase === 'running'"
+              />
+              <button
+                v-if="customModelInput[provider]?.trim()"
+                class="px-2.5 py-2 rounded-lg border border-sky-700 bg-sky-950/80 hover:bg-sky-900 text-sky-200 text-xs font-semibold shrink-0 cursor-pointer transition-colors"
+                @click="saveCustomModelOption"
+                title="Lưu model này vào danh sách để dùng cho các lần sau"
+              >
+                💾 Lưu
+              </button>
+            </div>
+            <p class="text-[10px] text-slate-400 leading-tight">
+              Nhập model ID chính xác được hỗ trợ bởi CLI {{ provider }}. Bấm <strong>💾 Lưu</strong> để thêm vĩnh viễn vào danh sách.
+            </p>
+          </div>
+
+          <!-- Model Description Hint -->
+          <div v-if="currentModelOption?.description && !isCustomModel[provider]" class="text-[10px] text-slate-400 bg-slate-950/80 rounded-lg p-2 border border-slate-800/70 leading-relaxed">
+            💡 {{ currentModelOption.description }}
           </div>
         </div>
 
@@ -1360,10 +2542,405 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
+        </template>
       </aside>
 
-      <!-- RIGHT STUDIO / TERMINAL OUTPUT AREA -->
-      <main class="flex flex-col min-h-0 bg-slate-950 p-4 gap-3 overflow-hidden">
+      <!-- RIGHT STUDIO / TERMINAL / MONACO OUTPUT AREA -->
+      <main class="flex flex-col min-h-0 bg-[#1e1e1e] overflow-hidden flex-1">
+        <!-- 2. VS CODE EDITOR TABS BAR -->
+        <div class="h-9 bg-[#252526] border-b border-[#1e1e1e] flex items-center justify-between px-2 shrink-0 select-none overflow-x-auto">
+          <div class="flex items-center gap-1 h-full">
+            <!-- Terminal Tab -->
+            <button
+              class="h-full px-3 text-xs font-medium flex items-center gap-2 border-r border-[#1e1e1e] transition-colors cursor-pointer"
+              :class="activeEditorTab === 'terminal' ? 'bg-[#1e1e1e] text-white border-t-2 border-t-[#007acc]' : 'bg-[#2d2d2d] text-zinc-400 hover:text-zinc-200'"
+              @click="activeEditorTab = 'terminal'"
+            >
+              <i class="codicon codicon-terminal text-cyan-400" />
+              <span>Terminal / Stream</span>
+            </button>
+
+            <!-- Monaco Code & Diff Tab -->
+            <button
+              class="h-full px-3 text-xs font-medium flex items-center gap-2 border-r border-[#1e1e1e] transition-colors cursor-pointer"
+              :class="activeEditorTab === 'monaco' ? 'bg-[#1e1e1e] text-white border-t-2 border-t-[#007acc]' : 'bg-[#2d2d2d] text-zinc-400 hover:text-zinc-200'"
+              @click="activeEditorTab = 'monaco'"
+            >
+              <i class="codicon" :class="selectedDiffFile ? 'codicon-diff text-cyan-400' : 'codicon-file-code text-blue-400'" />
+              <span class="max-w-[180px] truncate">{{ selectedDiffFile?.file || selectedEditorFile?.path || 'Monaco Diff & Editor' }}</span>
+              <span
+                v-if="gitDiffData.diffs.length > 0 && !selectedEditorFile"
+                class="px-1.5 py-0.2 rounded-full bg-emerald-950 border border-emerald-800/80 text-[9px] text-emerald-300 font-mono font-bold"
+                title="Tổng số dòng thêm/bớt"
+              >
+                +{{ gitDiffData.totalAdditions || 0 }} -{{ gitDiffData.totalDeletions || 0 }}
+              </span>
+              <span
+                v-if="selectedDiffFile || selectedEditorFile"
+                class="hover:bg-[#3e3e42] p-0.5 rounded text-[10px] text-zinc-400 hover:text-white"
+                @click.stop="selectedDiffFile = null; selectedEditorFile = null; activeEditorTab = 'terminal'"
+              >
+                ✕
+              </span>
+            </button>
+
+            <!-- Context Tab -->
+            <button
+              class="h-full px-3 text-xs font-medium flex items-center gap-2 border-r border-[#1e1e1e] transition-colors cursor-pointer"
+              :class="activeEditorTab === 'context' ? 'bg-[#1e1e1e] text-white border-t-2 border-t-[#007acc]' : 'bg-[#2d2d2d] text-zinc-400 hover:text-zinc-200'"
+              @click="activeEditorTab = 'context'"
+            >
+              <i class="codicon codicon-book text-amber-400" />
+              <span>Task Context</span>
+            </button>
+
+            <!-- Subagents Swarm Tab -->
+            <button
+              class="h-full px-3 text-xs font-medium flex items-center gap-2 border-r border-[#1e1e1e] transition-colors cursor-pointer"
+              :class="activeEditorTab === 'subagents' ? 'bg-[#1e1e1e] text-white border-t-2 border-t-[#007acc]' : 'bg-[#2d2d2d] text-zinc-400 hover:text-zinc-200'"
+              @click="activeEditorTab = 'subagents'"
+              title="Antigravity 2.0 Subagents Swarm"
+            >
+              <i class="codicon codicon-organization text-violet-400" />
+              <span>Subagents ({{ activeSubagents.length }})</span>
+            </button>
+
+            <!-- Tasks & Scheduler Tab -->
+            <button
+              class="h-full px-3 text-xs font-medium flex items-center gap-2 border-r border-[#1e1e1e] transition-colors cursor-pointer"
+              :class="activeEditorTab === 'tasks' ? 'bg-[#1e1e1e] text-white border-t-2 border-t-[#007acc]' : 'bg-[#2d2d2d] text-zinc-400 hover:text-zinc-200'"
+              @click="activeEditorTab = 'tasks'"
+              title="Background Tasks & Timers"
+            >
+              <i class="codicon codicon-history text-amber-400" />
+              <span>Tasks & Timers</span>
+            </button>
+
+            <!-- Artifacts Tab -->
+            <button
+              class="h-full px-3 text-xs font-medium flex items-center gap-2 border-r border-[#1e1e1e] transition-colors cursor-pointer"
+              :class="activeEditorTab === 'artifacts' ? 'bg-[#1e1e1e] text-white border-t-2 border-t-[#007acc]' : 'bg-[#2d2d2d] text-zinc-400 hover:text-zinc-200'"
+              @click="activeEditorTab = 'artifacts'"
+              title="Generated Artifacts & Documents"
+            >
+              <i class="codicon codicon-package text-emerald-400" />
+              <span>Artifacts</span>
+            </button>
+
+            <!-- Evidence Tab -->
+            <button
+              class="h-full px-3 text-xs font-medium flex items-center gap-2 border-r border-[#1e1e1e] transition-colors cursor-pointer"
+              :class="activeEditorTab === 'evidence' ? 'bg-[#1e1e1e] text-white border-t-2 border-t-[#007acc]' : 'bg-[#2d2d2d] text-zinc-400 hover:text-zinc-200'"
+              @click="activeEditorTab = 'evidence'"
+            >
+              <i class="codicon codicon-shield text-emerald-400" />
+              <span>Evidence & Review</span>
+            </button>
+          </div>
+
+          <!-- Quick Actions on Tab Bar -->
+          <div class="flex items-center gap-2">
+            <button
+              class="text-[10px] px-2 py-0.5 rounded bg-[#333333] hover:bg-[#3e3e42] text-zinc-200 transition-colors cursor-pointer flex items-center gap-1.5 border border-[#3e3e42]"
+              @click="loadGitDiff(); activeEditorTab = 'monaco';"
+              title="Tải lại Git Diff trong Monaco Diff Viewer"
+            >
+              <i class="codicon codicon-diff" />
+              <span>Git Diff ({{ gitDiffData.diffs.length }})</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- VS CODE BREADCRUMBS BAR -->
+        <div class="h-6 px-3 bg-[#1e1e1e] border-b border-[#2d2d2d] flex items-center gap-1.5 text-[11px] font-mono text-zinc-400 shrink-0 select-none overflow-x-auto">
+          <span>{{ activeCwd ? activeCwd.split('\\').pop() : 'workspace' }}</span>
+          <span class="text-zinc-600">›</span>
+          <span v-if="selectedDiffFile?.file || selectedEditorFile?.path" class="text-zinc-300 font-semibold truncate flex items-center gap-1">
+            <i class="codicon text-xs" :class="selectedDiffFile ? 'codicon-diff text-cyan-400' : 'codicon-file-code text-blue-400'" />
+            <span>{{ selectedDiffFile?.file || selectedEditorFile?.path }}</span>
+          </span>
+          <span v-else class="text-zinc-500 italic">
+            {{ activeEditorTab === 'terminal' ? 'terminal-output.sh' : activeEditorTab === 'context' ? 'task-specification.md' : 'handoff-evidence.md' }}
+          </span>
+        </div>
+
+        <!-- POST-CHANGE DIFF NOTIFICATION BANNER -->
+        <div
+          v-if="gitDiffData.diffs.length > 0 && ['running', 'handoff', 'review'].includes(phase)"
+          class="px-3 py-1.5 bg-[#094771]/30 border-b border-[#007acc]/40 flex items-center justify-between text-xs shrink-0 select-none"
+        >
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span class="text-zinc-200 font-semibold">
+              Agent đã sửa đổi <strong class="text-cyan-300">{{ gitDiffData.diffs.length }} tệp</strong>:
+            </span>
+            <span class="text-[11px] font-mono">
+              <span class="text-emerald-400 font-bold">+{{ gitDiffData.totalAdditions || 0 }}</span> /
+              <span class="text-rose-400 font-bold">-{{ gitDiffData.totalDeletions || 0 }}</span> dòng
+            </span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button
+              class="px-2 py-0.5 rounded bg-[#007acc] hover:bg-[#0062a3] text-white text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+              @click="activeEditorTab = 'monaco'; if (!selectedDiffFile && gitDiffData.diffs.length) selectedDiffFile = gitDiffData.diffs[0];"
+            >
+              <i class="codicon codicon-diff" />
+              <span>Xem Diff ngay</span>
+            </button>
+            <button
+              v-if="phase === 'handoff' || phase === 'review'"
+              class="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#3e3e42] text-zinc-200 text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1 border border-[#3e3e42]"
+              @click="populateHandoffFromDiff"
+            >
+              <i class="codicon codicon-checklist" />
+              <span>Điền Handoff</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- MONACO CODE / DIFF VIEW TAB CONTENT -->
+        <div v-show="activeEditorTab === 'monaco'" class="flex-1 min-h-0 w-full h-full bg-[#1e1e1e]">
+          <MonacoEditorView
+            v-if="selectedDiffFile"
+            mode="diff"
+            :original-content="selectedDiffFile.original"
+            :modified-content="selectedDiffFile.modified"
+            :filename="selectedDiffFile.file"
+            :read-only="true"
+          />
+          <MonacoEditorView
+            v-else-if="selectedEditorFile"
+            mode="editor"
+            :content="selectedEditorFile.content"
+            :filename="selectedEditorFile.path"
+            :read-only="false"
+          />
+          <div v-else class="flex flex-col items-center justify-center h-full text-zinc-400 gap-3 p-6 select-none">
+            <span class="text-5xl">📄</span>
+            <p class="text-sm text-center max-w-md text-zinc-300">
+              Chọn một file từ Explorer (📁) hoặc Source Control (🔀) để xem và chỉnh sửa với bộ lõi Microsoft Monaco Editor.
+            </p>
+            <div class="flex items-center gap-2">
+              <button
+                class="px-3 py-1.5 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white text-xs font-semibold cursor-pointer shadow-xs"
+                @click="selectActivity('diff')"
+              >
+                🔀 Xem Thay đổi Git Diff
+              </button>
+              <button
+                class="px-3 py-1.5 rounded-lg bg-[#333333] hover:bg-[#3e3e42] text-zinc-200 text-xs font-semibold cursor-pointer border border-[#444444]"
+                @click="selectActivity('explorer')"
+              >
+                📁 Mở File Explorer
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- CONTEXT TAB CONTENT -->
+        <div v-show="activeEditorTab === 'context'" class="flex-1 min-h-0 p-4 overflow-y-auto flex flex-col gap-4 text-xs">
+          <div class="border-b border-[#333333] pb-3">
+            <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+              <span class="text-cyan-400">⚡</span>
+              Task Context & Environment Details
+            </h3>
+            <p class="text-slate-400 text-xs mt-1 leading-relaxed">
+              Thông tin chi tiết về repository, branch, isolated worktree và ngữ cảnh nhiệm vụ đang được thực thi.
+            </p>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div v-if="worktree" class="p-3 rounded-lg border border-slate-700/80 bg-slate-950 flex flex-col gap-1 font-mono text-[11px]">
+              <div class="text-slate-400">Isolated Worktree Path:</div>
+              <div class="text-cyan-300 font-semibold break-all">{{ worktree }}</div>
+            </div>
+            <div class="p-3 rounded-lg border border-slate-700/80 bg-slate-950 flex flex-col gap-1 font-mono text-[11px]" :class="!worktree ? 'sm:col-span-2' : ''">
+              <div class="text-slate-400">Active Workspace:</div>
+              <div class="text-cyan-300 font-semibold break-all">{{ activeCwd || 'Chưa chọn' }}</div>
+            </div>
+          </div>
+          <div v-if="selectedTask" class="p-4 rounded-xl border border-[#333333] bg-[#252526] flex flex-col gap-2">
+            <div class="flex items-center justify-between font-bold text-sky-300">
+              <span>{{ selectedTask.issue_key || `#${selectedTask.id}` }} · {{ selectedTask.title }}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-sky-950 border border-sky-800 text-sky-200 uppercase">{{ selectedTask.status }}</span>
+            </div>
+            <p v-if="selectedTask.description" class="text-zinc-300 whitespace-pre-wrap">{{ selectedTask.description }}</p>
+            <div v-if="selectedTask.acceptance_criteria" class="p-2.5 rounded-lg bg-[#1e1e1e] border border-[#333333] text-zinc-400 text-[11px]">
+              <div class="font-bold text-zinc-300 mb-1">Acceptance Criteria:</div>
+              {{ selectedTask.acceptance_criteria }}
+            </div>
+          </div>
+        </div>
+
+        <!-- EVIDENCE TAB CONTENT -->
+        <div v-show="activeEditorTab === 'evidence'" class="flex-1 min-h-0 p-4 overflow-y-auto flex flex-col gap-4 text-xs">
+          <div class="border-b border-[#333333] pb-3 flex items-center justify-between">
+            <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+              <span class="text-emerald-400">🛡️</span>
+              Verification Evidence & Review Summary
+            </h3>
+            <span class="text-xs text-zinc-400 font-mono">Status: {{ phase }}</span>
+          </div>
+          <div class="space-y-3">
+            <div class="p-3.5 rounded-xl border border-[#333333] bg-[#252526] flex flex-col gap-2">
+              <h4 class="font-bold text-zinc-200">Handoff Summary</h4>
+              <textarea
+                v-model="handoff.summary"
+                rows="4"
+                class="w-full p-2.5 rounded-lg border border-[#333333] bg-[#1e1e1e] text-zinc-200 text-xs font-mono outline-none focus:border-[#007acc]"
+                placeholder="Tóm tắt công việc và kết quả..."
+              />
+            </div>
+            <div class="p-3.5 rounded-xl border border-[#333333] bg-[#252526] flex flex-col gap-2">
+              <h4 class="font-bold text-zinc-200">Changed Files</h4>
+              <textarea
+                v-model="handoff.changedFiles"
+                rows="3"
+                class="w-full p-2.5 rounded-lg border border-[#333333] bg-[#1e1e1e] text-zinc-200 text-xs font-mono outline-none focus:border-[#007acc]"
+                placeholder="Danh sách file thay đổi..."
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBAGENTS SWARM TAB CONTENT -->
+        <div v-show="activeEditorTab === 'subagents'" class="flex-1 min-h-0 p-4 overflow-y-auto flex flex-col gap-4 text-xs bg-[#1e1e1e]">
+          <div class="border-b border-[#333333] pb-3 flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+                <i class="codicon codicon-organization text-violet-400" />
+                <span>Antigravity 2.0 · Autonomous Subagents Swarm</span>
+              </h3>
+              <p class="text-slate-400 text-xs mt-0.5">
+                Các Agent con chuyên biệt được điều phối song song trong không gian làm việc isolated.
+              </p>
+            </div>
+            <button
+              class="px-2.5 py-1 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white text-xs font-semibold cursor-pointer shadow-xs flex items-center gap-1.5"
+              @click="followUp = '/teamwork-preview '; activeEditorTab = 'terminal';"
+            >
+              <i class="codicon codicon-add" />
+              <span>Gọi Subagent mới</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div
+              v-for="sub in activeSubagents"
+              :key="sub.id"
+              class="p-3.5 rounded-xl border border-[#3e3e42] bg-[#252526] flex flex-col gap-2 shadow-xs"
+            >
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full" :class="sub.state === 'running' ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'" />
+                  <h4 class="font-bold text-xs text-zinc-100">{{ sub.role }}</h4>
+                </div>
+                <span class="px-2 py-0.5 rounded font-mono text-[9px] font-bold uppercase bg-[#333333] text-zinc-300">
+                  {{ sub.type }}
+                </span>
+              </div>
+
+              <div class="text-[11px] text-zinc-400 font-mono">
+                Model: <span class="text-cyan-300">{{ sub.model }}</span> · ID: <span class="text-zinc-500">{{ sub.id }}</span>
+              </div>
+
+              <p class="text-xs text-zinc-300 bg-[#1e1e1e] p-2 rounded-lg border border-[#333333]">
+                {{ sub.stateDetail || 'Đang sẵn sàng nhận nhiệm vụ...' }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- TASKS & TIMERS TAB CONTENT -->
+        <div v-show="activeEditorTab === 'tasks'" class="flex-1 min-h-0 p-4 overflow-y-auto flex flex-col gap-4 text-xs bg-[#1e1e1e]">
+          <div class="border-b border-[#333333] pb-3 flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+                <i class="codicon codicon-history text-amber-400" />
+                <span>Background Tasks & Scheduled Timers</span>
+              </h3>
+              <p class="text-slate-400 text-xs mt-0.5">
+                Quản lý các lệnh tiến trình chạy ngầm, cron job và bộ đếm thời gian.
+              </p>
+            </div>
+            <button
+              class="px-2.5 py-1 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white text-xs font-semibold cursor-pointer shadow-xs flex items-center gap-1.5"
+              @click="showScheduledTasksModal = true"
+            >
+              <i class="codicon codicon-add" />
+              <span>Thêm lịch hẹn</span>
+            </button>
+          </div>
+
+          <div class="space-y-3">
+            <div class="p-3 rounded-xl bg-[#252526] border border-[#3e3e42] flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <i class="codicon codicon-pulse text-emerald-400" />
+                <div>
+                  <h4 class="font-bold text-xs text-zinc-100">Antigravity Reactive Wakeup Service</h4>
+                  <p class="text-[11px] text-zinc-400">Tự động đánh thức khi có tin nhắn từ Subagent hoặc tiến trình ngầm hoàn thành.</p>
+                </div>
+              </div>
+              <span class="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-[10px] text-emerald-300 font-mono font-semibold">
+                ACTIVE
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ARTIFACTS TAB CONTENT -->
+        <div v-show="activeEditorTab === 'artifacts'" class="flex-1 min-h-0 p-4 overflow-y-auto flex flex-col gap-4 text-xs bg-[#1e1e1e]">
+          <div class="border-b border-[#333333] pb-3 flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+                <i class="codicon codicon-package text-emerald-400" />
+                <span>Antigravity Generated Artifacts & Documents</span>
+              </h3>
+              <p class="text-slate-400 text-xs mt-0.5">
+                Các bản kế hoạch (Implementation Plan), tài liệu bàn giao (Walkthrough), và báo cáo kiến trúc.
+              </p>
+            </div>
+            <button
+              class="px-2.5 py-1 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white text-xs font-semibold cursor-pointer shadow-xs"
+              @click="applyDocsToWorkspace"
+            >
+              Lưu toàn bộ vào Workspace
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div
+              v-for="art in [
+                { name: 'walkthrough.md', title: 'Walkthrough Summary', desc: 'Báo cáo tổng kết thay đổi và kết quả kiểm thử' },
+                { name: 'implementation_plan.md', title: 'Implementation Plan', desc: 'Kế hoạch triển khai kỹ thuật và verification' },
+                { name: 'INCIDENT_RESPONSE.md', title: 'Incident Response SOP', desc: 'Quy trình xử lý sự cố chuẩn cho production' },
+                { name: 'PROJECT_DOCUMENTS.md', title: 'Project Master Index', desc: 'Mục lục tổng hợp toàn bộ tài liệu dự án' }
+              ]"
+              :key="art.name"
+              class="p-3.5 rounded-xl border border-[#3e3e42] bg-[#252526] flex flex-col gap-2"
+            >
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i class="codicon codicon-file-text text-cyan-400" />
+                  <h4 class="font-bold text-xs text-zinc-100">{{ art.title }}</h4>
+                </div>
+                <span class="px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-[#333333] text-zinc-300">
+                  {{ art.name }}
+                </span>
+              </div>
+              <p class="text-[11px] text-zinc-400">{{ art.desc }}</p>
+              <button
+                class="mt-1 py-1 px-2 rounded bg-[#333333] hover:bg-[#3e3e42] text-zinc-200 text-[11px] cursor-pointer self-start"
+                @click="openFileInMonaco({ path: `docs/${art.name}`, isDir: false })"
+              >
+                Mở trong Monaco Editor
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TERMINAL TAB CONTENT (ORIGINAL STUDIO / TERMINAL) -->
+        <div v-show="activeEditorTab === 'terminal'" class="flex-1 min-h-0 p-3 overflow-hidden flex flex-col gap-2">
         <!-- VIEW: PREFLIGHT / SETUP / READY -->
         <div
           v-if="['select', 'preflight', 'pairing', 'context', 'ready', 'error'].includes(phase)"
@@ -1379,9 +2956,27 @@ onUnmounted(() => {
             </p>
           </div>
 
-          <div v-if="worktree" class="p-3 rounded-lg border border-slate-700/80 bg-slate-950 flex flex-col gap-1 font-mono text-[11px]">
-            <div class="text-slate-400">Isolated Worktree Path:</div>
-            <div class="text-cyan-300 font-semibold break-all">{{ worktree }}</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div v-if="worktree" class="p-3 rounded-lg border border-slate-700/80 bg-slate-950 flex flex-col gap-1 font-mono text-[11px]">
+              <div class="text-slate-400">Isolated Worktree Path:</div>
+              <div class="text-cyan-300 font-semibold break-all">{{ worktree }}</div>
+            </div>
+            <div class="p-3 rounded-lg border border-slate-700/80 bg-slate-950 flex flex-col gap-1 font-mono text-[11px]" :class="!worktree ? 'sm:col-span-2' : ''">
+              <div class="text-slate-400">AI Model Engine:</div>
+              <div class="text-cyan-300 font-semibold flex items-center justify-between">
+                <span>{{ activeModelLabel }}</span>
+                <span
+                  class="text-[9px] px-1.5 py-0.5 rounded font-sans uppercase font-bold"
+                  :class="
+                    isCustomModel[provider]
+                      ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                      : 'bg-cyan-950 text-cyan-300 border border-cyan-800'
+                  "
+                >
+                  {{ activeModelBadge }}
+                </span>
+              </div>
+            </div>
           </div>
 
           <!-- CHECKLIST -->
@@ -1422,7 +3017,9 @@ onUnmounted(() => {
           <div class="flex items-center justify-between px-3.5 py-2 border-b border-slate-800/80 bg-slate-900/80 text-xs shrink-0">
             <div class="flex items-center gap-2">
               <span class="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span class="font-mono text-cyan-300 font-bold text-[11px]">{{ provider.toUpperCase() }}</span>
+              <span class="font-mono text-cyan-300 font-bold text-[11px]">{{ provider === 'antigravity' ? 'AGY' : provider.toUpperCase() }}</span>
+              <span class="text-slate-600">·</span>
+              <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-950 border border-slate-800 text-slate-300" :title="activeModelLabel">{{ activeModel }}</span>
               <span class="text-slate-500 font-mono text-[10px]">Session: {{ sessionId?.slice(0, 14) }}...</span>
 
               <!-- VIEW MODE SWITCHER -->
@@ -1666,13 +3263,37 @@ onUnmounted(() => {
               </button>
             </div>
 
+            <!-- SLASH COMMANDS POPUP -->
+            <div
+              v-if="showSlashMenu && filteredSlashCommands.length > 0"
+              class="bg-[#252526] border border-[#3e3e42] rounded-xl shadow-2xl p-1.5 space-y-0.5 mb-1 max-h-48 overflow-y-auto"
+            >
+              <div class="px-2 py-1 text-[10px] font-mono uppercase font-bold text-cyan-300 border-b border-[#333333] flex items-center justify-between">
+                <span>Antigravity 2.0 Slash Commands</span>
+                <span class="text-zinc-500 text-[9px]">Type command or click to insert</span>
+              </div>
+              <button
+                v-for="cmd in filteredSlashCommands"
+                :key="cmd.cmd"
+                class="w-full px-2.5 py-1.5 rounded-lg text-left flex items-center justify-between gap-2 text-xs transition-colors cursor-pointer hover:bg-[#094771] hover:text-white text-zinc-300 group"
+                @click="insertSlashCommand(cmd.cmd)"
+              >
+                <div class="flex items-center gap-2 min-w-0">
+                  <i class="codicon text-xs text-cyan-400" :class="cmd.icon" />
+                  <span class="font-mono font-bold text-cyan-300 group-hover:text-white">{{ cmd.label }}</span>
+                  <span class="text-[11px] text-zinc-400 group-hover:text-zinc-200 truncate">{{ cmd.desc }}</span>
+                </div>
+              </button>
+            </div>
+
             <!-- INPUT FIELD -->
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 relative">
               <input
                 v-model="followUp"
                 class="flex-1 px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-xs text-white placeholder-slate-500 outline-none focus:border-cyan-500 font-sans transition-colors"
-                placeholder="Gửi chỉ dẫn / follow-up cho agent... (Nhấn Enter để gửi)"
+                placeholder="Nhập yêu cầu, lệnh (/goal, /diff, /schedule...) hoặc follow-up... (Enter để gửi)"
                 @keyup.enter="sendFollowUp"
+                @keydown.esc="showSlashMenu = false"
               />
               <button
                 class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition-colors cursor-pointer disabled:opacity-40"
@@ -1786,15 +3407,16 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
+        </div>
       </main>
     </div>
 
-    <!-- BOTTOM FOOTER ACTION BAR -->
-    <footer class="flex items-center justify-between gap-3 px-5 py-3 border-t border-slate-800/80 bg-slate-900/60 shrink-0">
+    <!-- BOTTOM ACTION & CONTROL BAR -->
+    <div class="flex items-center justify-between gap-3 px-4 py-2 border-t border-[#333333] bg-[#252526] shrink-0 text-xs select-none">
       <div class="flex items-center gap-2 flex-wrap min-w-0">
         <button
           v-if="phase === 'select' || phase === 'error'"
-          class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          class="px-3.5 py-1.5 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white font-semibold text-xs shadow-xs transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           :disabled="busy || !selectedTask"
           @click="runPreflight"
         >
@@ -1803,7 +3425,7 @@ onUnmounted(() => {
 
         <button
           v-if="phase === 'ready'"
-          class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+          class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
           @click="startAgent"
         >
           <span>🚀</span> Khởi chạy Agent (Full Access)
@@ -1811,7 +3433,7 @@ onUnmounted(() => {
 
         <button
           v-if="phase === 'running' && provider === 'antigravity'"
-          class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
+          class="px-3.5 py-1.5 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
           @click="completeExternalSession"
         >
           Hoàn tất ngoài → Handoff
@@ -1819,7 +3441,7 @@ onUnmounted(() => {
 
         <button
           v-if="phase === 'running'"
-          class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
+          class="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
           @click="stopAgent"
         >
           {{ docsOnly ? '⏹ Dừng → Review Docs' : '⏹ Dừng Agent → Handoff' }}
@@ -1827,7 +3449,7 @@ onUnmounted(() => {
 
         <button
           v-if="phase === 'handoff'"
-          class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md transition-all cursor-pointer disabled:opacity-40"
+          class="px-3.5 py-1.5 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white font-semibold text-xs shadow-xs transition-all cursor-pointer disabled:opacity-40"
           :disabled="!handoff.summary || !handoff.changedFiles"
           @click="submitHandoff"
         >
@@ -1836,7 +3458,7 @@ onUnmounted(() => {
 
         <button
           v-if="phase === 'review' && docsOnly"
-          class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+          class="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
           title="Sao chép toàn bộ file tài liệu đã tạo vào thư mục docs/ của workspace chính"
           @click="applyDocsToWorkspace"
         >
@@ -1845,7 +3467,7 @@ onUnmounted(() => {
 
         <button
           v-if="phase === 'review' && docsOnly"
-          class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
+          class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
           @click="syncGeneratedDocs"
         >
           ✓ Đồng bộ Docs lên Task Hub
@@ -1853,7 +3475,7 @@ onUnmounted(() => {
 
         <button
           v-if="worktree"
-          class="px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
+          class="px-2.5 py-1 rounded-lg border border-[#3e3e42] bg-[#333333] hover:bg-[#3e3e42] text-zinc-200 text-xs transition-colors cursor-pointer"
           @click="openWorktree"
         >
           📂 Mở Worktree
@@ -1861,25 +3483,122 @@ onUnmounted(() => {
 
         <button
           v-if="sessionId"
-          class="px-3 py-2 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
+          class="px-2.5 py-1 rounded-lg border border-[#3e3e42] bg-[#333333] hover:bg-[#3e3e42] text-zinc-200 text-xs transition-colors cursor-pointer"
           @click="openSessionLog"
         >
           📄 Mở Log File
         </button>
       </div>
 
-      <div class="text-[11px] text-slate-400 flex items-center gap-2 shrink-0">
-        <span v-if="worktree" class="hidden sm:inline font-mono text-[10px] text-slate-500 truncate max-w-[200px]" :title="worktree">
+      <div class="text-[11px] text-zinc-400 flex items-center gap-2 shrink-0">
+        <span v-if="worktree" class="hidden sm:inline font-mono text-[10px] text-zinc-400 truncate max-w-[200px]" :title="worktree">
           {{ worktree.split('\\').pop() }}
         </span>
         <button
-          class="text-slate-400 hover:text-white px-2 py-1 rounded hover:bg-slate-800 transition-colors text-xs cursor-pointer"
+          class="text-zinc-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333] transition-colors text-xs cursor-pointer"
           @click="emit('close')"
         >
           Đóng
         </button>
       </div>
+    </div>
+
+    <!-- 3. VS CODE BLUE STATUS BAR (#007acc) -->
+    <footer class="h-6 bg-[#007acc] text-white px-3 flex items-center justify-between text-[11px] font-sans shrink-0 select-none z-10 shadow-xs">
+      <div class="flex items-center gap-3">
+        <!-- Git Branch -->
+        <span class="flex items-center gap-1 font-semibold hover:bg-white/20 px-1.5 py-0.2 rounded cursor-pointer" :title="`Branch: ${preflight?.repository || 'main'}`">
+          <i class="codicon codicon-git-branch text-xs" />
+          <span class="font-mono">{{ (preflight?.upstream || worktree || 'main').split('/').pop() }}*</span>
+        </span>
+
+        <!-- Sync -->
+        <span class="flex items-center gap-1 hover:bg-white/20 px-1.5 py-0.2 rounded cursor-pointer">
+          <i class="codicon codicon-sync text-xs" />
+          <span>0↓ 1↑</span>
+        </span>
+
+        <!-- Diagnostics -->
+        <span class="flex items-center gap-1 hover:bg-white/20 px-1.5 py-0.2 rounded cursor-pointer">
+          <i class="codicon codicon-error text-xs" />
+          <span>0</span>
+          <i class="codicon codicon-warning text-xs ml-1" />
+          <span>0</span>
+        </span>
+
+        <!-- AI Provider & Model -->
+        <span class="flex items-center gap-1 font-semibold hover:bg-white/20 px-1.5 py-0.2 rounded cursor-pointer" @click="selectActivity('agent')">
+          <i class="codicon codicon-copilot text-xs" />
+          <span>{{ provider.toUpperCase() }}: {{ activeModelLabel }}</span>
+        </span>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Quota 5h / Weekly -->
+        <span class="flex items-center gap-1 hover:bg-white/20 px-1.5 py-0.2 rounded cursor-pointer" @click="openModelsAndUsageModal">
+          <i class="codicon codicon-pulse text-xs" />
+          <span>5h: {{ activeQuotaGroup.fiveHourRemainingPercent }}% · Tuần: {{ activeQuotaGroup.weeklyRemainingPercent }}%</span>
+        </span>
+
+        <!-- Indentation -->
+        <span class="hover:bg-white/20 px-1.5 py-0.2 rounded cursor-pointer hidden sm:inline">Spaces: 2</span>
+
+        <!-- Encoding -->
+        <span class="hover:bg-white/20 px-1.5 py-0.2 rounded cursor-pointer">UTF-8</span>
+
+        <!-- Core Marker -->
+        <span class="bg-white/25 px-1.5 py-0.2 rounded font-mono font-bold text-[10px]">VS Code Core</span>
+
+        <!-- Notification Bell -->
+        <span class="hover:bg-white/20 px-1.5 py-0.2 rounded cursor-pointer" title="Thông báo">
+          <i class="codicon codicon-bell text-xs" />
+        </span>
+      </div>
     </footer>
+
+    <!-- COMMAND PALETTE OVERLAY (CTRL+P / ⌘P) -->
+    <div
+      v-if="showCommandPalette"
+      class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-start justify-center pt-12 p-4"
+      @click.self="showCommandPalette = false"
+    >
+      <div class="w-full max-w-xl bg-[#252526] border border-[#3e3e42] rounded-lg shadow-2xl overflow-hidden flex flex-col font-sans select-none">
+        <div class="p-2.5 border-b border-[#333333] flex items-center gap-2 bg-[#1e1e1e]">
+          <i class="codicon codicon-search text-zinc-400" />
+          <input
+            v-model="commandPaletteSearch"
+            type="text"
+            autofocus
+            placeholder="Type a command or search actions (e.g. Run, Diff, Quota, Model)..."
+            class="w-full bg-transparent text-sm text-zinc-100 placeholder-zinc-500 outline-none"
+            @keydown.esc="showCommandPalette = false"
+          />
+          <button
+            class="px-1.5 py-0.5 rounded bg-[#333333] hover:bg-[#3e3e42] text-zinc-400 hover:text-white text-[10px] cursor-pointer"
+            @click="showCommandPalette = false"
+          >
+            ESC
+          </button>
+        </div>
+        <div class="max-h-80 overflow-y-auto p-1.5 space-y-0.5">
+          <button
+            v-for="cmd in filteredCommands"
+            :key="cmd.id"
+            class="w-full px-3 py-2 rounded text-left flex items-center justify-between text-xs transition-colors cursor-pointer group hover:bg-[#094771] hover:text-white text-zinc-300"
+            @click="executeCommand(cmd)"
+          >
+            <div class="flex items-center gap-2.5 min-w-0">
+              <i class="codicon text-sm" :class="cmd.icon" />
+              <span class="text-zinc-400 group-hover:text-cyan-300 text-[10px] font-semibold uppercase">{{ cmd.category }}:</span>
+              <span class="font-medium truncate">{{ cmd.title }}</span>
+            </div>
+            <span v-if="cmd.shortcut" class="px-1.5 py-0.2 rounded bg-[#333333] group-hover:bg-[#007acc] text-[10px] font-mono text-zinc-400 group-hover:text-white shrink-0">
+              {{ cmd.shortcut }}
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- SESSION HISTORY OVERLAY / MODAL -->
     <div
@@ -1938,6 +3657,12 @@ onUnmounted(() => {
                 <div class="flex items-center gap-2">
                   <span class="font-semibold text-slate-200 text-xs truncate">
                     {{ sess.taskTitle || (sess.kind === 'docs' ? 'Tạo bộ tài liệu Repo (Docs)' : sess.issueKey || 'Agent Task Run') }}
+                  </span>
+                  <span
+                    v-if="sess.model"
+                    class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-slate-900 text-slate-300 border border-slate-800"
+                  >
+                    {{ sess.model }}
                   </span>
                   <span
                     v-if="sess.sessionId === sessionId"
@@ -2003,6 +3728,231 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- 4. MODELS & USAGE / QUOTA MODAL (MATCHING SCREENSHOT) -->
+    <div
+      v-if="showModelsAndUsageModal"
+      class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+      @click.self="showModelsAndUsageModal = false"
+    >
+      <div class="w-full max-w-2xl bg-zinc-950/95 border border-zinc-800/90 rounded-2xl shadow-2xl p-6 flex flex-col gap-5 text-zinc-200 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+        <!-- Header -->
+        <div class="flex items-start justify-between">
+          <div class="flex flex-col gap-0.5">
+            <div class="flex items-center gap-2">
+              <h2 class="text-xl font-bold text-white tracking-tight">Models & Usage</h2>
+              <button
+                class="text-zinc-400 hover:text-white transition-colors cursor-pointer p-1 text-sm disabled:opacity-50"
+                :disabled="isSyncingQuota"
+                @click="refreshQuotaUsage"
+                title="Đồng bộ lại thông số Quota từ Task Hub & CLI"
+              >
+                <span :class="isSyncingQuota ? 'animate-spin inline-block' : ''">🔄</span>
+              </button>
+            </div>
+            <p class="text-xs text-zinc-400">Manage your model quota and credits.</p>
+          </div>
+          <button
+            class="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800/60 transition-colors text-base cursor-pointer"
+            @click="showModelsAndUsageModal = false"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- Section 1: Plan -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Plan</label>
+          <div class="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-4 flex items-center justify-between gap-4">
+            <div class="flex flex-col gap-0.5">
+              <span class="text-sm font-semibold text-white">Your Plan: {{ quotaUsageState.plan || 'Google AI Ultra' }}</span>
+              <p class="text-xs text-zinc-400">You can upgrade to a higher Google AI Ultra plan to receive the highest rate limits.</p>
+            </div>
+            <button
+              class="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white text-xs font-semibold shadow-sm shadow-sky-900/30 transition-all cursor-pointer shrink-0"
+              @click="addTimeline('Upgrade requested', 'Mở thông tin nâng cấp gói AI Plan', 'muted')"
+            >
+              Upgrade
+            </button>
+          </div>
+        </div>
+
+        <!-- Section 2: Model Credits -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Model Credits</label>
+          <div class="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-4 flex items-center justify-between gap-4">
+            <div class="flex flex-col gap-0.5 max-w-lg">
+              <span class="text-sm font-semibold text-white">Enable AI Credit Overages</span>
+              <p class="text-xs text-zinc-400 leading-relaxed">
+                When toggled on, Antigravity will use your AI credits to fulfill model requests once you're out of model quota. Antigravity will always use your model quota first before using AI credits.
+              </p>
+            </div>
+            <!-- Toggle Switch -->
+            <button
+              class="w-12 h-6 rounded-full transition-colors relative cursor-pointer shrink-0 border"
+              :class="quotaUsageState.enableCreditOverages ? 'bg-sky-600 border-sky-500' : 'bg-zinc-800 border-zinc-700'"
+              @click="toggleCreditOverages"
+            >
+              <span
+                class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform shadow-xs"
+                :class="quotaUsageState.enableCreditOverages ? 'translate-x-6' : 'translate-x-0'"
+              />
+            </button>
+          </div>
+        </div>
+
+        <!-- Section 3: Gemini Models -->
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center gap-1.5">
+            <label class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Gemini Models</label>
+            <span class="text-zinc-500 text-xs cursor-help" title="Thông số quota trượt của Gemini và Antigravity">ⓘ</span>
+          </div>
+          <div class="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-4 flex flex-col gap-3.5">
+            <!-- Weekly Limit -->
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex flex-col gap-0.5">
+                <span class="text-sm font-medium text-white">Weekly Limit Remaining</span>
+                <span class="text-xs text-zinc-400">You have used some of your weekly limit, it will fully refresh in {{ quotaUsageState.gemini?.weeklyResetIn || '4 days, 9 hours' }}.</span>
+              </div>
+              <div class="flex items-center gap-2.5 shrink-0">
+                <span class="text-sm font-bold font-mono text-zinc-100">{{ quotaUsageState.gemini?.weeklyRemainingPercent ?? 69 }}%</span>
+                <div class="relative w-6 h-6 flex items-center justify-center">
+                  <svg class="w-6 h-6 -rotate-90" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9" class="stroke-zinc-800" stroke-width="2.5" fill="none" />
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="9"
+                      class="stroke-emerald-400 transition-all duration-500"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      fill="none"
+                      :stroke-dasharray="2 * Math.PI * 9"
+                      :stroke-dashoffset="(2 * Math.PI * 9) * (1 - (quotaUsageState.gemini?.weeklyRemainingPercent ?? 69) / 100)"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div class="h-px bg-zinc-800/80" />
+
+            <!-- Five Hour Limit -->
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex flex-col gap-0.5">
+                <span class="text-sm font-medium text-white">Five Hour Limit Remaining</span>
+                <span class="text-xs text-zinc-400">You have used some of your 5-hour limit, it will fully refresh in {{ quotaUsageState.gemini?.fiveHourResetIn || '3 hours, 50 minutes' }}.</span>
+              </div>
+              <div class="flex items-center gap-2.5 shrink-0">
+                <span class="text-sm font-bold font-mono text-zinc-100">{{ quotaUsageState.gemini?.fiveHourRemainingPercent ?? 93 }}%</span>
+                <div class="relative w-6 h-6 flex items-center justify-center">
+                  <svg class="w-6 h-6 -rotate-90" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9" class="stroke-zinc-800" stroke-width="2.5" fill="none" />
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="9"
+                      class="stroke-emerald-400 transition-all duration-500"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      fill="none"
+                      :stroke-dasharray="2 * Math.PI * 9"
+                      :stroke-dashoffset="(2 * Math.PI * 9) * (1 - (quotaUsageState.gemini?.fiveHourRemainingPercent ?? 93) / 100)"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4: Claude and GPT models -->
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center gap-1.5">
+            <label class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Claude and GPT models</label>
+            <span class="text-zinc-500 text-xs cursor-help" title="Thông số quota trượt của Claude Code và Codex">ⓘ</span>
+          </div>
+          <div class="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-4 flex flex-col gap-3.5">
+            <!-- Weekly Limit -->
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex flex-col gap-0.5">
+                <span class="text-sm font-medium text-white">Weekly Limit Remaining</span>
+                <span class="text-xs text-zinc-400">Quota khả dụng tuần cho các mô hình Claude & OpenAI.</span>
+              </div>
+              <div class="flex items-center gap-2.5 shrink-0">
+                <span class="text-sm font-bold font-mono text-zinc-100">{{ quotaUsageState.claudeGpt?.weeklyRemainingPercent ?? 100 }}%</span>
+                <div class="relative w-6 h-6 flex items-center justify-center">
+                  <svg class="w-6 h-6 -rotate-90" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9" class="stroke-zinc-800" stroke-width="2.5" fill="none" />
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="9"
+                      class="stroke-emerald-400 transition-all duration-500"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      fill="none"
+                      :stroke-dasharray="2 * Math.PI * 9"
+                      :stroke-dashoffset="(2 * Math.PI * 9) * (1 - (quotaUsageState.claudeGpt?.weeklyRemainingPercent ?? 100) / 100)"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div class="h-px bg-zinc-800/80" />
+
+            <!-- Five Hour Limit -->
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex flex-col gap-0.5">
+                <span class="text-sm font-medium text-white">Five Hour Limit Remaining</span>
+                <span class="text-xs text-zinc-400">Quota khả dụng 5 giờ cho các mô hình Claude & OpenAI.</span>
+              </div>
+              <div class="flex items-center gap-2.5 shrink-0">
+                <span class="text-sm font-bold font-mono text-zinc-100">{{ quotaUsageState.claudeGpt?.fiveHourRemainingPercent ?? 100 }}%</span>
+                <div class="relative w-6 h-6 flex items-center justify-center">
+                  <svg class="w-6 h-6 -rotate-90" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9" class="stroke-zinc-800" stroke-width="2.5" fill="none" />
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="9"
+                      class="stroke-emerald-400 transition-all duration-500"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      fill="none"
+                      :stroke-dasharray="2 * Math.PI * 9"
+                      :stroke-dashoffset="(2 * Math.PI * 9) * (1 - (quotaUsageState.claudeGpt?.fiveHourRemainingPercent ?? 100) / 100)"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANTIGRAVITY 2.0 SKILLS & CUSTOMIZATIONS MODAL -->
+    <AntigravitySkillsModal
+      v-if="showSkillsModal"
+      :workspace-path="activeCwd"
+      @close="showSkillsModal = false"
+      @run-skill="followUp = `/skill ${$event} `; activeEditorTab = 'terminal'; addTimeline('Skill Loaded', `Đã nạp chỉ dẫn skill: ${$event}`, 'ok');"
+    />
+
+    <!-- ANTIGRAVITY 2.0 SCHEDULED TASKS & TIMERS MODAL -->
+    <AntigravityScheduledTasksModal
+      v-if="showScheduledTasksModal"
+      @close="showScheduledTasksModal = false"
+      @task-triggered="followUp = $event; activeEditorTab = 'terminal';"
+    />
+
+    <!-- ANTIGRAVITY 2.0 SETTINGS & PERMISSIONS MODAL -->
+    <AntigravitySettingsPermissionsModal
+      v-if="showSettingsPermissionsModal"
+      @close="showSettingsPermissionsModal = false"
+    />
   </div>
 </template>
 

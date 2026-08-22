@@ -116,7 +116,11 @@ $registerApiRoutes = function () {
     Route::post('/sprints/{sprint}/complete', [ApiSprintController::class, 'complete']);
     Route::delete('/sprints/{sprint}', [ApiSprintController::class, 'destroy']);
 
-    // Agent Runs & Context Pack
+    // Agent Runs, Models, Quota & Context Pack
+    Route::get('/agent/models', [ApiAgentRunController::class, 'models']);
+    Route::get('/tasks/agent/models', [ApiAgentRunController::class, 'models']);
+    Route::match(['get', 'post'], '/agent/quota', [ApiAgentRunController::class, 'quota']);
+    Route::match(['get', 'post'], '/tasks/agent/quota', [ApiAgentRunController::class, 'quota']);
     Route::get('/agent-runs', [ApiAgentRunController::class, 'index']);
     Route::post('/agent-runs', [ApiAgentRunController::class, 'store']);
     Route::get('/agent-runs/{agentRun}', [ApiAgentRunController::class, 'show']);

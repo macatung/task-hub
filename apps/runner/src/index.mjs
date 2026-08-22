@@ -86,8 +86,8 @@ async function execute(run) {
   await emit(run.id, 'preparing', 'preparing');
   const credential = await request(`/api/v1/runners/${runnerId}/jobs/${run.id}/credential?provider=github`).catch(() => ({}));
   const workspace = await prepare(run, credential.credential || null);
-  await emit(run.id, 'execution_started', 'running', { branch: workspace.branch, workspace: workspace.dir });
-  const [command, args] = commandFor(run.provider);
+  const model = run.metadata?.model || run.model || run.metadata?.context?.model || null;
+  const [command, args] = commandFor(run.provider, process.env, model);
   const context = run.metadata?.context || {};
   const prompt = `Task Hub supervised server run. Work only on task ${run.task_id || run.id}. Do not merge, deploy, access secrets, or perform external changes. Implement the task, run the declared tests, and finish with a structured handoff.\n\n${JSON.stringify(context)}`;
   const result = await runProcess(command, args, workspace.dir, prompt, run.id);
