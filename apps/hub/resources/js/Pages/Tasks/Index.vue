@@ -1014,6 +1014,7 @@ const showAiGeneratorModal = ref(false);
 const aiGeneratorStep = ref<'input' | 'preview'>('input');
 const isAiAnalyzing = ref(false);
 const isAiCommitting = ref(false);
+const showAiPlanningOptions = ref(false);
 
 const aiForm = ref({
   prompt: '',
@@ -1060,6 +1061,7 @@ const openAiGeneratorModal = () => {
     start_date: new Date().toISOString().split('T')[0],
   };
   aiGeneratedPlan.value = null;
+  showAiPlanningOptions.value = false;
   showAiGeneratorModal.value = true;
   sound.playClick();
 };
@@ -4522,7 +4524,7 @@ onUnmounted(() => {
                 </span>
               </div>
               <p :class="['text-xs mt-0.5 font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
-                {{ aiGeneratorStep === 'input' ? 'Step 1: Enter a project request or choose a template' : 'Step 2: Preview, customize and confirm sprints and tasks' }}
+                {{ aiGeneratorStep === 'input' ? 'Chọn repo, nhập requirement ngắn; AI tự đọc docs và tạo bản nháp.' : 'Xem lại, chỉnh sửa và xác nhận backlog.' }}
               </p>
             </div>
           </div>
@@ -4540,21 +4542,42 @@ onUnmounted(() => {
           <!-- Requirement Textarea -->
           <div class="space-y-1.5">
             <label :class="['font-mono text-xs font-bold uppercase tracking-wider block', isDarkMode ? 'text-slate-300' : 'text-slate-700']">
-              Project or feature request *
+              Requirement *
             </label>
             <textarea
               v-model="aiForm.prompt"
-              rows="4"
-              placeholder="Example: Build an e-commerce platform with payments, cart, realtime notifications, and analytics..."
+              rows="3"
+              placeholder="Ví dụ: Thêm đăng nhập Google cho người dùng hiện tại."
               :class="[
                 'w-full p-3.5 rounded-2xl border text-xs focus:outline-none focus:border-indigo-500 shadow-xs font-medium leading-relaxed',
                 isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' : 'bg-slate-50 border-slate-300 text-slate-950 placeholder-slate-500'
               ]"
             ></textarea>
+            <p :class="['text-[11px]', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
+              Bạn chỉ cần mô tả kết quả mong muốn. AI tự dùng docs Repo, kiến trúc và backlog hiện tại.
+            </p>
           </div>
 
+          <div>
+            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Repo / Project</label>
+            <select
+              v-model="aiForm.project_id"
+              :class="['w-full p-2.5 rounded-xl border text-xs font-semibold focus:outline-none', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
+            >
+              <option value="new">✨ Tạo Project mới</option>
+              <option v-for="proj in projects" :key="proj.id" :value="proj.id">📁 {{ proj.title }}</option>
+            </select>
+          </div>
+
+          <button
+            class="text-xs font-semibold text-indigo-500 hover:text-indigo-400 cursor-pointer"
+            @click="showAiPlanningOptions = !showAiPlanningOptions"
+          >
+            {{ showAiPlanningOptions ? '⌃ Ẩn tuỳ chỉnh' : '⌄ Tuỳ chỉnh sprint, lịch và mẫu' }}
+          </button>
+
           <!-- Quick Templates Picker -->
-          <div class="space-y-2">
+          <div v-if="showAiPlanningOptions" class="space-y-2">
             <label :class="['font-mono text-[11px] font-bold uppercase tracking-wider block', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
               💡 Common project templates (click to fill)
             </label>
@@ -4582,9 +4605,9 @@ onUnmounted(() => {
           </div>
 
           <!-- Config Form: Project, Sprints, Duration, Start Date -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-2">
+          <div v-if="showAiPlanningOptions" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-2">
             <!-- Target Project -->
-            <div>
+            <div class="hidden">
               <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Target Project</label>
               <select
                 v-model="aiForm.project_id"
@@ -4803,7 +4826,7 @@ onUnmounted(() => {
             >
               <span v-if="isAiAnalyzing" class="animate-spin">⏳</span>
               <span v-else>✨</span>
-              <span>{{ isAiAnalyzing ? 'Analyzing and generating plan...' : 'Generate Plan with AI' }}</span>
+              <span>{{ isAiAnalyzing ? 'Đang phân tích...' : 'Phân tích Requirement' }}</span>
             </button>
 
             <!-- Action Button for Step 2 -->
@@ -4815,7 +4838,7 @@ onUnmounted(() => {
             >
               <span v-if="isAiCommitting" class="animate-spin">⏳</span>
               <span v-else>🚀</span>
-              <span>{{ isAiCommitting ? 'Saving to database...' : 'Create Sprints & Tasks' }}</span>
+              <span>{{ isAiCommitting ? 'Đang lưu...' : 'Tạo Epic, Story & Task' }}</span>
             </button>
           </div>
         </div>
