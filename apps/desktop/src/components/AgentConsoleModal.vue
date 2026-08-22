@@ -1744,12 +1744,22 @@ const syncGeneratedDocs = async () => {
     addTimeline('Docs sync info', 'Chưa kết nối Task Hub SaaS. Hãy dùng tùy chọn lưu vào Workspace.', 'muted');
     return;
   }
+  // A desktop-wide pairing deliberately uses projectId = "all" so it can load
+  // tasks across projects. Document import, however, is scoped to exactly one
+  // project. The selected task is mandatory before a docs run and is the
+  // authoritative project context for this import.
+  const projectId = selectedTask.value?.project_id;
+  if (!projectId) {
+    errorMessage.value = 'Đồng bộ tài liệu cần một task thuộc project cụ thể. Hãy chọn task rồi tạo lại bộ docs.';
+    addTimeline('Docs sync info', errorMessage.value, 'muted');
+    return;
+  }
   try {
     const payload = await window.desktopApi.agent.readGeneratedDocuments(worktree.value);
     await window.desktopApi.taskHub.importGeneratedDocuments(
       props.desktopCredential.taskHubUrl,
       props.desktopCredential.token,
-      props.desktopCredential.projectId,
+      projectId,
       payload
     );
     addTimeline('Docs synced', 'Đã đồng bộ bộ tài liệu chuẩn vào Task Hub thành công!', 'ok');
@@ -1757,6 +1767,8 @@ const syncGeneratedDocs = async () => {
     const raw = error.message || 'Không thể đồng bộ docs vào Task Hub.';
     if (raw.includes('404')) {
       errorMessage.value = `Máy chủ Task Hub (${props.desktopCredential.taskHubUrl}) chưa có endpoint đồng bộ docs. Hãy bấm "Lưu vào Workspace chính" để đưa tài liệu vào repo.`;
+    } else if (raw.includes('500') && props.desktopCredential.projectId === 'all') {
+      errorMessage.value = 'Task Hub không thể xác định project cho bộ docs. Hãy thử lại từ một task cụ thể; ứng dụng đã dùng project của task cho các lần đồng bộ mới.';
     } else {
       errorMessage.value = raw;
     }
