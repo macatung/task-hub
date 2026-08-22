@@ -1257,8 +1257,8 @@ const openNotification = (item: { id: string; task?: TaskItem }) => {
 };
 
 const activeProjectTasks = computed(() => {
-  if (selectedProjectId.value === 'all') return taskList.value;
-  return taskList.value.filter(t => t.project_id === Number(selectedProjectId.value));
+  if (selectedProjectId.value === 'all') return taskList.value.filter(t => t.issue_type !== 'epic');
+  return taskList.value.filter(t => t.project_id === Number(selectedProjectId.value) && t.issue_type !== 'epic');
 });
 
 const activeProjectCompletedCount = computed(() => {
@@ -1306,6 +1306,11 @@ const activeSprint = computed(() => {
 // Filtered Tasks for Active Board with Warning / Health Filters
 const filteredBoardTasks = computed(() => {
   return taskList.value.filter(task => {
+    // Epics are high-level roadmap containers, not direct sprint board cards unless explicitly filtered
+    if (task.issue_type === 'epic' && filterIssueType.value !== 'epic') {
+      return false;
+    }
+
     // Project filter
     if (selectedProjectId.value !== 'all' && task.project_id !== Number(selectedProjectId.value)) return false;
 
@@ -1370,16 +1375,16 @@ const inProgressTasks = computed(() => filteredBoardTasks.value.filter(t => t.st
 const reviewTasks = computed(() => filteredBoardTasks.value.filter(t => t.status === 'review'));
 const doneTasks = computed(() => filteredBoardTasks.value.filter(t => t.status === 'done'));
 
-// Backlog Pool Tasks (No sprint assigned)
+// Backlog Pool Tasks (No sprint assigned, excluding epics)
 const backlogTasks = computed(() => {
   return taskList.value.filter(task => {
     if (selectedProjectId.value !== 'all' && task.project_id !== Number(selectedProjectId.value)) return false;
-    return task.sprint_id === null;
+    return task.sprint_id === null && task.issue_type !== 'epic';
   });
 });
 
 const getSprintTasks = (sprintId: number) => {
-  return taskList.value.filter(t => t.sprint_id === sprintId);
+  return taskList.value.filter(t => t.sprint_id === sprintId && t.issue_type !== 'epic');
 };
 
 const getSprintStats = (sprintId: number) => {
@@ -1915,6 +1920,10 @@ const openCreateTaskModal = () => {
 
 const handleCreateTask = async () => {
   if (!newTaskForm.value.title.trim()) return;
+  if (newTaskForm.value.issue_type === 'epic') {
+    newTaskForm.value.sprint_id = null;
+    newTaskForm.value.epic_id = null;
+  }
   isSubmitting.value = true;
 
   try {
@@ -1994,6 +2003,11 @@ const closeTaskDrawer = () => {
 const saveTaskDrawerChanges = async () => {
   if (!selectedTask.value) return;
   const task = selectedTask.value;
+
+  if (task.issue_type === 'epic') {
+    task.sprint_id = null;
+    task.epic_id = null;
+  }
 
   if (isEditingDescription.value) {
     task.description = descriptionEditContent.value;
@@ -2126,7 +2140,7 @@ const onDropSprint = async (targetSprintId: number | null) => {
   if (!draggedTaskId.value) return;
 
   const task = taskList.value.find(t => t.id === draggedTaskId.value);
-  if (task && task.sprint_id !== targetSprintId) {
+  if (task && task.issue_type !== 'epic' && task.sprint_id !== targetSprintId) {
     task.sprint_id = targetSprintId;
     sound.playClick();
 
@@ -4131,7 +4145,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Sprint Link -->
-            <div class="space-y-1.5">
+            <div v-if="selectedTask.issue_type !== 'epic'" class="space-y-1.5">
               <label :class="['font-mono text-xs font-bold uppercase block', isDarkMode ? 'text-slate-300' : 'text-slate-700']">Sprint</label>
               <select
                 v-model="selectedTask.sprint_id"
@@ -4149,7 +4163,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Epic Link -->
-            <div class="space-y-1.5">
+            <div v-if="selectedTask.issue_type !== 'epic'" class="space-y-1.5">
               <label :class="['font-mono text-xs font-bold uppercase block', isDarkMode ? 'text-slate-300' : 'text-slate-700']">Epic</label>
               <select
                 v-model="selectedTask.epic_id"
@@ -4720,7 +4734,7 @@ onUnmounted(() => {
                   </span>
                 </div>
                 <span class="text-xs font-mono font-medium text-slate-500">
-                  {{ sprint.tasks?.length || 0 }} tasks • {{ sprint.tasks?.reduce((acc: number, t: any) => acc + (Number(t.story_points) || 0), 0) }} pts
+                  {{ sprint.tasks?.filter((t: any) => t.issue_type !== 'epic').length || 0 }} tasks • {{ sprint.tasks?.filter((t: any) => t.issue_type !== 'epic').reduce((acc: number, t: any) => acc + (Number(t.story_points) || 0), 0) }} pts
                 </span>
               </div>
 

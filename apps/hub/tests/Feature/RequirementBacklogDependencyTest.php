@@ -44,9 +44,12 @@ class RequirementBacklogDependencyTest extends TestCase
         $this->assertCount(2, $result['tasks']);
 
         $epic = $result['epic'];
+        $this->assertNull($epic->sprint_id);
+        $this->assertSame('epic', $epic->issue_type);
         foreach ($result['tasks'] as $task) {
             $this->assertSame($epic->id, $task->epic_id);
             $this->assertSame($sprint->id, $task->sprint_id);
+            $this->assertNotSame('epic', $task->issue_type);
         }
 
         $schema = Task::where('title', 'Persist task dependencies')->firstOrFail();

@@ -19,7 +19,8 @@ class ApiSprintController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Sprint::with(['tasks' => function ($q) {
-            $q->select('id', 'sprint_id', 'status', 'story_points');
+            $q->select('id', 'sprint_id', 'status', 'story_points', 'issue_type')
+              ->where('issue_type', '!=', 'epic');
         }]);
 
         if ($request->filled('project_id') && $request->project_id !== 'all') {
@@ -27,10 +28,11 @@ class ApiSprintController extends Controller
         }
 
         $sprints = $query->orderBy('created_at', 'desc')->get()->map(function ($sprint) {
-            $totalPoints = $sprint->tasks->sum('story_points');
-            $donePoints = $sprint->tasks->where('status', 'done')->sum('story_points');
-            $totalTasks = $sprint->tasks->count();
-            $doneTasks = $sprint->tasks->where('status', 'done')->count();
+            $tasks = $sprint->tasks->where('issue_type', '!=', 'epic');
+            $totalPoints = $tasks->sum('story_points');
+            $donePoints = $tasks->where('status', 'done')->sum('story_points');
+            $totalTasks = $tasks->count();
+            $doneTasks = $tasks->where('status', 'done')->count();
 
             return array_merge($sprint->toArray(), [
                 'total_points' => $totalPoints,
@@ -148,9 +150,20 @@ class ApiSprintController extends Controller
             ? (int)$validated['move_incomplete_to']
             : null;
 
-        Task::where('sprint_id', $sprint->id)
-            ->where('status', '!=', 'done')
-            ->update(['sprint_id' => $targetSprintId]);
+        if ($targetSprintId !== null) {
+            Task::where('sprint_id', $sprint->id)
+                ->where('status', '!=', 'done')
+                ->where('issue_type', '!=', 'epic')
+                ->update(['sprint_id' => $targetSprintId]);
+
+            Task::where('sprint_id', $sprint->id)
+                ->where('issue_type', 'epic')
+                ->update(['sprint_id' => null]);
+        } else {
+            Task::where('sprint_id', $sprint->id)
+                ->where('status', '!=', 'done')
+                ->update(['sprint_id' => null]);
+        }
 
         return response()->json([
             'success' => true,
@@ -185,9 +198,16 @@ class ApiSprintController extends Controller
             'sprint_id' => 'nullable|exists:sprints,id',
         ]);
 
-        Task::whereIn('id', $validated['task_ids'])->update([
-            'sprint_id' => $validated['sprint_id'] ?? null,
-        ]);
+        $targetSprintId = $validated['sprint_id'] ?? null;
+        if ($targetSprintId !== null) {
+            Task::whereIn('id', $validated['task_ids'])->where('issue_type', '!=', 'epic')->update([
+                'sprint_id' => $targetSprintId,
+            ]);
+        } else {
+            Task::whereIn('id', $validated['task_ids'])->update([
+                'sprint_id' => null,
+            ]);
+        }
 
         return response()->json([
             'success' => true,

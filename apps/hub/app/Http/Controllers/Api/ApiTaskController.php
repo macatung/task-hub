@@ -28,8 +28,12 @@ class ApiTaskController extends Controller
         if ($request->has("sprint_id")) {
             if ($request->query("sprint_id") === 'backlog') {
                 $query->whereNull("sprint_id");
+                if (!$request->has("issue_type") || $request->query("issue_type") === 'all') {
+                    $query->where("issue_type", "!=", "epic");
+                }
             } elseif ($request->query("sprint_id") !== 'all') {
-                $query->where("sprint_id", $request->query("sprint_id"));
+                $query->where("sprint_id", $request->query("sprint_id"))
+                      ->where("issue_type", "!=", "epic");
             }
         }
 
@@ -84,6 +88,11 @@ class ApiTaskController extends Controller
             "depends_on_task_ids" => "nullable|array",
             "depends_on_task_ids.*" => "integer|exists:tasks,id",
         ]);
+
+        if (($validated['issue_type'] ?? 'task') === 'epic') {
+            $validated['sprint_id'] = null;
+            $validated['epic_id'] = null;
+        }
 
         if (empty($validated["due_date"])) {
             $validated["due_date"] = Carbon::today()->toDateString();
@@ -165,6 +174,11 @@ class ApiTaskController extends Controller
             $validated["completed_at"] = null;
         }
 
+        if (($validated['issue_type'] ?? $task->issue_type) === 'epic') {
+            $validated['sprint_id'] = null;
+            $validated['epic_id'] = null;
+        }
+
         if (array_key_exists('project_id', $validated) && $request->user()) {
             $workspace = app(WorkspaceContext::class)->resolve($request);
             Project::where('workspace_id', $workspace->id)->findOrFail($validated['project_id']);
@@ -216,12 +230,14 @@ class ApiTaskController extends Controller
                   ->orWhere("status", "in_progress");
             })
             ->where("status", "!=", "done")
+            ->where("issue_type", "!=", "epic")
             ->orderByRaw("CASE WHEN status = 'in_progress' THEN 1 ELSE 2 END")
             ->orderByRaw("CASE WHEN priority = 'urgent' THEN 1 WHEN priority = 'high' THEN 2 WHEN priority = 'medium' THEN 3 ELSE 4 END")
             ->take(3)
             ->get();
 
         $completedToday = Task::where("status", "done")
+            ->where("issue_type", "!=", "epic")
             ->whereDate("completed_at", Carbon::today())
             ->count();
 
@@ -230,7 +246,7 @@ class ApiTaskController extends Controller
             "dispatch_date" => Carbon::today()->toDateString(),
             "active_tasks" => $todayTasks,
             "completed_today_count" => $completedToday,
-            "overdue_count" => Task::where('status', '!=', 'done')->whereDate('due_date', '<', Carbon::today())->count(),
+            "overdue_count" => Task::where('status', '!=', 'done')->where("issue_type", "!=", "epic")->whereDate('due_date', '<', Carbon::today())->count(),
             "focus_limit" => 3,
             "greeting" => "Good morning! Let’s focus on today’s most important work 🚀",
         ]);
@@ -243,18 +259,20 @@ class ApiTaskController extends Controller
 
         $completedTasks = Task::with('project')
             ->where("status", "done")
+            ->where("issue_type", "!=", "epic")
             ->whereDate("completed_at", $today)
             ->get();
 
         $incompletedTasks = Task::with('project')
             ->where("status", "!=", "done")
+            ->where("issue_type", "!=", "epic")
             ->where(function ($q) use ($today) {
                 $q->whereDate("due_date", $today)
                   ->orWhere("status", "in_progress");
             })
             ->get();
 
-        $totalPomodorosDone = Task::whereDate("updated_at", $today)->sum("completed_pomodoros");
+        $totalPomodorosDone = Task::whereDate("updated_at", $today)->where("issue_type", "!=", "epic")->sum("completed_pomodoros");
 
         return response()->json([
             "success" => true,

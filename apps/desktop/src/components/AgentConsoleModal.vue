@@ -3186,24 +3186,70 @@ onUnmounted(() => {
               @click="taskId = task.id"
             >
               <div class="flex items-center justify-between gap-1">
-                <span class="font-mono font-bold text-[11px]" :class="task.id === taskId ? 'text-white' : 'text-zinc-400'">
-                  {{ task.issue_key || `#${task.id}` }}
-                </span>
-                <span class="px-1.5 py-0.2 rounded text-[9px] font-semibold uppercase bg-[#2d2d2d] text-zinc-300 border border-[#3e3e42]">
-                  {{ task.status }}
-                </span>
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span
+                    class="px-1 py-0.2 rounded text-[9px] font-bold font-mono uppercase border"
+                    :class="
+                      task.issue_type === 'epic'
+                        ? 'bg-purple-950/80 text-purple-300 border-purple-800'
+                        : task.issue_type === 'story'
+                        ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
+                        : task.issue_type === 'bug'
+                        ? 'bg-rose-950/80 text-rose-300 border-rose-800'
+                        : 'bg-blue-950/80 text-blue-300 border-blue-800'
+                    "
+                  >
+                    {{ task.issue_type === 'epic' ? '⚡ EPIC' : task.issue_type === 'story' ? '📖 STORY' : task.issue_type === 'bug' ? '🐞 BUG' : '☑️ TASK' }}
+                  </span>
+                  <span class="font-mono font-bold text-[11px] truncate" :class="task.id === taskId ? 'text-white' : 'text-zinc-400'">
+                    {{ task.issue_key || `#${task.id}` }}
+                  </span>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                  <span v-if="task.story_points" class="font-mono font-bold text-[9px] px-1 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-800/80">
+                    {{ task.story_points }} pts
+                  </span>
+                  <span class="px-1.5 py-0.2 rounded text-[9px] font-semibold uppercase bg-[#2d2d2d] text-zinc-300 border border-[#3e3e42]">
+                    {{ task.status }}
+                  </span>
+                </div>
               </div>
               <p class="text-xs text-zinc-200 truncate font-medium">{{ task.title }}</p>
+              <div v-if="task.epic" class="text-[10px] text-purple-300/80 truncate flex items-center gap-1">
+                <span>⚡ {{ task.epic.title || task.epic.issue_key }}</span>
+              </div>
             </button>
           </div>
 
           <!-- SELECTED TASK PREVIEW -->
           <div v-if="selectedTask" class="p-2 rounded border border-[#007acc]/40 bg-[#0e639c]/10 text-xs">
-            <div class="font-semibold text-white flex items-center justify-between">
-              <span>{{ selectedTask.issue_key || `#${selectedTask.id}` }}</span>
-              <span class="text-[10px] text-zinc-400">{{ selectedTask.project?.title || 'Project' }}</span>
+            <div class="font-semibold text-white flex items-center justify-between gap-1">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span
+                  class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border"
+                  :class="
+                    selectedTask.issue_type === 'epic'
+                      ? 'bg-purple-950/80 text-purple-300 border-purple-800'
+                      : selectedTask.issue_type === 'story'
+                      ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
+                      : selectedTask.issue_type === 'bug'
+                      ? 'bg-rose-950/80 text-rose-300 border-rose-800'
+                      : 'bg-blue-950/80 text-blue-300 border-blue-800'
+                  "
+                >
+                  {{ selectedTask.issue_type === 'epic' ? '⚡ EPIC' : selectedTask.issue_type === 'story' ? '📖 STORY' : selectedTask.issue_type === 'bug' ? '🐞 BUG' : '☑️ TASK' }}
+                </span>
+                <span class="font-mono">{{ selectedTask.issue_key || `#${selectedTask.id}` }}</span>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span v-if="selectedTask.story_points" class="font-mono text-[10px] font-bold text-indigo-300 px-1.5 py-0.2 rounded bg-indigo-950 border border-indigo-800/80">{{ selectedTask.story_points }} pts</span>
+                <span class="text-[10px] text-zinc-400">{{ selectedTask.project?.title || 'Project' }}</span>
+              </div>
             </div>
             <p class="text-zinc-300 text-[11px] mt-1 font-medium">{{ selectedTask.title }}</p>
+            <div v-if="selectedTask.epic" class="text-[10px] text-purple-300 mt-1 flex items-center gap-1">
+              <span>Parent Epic: ⚡ {{ selectedTask.epic.title || selectedTask.epic.issue_key }}</span>
+            </div>
             <p v-if="selectedTask.acceptance_criteria" class="text-zinc-400 text-[10px] mt-1 line-clamp-2 italic">
               {{ selectedTask.acceptance_criteria }}
             </p>
@@ -3535,10 +3581,38 @@ onUnmounted(() => {
               <div class="text-cyan-300 font-semibold break-all">{{ activeCwd || 'Chưa chọn' }}</div>
             </div>
           </div>
-          <div v-if="selectedTask" class="p-4 rounded-xl border border-[#333333] bg-[#252526] flex flex-col gap-2">
-            <div class="flex items-center justify-between font-bold text-sky-300">
-              <span>{{ selectedTask.issue_key || `#${selectedTask.id}` }} · {{ selectedTask.title }}</span>
-              <span class="text-[10px] px-2 py-0.5 rounded bg-sky-950 border border-sky-800 text-sky-200 uppercase">{{ selectedTask.status }}</span>
+          <div v-if="selectedTask" class="p-4 rounded-xl border border-[#333333] bg-[#252526] flex flex-col gap-2.5">
+            <div class="flex items-center justify-between font-bold text-sky-300 flex-wrap gap-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <span
+                  class="px-2 py-0.5 rounded text-[10px] font-bold uppercase border"
+                  :class="
+                    selectedTask.issue_type === 'epic'
+                      ? 'bg-purple-950/80 text-purple-300 border-purple-800'
+                      : selectedTask.issue_type === 'story'
+                      ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
+                      : selectedTask.issue_type === 'bug'
+                      ? 'bg-rose-950/80 text-rose-300 border-rose-800'
+                      : 'bg-blue-950/80 text-blue-300 border-blue-800'
+                  "
+                >
+                  {{ selectedTask.issue_type === 'epic' ? '⚡ EPIC' : selectedTask.issue_type === 'story' ? '📖 STORY' : selectedTask.issue_type === 'bug' ? '🐞 BUG' : '☑️ TASK' }}
+                </span>
+                <span class="font-mono text-white">{{ selectedTask.issue_key || `#${selectedTask.id}` }}</span>
+                <span class="text-zinc-200">· {{ selectedTask.title }}</span>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span v-if="selectedTask.story_points" class="text-[11px] font-mono px-2 py-0.5 rounded bg-indigo-950 border border-indigo-800 text-indigo-300 font-bold">
+                  {{ selectedTask.story_points }} pts
+                </span>
+                <span class="text-[10px] px-2 py-0.5 rounded bg-sky-950 border border-sky-800 text-sky-200 uppercase">
+                  {{ selectedTask.status }}
+                </span>
+              </div>
+            </div>
+            <div v-if="selectedTask.epic" class="text-xs text-purple-300 flex items-center gap-1.5 py-1 px-2.5 rounded-lg bg-purple-950/40 border border-purple-800/50">
+              <span class="font-bold">Parent Epic:</span>
+              <span>⚡ {{ selectedTask.epic.issue_key ? `${selectedTask.epic.issue_key} — ` : '' }}{{ selectedTask.epic.title }}</span>
             </div>
             <p v-if="selectedTask.description" class="text-zinc-300 whitespace-pre-wrap">{{ selectedTask.description }}</p>
             <div v-if="selectedTask.acceptance_criteria" class="p-2.5 rounded-lg bg-[#1e1e1e] border border-[#333333] text-zinc-400 text-[11px]">

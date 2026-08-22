@@ -75,7 +75,8 @@ class TaskController extends Controller
             ->get();
 
         $sprintsQuery = Sprint::with(['tasks' => function ($q) {
-            $q->select('id', 'sprint_id', 'status', 'story_points');
+            $q->select('id', 'sprint_id', 'status', 'story_points', 'issue_type')
+              ->where('issue_type', '!=', 'epic');
         }])->where('workspace_id', $workspace->id);
 
         if ($projectId && $projectId !== 'all') {
@@ -83,10 +84,11 @@ class TaskController extends Controller
         }
 
         $sprints = $sprintsQuery->orderBy('created_at', 'desc')->get()->map(function ($sprint) {
-            $totalPoints = $sprint->tasks->sum('story_points');
-            $donePoints = $sprint->tasks->where('status', 'done')->sum('story_points');
-            $totalTasks = $sprint->tasks->count();
-            $doneTasks = $sprint->tasks->where('status', 'done')->count();
+            $tasks = $sprint->tasks->where('issue_type', '!=', 'epic');
+            $totalPoints = $tasks->sum('story_points');
+            $donePoints = $tasks->where('status', 'done')->sum('story_points');
+            $totalTasks = $tasks->count();
+            $doneTasks = $tasks->where('status', 'done')->count();
 
             return array_merge($sprint->toArray(), [
                 'total_points' => $totalPoints,
@@ -98,17 +100,18 @@ class TaskController extends Controller
 
         $epics = Task::where('workspace_id', $workspace->id)->where('issue_type', 'epic')->get(['id', 'project_id', 'issue_key', 'title', 'category']);
 
+        $workTasks = $tasks->where('issue_type', '!=', 'epic');
         $stats = [
-            "total" => $tasks->count(),
-            "todo" => $tasks->where("status", "todo")->count(),
-            "in_progress" => $tasks->where("status", "in_progress")->count(),
-            "review" => $tasks->where("status", "review")->count(),
-            "done" => $tasks->where("status", "done")->count(),
-            "total_story_points" => $tasks->sum("story_points"),
-            "completed_story_points" => $tasks->where("status", "done")->sum("story_points"),
-            "total_pomodoros_estimated" => $tasks->sum("estimated_pomodoros"),
-            "total_pomodoros_completed" => $tasks->sum("completed_pomodoros"),
-            "completion_rate" => $tasks->count() > 0 ? round(($tasks->where("status", "done")->count() / $tasks->count()) * 100) : 0,
+            "total" => $workTasks->count(),
+            "todo" => $workTasks->where("status", "todo")->count(),
+            "in_progress" => $workTasks->where("status", "in_progress")->count(),
+            "review" => $workTasks->where("status", "review")->count(),
+            "done" => $workTasks->where("status", "done")->count(),
+            "total_story_points" => $workTasks->sum("story_points"),
+            "completed_story_points" => $workTasks->where("status", "done")->sum("story_points"),
+            "total_pomodoros_estimated" => $workTasks->sum("estimated_pomodoros"),
+            "total_pomodoros_completed" => $workTasks->sum("completed_pomodoros"),
+            "completion_rate" => $workTasks->count() > 0 ? round(($workTasks->where("status", "done")->count() / $workTasks->count()) * 100) : 0,
         ];
 
         return Inertia::render("Tasks/Index", [

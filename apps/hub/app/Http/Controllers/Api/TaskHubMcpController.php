@@ -269,14 +269,17 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
         $count = \App\Models\Task::where('project_id', $project->id)->count() + 1;
         $key = $args['issue_key'] ?? ($project->key . '-' . $count);
 
+        $issueType = $args['issue_type'] ?? 'task';
+        $isEpic = ($issueType === 'epic');
+
         $task = \App\Models\Task::updateOrCreate(
             ['issue_key' => $key],
             [
                 'project_id' => $project->id,
                 'workspace_id' => $args['workspace_id'] ?? $project->workspace_id,
-                'sprint_id' => $args['sprint_id'] ?? null,
-                'epic_id' => $args['epic_id'] ?? null,
-                'issue_type' => $args['issue_type'] ?? 'task',
+                'sprint_id' => $isEpic ? null : ($args['sprint_id'] ?? null),
+                'epic_id' => $isEpic ? null : ($args['epic_id'] ?? null),
+                'issue_type' => $issueType,
                 'title' => $args['title'],
                 'description' => $args['description'] ?? null,
                 'status' => $args['status'] ?? 'todo',
@@ -357,7 +360,10 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
             ->orderBy('due_date')
             ->limit(100)
             ->get();
-        $sprints = $project->sprints()->withCount(['tasks', 'tasks as completed_tasks_count' => fn ($query) => $query->where('status', 'done')])->orderByDesc('start_date')->get(['id', 'name', 'goal', 'start_date', 'end_date', 'status']);
+        $sprints = $project->sprints()->withCount([
+            'tasks' => fn ($query) => $query->where('issue_type', '!=', 'epic'),
+            'tasks as completed_tasks_count' => fn ($query) => $query->where('issue_type', '!=', 'epic')->where('status', 'done'),
+        ])->orderByDesc('start_date')->get(['id', 'name', 'goal', 'start_date', 'end_date', 'status']);
         $runs = AgentRun::whereHas('task', fn ($query) => $query->where('project_id', $projectId))->with('evidence')->latest()->limit(20)->get();
         $releases = $project->releases()->latest('deployed_at')->limit(20)->get();
 
@@ -369,9 +375,12 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
                 'github_last_sync_at' => $project->github_last_sync_at?->toIso8601String(), 'github_snapshot' => $project->github_snapshot,
             ],
             'summary' => [
-                'total_tasks' => (clone $tasks)->count(), 'done' => (clone $tasks)->where('status', 'done')->count(),
-                'in_progress' => (clone $tasks)->where('status', 'in_progress')->count(), 'review' => (clone $tasks)->where('status', 'review')->count(),
-                'todo' => (clone $tasks)->where('status', 'todo')->count(), 'overdue' => (clone $tasks)->where('status', '!=', 'done')->whereDate('due_date', '<', now()->toDateString())->count(),
+                'total_tasks' => (clone $tasks)->where('issue_type', '!=', 'epic')->count(),
+                'done' => (clone $tasks)->where('issue_type', '!=', 'epic')->where('status', 'done')->count(),
+                'in_progress' => (clone $tasks)->where('issue_type', '!=', 'epic')->where('status', 'in_progress')->count(),
+                'review' => (clone $tasks)->where('issue_type', '!=', 'epic')->where('status', 'review')->count(),
+                'todo' => (clone $tasks)->where('issue_type', '!=', 'epic')->where('status', 'todo')->count(),
+                'overdue' => (clone $tasks)->where('issue_type', '!=', 'epic')->where('status', '!=', 'done')->whereDate('due_date', '<', now()->toDateString())->count(),
             ],
             'sprints' => $sprints, 'tasks' => $taskRows, 'agent_runs' => $runs, 'releases' => $releases,
             'project_knowledge' => app(\App\Services\ProjectKnowledgeService::class)->projectState($project),

@@ -14,7 +14,15 @@ class DesktopPairingTest extends TestCase
     public function test_pairing_approval_creates_and_releases_mcp_token_once(): void
     {
         $user = User::factory()->create();
+        $workspace = \App\Models\Workspace::create([
+            'name' => 'Pairing Workspace',
+            'slug' => 'pairing-workspace-' . $user->id,
+            'owner_id' => $user->id,
+        ]);
+        $workspace->members()->attach($user->id, ['role' => 'owner']);
+
         $project = Project::create([
+            'workspace_id' => $workspace->id,
             'user_id' => $user->id,
             'slug' => 'pairing-project',
             'title' => 'Pairing project',

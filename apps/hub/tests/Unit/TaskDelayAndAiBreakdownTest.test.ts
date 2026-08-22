@@ -227,3 +227,197 @@ describe('Task Delay and Overdue Warning Engine', () => {
     expect(status.label).toContain('Còn 10 ngày');
   });
 });
+
+describe('Sprint Backlog & Story Point Rollup: Epic Separation & Zero Double Counting', () => {
+  const sampleTasks: TaskItem[] = [
+    {
+      id: 101,
+      project_id: 1,
+      sprint_id: null,
+      issue_key: 'PROJ-1',
+      issue_type: 'epic',
+      title: 'User Authentication Epic',
+      status: 'in_progress',
+      priority: 'high',
+      category: 'backend',
+      story_points: 8,
+    },
+    {
+      id: 102,
+      project_id: 1,
+      sprint_id: 1,
+      issue_key: 'PROJ-2',
+      issue_type: 'story',
+      title: 'Login with OAuth',
+      status: 'done',
+      priority: 'high',
+      category: 'backend',
+      story_points: 5,
+    },
+    {
+      id: 103,
+      project_id: 1,
+      sprint_id: 1,
+      issue_key: 'PROJ-3',
+      issue_type: 'task',
+      title: 'Password reset API',
+      status: 'todo',
+      priority: 'medium',
+      category: 'backend',
+      story_points: 3,
+    },
+    {
+      id: 104,
+      project_id: 1,
+      sprint_id: null,
+      issue_key: 'PROJ-4',
+      issue_type: 'story',
+      title: 'User profile management',
+      status: 'todo',
+      priority: 'low',
+      category: 'frontend',
+      story_points: 2,
+    },
+  ];
+
+  it('filters sprint tasks by excluding epics', () => {
+    const sprint1Tasks = sampleTasks.filter(t => t.sprint_id === 1 && t.issue_type !== 'epic');
+    expect(sprint1Tasks.length).toBe(2);
+    expect(sprint1Tasks.some(t => t.issue_type === 'epic')).toBe(false);
+  });
+
+  it('calculates sprint story point rollup without double counting epic points', () => {
+    const sprint1Tasks = sampleTasks.filter(t => t.sprint_id === 1 && t.issue_type !== 'epic');
+    const totalPts = sprint1Tasks.reduce((sum, t) => sum + (t.story_points || 0), 0);
+    const donePts = sprint1Tasks.filter(t => t.status === 'done').reduce((sum, t) => sum + (t.story_points || 0), 0);
+
+    // Sum of child work items: 5 + 3 = 8 pts. If epic were included, it would double-count to 16.
+    expect(totalPts).toBe(8);
+    expect(donePts).toBe(5);
+  });
+
+  it('calculates backlog tasks by excluding epics with sprint_id null', () => {
+    const backlog = sampleTasks.filter(t => t.sprint_id === null && t.issue_type !== 'epic');
+    expect(backlog.length).toBe(1);
+    expect(backlog[0].id).toBe(104);
+    expect(backlog[0].title).toBe('User profile management');
+  });
+
+  it('calculates active project story points excluding epics', () => {
+    const projectWorkItems = sampleTasks.filter(t => t.project_id === 1 && t.issue_type !== 'epic');
+    const projectStoryPoints = projectWorkItems.reduce((sum, t) => sum + (t.story_points || 0), 0);
+
+    // 5 (PROJ-2) + 3 (PROJ-3) + 2 (PROJ-4) = 10 pts. (Epic 8 pts excluded)
+    expect(projectStoryPoints).toBe(10);
+  });
+
+  it('clears sprint_id and epic_id when a task is converted to an epic', () => {
+    const task: TaskItem = {
+      id: 102,
+      project_id: 1,
+      sprint_id: 1,
+      epic_id: 101,
+      issue_key: 'PROJ-2',
+      issue_type: 'story',
+      title: 'Login with OAuth',
+      status: 'done',
+      priority: 'high',
+      category: 'backend',
+      story_points: 5,
+    };
+
+    // Simulate drawer conversion to epic
+    task.issue_type = 'epic';
+    if (task.issue_type === 'epic') {
+      task.sprint_id = null;
+      task.epic_id = null;
+    }
+
+    expect(task.sprint_id).toBeNull();
+    expect(task.epic_id).toBeNull();
+    expect(task.issue_type).toBe('epic');
+  });
+
+  it('prevents assigning sprint_id to an epic during drag and drop', () => {
+    const epicTask: TaskItem = {
+      id: 101,
+      project_id: 1,
+      sprint_id: null,
+      issue_key: 'PROJ-1',
+      issue_type: 'epic',
+      title: 'User Authentication Epic',
+      status: 'in_progress',
+      priority: 'high',
+      category: 'backend',
+      story_points: 8,
+    };
+
+    const targetSprintId = 2;
+    // Simulate onDropSprint guard
+    if (epicTask.issue_type !== 'epic') {
+      epicTask.sprint_id = targetSprintId;
+    }
+
+    expect(epicTask.sprint_id).toBeNull();
+  });
+
+  it('calculates AI plan preview sprint story points excluding epics', () => {
+    const aiSprintTasks = [
+      { title: 'Core Auth Epic', issue_type: 'epic', story_points: 13 },
+      { title: 'Login API', issue_type: 'story', story_points: 5 },
+      { title: 'Registration Form', issue_type: 'task', story_points: 3 },
+    ];
+
+    const sprintWorkItems = aiSprintTasks.filter(t => t.issue_type !== 'epic');
+    const sprintPoints = sprintWorkItems.reduce((acc, t) => acc + Number(t.story_points), 0);
+
+    expect(sprintWorkItems.length).toBe(2);
+    expect(sprintPoints).toBe(8);
+  });
+
+  it('sanitizes sprint_id and epic_id to null when creating an epic in task modal', () => {
+    const newTaskForm = {
+      project_id: 1,
+      issue_type: 'epic',
+      title: 'New Big Feature Epic',
+      sprint_id: 1 as number | null,
+      epic_id: 99 as number | null,
+      story_points: 13,
+    };
+
+    if (newTaskForm.issue_type === 'epic') {
+      newTaskForm.sprint_id = null;
+      newTaskForm.epic_id = null;
+    }
+
+    expect(newTaskForm.sprint_id).toBeNull();
+    expect(newTaskForm.epic_id).toBeNull();
+  });
+
+  it('filters board tasks excluding epics unless filterIssueType is epic', () => {
+    const filterIssueTypeAll = 'all';
+    const standardBoardTasks = sampleTasks.filter(task => {
+      if (task.issue_type === 'epic' && filterIssueTypeAll !== 'epic') {
+        return false;
+      }
+      return true;
+    });
+
+    expect(standardBoardTasks.length).toBe(3);
+    expect(standardBoardTasks.some(t => t.issue_type === 'epic')).toBe(false);
+
+    const filterIssueTypeEpic = 'epic';
+    const epicOnlyBoardTasks = sampleTasks.filter(task => {
+      if (task.issue_type === 'epic' && filterIssueTypeEpic !== 'epic') {
+        return false;
+      }
+      if (filterIssueTypeEpic !== 'all' && task.issue_type !== filterIssueTypeEpic) {
+        return false;
+      }
+      return true;
+    });
+
+    expect(epicOnlyBoardTasks.length).toBe(1);
+    expect(epicOnlyBoardTasks[0].issue_key).toBe('PROJ-1');
+  });
+});

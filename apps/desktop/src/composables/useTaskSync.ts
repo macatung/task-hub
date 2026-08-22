@@ -35,6 +35,9 @@ export interface TaskItem {
   issue_key?: string | null;
   issue_type?: 'epic' | 'story' | 'task' | 'bug';
   story_points?: number | null;
+  sprint_id?: number | null;
+  epic_id?: number | null;
+  epic?: TaskItem | { id: number; title: string; issue_key?: string | null } | null;
   acceptance_criteria?: string | null;
   definition_of_done?: string | null;
   risk_level?: 'low' | 'medium' | 'high' | 'critical';
@@ -60,7 +63,6 @@ export interface DailyReviewData {
 
 declare global { interface Window { desktopApi?: any; } }
 const DEFAULT_TASK_HUB_URL = (import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev';
-
 export function useTaskSync() {
   const tasks = ref<TaskItem[]>([]);
   const agentTasks = ref<TaskItem[]>([]);

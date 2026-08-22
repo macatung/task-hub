@@ -100,7 +100,7 @@ class WeeklyTaskReportService
         }
 
         // 2. Base Task Query
-        $baseQuery = Task::with(['project', 'sprint', 'epic']);
+        $baseQuery = Task::with(['project', 'sprint', 'epic'])->where('issue_type', '!=', 'epic');
         if (!$isAllProjects && !empty($numericProjectIds)) {
             $baseQuery->whereIn('project_id', $numericProjectIds);
         }
@@ -122,7 +122,7 @@ class WeeklyTaskReportService
 
         // 4. Active Sprint Status
         $activeSprint = Sprint::with(['tasks' => function ($q) use ($isAllProjects, $numericProjectIds) {
-            $q->with('project');
+            $q->with('project')->where('issue_type', '!=', 'epic');
             if (!$isAllProjects && !empty($numericProjectIds)) {
                 $q->whereIn('project_id', $numericProjectIds);
             }

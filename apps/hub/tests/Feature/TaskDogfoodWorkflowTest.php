@@ -12,8 +12,9 @@ class TaskDogfoodWorkflowTest extends TestCase
 
     public function test_daily_dispatch_returns_at_most_three_focus_tasks(): void
     {
+        $project = \App\Models\Project::create(['title' => 'Dogfood Project', 'slug' => 'dogfood-project', 'tagline' => 'Dogfood Tagline', 'description' => 'Desc', 'key' => 'DFP']);
         foreach (range(1, 5) as $index) {
-            Task::create(['title' => "Focus task {$index}", 'status' => 'todo', 'priority' => 'high', 'due_date' => now()->toDateString()]);
+            Task::create(['title' => "Focus task {$index}", 'status' => 'todo', 'priority' => 'high', 'due_date' => now()->toDateString(), 'project_id' => $project->id]);
         }
 
         $response = $this->getJson('/api/tasks/daily-dispatch');
@@ -24,8 +25,9 @@ class TaskDogfoodWorkflowTest extends TestCase
 
     public function test_next_action_prioritizes_in_progress_task(): void
     {
-        $low = Task::create(['title' => 'Urgent backlog', 'status' => 'todo', 'priority' => 'urgent']);
-        $active = Task::create(['title' => 'Current work', 'status' => 'in_progress', 'priority' => 'medium']);
+        $project = \App\Models\Project::create(['title' => 'Dogfood Project', 'slug' => 'dogfood-project-2', 'tagline' => 'Dogfood Tagline 2', 'description' => 'Desc 2', 'key' => 'DFP2']);
+        $low = Task::create(['title' => 'Urgent backlog', 'status' => 'todo', 'priority' => 'urgent', 'project_id' => $project->id]);
+        $active = Task::create(['title' => 'Current work', 'status' => 'in_progress', 'priority' => 'medium', 'project_id' => $project->id]);
 
         $response = $this->getJson('/api/tasks/next-action');
 
@@ -52,13 +54,14 @@ class TaskDogfoodWorkflowTest extends TestCase
 
     public function test_ai_plan_preview_records_usage_without_persisting_tasks(): void
     {
+        $initialProjects = \App\Models\Project::count();
         $response = $this->postJson('/api/tasks/ai-preview', [
             'prompt' => 'Build a small private developer journal',
             'sprint_count' => 1,
         ])->assertOk();
 
         $response->assertJsonPath('success', true);
-        $this->assertDatabaseCount('projects', 0);
+        $this->assertEquals($initialProjects, \App\Models\Project::count());
         $this->assertDatabaseCount('tasks', 0);
         $this->assertDatabaseHas('task_usage_events', ['event_type' => 'ai_plan_previewed']);
     }

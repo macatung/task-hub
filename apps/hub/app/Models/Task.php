@@ -77,6 +77,13 @@ class Task extends Model
                 $task->issue_key = $prefix . '-' . $maxId;
             }
         });
+
+        static::saving(function ($task) {
+            if ($task->issue_type === 'epic') {
+                $task->sprint_id = null;
+                $task->epic_id = null;
+            }
+        });
     }
 
     public function project(): BelongsTo

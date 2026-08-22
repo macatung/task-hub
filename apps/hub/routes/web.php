@@ -124,6 +124,7 @@ $registerApiRoutes = function () {
     Route::patch('/sprints/{sprint}', [ApiSprintController::class, 'update']);
     Route::post('/sprints/{sprint}/start', [ApiSprintController::class, 'start']);
     Route::post('/sprints/{sprint}/complete', [ApiSprintController::class, 'complete']);
+    Route::post('/sprints/move-tasks', [ApiSprintController::class, 'moveTasks']);
     Route::delete('/sprints/{sprint}', [ApiSprintController::class, 'destroy']);
 
     // Agent Runs, Models, Quota & Context Pack

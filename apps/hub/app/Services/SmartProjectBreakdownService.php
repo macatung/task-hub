@@ -39,6 +39,9 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
 
         foreach ($generatedSprints as $sprint) {
             foreach ($sprint['tasks'] as $task) {
+                if (($task['issue_type'] ?? 'task') === 'epic') {
+                    continue;
+                }
                 $totalTasks++;
                 $totalPoints += (int)($task['story_points'] ?? 0);
                 $totalPomodoros += (int)($task['estimated_pomodoros'] ?? 0);
@@ -155,10 +158,14 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
             ]);
             $createdSprints[] = $sprint;
 
+            $currentSprintEpicId = null;
+
             // 3. Create Tasks for this Sprint
             if (!empty($sData['tasks'])) {
                 foreach ($sData['tasks'] as $tData) {
                     $issueKey = $prefix . '-' . $taskCounter++;
+                    $issueType = in_array($tData['issue_type'] ?? 'task', ['epic', 'story', 'task', 'bug'], true) ? $tData['issue_type'] : 'task';
+                    $isEpic = ($issueType === 'epic');
 
                     // Subtasks handling
                     $subtasks = [];
@@ -174,15 +181,17 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
 
                     $task = Task::create([
                         'project_id' => $project->id,
+                        'workspace_id' => $options['workspace_id'] ?? $project->workspace_id,
                         'issue_key' => $issueKey,
-                        'issue_type' => $tData['issue_type'] ?? 'task',
+                        'issue_type' => $issueType,
                         'title' => $tData['title'],
                         'description' => $tData['description'] ?? null,
                         'status' => $tData['status'] ?? 'todo',
                         'priority' => $tData['priority'] ?? 'high',
                         'category' => $tData['category'] ?? 'backend',
                         'story_points' => $tData['story_points'] ?? 3,
-                        'sprint_id' => $sprint->id,
+                        'sprint_id' => $isEpic ? null : $sprint->id,
+                        'epic_id' => $isEpic ? null : ($tData['epic_id'] ?? $currentSprintEpicId),
                         'estimated_pomodoros' => $tData['estimated_pomodoros'] ?? 2,
                         'completed_pomodoros' => 0,
                         'start_date' => $tData['start_date'] ?? $sData['start_date'],
@@ -190,7 +199,11 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                         'notes' => count($subtasks) > 0 ? json_encode($subtasks) : null,
                     ]);
 
-                    $task->load(['project', 'sprint']);
+                    if ($isEpic) {
+                        $currentSprintEpicId = $task->id;
+                    }
+
+                    $task->load(['project', 'sprint', 'epic']);
                     $createdTasks[] = $task;
                 }
             }
@@ -255,7 +268,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
             $epic = Task::create([
                 'project_id' => $project->id,
                 'workspace_id' => $workspaceId,
-                'sprint_id' => $sprint->id,
+                'sprint_id' => null,
                 'issue_type' => 'epic',
                 'title' => $epicTitle,
                 'description' => $epicData['description'] ?? null,
@@ -412,14 +425,17 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
             $tasks = [];
             foreach (($sprint['tasks'] ?? []) as $task) {
                 if (!is_array($task) || trim((string) ($task['title'] ?? '')) === '') continue;
+                $issueType = $task['issue_type'] ?? 'task';
+                $priority = $task['priority'] ?? 'medium';
+                $status = $task['status'] ?? 'todo';
                 $tasks[] = [
-                    'issue_type' => in_array(($task['issue_type'] ?? 'task'), ['epic', 'story', 'task', 'bug'], true) ? $task['issue_type'] : 'task',
+                    'issue_type' => in_array($issueType, ['epic', 'story', 'task', 'bug'], true) ? $issueType : 'task',
                     'title' => trim((string) $task['title']),
                     'description' => (string) ($task['description'] ?? ''),
-                    'priority' => in_array(($task['priority'] ?? 'medium'), ['urgent', 'high', 'medium', 'low'], true) ? $task['priority'] : 'medium',
+                    'priority' => in_array($priority, ['urgent', 'high', 'medium', 'low'], true) ? $priority : 'medium',
                     'category' => trim((string) ($task['category'] ?? 'general')) ?: 'general',
                     'story_points' => max(0, min(100, (int) ($task['story_points'] ?? 1))),
-                    'status' => in_array(($task['status'] ?? 'todo'), ['todo', 'in_progress'], true) ? $task['status'] : 'todo',
+                    'status' => in_array($status, ['todo', 'in_progress'], true) ? $status : 'todo',
                     'estimated_pomodoros' => max(1, min(20, (int) ($task['estimated_pomodoros'] ?? 1))),
                     'start_date' => $task['start_date'] ?? $sprint['start_date'] ?? null,
                     'due_date' => $task['due_date'] ?? $sprint['end_date'] ?? null,
@@ -439,6 +455,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
         if ($sprints === []) throw new RuntimeException('The project plan must include at least one sprint.');
 
         $tasks = collect($sprints)->flatMap(fn (array $sprint) => $sprint['tasks']);
+        $workTasks = $tasks->where('issue_type', '!=', 'epic');
         $startDate = $sprints[0]['start_date'] ?? ($options['start_date'] ?? Carbon::today()->toDateString());
 
         return [
@@ -446,9 +463,9 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
             'project' => $project,
             'summary' => [
                 'sprint_count' => count($sprints),
-                'total_tasks' => $tasks->count(),
-                'total_story_points' => $tasks->sum('story_points'),
-                'total_pomodoros' => $tasks->sum('estimated_pomodoros'),
+                'total_tasks' => $workTasks->count(),
+                'total_story_points' => $workTasks->sum('story_points'),
+                'total_pomodoros' => $workTasks->sum('estimated_pomodoros'),
                 'estimated_weeks' => max(1, (int) ($options['sprint_duration_weeks'] ?? 2)) * count($sprints),
                 'start_date' => $startDate,
                 'end_date' => $sprints[array_key_last($sprints)]['end_date'] ?? $startDate,
