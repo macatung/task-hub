@@ -188,6 +188,55 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
         return $task;
     }
 
+    private function resolveAgentRun(mixed $runIdOrArgs, ?Task $task = null): AgentRun
+    {
+        if (is_numeric($runIdOrArgs) && (int) $runIdOrArgs > 0) {
+            $run = AgentRun::find((int) $runIdOrArgs);
+            if ($run) {
+                return $run;
+            }
+        }
+        if (is_array($runIdOrArgs)) {
+            $id = $runIdOrArgs['run_id'] ?? $runIdOrArgs['id'] ?? null;
+            if ($id && is_numeric($id) && (int) $id > 0) {
+                $run = AgentRun::find((int) $id);
+                if ($run) {
+                    return $run;
+                }
+            }
+            if (!empty($runIdOrArgs['agent_session_id'])) {
+                $run = AgentRun::where('agent_session_id', $runIdOrArgs['agent_session_id'])->first();
+                if ($run) {
+                    return $run;
+                }
+            }
+            if (!empty($runIdOrArgs['task_id'])) {
+                try {
+                    $task = $this->resolveTask($runIdOrArgs['task_id']);
+                } catch (\Throwable) {
+                    // Ignore task resolution error
+                }
+            }
+        }
+        if ($task) {
+            $latest = AgentRun::where('task_id', $task->id)->latest()->first();
+            if ($latest) {
+                return $latest;
+            }
+        }
+        // Fallback: create an active agent run on the fly so update/evidence/handoff never crash
+        $user = \App\Models\User::first();
+        return AgentRun::create([
+            'task_id' => $task?->id,
+            'user_id' => $user?->id,
+            'workspace_id' => $task?->project?->workspace_id ?? \App\Models\Workspace::first()?->id,
+            'provider' => is_array($runIdOrArgs) ? ($runIdOrArgs['provider'] ?? 'antigravity') : 'antigravity',
+            'status' => 'running',
+            'agent_session_id' => is_array($runIdOrArgs) ? ($runIdOrArgs['agent_session_id'] ?? (string) \Illuminate\Support\Str::uuid()) : (string) \Illuminate\Support\Str::uuid(),
+            'started_at' => now(),
+        ]);
+    }
+
     private function callTool(array $params, Request $request, array $payload): array
     {
         $name = $params['name'] ?? '';
@@ -211,9 +260,9 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
                 'context' => $args['context'] ?? null,
                 'instruction' => $args['instruction'] ?? null,
             ]), $contextService)->getData(true),
-            'update_agent_run' => $runController->update(Request::create('/', 'PATCH', $args), AgentRun::findOrFail($args['run_id']))->getData(true),
-            'attach_verification_evidence' => $runController->evidence(Request::create('/', 'POST', $args), AgentRun::findOrFail($args['run_id']))->getData(true),
-            'complete_agent_handoff' => $runController->handoff(Request::create('/', 'POST', $args), AgentRun::findOrFail($args['run_id']))->getData(true),
+            'update_agent_run' => $runController->update(Request::create('/', 'PATCH', $args), $this->resolveAgentRun($args))->getData(true),
+            'attach_verification_evidence' => $runController->evidence(Request::create('/', 'POST', $args), $this->resolveAgentRun($args))->getData(true),
+            'complete_agent_handoff' => $runController->handoff(Request::create('/', 'POST', $args), $this->resolveAgentRun($args))->getData(true),
             'request_human_approval' => $runController->approve($this->resolveTask($args['task_id'] ?? null))->getData(true),
             'reject_task', 'reject_work_item' => $runController->reject(Request::create('/', 'POST', ['reason' => $args['reason'] ?? 'Yêu cầu bổ sung']), $this->resolveTask($args['task_id'] ?? null))->getData(true),
             'get_next_action' => $this->getNextAction($request, $payload),

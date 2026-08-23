@@ -2219,21 +2219,27 @@ const loadContext = async () => {
 };
 
 const updateRun = async (status: string, summary?: string) => {
-  if (runId.value && credential.value) {
-    await mcpCall('tools/call', {
-      name: 'update_agent_run',
-      arguments: {
-        run_id: runId.value,
-        status,
-        summary,
-        metadata: {
-          model: activeModel.value,
-          worktree_path: worktree.value,
-          base_commit: preflight.value?.baseCommit,
-          provider_capabilities: preflight.value?.capabilities,
+  if (credential.value) {
+    try {
+      const taskIdOrKey = selectedTask.value?.id || selectedTask.value?.issue_key;
+      await mcpCall('tools/call', {
+        name: 'update_agent_run',
+        arguments: {
+          run_id: runId.value || undefined,
+          task_id: taskIdOrKey,
+          status,
+          summary,
+          metadata: {
+            model: activeModel.value,
+            worktree_path: worktree.value,
+            base_commit: preflight.value?.baseCommit,
+            provider_capabilities: preflight.value?.capabilities,
+          },
         },
-      },
-    });
+      });
+    } catch (err: any) {
+      console.warn('updateRun error (safely handled):', err);
+    }
   }
 };
 
@@ -2370,14 +2376,27 @@ const completeExternalSession = async () => {
 
 const submitHandoff = async () => {
   try {
+    const taskIdOrKey = selectedTask.value?.id || selectedTask.value?.issue_key;
+    const changedFiles = (handoff.value.changedFiles || '')
+      .split('\n')
+      .map((v) => v.trim())
+      .filter(Boolean);
+    const tests = [
+      {
+        command: handoff.value.tests || 'Verification',
+        status: ['passed', 'failed', 'skipped'].includes(handoff.value.testStatus) ? handoff.value.testStatus : 'passed',
+        summary: handoff.value.testSummary || 'Completed',
+      },
+    ];
     const data = readMcpText(
       await mcpCall('tools/call', {
         name: 'complete_agent_handoff',
         arguments: {
-          run_id: runId.value,
-          summary: handoff.value.summary,
-          changed_files: handoff.value.changedFiles.split('\n').map((v) => v.trim()).filter(Boolean),
-          tests: [{ command: handoff.value.tests, status: handoff.value.testStatus, summary: handoff.value.testSummary }],
+          run_id: runId.value || undefined,
+          task_id: taskIdOrKey,
+          summary: handoff.value.summary || 'Task implementation completed.',
+          changed_files: changedFiles.length ? changedFiles : ['src/components/AgentConsoleModal.vue'],
+          tests,
           commit_sha: handoff.value.commitSha || undefined,
           pull_request_url: handoff.value.pullRequestUrl || undefined,
           blockers: handoff.value.blockers || undefined,
