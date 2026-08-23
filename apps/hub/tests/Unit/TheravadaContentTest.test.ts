@@ -12,7 +12,9 @@ import path from 'path';
 
 describe('TheravadaContentTest (Canonical Teachings & Internal Links)', () => {
   // Read TheravadaContentSeeder.php
-  const seederPath = path.resolve(process.cwd(), 'database/seeders/TheravadaContentSeeder.php');
+  const seederPath = fs.existsSync(path.resolve(process.cwd(), 'apps/hub/database/seeders/TheravadaContentSeeder.php'))
+    ? path.resolve(process.cwd(), 'apps/hub/database/seeders/TheravadaContentSeeder.php')
+    : path.resolve(process.cwd(), 'database/seeders/TheravadaContentSeeder.php');
   const seederContent = fs.readFileSync(seederPath, 'utf-8');
 
   // Extract all slugs

@@ -10,17 +10,21 @@ import path from 'path';
 import { ZEN_PHASES, useZenTimeCycle } from '../../../desktop/src/composables/useZenTimeCycle.ts';
 
 describe('DesktopZenMascotTest (HD Vector, 4-Phase Aura & 432Hz Chime)', () => {
+  const root = fs.existsSync(path.resolve(process.cwd(), 'apps/desktop'))
+    ? path.resolve(process.cwd(), 'apps/desktop')
+    : path.resolve(process.cwd(), '../desktop');
+
   // Read component source files
-  const stageVuePath = path.resolve(process.cwd(), '../desktop/src/components/ZenMascotStage.vue');
+  const stageVuePath = path.join(root, 'src/components/ZenMascotStage.vue');
   const stageVueContent = fs.existsSync(stageVuePath) ? fs.readFileSync(stageVuePath, 'utf-8') : '';
 
-  const appVuePath = path.resolve(process.cwd(), '../desktop/src/App.vue');
+  const appVuePath = path.join(root, 'src/App.vue');
   const appVueContent = fs.existsSync(appVuePath) ? fs.readFileSync(appVuePath, 'utf-8') : '';
 
-  const mascotVuePath = path.resolve(process.cwd(), '../desktop/src/views/MascotView.vue');
+  const mascotVuePath = path.join(root, 'src/views/MascotView.vue');
   const mascotVueContent = fs.existsSync(mascotVuePath) ? fs.readFileSync(mascotVuePath, 'utf-8') : '';
 
-  const audioPath = path.resolve(process.cwd(), '../desktop/src/audio/mindfulBellAudio.ts');
+  const audioPath = path.join(root, 'src/audio/mindfulBellAudio.ts');
   const audioContent = fs.existsSync(audioPath) ? fs.readFileSync(audioPath, 'utf-8') : '';
 
   describe('[T1_DESKTOP_MASCOT] Zen Time-of-Day Cycle & Phase Engine', () => {

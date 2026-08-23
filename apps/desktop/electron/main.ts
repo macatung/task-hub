@@ -1659,9 +1659,15 @@ function formatAgyEvent(event: any): string {
         const out = su.tool_info?.output ? ` → ${su.tool_info.output}` : '';
         return `✓ [${toolName} done]${dur}${out}\n`;
       }
+    } else if (su.step_type === 'thought' || su.step_type === 'reasoning') {
+      const thought = su.thought_delta || su.reasoning_content || su.thought || su.text_delta || '';
+      return thought;
     } else if (su.step_type === 'agent_response' && su.text_delta) {
       return su.text_delta;
     }
+  } else if (event.event === 'thought') {
+    const thought = event.thought_delta || event.delta || event.reasoning_content || event.thought || '';
+    return thought;
   } else if (event.event === 'result') {
     const res = event.result;
     const resp = res?.response ? `\n💬 ${res.response}\n` : '';

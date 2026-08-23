@@ -2,7 +2,9 @@ import { describe, expect, it } from '../Harness/index.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const root = path.resolve(process.cwd(), '../desktop');
+const root = fs.existsSync(path.resolve(process.cwd(), 'apps/desktop'))
+  ? path.resolve(process.cwd(), 'apps/desktop')
+  : path.resolve(process.cwd(), '../desktop');
 const mainSource = fs.readFileSync(path.join(root, 'electron/main.ts'), 'utf8');
 const uiSource = fs.readFileSync(path.join(root, 'src/components/AgentConsoleModal.vue'), 'utf8');
 

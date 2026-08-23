@@ -171,8 +171,9 @@ const sessionId = ref<string | null>(null);
 // Stream & Event Cards State
 type StreamCard = {
   id: string;
-  type: 'agent_message' | 'command_execution' | 'tool_execution' | 'user_message' | 'turn_completed' | 'info';
+  type: 'agent_message' | 'command_execution' | 'tool_execution' | 'user_message' | 'turn_completed' | 'thought' | 'info';
   text?: string;
+  thought?: string;
   command?: string;
   toolName?: string;
   toolParameters?: any;
@@ -236,7 +237,7 @@ const localTasks = ref<TaskItem[]>([]);
 const allTasks = computed(() => localTasks.value.length ? localTasks.value : props.tasks);
 const selectedTask = computed(() => allTasks.value.find((task) => task.id === taskId.value) || null);
 const selectedDocsProject = computed(() => props.projects?.find((project) => project.id === docsProjectId.value) || null);
-const conversationCards = computed(() => streamCards.value.filter((card) => card.type === 'user_message' || card.type === 'agent_message' || card.type === 'turn_completed'));
+const conversationCards = computed(() => streamCards.value.filter((card) => card.type === 'user_message' || card.type === 'agent_message' || card.type === 'turn_completed' || card.type === 'thought'));
 const processCards = computed(() => streamCards.value.filter((card) => card.type === 'command_execution' || card.type === 'tool_execution'));
 const activeProcessCard = computed(() => {
   return [...processCards.value].reverse().find((card) => card.status === 'in_progress')
@@ -409,6 +410,21 @@ const addTimeline = (label: string, detail: string, tone: 'ok' | 'passed' | 'fai
   saveWorkspaceState();
 };
 
+const TASKS_CACHE_KEY = 'task_companion_tasks_cache';
+const loadCachedTasks = () => {
+  try {
+    const raw = localStorage.getItem(TASKS_CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length) {
+        localTasks.value = parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('Lỗi đọc cache tasks:', e);
+  }
+};
+
 const isRefreshingTasks = ref(false);
 const refreshAgentTasks = async () => {
   if (isRefreshingTasks.value) return;
@@ -430,12 +446,18 @@ const refreshAgentTasks = async () => {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
           localTasks.value = json.data;
+          try { localStorage.setItem(TASKS_CACHE_KEY, JSON.stringify(json.data)); } catch {}
           addTimeline('Tasks refreshed', `Đã đồng bộ ${json.data.length} nhiệm vụ mới nhất từ Task Hub.`, 'ok');
         }
+      } else if (res.status === 404 || res.status === 401) {
+        loadCachedTasks();
       }
+    } else {
+      loadCachedTasks();
     }
   } catch (e: any) {
-    console.warn('Lỗi làm mới tasks:', e);
+    console.warn('Lỗi làm mới tasks, sử dụng fallback cache:', e);
+    loadCachedTasks();
   } finally {
     isRefreshingTasks.value = false;
   }
@@ -1454,6 +1476,20 @@ const handleStreamEvent = (payload: any) => {
       text: ev.item.text,
       time: now,
     });
+  } else if ((ev.type === 'item.completed' || ev.type === 'item.started') && (ev.item?.type === 'thought' || ev.item?.type === 'reasoning')) {
+    const cardId = ev.item.id || `thought-${Date.now()}`;
+    const existing = streamCards.value.find((c) => c.id === cardId);
+    if (existing && existing.type === 'thought') {
+      if (ev.item.text) existing.text = ev.item.text;
+    } else if (ev.item?.text) {
+      streamCards.value.push({
+        id: cardId,
+        type: 'thought',
+        text: ev.item.text,
+        status: ev.type === 'item.completed' ? 'completed' : 'in_progress',
+        time: now,
+      });
+    }
   } else if (ev.type === 'item.started' && ev.item?.type === 'command_execution') {
     const existing = streamCards.value.find((c) => c.id === ev.item.id);
     if (existing) {
@@ -1497,7 +1533,40 @@ const handleStreamEvent = (payload: any) => {
   }
 
   // 2. Antigravity (agy) format events
-  else if (ev.event === 'step_update' && ev.step_update?.step_type === 'tool') {
+  else if (ev.event === 'step_update' && (ev.step_update?.step_type === 'thought' || ev.step_update?.step_type === 'reasoning' || ev.step_update?.thought_delta || ev.step_update?.reasoning_content)) {
+    const su = ev.step_update;
+    const cardId = `agy-thought-${su.step_index ?? 'current'}`;
+    const thoughtDelta = su.thought_delta || su.reasoning_content || su.thought || su.text_delta || '';
+    const existing = streamCards.value.find((c) => c.id === cardId);
+
+    if (existing && existing.type === 'thought') {
+      if (thoughtDelta) existing.text = (existing.text || '') + thoughtDelta;
+      if (su.state === 'DONE') existing.status = 'completed';
+    } else if (thoughtDelta) {
+      streamCards.value.push({
+        id: cardId,
+        type: 'thought',
+        text: thoughtDelta,
+        status: su.state === 'DONE' ? 'completed' : 'in_progress',
+        time: now,
+      });
+    }
+  } else if (ev.event === 'thought') {
+    const cardId = `agy-thought-${Date.now()}`;
+    const thoughtDelta = ev.thought_delta || ev.delta || ev.reasoning_content || ev.thought || '';
+    const lastThought = [...streamCards.value].reverse().find((c) => c.type === 'thought' && c.status === 'in_progress');
+    if (lastThought && thoughtDelta) {
+      lastThought.text = (lastThought.text || '') + thoughtDelta;
+    } else if (thoughtDelta) {
+      streamCards.value.push({
+        id: cardId,
+        type: 'thought',
+        text: thoughtDelta,
+        status: 'completed',
+        time: now,
+      });
+    }
+  } else if (ev.event === 'step_update' && ev.step_update?.step_type === 'tool') {
     const su = ev.step_update;
     const cardId = `agy-tool-${su.step_index ?? Date.now()}`;
     const toolName = su.tool_name || su.tool_info?.name || 'tool';
@@ -2210,6 +2279,102 @@ const copyHandoff = async () => {
   addTimeline('Handoff copied', 'Bản ghi handoff markdown đã được sao chép.', 'ok');
 };
 
+const isApproving = ref(false);
+const showRejectModal = ref(false);
+const rejectReason = ref('');
+const isRejecting = ref(false);
+
+const approveTaskReview = async () => {
+  if (!selectedTask.value) return;
+  isApproving.value = true;
+  errorMessage.value = '';
+  try {
+    const taskIdOrKey = selectedTask.value.id || selectedTask.value.issue_key;
+    if (credential.value) {
+      await mcpCall('tools/call', {
+        name: 'request_human_approval',
+        arguments: { task_id: taskIdOrKey },
+      });
+    } else if (props.desktopCredential) {
+      const hubUrl = props.desktopCredential.taskHubUrl || taskHubUrl.value;
+      const res = await fetch(`${hubUrl.replace(/\/$/, '')}/api/v1/tasks/work-items/${encodeURIComponent(String(taskIdOrKey))}/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${props.desktopCredential.token}`,
+          'X-Task-Hub-Project': props.desktopCredential.projectId,
+        },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Duyệt task thất bại.');
+      }
+    }
+    if (selectedTask.value) {
+      selectedTask.value.status = 'done';
+    }
+    addTimeline('Task Approved', `Nhiệm vụ ${selectedTask.value?.issue_key || `#${selectedTask.value?.id}`} đã được duyệt hoàn thành (Task Done · Verified).`, 'ok');
+    void refreshAgentTasks();
+  } catch (err: any) {
+    errorMessage.value = err.message || 'Lỗi khi duyệt hoàn thành task.';
+    addTimeline('Approval Error', errorMessage.value, 'error');
+  } finally {
+    isApproving.value = false;
+  }
+};
+
+const openRejectDialog = () => {
+  rejectReason.value = '';
+  showRejectModal.value = true;
+};
+
+const confirmRejectTask = async () => {
+  const reason = rejectReason.value.trim();
+  if (!reason || !selectedTask.value) {
+    errorMessage.value = 'Vui lòng nhập lý do yêu cầu bổ sung.';
+    return;
+  }
+  isRejecting.value = true;
+  errorMessage.value = '';
+  try {
+    const taskIdOrKey = selectedTask.value.id || selectedTask.value.issue_key;
+    if (credential.value) {
+      await mcpCall('tools/call', {
+        name: 'reject_task',
+        arguments: { task_id: taskIdOrKey, reason },
+      });
+    } else if (props.desktopCredential) {
+      const hubUrl = props.desktopCredential.taskHubUrl || taskHubUrl.value;
+      const res = await fetch(`${hubUrl.replace(/\/$/, '')}/api/v1/tasks/work-items/${encodeURIComponent(String(taskIdOrKey))}/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${props.desktopCredential.token}`,
+          'X-Task-Hub-Project': props.desktopCredential.projectId,
+        },
+        body: JSON.stringify({ reason }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Yêu cầu bổ sung thất bại.');
+      }
+    }
+    if (selectedTask.value) {
+      selectedTask.value.status = 'in_progress';
+    }
+    showRejectModal.value = false;
+    addTimeline('Changes Requested', `Đã gửi yêu cầu bổ sung: ${reason}`, 'warning');
+    followUp.value = `Yêu cầu bổ sung từ Reviewer: ${reason}`;
+    phase.value = 'ready';
+    void refreshAgentTasks();
+  } catch (err: any) {
+    errorMessage.value = err.message || 'Lỗi khi gửi yêu cầu bổ sung.';
+    addTimeline('Rejection Error', errorMessage.value, 'error');
+  } finally {
+    isRejecting.value = false;
+  }
+};
+
 const openWorktree = () => {
   if (worktree.value) {
     window.desktopApi.agent.openWorkspace(worktree.value);
@@ -2280,6 +2445,7 @@ const openSessionLog = async () => {
 };
 
 onMounted(async () => {
+  loadCachedTasks();
   // Restore persisted state before checking the available model inventory.
   // Running these concurrently allowed stale localStorage to overwrite the
   // AGY 2.x model migration after it had already completed.
@@ -3849,11 +4015,137 @@ onUnmounted(() => {
 
           <div ref="streamContainer" class="flex-1 min-h-0 overflow-y-auto px-5 py-6" @scroll="handleScroll">
             <div v-if="conversationCards.length === 0" class="mx-auto flex max-w-xl flex-col items-center justify-center py-20 text-center"><div class="mb-4 grid h-12 w-12 place-items-center rounded-2xl border border-cyan-800 bg-cyan-950/40 text-cyan-300"><i class="codicon codicon-comment-discussion text-xl" /></div><h3 class="text-base font-bold text-slate-100">Bắt đầu {{ workflowTitle }}</h3><p class="mt-2 text-xs leading-relaxed text-slate-400">{{ workflowMode === 'discovery' ? 'Mô tả outcome ở composer phía dưới. Agent sẽ đọc repo, docs và context Task Hub.' : workflowMode === 'task' ? 'Chọn một Task Hub task ở cột trái, sau đó có thể thêm ghi chú trước khi agent bắt đầu.' : 'Chọn project rồi bấm gửi. Bạn có thể giới hạn phạm vi tài liệu bằng ghi chú.' }}</p></div>
-            <div v-else class="mx-auto max-w-4xl space-y-5"><article v-for="card in conversationCards" :key="card.id"><div v-if="card.type === 'user_message'" class="flex justify-end"><div class="max-w-[82%] rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm"><p class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-blue-100">Bạn · {{ card.time }}</p><MarkdownView :content="card.text" :is-user="true" /></div></div><div v-else-if="card.type === 'agent_message'" class="flex gap-3"><div class="mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-cyan-700 bg-cyan-950 text-[10px] font-bold text-cyan-300">AI</div><div class="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-slate-800 bg-slate-900/70 p-4"><div class="mb-2 flex items-center justify-between border-b border-slate-800 pb-2"><span class="text-[10px] font-bold uppercase tracking-wider text-cyan-300">{{ provider === 'antigravity' ? 'Antigravity Agent' : provider === 'claude_code' ? 'Claude Code Agent' : 'Codex Agent' }}</span><button class="text-[10px] text-slate-500 hover:text-white cursor-pointer" @click="copyCardText(card.text)">Copy</button></div><MarkdownView :content="card.text" :strip-plan-marker="true" /></div></div><div v-else class="flex items-center gap-2 py-1 text-[10px] text-slate-500"><span class="h-px flex-1 bg-slate-800" /><span>Turn hoàn thành · {{ (card.usage?.total_tokens || card.usage?.output_tokens || 0).toLocaleString() }} tokens</span><span class="h-px flex-1 bg-slate-800" /></div></article>
-              <div v-if="phase === 'running'" class="flex gap-3 items-start p-3.5 rounded-2xl border border-cyan-800/80 bg-cyan-950/30 text-xs shadow-lg shadow-cyan-950/40"><div class="relative mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-cyan-500 bg-cyan-950 text-[10px] font-bold text-cyan-300 shadow-sm shadow-cyan-500/30"><span class="absolute -top-1 -right-1 flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" /><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500" /></span>AI</div><div class="min-w-0 flex-1 space-y-1.5"><div class="flex items-center justify-between gap-2"><span class="text-[10px] font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5"><span>{{ provider === 'antigravity' ? 'Antigravity Agent' : provider === 'claude_code' ? 'Claude Code Agent' : 'Codex Agent' }}</span><span class="text-slate-500">·</span><span class="font-mono text-[10px] text-cyan-400 font-normal">{{ formattedDuration }}</span></span><button class="text-[10px] text-cyan-400 hover:text-cyan-200 underline cursor-pointer flex items-center gap-1" @click="showProcessDrawer = true"><i class="codicon codicon-terminal text-[11px]" /><span>Xem Process ({{ processCards.length }})</span></button></div><div class="flex items-center gap-2 text-slate-200"><span class="h-2 w-2 rounded-full bg-cyan-400 animate-pulse shrink-0" /><p class="truncate font-medium">{{ activeWorkingStatus }}</p></div></div></div>
-              <section v-if="workflowMode === 'discovery' && phase === 'error'" class="rounded-2xl border border-rose-800/70 bg-rose-950/20 p-4"><p class="text-[10px] font-bold uppercase tracking-wider text-rose-300">Không có phản hồi từ agent</p><h3 class="mt-1 text-base font-bold text-rose-50">Kế hoạch chưa được tạo</h3><p class="mt-2 text-xs leading-relaxed text-rose-100/80">{{ errorMessage || 'Phiên agent kết thúc trước khi gửi phản hồi.' }}</p><div class="mt-4 flex flex-wrap gap-2"><button class="rounded-lg bg-cyan-500 px-3 py-1.5 text-xs font-bold text-slate-950 hover:bg-cyan-400 cursor-pointer" @click="retryRequirementDiscovery">Chạy lại phân tích</button><button class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800 cursor-pointer" @click="openCurrentProcess('terminal')">Mở Process & log</button></div></section>
-              <section v-if="workflowMode === 'discovery' && phase === 'review'" class="rounded-2xl border border-violet-800/70 bg-violet-950/20 p-4"><div class="flex items-start justify-between gap-3"><div><p class="text-[10px] font-bold uppercase tracking-wider text-violet-300">Review kế hoạch</p><h3 class="mt-1 text-base font-bold text-violet-50">{{ discoveryPlan?.epic.title || 'Kế hoạch cần chuẩn hoá' }}</h3><p class="mt-2 text-xs text-violet-100/80">{{ discoveryPlan?.summary || discoveryPlanErrors[0] }}</p></div><button v-if="!isDiscoveryPlanValid" class="rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-amber-950 cursor-pointer" @click="requestDiscoveryPlanCorrection">Yêu cầu sửa</button></div><div v-if="discoveryPlan" class="mt-4 space-y-2"><div v-for="story in discoveryPlan.stories" :key="story.title" class="rounded-lg border border-violet-900/70 bg-slate-950/50 p-3"><div class="flex justify-between gap-2"><strong class="text-xs text-slate-100">{{ story.title }}</strong><span class="text-[10px] text-violet-300">{{ story.story_points }} pts</span></div><p class="mt-1 text-[11px] text-slate-400">{{ story.tasks.map((task) => task.title).join(' · ') }}</p></div></div></section>
-              <section v-if="(workflowMode === 'task' && phase === 'handoff') || (workflowMode === 'docs' && phase === 'review')" class="rounded-2xl border border-emerald-900/70 bg-emerald-950/20 p-4"><p class="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Review kết quả</p><p class="mt-2 text-sm text-slate-100">{{ handoff.summary || (workflowMode === 'docs' ? 'Agent đã hoàn thành phiên tạo tài liệu.' : 'Agent đã hoàn thành phiên thực thi.') }}</p><p v-if="handoff.changedFiles" class="mt-2 whitespace-pre-wrap text-[11px] text-slate-400">{{ handoff.changedFiles }}</p></section>
+            <div v-else class="mx-auto max-w-4xl space-y-5">
+              <article v-for="card in conversationCards" :key="card.id">
+                <div v-if="card.type === 'user_message'" class="flex justify-end">
+                  <div class="max-w-[82%] rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm">
+                    <p class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-blue-100">Bạn · {{ card.time }}</p>
+                    <MarkdownView :content="card.text" :is-user="true" />
+                  </div>
+                </div>
+                <div v-else-if="card.type === 'thought'" class="flex gap-3">
+                  <div class="mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-purple-800 bg-purple-950/60 text-[10px] font-bold text-purple-300">
+                    <i class="codicon codicon-sparkle text-xs" />
+                  </div>
+                  <div class="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-purple-900/50 bg-purple-950/20 p-3.5">
+                    <div class="mb-1.5 flex items-center justify-between border-b border-purple-900/40 pb-1.5">
+                      <span class="text-[10px] font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+                        <i class="codicon codicon-lightbulb text-[11px]" />
+                        <span>Suy luận / Thinking · {{ card.time }}</span>
+                      </span>
+                      <button class="text-[10px] text-slate-500 hover:text-white cursor-pointer" @click="copyCardText(card.text)">Copy</button>
+                    </div>
+                    <MarkdownView :content="card.text" :strip-plan-marker="false" />
+                  </div>
+                </div>
+                <div v-else-if="card.type === 'agent_message'" class="flex gap-3">
+                  <div class="mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-cyan-700 bg-cyan-950 text-[10px] font-bold text-cyan-300">AI</div>
+                  <div class="min-w-0 flex-1 rounded-2xl rounded-tl-sm border border-slate-800 bg-slate-900/70 p-4">
+                    <div class="mb-2 flex items-center justify-between border-b border-slate-800 pb-2">
+                      <span class="text-[10px] font-bold uppercase tracking-wider text-cyan-300">{{ provider === 'antigravity' ? 'Antigravity Agent' : provider === 'claude_code' ? 'Claude Code Agent' : 'Codex Agent' }}</span>
+                      <button class="text-[10px] text-slate-500 hover:text-white cursor-pointer" @click="copyCardText(card.text)">Copy</button>
+                    </div>
+                    <MarkdownView :content="card.text" :strip-plan-marker="true" />
+                  </div>
+                </div>
+                <div v-else class="flex items-center gap-2 py-1 text-[10px] text-slate-500">
+                  <span class="h-px flex-1 bg-slate-800" />
+                  <span>Turn hoàn thành · {{ (card.usage?.total_tokens || card.usage?.output_tokens || 0).toLocaleString() }} tokens</span>
+                  <span class="h-px flex-1 bg-slate-800" />
+                </div>
+              </article>
+              <div v-if="phase === 'running'" class="flex gap-3 items-start p-3.5 rounded-2xl border border-cyan-800/80 bg-cyan-950/30 text-xs shadow-lg shadow-cyan-950/40">
+                <div class="relative mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-cyan-500 bg-cyan-950 text-[10px] font-bold text-cyan-300 shadow-sm shadow-cyan-500/30">
+                  <span class="absolute -top-1 -right-1 flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" /><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500" /></span>AI
+                </div>
+                <div class="min-w-0 flex-1 space-y-1.5">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+                      <span>{{ provider === 'antigravity' ? 'Antigravity Agent' : provider === 'claude_code' ? 'Claude Code Agent' : 'Codex Agent' }}</span>
+                      <span class="text-slate-500">·</span>
+                      <span class="font-mono text-[10px] text-cyan-400 font-normal">{{ formattedDuration }}</span>
+                    </span>
+                    <button class="text-[10px] text-cyan-400 hover:text-cyan-200 underline cursor-pointer flex items-center gap-1" @click="showProcessDrawer = true">
+                      <i class="codicon codicon-terminal text-[11px]" />
+                      <span>Xem Process ({{ processCards.length }})</span>
+                    </button>
+                  </div>
+                  <div class="flex items-center gap-2 text-slate-200">
+                    <span class="h-2 w-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+                    <p class="truncate font-medium">{{ activeWorkingStatus }}</p>
+                  </div>
+                </div>
+              </div>
+              <section v-if="workflowMode === 'discovery' && phase === 'error'" class="rounded-2xl border border-rose-800/70 bg-rose-950/20 p-4">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-rose-300">Không có phản hồi từ agent</p>
+                <h3 class="mt-1 text-base font-bold text-rose-50">Kế hoạch chưa được tạo</h3>
+                <p class="mt-2 text-xs leading-relaxed text-rose-100/80">{{ errorMessage || 'Phiên agent kết thúc trước khi gửi phản hồi.' }}</p>
+                <div class="mt-4 flex flex-wrap gap-2">
+                  <button class="rounded-lg bg-cyan-500 px-3 py-1.5 text-xs font-bold text-slate-950 hover:bg-cyan-400 cursor-pointer" @click="retryRequirementDiscovery">Chạy lại phân tích</button>
+                  <button class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800 cursor-pointer" @click="openCurrentProcess('terminal')">Mở Process & log</button>
+                </div>
+              </section>
+              <section v-if="workflowMode === 'discovery' && phase === 'review'" class="rounded-2xl border border-violet-800/70 bg-violet-950/20 p-4">
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-violet-300">Review kế hoạch</p>
+                    <h3 class="mt-1 text-base font-bold text-violet-50">{{ discoveryPlan?.epic.title || 'Kế hoạch cần chuẩn hoá' }}</h3>
+                    <p class="mt-2 text-xs text-violet-100/80">{{ discoveryPlan?.summary || discoveryPlanErrors[0] }}</p>
+                  </div>
+                  <button v-if="!isDiscoveryPlanValid" class="rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-amber-950 cursor-pointer" @click="requestDiscoveryPlanCorrection">Yêu cầu sửa</button>
+                </div>
+                <div v-if="discoveryPlan" class="mt-4 space-y-2">
+                  <div v-for="story in discoveryPlan.stories" :key="story.title" class="rounded-lg border border-violet-900/70 bg-slate-950/50 p-3">
+                    <div class="flex justify-between gap-2">
+                      <strong class="text-xs text-slate-100">{{ story.title }}</strong>
+                      <span class="text-[10px] text-violet-300">{{ story.story_points }} pts</span>
+                    </div>
+                    <p class="mt-1 text-[11px] text-slate-400">{{ story.tasks.map((task) => task.title).join(' · ') }}</p>
+                  </div>
+                </div>
+              </section>
+              <section v-if="(workflowMode === 'task' && (phase === 'handoff' || phase === 'review')) || (workflowMode === 'docs' && phase === 'review')" class="rounded-2xl border border-emerald-900/70 bg-emerald-950/20 p-4">
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Bảng Tóm Tắt Bàn Giao & Review Nghiệm Thu</p>
+                    <h3 class="mt-1 text-base font-bold text-slate-100">{{ selectedTask?.title || 'Nghiệm thu kết quả thực thi' }}</h3>
+                  </div>
+                  <button v-if="gitDiffData.diffs.length" class="rounded-lg border border-cyan-700 bg-cyan-950/60 px-3 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-900/60 cursor-pointer flex items-center gap-1.5" @click="loadGitDiff(); activeEditorTab = 'monaco';">
+                    <i class="codicon codicon-diff" />
+                    <span>Soi Diff ({{ gitDiffData.diffs.length }} files)</span>
+                  </button>
+                </div>
+                <p class="mt-2 text-sm text-slate-200 leading-relaxed">{{ handoff.summary || (workflowMode === 'docs' ? 'Agent đã hoàn thành phiên tạo tài liệu.' : 'Agent đã hoàn thành phiên thực thi và đính kèm bằng chứng kiểm định.') }}</p>
+                <div v-if="handoff.changedFiles" class="mt-3 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Danh sách tệp tin thay đổi:</p>
+                  <p class="whitespace-pre-wrap font-mono text-[11px] text-slate-300">{{ handoff.changedFiles }}</p>
+                </div>
+                <div v-if="handoff.tests || handoff.testSummary" class="mt-3 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Bằng chứng kiểm định (Test Evidence):</span>
+                    <span class="rounded px-2 py-0.5 text-[10px] font-bold uppercase" :class="handoff.testStatus === 'passed' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-rose-950 text-rose-300 border border-rose-800'">
+                      {{ handoff.testStatus }}
+                    </span>
+                  </div>
+                  <p class="mt-1 font-mono text-[11px] text-cyan-300">{{ handoff.tests }}</p>
+                  <p v-if="handoff.testSummary" class="mt-1 text-xs text-slate-300">{{ handoff.testSummary }}</p>
+                </div>
+                <div v-if="workflowMode === 'task' && phase === 'review'" class="mt-4 flex flex-wrap gap-2.5 pt-2 border-t border-emerald-900/40">
+                  <button class="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-2 text-xs font-bold shadow-sm transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40" :disabled="isApproving" @click="approveTaskReview">
+                    <i v-if="isApproving" class="codicon codicon-loading animate-spin" />
+                    <i v-else class="codicon codicon-pass" />
+                    <span>Duyệt hoàn thành (Human Approval ➔ Task Done)</span>
+                  </button>
+                  <button class="rounded-xl border border-amber-700 bg-amber-950/50 hover:bg-amber-900/60 text-amber-200 px-4 py-2 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5" @click="openRejectDialog">
+                    <i class="codicon codicon-warning" />
+                    <span>Yêu cầu bổ sung (Reject with feedback)</span>
+                  </button>
+                  <button class="rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5" @click="activeEditorTab = 'evidence'">
+                    <i class="codicon codicon-file-text" />
+                    <span>Xem Evidence Log</span>
+                  </button>
+                </div>
+              </section>
             </div>
           </div>
 
@@ -4418,11 +4710,26 @@ onUnmounted(() => {
           @click="submitHandoff"
         >
           Submit Handoff lên Task Hub
-          class="px-3.5 py-1.5 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white font-semibold text-xs shadow-xs transition-all cursor-pointer disabled:opacity-40"
-          :disabled="!handoff.summary || !handoff.changedFiles"
-          @click="submitHandoff"
+        </button>
+
+        <button
+          v-if="workflowMode === 'task' && phase === 'review'"
+          class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40"
+          :disabled="isApproving"
+          @click="approveTaskReview"
         >
-          Submit Handoff lên Task Hub
+          <i v-if="isApproving" class="codicon codicon-loading animate-spin" />
+          <i v-else class="codicon codicon-pass" />
+          <span>✓ Duyệt hoàn thành</span>
+        </button>
+
+        <button
+          v-if="workflowMode === 'task' && phase === 'review'"
+          class="px-3.5 py-1.5 rounded-lg border border-amber-700 bg-amber-950/60 hover:bg-amber-900/80 text-amber-200 font-semibold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+          @click="openRejectDialog"
+        >
+          <i class="codicon codicon-warning" />
+          <span>Yêu cầu bổ sung</span>
         </button>
 
         <button
@@ -4984,6 +5291,50 @@ onUnmounted(() => {
       v-if="showSettingsPermissionsModal"
       @close="showSettingsPermissionsModal = false"
     />
+
+    <!-- REJECT FEEDBACK MODAL DIALOG -->
+    <div
+      v-if="showRejectModal"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+      @click.self="showRejectModal = false"
+    >
+      <div class="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2 text-amber-300 font-bold text-sm">
+            <i class="codicon codicon-warning text-base" />
+            <span>Yêu cầu bổ sung cho nhiệm vụ</span>
+          </div>
+          <button class="text-slate-400 hover:text-white cursor-pointer" @click="showRejectModal = false">
+            <i class="codicon codicon-close" />
+          </button>
+        </div>
+        <p class="text-xs text-slate-300 leading-relaxed">
+          Nhập phản hồi hoặc lý do cần chỉnh sửa / bổ sung. Nhiệm vụ sẽ chuyển sang trạng thái <code class="rounded bg-slate-800 px-1.5 py-0.5 text-amber-300 font-mono">waiting_input</code> để Agent tiếp tục hoàn thiện:
+        </p>
+        <textarea
+          v-model="rejectReason"
+          rows="4"
+          placeholder="Ví dụ: Cần bổ sung test case cho trường hợp boundary, hoặc tối ưu lại layout responsive..."
+          class="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 p-3 text-xs text-slate-100 outline-none placeholder:text-slate-500 focus:border-amber-500"
+        />
+        <div class="flex justify-end gap-2 pt-2">
+          <button
+            class="rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-1.5 text-xs text-slate-300 hover:bg-slate-700 cursor-pointer"
+            @click="showRejectModal = false"
+          >
+            Hủy
+          </button>
+          <button
+            class="rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-1.5 text-xs font-bold cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
+            :disabled="!rejectReason.trim() || isRejecting"
+            @click="confirmRejectTask"
+          >
+            <i v-if="isRejecting" class="codicon codicon-loading animate-spin" />
+            <span>Gửi yêu cầu bổ sung</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 

@@ -294,12 +294,15 @@ class ApiAgentRunController extends Controller
     public function reject(Request $request, Task $task)
     {
         $validated = $request->validate(['reason' => 'required|string|max:5000']);
+        if ($task->status === 'review' || $task->status === 'done') {
+            $task->update(['status' => 'in_progress']);
+        }
         $latest = $task->agentRuns()->latest()->first();
         if ($latest) {
             $latest->update(['status' => 'waiting_input', 'failure_reason' => $validated['reason']]);
             $this->recordEvent($latest, 'human_rejected', 'waiting_input', $validated);
         }
-        return response()->json(['success' => true, 'message' => 'Đã trả task về trạng thái cần bổ sung.']);
+        return response()->json(['success' => true, 'message' => 'Đã trả task về trạng thái cần bổ sung.', 'data' => $task->fresh()]);
     }
 
     public function githubWebhook(Request $request)
