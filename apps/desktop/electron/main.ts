@@ -298,8 +298,37 @@ async function taskHubMcpCall(taskHubUrl: string, token: string, projectId: stri
   });
 }
 
+function safeCloneMain<T>(value: T): T {
+  if (value === undefined || value === null) return value;
+  if (typeof value !== 'object') return value;
+  try {
+    const seen = new WeakSet();
+    return JSON.parse(JSON.stringify(value, (_key, val) => {
+      if (typeof val === 'object' && val !== null) {
+        if (seen.has(val)) return undefined;
+        seen.add(val);
+      }
+      if (typeof val === 'function' || typeof val === 'symbol') return undefined;
+      if (typeof val === 'bigint') return val.toString();
+      if (val instanceof Error) return { message: val.message, name: val.name, stack: val.stack };
+      return val;
+    }));
+  } catch {
+    return {} as any;
+  }
+}
+
+function safeSend(targetWin: BrowserWindow | null | undefined, channel: string, ...args: any[]) {
+  if (!targetWin || targetWin.isDestroyed()) return;
+  try {
+    targetWin.webContents.send(channel, ...args.map(safeCloneMain));
+  } catch (err) {
+    console.warn(`[IPC] Failed to send on ${channel}:`, err);
+  }
+}
+
 function broadcastUpdateState() {
-  win?.webContents.send('updater-state', updateState);
+  safeSend(win, 'updater-state', updateState);
 }
 
 function setUpdateState(next: { status: UpdateStatus; version?: string; percent?: number; message?: string }) {
@@ -1104,7 +1133,7 @@ function applyAppMode(mode: AppMode) {
     win.show();
   }
 
-  win.webContents.send('app-mode-changed', currentMode);
+  safeSend(win, 'app-mode-changed', currentMode);
   return currentMode;
 }
 
@@ -1163,7 +1192,7 @@ function createWindow() {
 
   win.webContents.on('did-finish-load', () => {
     console.log('[Electron] Page finished loading. App mode:', currentMode);
-    win?.webContents.send('app-mode-changed', currentMode);
+    safeSend(win, 'app-mode-changed', currentMode);
   });
 
   win.webContents.on('console-message', (_event, level, message, line, sourceId) => {
@@ -1775,11 +1804,11 @@ function formatAgyEvent(event: any): string {
               if (formattedLine) {
                 session.output = `${session.output}${formattedLine}`.slice(-250000);
               }
-              win?.webContents.send('agent-output', { sessionId, stream: 'event', event, text: formattedLine || '' });
+              safeSend(win, 'agent-output', { sessionId, stream: 'event', event, text: formattedLine || '' });
             } catch {
               session.output = `${session.output}\n${line}`.slice(-250000);
               appendWorkspaceAgentLog(session.cwd, sessionId, 'stdout', line);
-              win?.webContents.send('agent-output', { sessionId, stream: 'stdout', text: line });
+              safeSend(win, 'agent-output', { sessionId, stream: 'stdout', text: line });
             }
           }
         });
@@ -1788,7 +1817,7 @@ function formatAgyEvent(event: any): string {
           const text = chunk.toString('utf8');
           session.output = `${session.output}\n${text}`.slice(-250000);
           appendWorkspaceAgentLog(session.cwd, sessionId, 'stderr', text);
-          win?.webContents.send('agent-output', { sessionId, stream: 'stderr', text });
+          safeSend(win, 'agent-output', { sessionId, stream: 'stderr', text });
         });
 
         child.on('close', (code, signal) => {
@@ -1800,7 +1829,7 @@ function formatAgyEvent(event: any): string {
             output: session.output,
             events: session.events
           });
-          win?.webContents.send('agent-exit', { sessionId, code, signal: String(signal || '') });
+          safeSend(win, 'agent-exit', { sessionId, code, signal: String(signal || '') });
         });
 
         return { mode: 'interactive', sessionId, provider, model: selectedModel, cwd, capabilities: PROVIDER_CAPABILITIES[provider] };
@@ -1900,11 +1929,11 @@ function formatAgyEvent(event: any): string {
             if (formattedLine) {
               session.output = `${session.output}${formattedLine}`.slice(-250000);
             }
-            win?.webContents.send('agent-output', { sessionId, stream: 'event', event, text: formattedLine || line });
+            safeSend(win, 'agent-output', { sessionId, stream: 'event', event, text: formattedLine || line });
           } catch {
             session.output = `${session.output}\n${line}`.slice(-250000);
             appendWorkspaceAgentLog(session.cwd, sessionId, 'stdout', line);
-            win?.webContents.send('agent-output', { sessionId, stream: 'stdout', text: line });
+            safeSend(win, 'agent-output', { sessionId, stream: 'stdout', text: line });
           }
         }
       });
@@ -1914,7 +1943,7 @@ function formatAgyEvent(event: any): string {
           if (!text.includes('Reading additional input from stdin')) {
             session.output = `${session.output}\n${text}`.slice(-250000);
             appendWorkspaceAgentLog(session.cwd, sessionId, 'stderr', text);
-          win?.webContents.send('agent-output', { sessionId, stream: 'stderr', text });
+          safeSend(win, 'agent-output', { sessionId, stream: 'stderr', text });
         }
       });
 
@@ -1927,7 +1956,7 @@ function formatAgyEvent(event: any): string {
           output: session.output,
           events: session.events
         });
-        win?.webContents.send('agent-exit', { sessionId, code, signal: String(signal || '') });
+        safeSend(win, 'agent-exit', { sessionId, code, signal: String(signal || '') });
       });
 
       return { mode: 'interactive', sessionId, provider, model: selectedModel, cwd, capabilities: PROVIDER_CAPABILITIES[provider] };
@@ -1973,7 +2002,7 @@ function formatAgyEvent(event: any): string {
         session.output = `${session.output}${text}`.slice(-250000);
         appendWorkspaceAgentLog(session.cwd, sessionId, 'stdout', text);
       }
-      win?.webContents.send('agent-output', { sessionId, stream: 'stdout', text });
+      safeSend(win, 'agent-output', { sessionId, stream: 'stdout', text });
     });
     pty.onExit(({ exitCode, signal }) => {
       const session = agentProcesses.get(sessionId);
@@ -1984,7 +2013,7 @@ function formatAgyEvent(event: any): string {
         exitCode,
       });
       agentProcesses.delete(sessionId);
-      win?.webContents.send('agent-exit', { sessionId, code: exitCode, signal: String(signal) });
+      safeSend(win, 'agent-exit', { sessionId, code: exitCode, signal: String(signal) });
     });
     return { mode: 'interactive', sessionId, provider, model: selectedModel, cwd, capabilities: PROVIDER_CAPABILITIES[provider] };
   };
@@ -2085,7 +2114,7 @@ function formatAgyEvent(event: any): string {
       session.process = resumeChild as any;
       persistSessionUpdate({ sessionId, status: 'running' });
 
-      win?.webContents.send('agent-output', {
+      safeSend(win, 'agent-output', {
         sessionId,
         stream: 'user',
         text: `\n> User: ${input.trim()}\n`,
@@ -2116,10 +2145,10 @@ function formatAgyEvent(event: any): string {
             if (formattedLine) {
               session.output = `${session.output}${formattedLine}`.slice(-250000);
             }
-            win?.webContents.send('agent-output', { sessionId, stream: 'event', event, text: formattedLine || line });
+            safeSend(win, 'agent-output', { sessionId, stream: 'event', event, text: formattedLine || line });
           } catch {
             session.output = `${session.output}\n${line}`.slice(-250000);
-            win?.webContents.send('agent-output', { sessionId, stream: 'stdout', text: line });
+            safeSend(win, 'agent-output', { sessionId, stream: 'stdout', text: line });
           }
         }
       });
@@ -2128,7 +2157,7 @@ function formatAgyEvent(event: any): string {
         const text = chunk.toString('utf8');
         if (!text.includes('Reading additional input from stdin')) {
           session.output = `${session.output}\n${text}`.slice(-250000);
-          win?.webContents.send('agent-output', { sessionId, stream: 'stderr', text });
+          safeSend(win, 'agent-output', { sessionId, stream: 'stderr', text });
         }
       });
 
@@ -2140,7 +2169,7 @@ function formatAgyEvent(event: any): string {
           output: session.output,
           events: session.events
         });
-        win?.webContents.send('agent-exit', { sessionId, code, signal: String(signal || '') });
+        safeSend(win, 'agent-exit', { sessionId, code, signal: String(signal || '') });
       });
       return;
     }
@@ -2160,7 +2189,7 @@ function formatAgyEvent(event: any): string {
       session.process = resumeChild as any;
       persistSessionUpdate({ sessionId, status: 'running' });
 
-      win?.webContents.send('agent-output', {
+      safeSend(win, 'agent-output', {
         sessionId,
         stream: 'user',
         text: `\n> User: ${input.trim()}\n`,
@@ -2182,10 +2211,10 @@ function formatAgyEvent(event: any): string {
             if (formattedLine) {
               session.output = `${session.output}${formattedLine}`.slice(-250000);
             }
-            win?.webContents.send('agent-output', { sessionId, stream: 'event', event, text: formattedLine || '' });
+            safeSend(win, 'agent-output', { sessionId, stream: 'event', event, text: formattedLine || '' });
           } catch {
             session.output = `${session.output}\n${line}`.slice(-250000);
-            win?.webContents.send('agent-output', { sessionId, stream: 'stdout', text: line });
+            safeSend(win, 'agent-output', { sessionId, stream: 'stdout', text: line });
           }
         }
       });
@@ -2193,7 +2222,7 @@ function formatAgyEvent(event: any): string {
       resumeChild.stderr.on('data', (chunk: Buffer) => {
         const text = chunk.toString('utf8');
         session.output = `${session.output}\n${text}`.slice(-250000);
-        win?.webContents.send('agent-output', { sessionId, stream: 'stderr', text });
+        safeSend(win, 'agent-output', { sessionId, stream: 'stderr', text });
       });
 
       resumeChild.on('close', (code, signal) => {
@@ -2204,7 +2233,7 @@ function formatAgyEvent(event: any): string {
           output: session.output,
           events: session.events
         });
-        win?.webContents.send('agent-exit', { sessionId, code, signal: String(signal || '') });
+        safeSend(win, 'agent-exit', { sessionId, code, signal: String(signal || '') });
       });
       return;
     }
@@ -2249,7 +2278,7 @@ function createTray() {
         if (win) {
           if (currentMode !== 'mascot') applyAppMode('mascot');
           win.show();
-          win.webContents.send('tray-action', 'open-dispatch');
+          safeSend(win, 'tray-action', 'open-dispatch');
         }
       },
     },
@@ -2259,7 +2288,7 @@ function createTray() {
         if (win) {
           if (currentMode !== 'mascot') applyAppMode('mascot');
           win.show();
-          win.webContents.send('tray-action', 'open-review');
+          safeSend(win, 'tray-action', 'open-review');
         }
       },
     },
@@ -2269,7 +2298,7 @@ function createTray() {
         if (win) {
           if (currentMode !== 'mascot') applyAppMode('mascot');
           win.show();
-          win.webContents.send('tray-action', 'open-pomodoro');
+          safeSend(win, 'tray-action', 'open-pomodoro');
         }
       },
     },
@@ -2279,7 +2308,7 @@ function createTray() {
         if (win) {
           if (currentMode !== 'mascot') applyAppMode('mascot');
           win.show();
-          win.webContents.send('tray-action', 'open-duck');
+          safeSend(win, 'tray-action', 'open-duck');
         }
       },
     },
@@ -2289,7 +2318,7 @@ function createTray() {
         if (win) {
           if (currentMode !== 'mascot') applyAppMode('mascot');
           win.show();
-          win.webContents.send('tray-action', 'open-notes');
+          safeSend(win, 'tray-action', 'open-notes');
         }
       },
     },

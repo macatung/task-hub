@@ -142,6 +142,15 @@ const migrateLegacyAgySelection = () => {
   }
 };
 
+function toRawJson<T>(val: T): T {
+  if (val === undefined || val === null) return val;
+  try {
+    return JSON.parse(JSON.stringify(val));
+  } catch {
+    return val;
+  }
+}
+
 const sourceWorkspace = ref(localStorage.getItem('task_companion_agent_workspace') || '');
 const savedWorkspaces = ref<string[]>([]);
 const worktree = ref('');
@@ -424,7 +433,7 @@ const saveWorkspaceState = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 
     if (sessionId.value && window.desktopApi?.agent?.saveSessionState) {
-      window.desktopApi.agent.saveSessionState({
+      window.desktopApi.agent.saveSessionState(toRawJson({
         sessionId: sessionId.value,
         provider: provider.value,
         model: activeModel.value,
@@ -445,7 +454,7 @@ const saveWorkspaceState = () => {
         output: rawOutput.value,
         handoff: handoff.value,
         durationSeconds: runDurationSeconds.value,
-      });
+      }));
     }
   } catch (e) {
     console.warn('Failed to save agent workspace state:', e);
@@ -458,7 +467,7 @@ const addTimeline = (label: string, detail: string, tone: 'ok' | 'passed' | 'fai
   if (timeline.value.length > 50) timeline.value.pop();
   const logWorkspace = worktree.value || sourceWorkspace.value;
   if (logWorkspace) {
-    void window.desktopApi?.agent?.logActivity?.(logWorkspace, sessionId.value, { label, detail, tone });
+    void window.desktopApi?.agent?.logActivity?.(logWorkspace, sessionId.value, toRawJson({ label, detail, tone }));
   }
   saveWorkspaceState();
 };
@@ -1973,14 +1982,15 @@ const runPreflight = async (initialRequest = '') => {
   }
   addTimeline('Preflight', `Checking ${provider.value} (${activeModel.value}) and repository...`, 'active');
   try {
-    preflight.value = await window.desktopApi.agent.preflight(provider.value, sourceWorkspace.value);
-    preflight.value.checks.forEach((check: any) => addTimeline(check.id, check.message, check.status));
+    const rawProvider = toRawJson(provider.value);
+    const rawWorkspace = toRawJson(sourceWorkspace.value);
+    preflight.value = await window.desktopApi.agent.preflight(rawProvider, rawWorkspace);
+    preflight.value.checks?.forEach((check: any) => addTimeline(check.id, check.message, check.status));
     if (!preflight.value.ok) throw new Error('Preflight failed. Address warnings/errors and retry.');
 
-    const workspace = await window.desktopApi.agent.createWorktree(
-      preflight.value.repository,
-      selectedTask.value.issue_key || `task-${selectedTask.value.id}`
-    );
+    const rawRepo = toRawJson(preflight.value.repository);
+    const rawKey = toRawJson(selectedTask.value.issue_key || `task-${selectedTask.value.id}`);
+    const workspace = await window.desktopApi.agent.createWorktree(rawRepo, rawKey);
     worktree.value = workspace.path;
     addTimeline('Worktree ready', `${workspace.branch} · ${workspace.reused ? 'reused' : 'created'}`, 'ok');
 
@@ -2179,27 +2189,28 @@ const loadContext = async () => {
     contextPack.value = readMcpText(
       await mcpCall('tools/call', { name: 'get_context_pack', arguments: { task_id: taskIdOrKey } })
     );
-    await window.desktopApi.agent.configureMcp({
+    const rawPack = toRawJson(contextPack.value);
+    await window.desktopApi.agent.configureMcp(toRawJson({
       cwd: worktree.value,
       provider: provider.value,
       taskHubUrl: taskHubUrl.value,
       projectId: String(selectedTask.value?.project_id || docsProjectId.value || (credential.value.projectId !== 'all' ? credential.value.projectId : null) || '1'),
       token: credential.value.token,
-    });
+    }));
     const session = `${provider.value}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const run = readMcpText(
-      await mcpCall('tools/call', {
+      await mcpCall('tools/call', toRawJson({
         name: 'start_agent_run',
         arguments: {
           task_id: taskIdOrKey,
           provider: provider.value,
           agent_session_id: session,
-          repository: contextPack.value.repository,
-          branch: preflight.value?.branch || contextPack.value.branch,
-          context: { ...contextPack.value, model: activeModel.value },
+          repository: rawPack.repository,
+          branch: preflight.value?.branch || rawPack.branch,
+          context: { ...rawPack, model: activeModel.value },
           instruction: { contract: 'full_access_task_execution', approval_mode: 'none', model: activeModel.value },
         },
-      })
+      }))
     );
     runId.value = run?.data?.id || run?.id || null;
     addTimeline('Context ready', `Loaded Context pack + MCP configured successfully (Full Access · ${activeModel.value}).`, 'ok');

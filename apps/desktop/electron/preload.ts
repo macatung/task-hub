@@ -4,22 +4,32 @@ function safeClone<T>(value: T): T {
   if (value === undefined || value === null) return value;
   if (typeof value !== 'object') return value;
   try {
-    return JSON.parse(JSON.stringify(value));
+    const seen = new WeakSet();
+    return JSON.parse(JSON.stringify(value, (_key, val) => {
+      if (typeof val === 'object' && val !== null) {
+        if (seen.has(val)) return undefined;
+        seen.add(val);
+      }
+      if (typeof val === 'function' || typeof val === 'symbol') return undefined;
+      if (typeof val === 'bigint') return val.toString();
+      if (val instanceof Error) return { message: val.message, name: val.name, stack: val.stack };
+      return val;
+    }));
   } catch {
-    return value;
+    return {} as any;
   }
 }
 
 contextBridge.exposeInMainWorld('desktopApi', {
   close: () => ipcRenderer.send('window-close'),
   minimize: () => ipcRenderer.send('window-minimize'),
-  setAlwaysOnTop: (alwaysOnTop: boolean) => ipcRenderer.send('window-set-always-on-top', alwaysOnTop),
+  setAlwaysOnTop: (alwaysOnTop: boolean) => ipcRenderer.send('window-set-always-on-top', safeClone(alwaysOnTop)),
   moveWindow: (dx: number, dy: number) => ipcRenderer.send('window-move-by', safeClone({ dx, dy })),
   resizeWindow: (width: number, height: number) => ipcRenderer.send('window-resize', safeClone({ width, height })),
-  toggleFullscreen: (fullscreen: boolean) => ipcRenderer.invoke('window-toggle-fullscreen', fullscreen),
+  toggleFullscreen: (fullscreen: boolean) => ipcRenderer.invoke('window-toggle-fullscreen', safeClone(fullscreen)),
   setIgnoreMouseEvents: (ignore: boolean, forward: boolean) => ipcRenderer.send('window-ignore-mouse-events', safeClone({ ignore, forward })),
   getAppMode: () => ipcRenderer.invoke('app-get-mode'),
-  setAppMode: (mode: 'ide' | 'mascot') => ipcRenderer.invoke('app-set-mode', mode),
+  setAppMode: (mode: 'ide' | 'mascot') => ipcRenderer.invoke('app-set-mode', safeClone(mode)),
   toggleAppMode: () => ipcRenderer.invoke('app-toggle-mode'),
   onAppModeChange: (callback: (mode: 'ide' | 'mascot') => void) => {
     const listener = (_event: Electron.IpcRendererEvent, mode: 'ide' | 'mascot') => callback(mode);
@@ -29,7 +39,7 @@ contextBridge.exposeInMainWorld('desktopApi', {
   onTrayAction: (callback: (action: string) => void) => {
     ipcRenderer.on('tray-action', (_event, action) => callback(action));
   },
-  openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', safeClone(url)),
   updater: {
     getState: () => ipcRenderer.invoke('updater-get-state'),
     check: () => ipcRenderer.invoke('updater-check'),
@@ -49,20 +59,20 @@ contextBridge.exposeInMainWorld('desktopApi', {
     pollPairing: (taskHubUrl: string, pairingId: string, deviceSecret: string) => ipcRenderer.invoke('taskhub-pairing-status', safeClone({ taskHubUrl, pairingId, deviceSecret })),
     mcpCall: (taskHubUrl: string, token: string, projectId: string, method: string, params?: Record<string, any>) => ipcRenderer.invoke('taskhub-mcp-call', safeClone({ taskHubUrl, token, projectId, method, params })),
     importGeneratedDocuments: (taskHubUrl: string, token: string, projectId: string, payload: { manifest: string; documents: Array<{ path: string; content: string }> }) => ipcRenderer.invoke('taskhub-documents-import-generated', safeClone({ taskHubUrl, token, projectId, payload })),
-    getCapabilities: (taskHubUrl: string) => ipcRenderer.invoke('taskhub-capabilities', taskHubUrl),
+    getCapabilities: (taskHubUrl: string) => ipcRenderer.invoke('taskhub-capabilities', safeClone(taskHubUrl)),
   },
   agent: {
     pickWorkspace: () => ipcRenderer.invoke('agent-pick-workspace'),
     listWorkspaces: () => ipcRenderer.invoke('agent-list-workspaces'),
-    saveWorkspace: (cwd: string) => ipcRenderer.invoke('agent-save-workspace', cwd),
-    removeWorkspace: (cwd: string) => ipcRenderer.invoke('agent-remove-workspace', cwd),
+    saveWorkspace: (cwd: string) => ipcRenderer.invoke('agent-save-workspace', safeClone(cwd)),
+    removeWorkspace: (cwd: string) => ipcRenderer.invoke('agent-remove-workspace', safeClone(cwd)),
     preflight: (provider: 'codex' | 'claude_code' | 'antigravity', cwd: string) => ipcRenderer.invoke('agent-preflight', safeClone({ provider, cwd })),
     quickSetup: (cwd: string, installDependencies = true) => ipcRenderer.invoke('agent-quick-setup', safeClone({ cwd, installDependencies })),
     repairEnvironment: (provider: 'codex' | 'claude_code' | 'antigravity', cwd: string) => ipcRenderer.invoke('agent-repair-environment', safeClone({ provider, cwd })),
     createWorktree: (repository: string, issueKey: string) => ipcRenderer.invoke('agent-create-worktree', safeClone({ repository, issueKey })),
-    openWorkspace: (cwd: string) => ipcRenderer.invoke('agent-open-workspace', cwd),
+    openWorkspace: (cwd: string) => ipcRenderer.invoke('agent-open-workspace', safeClone(cwd)),
     cleanupWorktree: (repository: string, worktree: string) => ipcRenderer.invoke('agent-cleanup-worktree', safeClone({ repository, worktree })),
-    readGeneratedDocuments: (worktree: string) => ipcRenderer.invoke('agent-read-generated-documents', worktree),
+    readGeneratedDocuments: (worktree: string) => ipcRenderer.invoke('agent-read-generated-documents', safeClone(worktree)),
     applyDocsToWorkspace: (worktree: string, destinationWorkspace: string) => ipcRenderer.invoke('agent-apply-docs-to-workspace', safeClone({ worktree, destinationWorkspace })),
     configureMcp: (options: { cwd: string; provider: string; taskHubUrl: string; projectId: string; token: string }) => ipcRenderer.invoke('agent-configure-mcp', safeClone(options)),
     start: (provider: string, cwd: string, prompt?: string, model?: string) => ipcRenderer.invoke('agent-start', safeClone({ provider, cwd, prompt, model })),
@@ -76,9 +86,9 @@ contextBridge.exposeInMainWorld('desktopApi', {
     listSessions: () => ipcRenderer.invoke('agent-list-sessions'),
     saveSessionState: (state: any) => ipcRenderer.invoke('agent-save-session-state', safeClone(state)),
     listSavedSessions: () => ipcRenderer.invoke('agent-list-saved-sessions'),
-    getSessionState: (sessionId: string) => ipcRenderer.invoke('agent-get-session-state', sessionId),
-    deleteSavedSession: (sessionId: string) => ipcRenderer.invoke('agent-delete-session', sessionId),
-    openSessionLog: (sessionId: string) => ipcRenderer.invoke('agent-open-session-log', sessionId),
+    getSessionState: (sessionId: string) => ipcRenderer.invoke('agent-get-session-state', safeClone(sessionId)),
+    deleteSavedSession: (sessionId: string) => ipcRenderer.invoke('agent-delete-session', safeClone(sessionId)),
+    openSessionLog: (sessionId: string) => ipcRenderer.invoke('agent-open-session-log', safeClone(sessionId)),
     logActivity: (cwd: string, sessionId: string | null, activity: { label: string; detail: string; tone: string }) => ipcRenderer.invoke('agent-log-activity', safeClone({ cwd, sessionId, activity })),
     readFile: (cwd: string, relativePath: string) => ipcRenderer.invoke('workspace-read-file', safeClone({ cwd, relativePath })),
     listFiles: (cwd: string, maxFiles?: number) => ipcRenderer.invoke('workspace-list-files', safeClone({ cwd, maxFiles })),
@@ -95,7 +105,7 @@ contextBridge.exposeInMainWorld('desktopApi', {
     getPermissions: () => ipcRenderer.invoke('agent-get-permissions'),
     savePermissions: (perms: any) => ipcRenderer.invoke('agent-save-permissions', safeClone(perms)),
     send: (sessionId: string, input: string) => ipcRenderer.send('agent-input', safeClone({ sessionId, input })),
-    stop: (sessionId: string) => ipcRenderer.invoke('agent-stop', sessionId),
+    stop: (sessionId: string) => ipcRenderer.invoke('agent-stop', safeClone(sessionId)),
     onOutput: (callback: (event: { sessionId: string; stream: string; text: string }) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, payload: { sessionId: string; stream: string; text: string }) => callback(payload);
       ipcRenderer.on('agent-output', listener);
