@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('desktopApi', {
   getAppMode: () => ipcRenderer.invoke('app-get-mode'),
   setAppMode: (mode: 'ide' | 'mascot') => ipcRenderer.invoke('app-set-mode', safeClone(mode)),
   toggleAppMode: () => ipcRenderer.invoke('app-toggle-mode'),
+  getSystemInfo: () => ipcRenderer.invoke('app-get-system-info'),
   onAppModeChange: (callback: (mode: 'ide' | 'mascot') => void) => {
     const listener = (_event: Electron.IpcRendererEvent, mode: 'ide' | 'mascot') => callback(mode);
     ipcRenderer.on('app-mode-changed', listener);

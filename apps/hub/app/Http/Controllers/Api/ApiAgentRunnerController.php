@@ -292,6 +292,7 @@ class ApiAgentRunnerController extends Controller
         AgentRunner::reapStale((int) env('TASK_HUB_RUNNER_STALE_SECONDS', 45));
 
         $runner = null;
+        $session = null;
         $bearer = (string) $request->bearerToken();
         if ($bearer !== '') {
             $runner = AgentRunner::where('token_hash', hash('sha256', $bearer))->first();
@@ -311,10 +312,10 @@ class ApiAgentRunnerController extends Controller
             $runner = AgentRunner::find($data['runner_id']);
         }
         if (!$runner) {
-            $workspace = ($request->user() ? app(\App\Services\WorkspaceContext::class)->resolve($request, false) : null) ?: \App\Models\Workspace::first();
+            $workspace = $session?->workspace ?: (($request->user() ? app(\App\Services\WorkspaceContext::class)->resolve($request, false) : null) ?: \App\Models\Workspace::first());
             $token = Str::random(80);
             $runner = AgentRunner::create([
-                'workspace_id' => $workspace?->id,
+                'workspace_id' => $session?->workspace_id ?? $workspace?->id,
                 'client_id' => $data['client_id'] ?? (string) Str::uuid(),
                 'runner_type' => 'desktop',
                 'name' => $data['machine_name'] ?? ($data['name'] ?? ($data['hostname'] ?? 'Desktop Agent')),
@@ -340,6 +341,9 @@ class ApiAgentRunnerController extends Controller
             'last_heartbeat_at' => now(),
             'ip_address' => $request->ip(),
         ];
+        if ($session?->workspace_id && !$runner->workspace_id) {
+            $updateFields['workspace_id'] = $session->workspace_id;
+        }
         if (!empty($data['machine_name'])) $updateFields['machine_name'] = $data['machine_name'];
         if (!empty($data['hostname'])) $updateFields['hostname'] = $data['hostname'];
         if (!empty($data['platform']) || !empty($data['os_platform'])) $updateFields['os_platform'] = $data['os_platform'] ?? $data['platform'];

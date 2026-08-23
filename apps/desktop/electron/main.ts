@@ -1298,6 +1298,13 @@ function createWindow() {
   ipcMain.handle('app-get-mode', () => currentMode);
   ipcMain.handle('app-set-mode', (_event, mode: AppMode) => applyAppMode(mode));
   ipcMain.handle('app-toggle-mode', () => applyAppMode(currentMode === 'ide' ? 'mascot' : 'ide'));
+  ipcMain.handle('app-get-system-info', () => ({
+    hostname: os.hostname(),
+    platform: process.platform,
+    arch: process.arch,
+    osRelease: os.release(),
+    username: os.userInfo().username,
+  }));
 
   ipcMain.on('window-close', () => {
     if (win) win.hide();

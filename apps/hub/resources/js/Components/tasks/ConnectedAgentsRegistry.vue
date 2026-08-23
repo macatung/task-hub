@@ -430,9 +430,10 @@ onBeforeUnmount(() => {
                   ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
                   : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-emerald-500/50 shadow-emerald-950/40 active:scale-95'
               ]"
+              title="⚡ Dispatch Task"
             >
               <Icons name="Zap" :size="12" class="text-amber-300" />
-              <span>Dispatch Task</span>
+              <span>⚡ Dispatch Task</span>
             </button>
           </div>
         </article>

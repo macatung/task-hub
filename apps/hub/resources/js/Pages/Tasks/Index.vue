@@ -3265,7 +3265,7 @@ onUnmounted(() => {
                     <button
                       @click.stop="openRemoteDispatch(task)"
                       class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30 active:scale-95 shadow-xs"
-                      title="Dispatch to Connected Desktop Agent"
+                      title="⚡ Dispatch to Connected Desktop Agent"
                     >
                       <Icons name="Zap" :size="11" class="text-amber-300" />
                       <span>Dispatch</span>
@@ -3365,7 +3365,7 @@ onUnmounted(() => {
                     <button
                       @click.stop="openRemoteDispatch(task)"
                       class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30 active:scale-95 shadow-xs"
-                      title="Dispatch to Connected Desktop Agent"
+                      title="⚡ Re-dispatch / Run on Connected Desktop Agent"
                     >
                       <Icons name="Zap" :size="11" class="text-amber-300" />
                       <span>Dispatch</span>
@@ -3454,7 +3454,7 @@ onUnmounted(() => {
                     <button
                       @click.stop="openRemoteDispatch(task)"
                       class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30 active:scale-95 shadow-xs"
-                      title="Dispatch to Connected Desktop Agent"
+                      title="⚡ Re-test / Dispatch to Connected Desktop Agent"
                     >
                       <Icons name="Zap" :size="11" class="text-amber-300" />
                       <span>Dispatch</span>

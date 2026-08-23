@@ -1,4 +1,5 @@
 import { ref, onMounted } from 'vue';
+import { defaultHeartbeatService, defaultRemoteDispatchService } from '../services';
 
 export interface ProjectItem {
   id: number;
@@ -102,6 +103,85 @@ export function useTaskSync() {
     }
   };
 
+  const syncHeartbeatService = async (cred: DesktopCredential | null) => {
+    if (cred?.token && cred?.taskHubUrl) {
+      let hostname = 'DESKTOP-DEV';
+      let machineName = cred.userName ? `${cred.userName}'s Workstation` : (cred.workspaceName ? `${cred.workspaceName} Agent` : 'Desktop Agent');
+      let osPlatform = typeof navigator !== 'undefined' && navigator.userAgent.includes('Windows') ? 'win32' : 'darwin';
+      let osRelease = 'Windows 11';
+      let cwd = 'd:\\Project\\task-hub';
+
+      try {
+        if (window.desktopApi?.getSystemInfo) {
+          const info = await window.desktopApi.getSystemInfo();
+          if (info.hostname) hostname = info.hostname;
+          if (info.platform) osPlatform = info.platform;
+          if (info.osRelease) osRelease = info.osRelease;
+          if (info.username) machineName = `${info.username}'s Workstation`;
+        }
+        if (window.desktopApi?.agent?.listWorkspaces) {
+          const workspaces = await window.desktopApi.agent.listWorkspaces();
+          if (Array.isArray(workspaces) && workspaces.length > 0 && workspaces[0]) {
+            cwd = workspaces[0];
+          }
+        }
+      } catch {}
+
+      let quotaMetrics: any = undefined;
+      try {
+        if (window.desktopApi?.agent?.getQuotaUsage) {
+          const quota = await window.desktopApi.agent.getQuotaUsage();
+          if (quota) {
+            quotaMetrics = {
+              plan: quota.plan || 'Google AI Ultra',
+              gemini: {
+                used_tokens: quota.gemini?.usedTokens || 0,
+                limit: 2000000,
+                weekly_percent: quota.gemini?.weeklyRemainingPercent ?? 100,
+                five_hour_percent: quota.gemini?.fiveHourRemainingPercent ?? 100,
+              },
+              claude_gpt: {
+                used_tokens: quota.claudeGpt?.usedTokens || 0,
+                limit: 1000000,
+                weekly_percent: quota.claudeGpt?.weeklyRemainingPercent ?? 100,
+                five_hour_percent: quota.claudeGpt?.fiveHourRemainingPercent ?? 100,
+              },
+              codex: {
+                used_tokens: quota.codex?.usedTokens || 0,
+                limit: 1000000,
+                weekly_percent: quota.codex?.weeklyRemainingPercent ?? 100,
+                five_hour_percent: quota.codex?.fiveHourRemainingPercent ?? 100,
+              },
+            };
+          }
+        }
+      } catch {}
+
+      defaultHeartbeatService.setOptions({
+        baseUrl: cred.taskHubUrl,
+        token: cred.token,
+      });
+      defaultHeartbeatService.setTelemetryOverrides({
+        hostname,
+        machine_name: machineName,
+        name: machineName,
+        platform: osPlatform,
+        os_release: osRelease,
+        workspace_cwd: cwd,
+        ...(quotaMetrics ? { quota_metrics: quotaMetrics } : {}),
+      });
+      defaultHeartbeatService.start();
+
+      defaultRemoteDispatchService.setOptions({
+        baseUrl: cred.taskHubUrl,
+        token: cred.token,
+        heartbeatService: defaultHeartbeatService,
+      });
+    } else {
+      defaultHeartbeatService.stop();
+    }
+  };
+
   // Fetch tasks from API
   const loadCredential = async () => {
     try {
@@ -109,6 +189,7 @@ export function useTaskSync() {
       if (electronCred?.token) {
         credential.value = electronCred;
         try { localStorage.setItem('task_hub_credential', JSON.stringify(electronCred)); } catch {}
+        void syncHeartbeatService(electronCred);
         return credential.value;
       }
     } catch {}
@@ -118,11 +199,13 @@ export function useTaskSync() {
         const parsed = JSON.parse(saved);
         if (parsed?.token) {
           credential.value = parsed;
+          void syncHeartbeatService(parsed);
           return credential.value;
         }
       }
     } catch {}
     credential.value = null;
+    void syncHeartbeatService(null);
     return null;
   };
 
@@ -135,6 +218,7 @@ export function useTaskSync() {
     } catch {}
     credential.value = next;
     connectionError.value = '';
+    void syncHeartbeatService(next);
     await fetchProjects();
     await fetchTasks();
   };
@@ -152,6 +236,7 @@ export function useTaskSync() {
       localStorage.removeItem('task_hub_credential');
     } catch {}
     credential.value = null;
+    void syncHeartbeatService(null);
     tasks.value = [];
     agentTasks.value = [];
     isOnline.value = false;

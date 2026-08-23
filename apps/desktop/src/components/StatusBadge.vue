@@ -288,7 +288,7 @@ const iconSize = computed(() => {
       v-if="showIcon"
       :name="displayConfig.icon"
       :size="iconSize"
-      :class="[displayConfig.iconClass, 'shrink-0']"
+      :class="`${displayConfig.iconClass || ''} shrink-0`"
     />
 
     <!-- Text Label -->
