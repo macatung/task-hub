@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Task Hub Connected Desktop Agent Heartbeat & Telemetry",
+  "type": "object",
+  "properties": {
+    "client_id": { "type": "string", "description": "Persistent unique client identifier" },
+    "name": { "type": "string", "description": "Display name of the workstation" },
+    "hostname": { "type": "string", "description": "Operating system hostname" },
+    "platform": { "type": "string", "enum": ["win32", "darwin", "linux"] },
+    "arch": { "type": "string", "enum": ["x64", "arm64", "ia32", "arm"] },
+    "os_release": { "type": "string" },
+    "version": { "type": "string" },
+    "status": { "type": "string", "enum": ["idle", "busy", "offline", "online"] },
+    "active_providers": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "active_model": { "type": "string" },
+    "workspace_cwd": { "type": "string" },
+    "active_run_ids": {
+      "type": "array",
+      "items": { "type": "integer" }
+    },
+    "quota_metrics": {
+      "type": "object",
+      "properties": {
+        "plan": { "type": "string" },
+        "gemini": { "type": "object" },
+        "claude_gpt": { "type": "object" },
+        "codex": { "type": "object" }
+      }
+    },
+    "ping_latency_ms": { "type": "integer", "minimum": 0 }
+  },
+  "additionalProperties": true
+}

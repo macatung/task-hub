@@ -3,6 +3,64 @@ info:
   title: Task Hub API
   version: 1.0.0
 paths:
+  /api/v1/desktop/agents/register:
+    post:
+      summary: Register or connect a desktop companion agent runner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopAgentRegistration'
+      responses:
+        '201':
+          description: Desktop agent registered and bearer token issued
+  /api/v1/desktop/agents/heartbeat:
+    post:
+      summary: Periodic 10-15s telemetry heartbeat and remote command polling
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DesktopAgentHeartbeat'
+      responses:
+        '200':
+          description: Telemetry updated, stale agents reaped, and pending dispatch/cancellation commands returned
+  /api/v1/desktop/agents:
+    get:
+      summary: List all connected desktop agent workstations in active workspace
+      responses:
+        '200':
+          description: Array of connected desktop agents with health, metrics, and active runs
+  /api/v1/desktop/agents/{runner_id}/command-stream:
+    get:
+      summary: Instant SSE command stream for sub-500ms remote dispatch execution
+      parameters:
+        - in: path
+          name: runner_id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Server-sent event stream pushing dispatch and control commands
+  /api/v1/tasks/{task_id}/dispatch:
+    post:
+      summary: Remotely dispatch a task to a designated connected desktop workstation
+      parameters:
+        - in: path
+          name: task_id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RemoteDispatchPayload'
+      responses:
+        '201':
+          description: AgentRun created and queued for target runner
   /api/v1/runners/register:
     post:
       summary: Register a self-hosted server agent runner
@@ -59,3 +117,40 @@ paths:
       summary: Versioned Model Context Protocol endpoint
       responses:
         '200': { description: JSON-RPC response }
+components:
+  schemas:
+    DesktopAgentRegistration:
+      type: object
+      properties:
+        name: { type: string }
+        machine_name: { type: string }
+        hostname: { type: string }
+        client_id: { type: string }
+        os_platform: { type: string }
+        os_version: { type: string }
+        active_providers: { type: array, items: { type: string } }
+        active_model: { type: string }
+        workspace_cwd: { type: string }
+    DesktopAgentHeartbeat:
+      type: object
+      properties:
+        client_id: { type: string }
+        hostname: { type: string }
+        platform: { type: string }
+        arch: { type: string }
+        status: { type: string }
+        active_providers: { type: array, items: { type: string } }
+        active_model: { type: string }
+        workspace_cwd: { type: string }
+        active_run_ids: { type: array, items: { type: integer } }
+        quota_metrics: { type: object }
+        ping_latency_ms: { type: integer }
+    RemoteDispatchPayload:
+      type: object
+      required: [runner_id]
+      properties:
+        runner_id: { type: integer }
+        provider: { type: string, enum: [antigravity, claude_code, codex] }
+        model: { type: string }
+        execution_mode: { type: string, enum: [auto_pilot, supervised, desktop] }
+        custom_instruction: { type: string }

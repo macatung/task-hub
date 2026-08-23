@@ -65,6 +65,12 @@ $registerApiRoutes = function () {
     Route::post('/agent-runs/{agentRun}/logs', [ApiAgentRunnerController::class, 'log']);
     Route::post('/agent-runs/{agentRun}/cancel', [ApiAgentRunnerController::class, 'cancel']);
 
+    // Connected Desktop Agents Registry & Command Streaming
+    Route::post('/desktop/agents/register', [ApiAgentRunnerController::class, 'desktopRegister']);
+    Route::post('/desktop/agents/heartbeat', [ApiAgentRunnerController::class, 'desktopHeartbeat']);
+    Route::get('/desktop/agents', [ApiAgentRunnerController::class, 'desktopIndex']);
+    Route::get('/desktop/agents/{agentRunner}/command-stream', [ApiAgentRunnerController::class, 'desktopCommandStream']);
+
     // Tasks and AI workflows
     Route::get('/tasks', [ApiTaskController::class, 'index'])->middleware('auth');
     Route::post('/tasks', [ApiTaskController::class, 'store'])->middleware('auth');
@@ -92,6 +98,7 @@ $registerApiRoutes = function () {
     Route::get('/tasks/context-pack', [ApiAgentRunController::class, 'context']);
     Route::post('/tasks/{task}/documents', [ApiProjectDocumentController::class, 'attach']);
     Route::delete('/tasks/{task}/documents/{document}', [ApiProjectDocumentController::class, 'detach']);
+    Route::post('/tasks/{task}/dispatch', [ApiAgentRunController::class, 'dispatch']);
     Route::patch('/tasks/{id}', [ApiTaskController::class, 'update'])->middleware('auth');
     Route::delete('/tasks/{id}', [ApiTaskController::class, 'destroy'])->middleware('auth');
 

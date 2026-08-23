@@ -96,7 +96,7 @@ const ringSound = () => {
     <div v-if="type === 'verse' && verse" class="space-y-2 text-left font-serif">
       <!-- Chapter Badge -->
       <span class="text-[11px] font-sans opacity-70 block italic" :class="persona === 'zen' ? 'text-amber-200' : 'text-emerald-200'">
-        {{ verse.chapter_vi }} ({{ verse.chapter_pali }})
+        {{ verse.chapter_en || verse.chapter_vi }} ({{ verse.chapter_pali }})
       </span>
 
       <!-- Pali text -->
@@ -104,9 +104,9 @@ const ringSound = () => {
         "{{ verse.pali }}"
       </p>
 
-      <!-- Vietnamese Translation (Crisp & High Contrast) -->
+      <!-- English Translation (Crisp & High Contrast) -->
       <p class="text-xs sm:text-sm font-bold text-white leading-relaxed whitespace-pre-line bg-stone-900/90 p-2.5 rounded-xl border border-stone-800 shadow-inner">
-        {{ verse.vietnamese }}
+        {{ verse.english || verse.vietnamese }}
       </p>
 
       <!-- Insight Box -->

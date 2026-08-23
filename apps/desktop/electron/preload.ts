@@ -72,6 +72,7 @@ contextBridge.exposeInMainWorld('desktopApi', {
     createWorktree: (repository: string, issueKey: string) => ipcRenderer.invoke('agent-create-worktree', safeClone({ repository, issueKey })),
     openWorkspace: (cwd: string) => ipcRenderer.invoke('agent-open-workspace', safeClone(cwd)),
     cleanupWorktree: (repository: string, worktree: string) => ipcRenderer.invoke('agent-cleanup-worktree', safeClone({ repository, worktree })),
+    runTest: (options: { cwd: string; command?: string }) => ipcRenderer.invoke('agent-run-test', safeClone(options)),
     readGeneratedDocuments: (worktree: string) => ipcRenderer.invoke('agent-read-generated-documents', safeClone(worktree)),
     applyDocsToWorkspace: (worktree: string, destinationWorkspace: string) => ipcRenderer.invoke('agent-apply-docs-to-workspace', safeClone({ worktree, destinationWorkspace })),
     configureMcp: (options: { cwd: string; provider: string; taskHubUrl: string; projectId: string; token: string }) => ipcRenderer.invoke('agent-configure-mcp', safeClone(options)),

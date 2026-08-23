@@ -7,9 +7,17 @@ import AntigravitySkillsModal from './AntigravitySkillsModal.vue';
 import AntigravityScheduledTasksModal from './AntigravityScheduledTasksModal.vue';
 import AntigravitySettingsPermissionsModal from './AntigravitySettingsPermissionsModal.vue';
 import MarkdownView from './MarkdownView.vue';
+import PomodoroTimer from './PomodoroTimer.vue';
+import ActivityTimelineDrawer from './ActivityTimelineDrawer.vue';
+import AutoRepairModal from './AutoRepairModal.vue';
+import DangerousCommandBanner from './DangerousCommandBanner.vue';
 import { ansiToHtml, stripAnsiToPlainText, escapeHtml } from '../utils/ansi';
 import { parseDiscoveryPlan, serializeDiscoveryPlanContract } from '../utils/discoveryPlan';
 import { buildInitialRequest, consumePendingUserEcho, normalizeConversationText } from '../utils/conversation';
+import { inspectCommand, inspectToolExecution, type SafetyInterceptEvent } from '../utils/safetyGuardrails';
+import { parseTestOutput, buildVerificationEvidence } from '../utils/testEvidence';
+import { parseGitDiffNumstat, buildAgentHandoffPayload } from '../utils/diffHandoff';
+import { useAutoPilotStore } from '../stores/useAutoPilotStore';
 declare global {
   interface Window {
     desktopApi?: any;
@@ -36,7 +44,7 @@ const emit = defineEmits<{
   (e: 'switch-mode', mode: 'mascot'): void;
 }>();
 
-type Phase = 'select' | 'preflight' | 'pairing' | 'context' | 'ready' | 'running' | 'handoff' | 'review' | 'error';
+type Phase = 'select' | 'preflight' | 'pairing' | 'context' | 'ready' | 'running' | 'waiting_input' | 'testing' | 'handoff' | 'review' | 'error';
 type Provider = 'codex' | 'claude_code' | 'antigravity';
 
 type ModelOption = {
@@ -170,6 +178,35 @@ const showAdvancedTools = ref(false);
 const showAgentSettings = ref(false);
 const showActivityTimeline = ref(false);
 const showProcessDrawer = ref(false);
+const showAutoRepairModal = ref(false);
+const showPomodoroModal = ref(false);
+const isSidebarCollapsed = ref(false);
+
+const handlePomodoroCompleted = async (task?: any) => {
+  if (task) {
+    if (typeof task.completed_pomodoros === 'number') {
+      task.completed_pomodoros++;
+    } else {
+      task.completed_pomodoros = 1;
+    }
+    addTimeline('Pomodoro completed', `Completed 1 focus cycle for ${task.issue_key || `#${task.id}`}.`, 'ok');
+  } else {
+    addTimeline('Pomodoro completed', 'Completed 1 focus cycle.', 'ok');
+  }
+};
+
+const handleEnvironmentRepaired = (result: any) => {
+  if (result.ok) {
+    addTimeline('Environment Repaired', 'All workspace environment checks passed.', 'ok');
+  } else {
+    addTimeline('Environment Repair Warning', 'Some checks require attention.', 'warning');
+  }
+  if (Array.isArray(result.checks)) {
+    result.checks.forEach((c: any) => {
+      addTimeline(`Repair · ${c.id}`, c.message, c.status);
+    });
+  }
+};
 
 const taskHubUrl = ref(localStorage.getItem('task_hub_base_url') || 'https://task-hub.macatung.dev');
 const credential = ref<{ token: string; projectId: string; taskHubUrl?: string } | null>(null);
@@ -287,6 +324,11 @@ const handoff = ref({
   pullRequestUrl: '',
   blockers: '',
 });
+
+// Safety Interception & Auto-Pilot State
+const activeSafetyAlert = ref<SafetyInterceptEvent | null>(null);
+const isAutoPilotRunning = ref(false);
+const autoPilotStore = useAutoPilotStore();
 
 let pollTimer: ReturnType<typeof setInterval> | undefined;
 let renderTimer: ReturnType<typeof setTimeout> | undefined;
@@ -770,6 +812,8 @@ const phaseLabel = computed(() => {
     context: 'Context & MCP Load',
     ready: 'Ready to Launch',
     running: workflowMode.value === 'discovery' ? 'Analyzing Requirements' : docsOnly.value ? 'Generating Docs' : 'Agent Running',
+    waiting_input: 'Waiting Approval',
+    testing: 'Running Tests',
     handoff: 'Handoff & Review',
     review: 'Review Results',
     error: 'Action Required',
@@ -778,9 +822,9 @@ const phaseLabel = computed(() => {
 });
 
 const phaseTone = computed(() => {
-  if (phase.value === 'error') return 'error';
+  if (phase.value === 'error' || phase.value === 'waiting_input') return 'error';
   if (['ready', 'review'].includes(phase.value)) return 'success';
-  if (['preflight', 'pairing', 'context', 'running'].includes(phase.value)) return 'active';
+  if (['preflight', 'pairing', 'context', 'running', 'testing'].includes(phase.value)) return 'active';
   return 'neutral';
 });
 
@@ -988,12 +1032,35 @@ const deleteCustomModelOption = async (modelId: string) => {
   }
 };
 
+interface QuotaTierItem {
+  id: string;
+  name: string;
+  provider: string;
+  weeklyRemainingPercent: number;
+  weeklyResetIn: string;
+  fiveHourRemainingPercent: number;
+  fiveHourResetIn: string;
+  usedTokens?: number;
+  totalLimitTokens?: number;
+}
+
+interface QuotaUsageState {
+  plan: string;
+  planTier: string;
+  enableCreditOverages: boolean;
+  lastSyncedAt?: string | number | Date | null;
+  gemini: QuotaTierItem;
+  claudeGpt: QuotaTierItem;
+  codex: QuotaTierItem;
+}
+
 const showModelsAndUsageModal = ref(false);
 const isSyncingQuota = ref(false);
-const quotaUsageState = ref({
+const quotaUsageState = ref<QuotaUsageState>({
   plan: 'Google AI Ultra',
   planTier: 'Highest rate limits',
   enableCreditOverages: false,
+  lastSyncedAt: null,
   gemini: {
     id: 'gemini',
     name: 'Gemini Models',
@@ -1002,6 +1069,8 @@ const quotaUsageState = ref({
     weeklyResetIn: '4 days, 9 hours',
     fiveHourRemainingPercent: 93,
     fiveHourResetIn: '3 hours, 50 minutes',
+    usedTokens: 145000,
+    totalLimitTokens: 2000000,
   },
   claudeGpt: {
     id: 'claude_gpt',
@@ -1011,6 +1080,8 @@ const quotaUsageState = ref({
     weeklyResetIn: '7 days',
     fiveHourRemainingPercent: 100,
     fiveHourResetIn: '5 hours',
+    usedTokens: 0,
+    totalLimitTokens: 1000000,
   },
   codex: {
     id: 'codex',
@@ -1020,6 +1091,8 @@ const quotaUsageState = ref({
     weeklyResetIn: '6 days, 20 hours',
     fiveHourRemainingPercent: 95,
     fiveHourResetIn: '4 hours, 30 minutes',
+    usedTokens: 20000,
+    totalLimitTokens: 1000000,
   },
 });
 
@@ -1418,11 +1491,40 @@ const vsCommands = computed<VSCommand[]>(() => [
     action: () => openModelsAndUsageModal(),
   },
   {
+    id: 'auto-repair',
+    category: 'Environment',
+    title: 'One-Click Environment Auto-Repair (.env, dependencies, worktrees)',
+    icon: 'codicon-tools',
+    action: () => { showAutoRepairModal.value = true; },
+  },
+  {
+    id: 'pomodoro-timer',
+    category: 'Productivity',
+    title: 'Focus Pomodoro Timer (25m / 50m / Breaks)',
+    icon: 'codicon-clock',
+    action: () => { showPomodoroModal.value = true; },
+  },
+  {
+    id: 'activity-timeline',
+    category: 'View',
+    title: 'Open Activity Timeline Drawer (Chronological Logs & Export)',
+    icon: 'codicon-history',
+    action: () => { showActivityTimeline.value = true; },
+  },
+  {
+    id: 'toggle-sidebar',
+    category: 'View',
+    title: 'Toggle Primary Sidebar',
+    icon: 'codicon-layout-sidebar-left',
+    shortcut: 'Ctrl+B',
+    action: () => { isSidebarCollapsed.value = !isSidebarCollapsed.value; },
+  },
+  {
     id: 'git-diff',
     category: 'Git',
     title: 'View Working Tree Changes in Monaco Diff Editor',
     icon: 'codicon-diff',
-    shortcut: 'Ctrl+Shift+G',
+    shortcut: 'Ctrl+Shift+D',
     action: () => { selectActivity('diff'); activeEditorTab.value = 'monaco'; },
   },
   {
@@ -1439,7 +1541,7 @@ const vsCommands = computed<VSCommand[]>(() => [
     title: 'Show Terminal & Live Stream Output',
     icon: 'codicon-terminal',
     shortcut: 'Ctrl+`',
-    action: () => { activeEditorTab.value = 'terminal'; },
+    action: () => { activeEditorTab.value = activeEditorTab.value === 'terminal' ? 'monaco' : 'terminal'; },
   },
   {
     id: 'generate-docs',
@@ -1480,12 +1582,59 @@ const executeCommand = (cmd: VSCommand) => {
 };
 
 const handleGlobalKeydown = (e: KeyboardEvent) => {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+  const isCmdOrCtrl = e.ctrlKey || e.metaKey;
+
+  // Ctrl+Shift+P: Command Palette
+  if (isCmdOrCtrl && e.shiftKey && e.key.toLowerCase() === 'p') {
     e.preventDefault();
     showCommandPalette.value = !showCommandPalette.value;
     commandPaletteSearch.value = '';
-  } else if (e.key === 'Escape' && showCommandPalette.value) {
-    showCommandPalette.value = false;
+    return;
+  }
+
+  // Ctrl+Shift+M: Toggle Desktop Studio / Mascot mode
+  if (isCmdOrCtrl && e.shiftKey && e.key.toLowerCase() === 'm') {
+    e.preventDefault();
+    emit('switch-mode', 'mascot');
+    return;
+  }
+
+  // Ctrl+Shift+D: Jump to Git Diff Inspector
+  if (isCmdOrCtrl && e.shiftKey && e.key.toLowerCase() === 'd') {
+    e.preventDefault();
+    selectActivity('diff');
+    activeEditorTab.value = 'monaco';
+    return;
+  }
+
+  // Ctrl+`: Toggle Terminal / Code tab
+  if (isCmdOrCtrl && e.key === '`') {
+    e.preventDefault();
+    activeEditorTab.value = activeEditorTab.value === 'terminal' ? 'monaco' : 'terminal';
+    return;
+  }
+
+  // Ctrl+B: Toggle Primary Sidebar
+  if (isCmdOrCtrl && !e.shiftKey && e.key.toLowerCase() === 'b') {
+    e.preventDefault();
+    isSidebarCollapsed.value = !isSidebarCollapsed.value;
+    return;
+  }
+
+  // Ctrl+P: Quick Task / Command search
+  if (isCmdOrCtrl && !e.shiftKey && e.key.toLowerCase() === 'p') {
+    e.preventDefault();
+    showCommandPalette.value = true;
+    commandPaletteSearch.value = '';
+    return;
+  }
+
+  if (e.key === 'Escape') {
+    if (showCommandPalette.value) showCommandPalette.value = false;
+    if (showActivityTimeline.value) showActivityTimeline.value = false;
+    if (showAutoRepairModal.value) showAutoRepairModal.value = false;
+    if (showPomodoroModal.value) showPomodoroModal.value = false;
+    if (showTaskInspector.value) showTaskInspector.value = false;
   }
 };
 
@@ -2612,6 +2761,110 @@ const copyHandoff = async () => {
   addTimeline('Handoff copied', 'Handoff markdown report copied to clipboard.', 'ok');
 };
 
+const approveSafetyAlert = (eventId?: string) => {
+  if (activeSafetyAlert.value) {
+    addTimeline('Safety Approved', `Developer approved action: ${activeSafetyAlert.value.command || 'Command'}`, 'ok');
+    autoPilotStore.approveSafetyAlert(eventId || activeSafetyAlert.value.eventId);
+    activeSafetyAlert.value = null;
+    if (phase.value === 'waiting_input') {
+      phase.value = 'running';
+    }
+  }
+};
+
+const rejectSafetyAlert = (eventId?: string) => {
+  if (activeSafetyAlert.value) {
+    addTimeline('Safety Rejected', `Developer rejected dangerous action: ${activeSafetyAlert.value.command || 'Command'}`, 'warning');
+    autoPilotStore.rejectSafetyAlert(eventId || activeSafetyAlert.value.eventId);
+    activeSafetyAlert.value = null;
+    phase.value = 'error';
+    errorMessage.value = 'Execution halted due to safety guardrail rejection.';
+  }
+};
+
+const startAutoPilotFlow = async (targetTask?: TaskItem) => {
+  const taskToRun = targetTask || selectedTask.value;
+  if (!taskToRun) {
+    errorMessage.value = 'Please select a task from the list before starting Auto-Pilot.';
+    return;
+  }
+  if (!sourceWorkspace.value) await chooseWorkspace();
+  if (!sourceWorkspace.value) {
+    errorMessage.value = 'Please select a local Git repository directory.';
+    return;
+  }
+
+  isAutoPilotRunning.value = true;
+  errorMessage.value = '';
+  phase.value = 'preflight';
+  addTimeline('Auto-Pilot Started', `Initiating 7-stage autonomous loop for ${taskToRun.issue_key || taskToRun.id}...`, 'active');
+
+  try {
+    const cred = await ensureCredential();
+    const result = await autoPilotStore.startAutoPilot(
+      {
+        id: taskToRun.id,
+        issue_key: taskToRun.issue_key || undefined,
+        title: taskToRun.title,
+        description: taskToRun.description || undefined,
+        workspacePath: sourceWorkspace.value,
+        project_id: taskToRun.project_id || undefined,
+      },
+      {
+        desktopApi: window.desktopApi,
+        taskHubUrl: taskHubUrl.value,
+        token: credential.value?.token,
+        projectId: String(taskToRun.project_id || credential.value?.projectId || '1'),
+        provider: provider.value,
+        model: activeModel.value,
+        onStageChange: (stage) => {
+          if (stage === 'preflight') phase.value = 'preflight';
+          else if (stage === 'worktree') phase.value = 'preflight';
+          else if (stage === 'context') phase.value = 'context';
+          else if (stage === 'executing') phase.value = 'running';
+          else if (stage === 'waiting_input') phase.value = 'waiting_input';
+          else if (stage === 'testing') phase.value = 'testing';
+          else if (stage === 'handoff') phase.value = 'handoff';
+          else if (stage === 'completed') phase.value = 'handoff';
+          else if (stage === 'failed') phase.value = 'error';
+        },
+        onLog: ({ text }) => {
+          rawOutput.value += text;
+          updateTerminalRender();
+        },
+        onSafetyAlert: (alert) => {
+          activeSafetyAlert.value = alert;
+          phase.value = 'waiting_input';
+          addTimeline('Safety Intercept', alert.reason, 'warning');
+        },
+        onEvidence: (evidence) => {
+          addTimeline('Test Evidence', evidence.summary, evidence.status === 'passed' ? 'ok' : 'error');
+        },
+        onHandoff: (h) => {
+          handoff.value.summary = h.summary;
+          handoff.value.changedFiles = h.changed_files.join('\n');
+          handoff.value.commitSha = h.commit_sha || '';
+          handoff.value.pullRequestUrl = h.pull_request_url || '';
+        },
+      }
+    );
+
+    if (result.success) {
+      phase.value = 'handoff';
+      addTimeline('Auto-Pilot Completed', `Successfully executed all stages. Structured handoff ready for review.`, 'ok');
+    } else {
+      phase.value = 'error';
+      errorMessage.value = result.error || 'Auto-Pilot execution failed.';
+    }
+  } catch (err: any) {
+    phase.value = 'error';
+    errorMessage.value = err.message || 'Auto-Pilot execution error.';
+    addTimeline('Auto-Pilot Error', errorMessage.value, 'error');
+  } finally {
+    isAutoPilotRunning.value = false;
+  }
+};
+
 const isApproving = ref(false);
 const showRejectModal = ref(false);
 const rejectReason = ref('');
@@ -2897,31 +3150,58 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Center: VS Code Command Palette Search Trigger -->
-      <div class="flex-1 max-w-md mx-4">
+      <!-- Center: Smart Breadcrumbs & Command Palette Trigger -->
+      <div class="flex-1 max-w-lg mx-3 flex items-center gap-1.5">
         <button
-          class="w-full h-6 px-3 rounded bg-[#252526] hover:bg-[#2d2d2d] border border-[#3e3e42] text-[11px] text-zinc-400 flex items-center justify-between gap-2 transition-colors cursor-pointer"
+          class="flex-1 h-6 px-2.5 rounded bg-[#252526] hover:bg-[#2d2d2d] border border-[#3e3e42] text-[11px] text-zinc-300 flex items-center justify-between gap-2 transition-colors cursor-pointer"
           @click="showCommandPalette = true; commandPaletteSearch = '';"
           title="Open Command Palette (Ctrl+P / ⌘P)"
         >
-          <div class="flex items-center gap-1.5 truncate">
-            <i class="codicon codicon-search text-zinc-400 text-xs" />
-            <span class="truncate font-mono">{{ activeCwd ? activeCwd.split('\\').pop() : 'task-hub' }} — Command Palette</span>
+          <div class="flex items-center gap-1.5 truncate text-[11px]">
+            <i class="codicon codicon-folder text-amber-400 text-xs shrink-0" />
+            <span class="font-mono text-zinc-300 truncate">{{ activeCwd ? activeCwd.split('\\').pop() : 'task-hub' }}</span>
+            <span class="text-zinc-500">/</span>
+            <i class="codicon codicon-git-branch text-sky-400 text-xs shrink-0" />
+            <span class="font-mono text-zinc-400 truncate max-w-[100px]">{{ selectedTask ? (selectedTask.issue_key || `#${selectedTask.id}`) : 'main' }}</span>
+            <template v-if="selectedTask">
+              <span class="text-zinc-500">/</span>
+              <span class="truncate text-zinc-300 font-medium max-w-[140px]">{{ selectedTask.title }}</span>
+            </template>
           </div>
           <span class="px-1 rounded bg-[#333333] text-[10px] font-mono text-zinc-400 shrink-0">Ctrl+P</span>
         </button>
       </div>
 
-      <!-- Right: Model Badge, Mascot Switch & Window Controls -->
+      <!-- Right: Pomodoro, Auto-Repair, Timeline, Quota, Mascot Switch & Window Controls -->
       <div class="flex items-center gap-1.5 shrink-0">
-        <!-- Switch to Mascot Mode Button -->
+        <!-- Pomodoro Focus Pill -->
         <button
-          class="h-6 px-2.5 rounded bg-[#2d2d2d] hover:bg-[#383838] border border-[#3e3e42] text-zinc-300 text-[11px] font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
-          @click="emit('switch-mode', 'mascot')"
-          title="Switch to Zen Companion (Ctrl+Shift+M)"
+          class="h-6 px-2 rounded bg-[#252526] hover:bg-[#2d2d2d] border border-[#3e3e42] text-amber-300 hover:text-amber-200 text-[11px] font-medium flex items-center gap-1 cursor-pointer transition-colors"
+          @click="showPomodoroModal = true"
+          title="Focus Pomodoro Timer"
         >
-          <i class="codicon codicon-device-desktop text-xs text-zinc-400" />
-          <span>Zen Companion</span>
+          <span class="text-xs">🍅</span>
+          <span class="hidden sm:inline">Pomodoro</span>
+        </button>
+
+        <!-- One-Click Auto-Repair Pill -->
+        <button
+          class="h-6 px-2 rounded bg-[#252526] hover:bg-[#2d2d2d] border border-[#3e3e42] text-amber-400 hover:text-amber-300 text-[11px] font-medium flex items-center gap-1 cursor-pointer transition-colors"
+          @click="showAutoRepairModal = true"
+          title="One-Click Environment Auto-Repair"
+        >
+          <i class="codicon codicon-tools text-xs" />
+          <span class="hidden sm:inline">Auto-Repair</span>
+        </button>
+
+        <!-- Activity Timeline Pill -->
+        <button
+          class="h-6 px-2 rounded bg-[#252526] hover:bg-[#2d2d2d] border border-[#3e3e42] text-zinc-300 text-[11px] font-medium flex items-center gap-1 cursor-pointer transition-colors"
+          @click="showActivityTimeline = true"
+          title="Activity Timeline"
+        >
+          <i class="codicon codicon-history text-xs text-[#007acc]" />
+          <span>{{ timeline.length }}</span>
         </button>
 
         <!-- Quick Quota Button -->
@@ -2930,12 +3210,31 @@ onUnmounted(() => {
           @click="openModelsAndUsageModal"
           title="Models & Usage Quota"
         >
-          <i class="codicon codicon-pulse text-xs text-zinc-300" />
+          <i class="codicon codicon-pulse text-xs text-emerald-400" />
           <span>{{ activeQuotaGroup.fiveHourRemainingPercent }}%</span>
         </button>
 
+        <!-- Toggle Sidebar Button -->
+        <button
+          class="h-6 px-1.5 rounded bg-[#252526] hover:bg-[#2d2d2d] border border-[#3e3e42] text-zinc-300 text-[11px] font-medium flex items-center justify-center cursor-pointer transition-colors"
+          @click="isSidebarCollapsed = !isSidebarCollapsed"
+          title="Toggle Sidebar (Ctrl+B)"
+        >
+          <i class="codicon" :class="isSidebarCollapsed ? 'codicon-layout-sidebar-left' : 'codicon-layout-sidebar-left-off'" />
+        </button>
+
+        <!-- Switch to Mascot Mode Button -->
+        <button
+          class="h-6 px-2 rounded bg-[#2d2d2d] hover:bg-[#383838] border border-[#3e3e42] text-zinc-300 text-[11px] font-medium flex items-center gap-1 cursor-pointer transition-colors"
+          @click="emit('switch-mode', 'mascot')"
+          title="Switch to Zen Companion (Ctrl+Shift+M)"
+        >
+          <i class="codicon codicon-device-desktop text-xs text-zinc-400" />
+          <span class="hidden md:inline">Zen Companion</span>
+        </button>
+
         <!-- Provider Pill -->
-        <span class="px-2 py-0.5 rounded bg-[#252526] border border-[#3e3e42] text-[10px] font-mono text-zinc-300 font-bold uppercase">
+        <span class="px-2 py-0.5 rounded bg-[#252526] border border-[#3e3e42] text-[10px] font-mono text-zinc-300 font-bold uppercase hidden sm:inline">
           {{ provider === 'antigravity' ? 'AGY' : provider.toUpperCase() }}
         </span>
 
@@ -3102,13 +3401,20 @@ onUnmounted(() => {
       </nav>
 
       <!-- PRIMARY SIDEBAR (NATURALLY SCROLLABLE) -->
-      <aside class="w-[320px] lg:w-[360px] sidebar-scrollable flex flex-col gap-3 p-3 border-r border-[#2b2b2b] bg-[#252526] overflow-y-auto shrink-0 max-h-full pb-8 text-zinc-300">
+      <aside v-show="!isSidebarCollapsed" class="w-[320px] lg:w-[360px] sidebar-scrollable flex flex-col gap-3 p-3 border-r border-[#2b2b2b] bg-[#252526] overflow-y-auto shrink-0 max-h-full pb-8 text-zinc-300">
         <!-- SIDEBAR TITLE BAR -->
         <div class="flex items-center justify-between px-1 pb-1.5 border-b border-[#333333] shrink-0">
           <span class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider font-mono">
             {{ activeActivity === 'workspaces' ? 'WORKSPACES' : activeActivity === 'explorer' ? 'EXPLORER' : activeActivity === 'diff' ? 'SOURCE CONTROL' : activeActivity === 'history' ? 'SAVED SESSIONS' : 'AGENT WORKSPACE' }}
           </span>
           <div class="flex items-center gap-1">
+            <button
+              class="text-[11px] text-zinc-400 hover:text-white cursor-pointer p-0.5 rounded hover:bg-[#333333]"
+              @click="isSidebarCollapsed = true"
+              title="Collapse Sidebar (Ctrl+B)"
+            >
+              <i class="codicon codicon-chevron-left text-xs" />
+            </button>
             <button
               v-if="activeActivity === 'workspaces'"
               class="text-[11px] text-zinc-400 hover:text-white cursor-pointer px-1.5 py-0.5 rounded hover:bg-[#333333] flex items-center gap-1"
@@ -4948,12 +5254,12 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- VIEW: LIVE STREAM & TERMINAL (WHEN RUNNING) -->
-        <div v-else-if="phase === 'running'" class="flex-1 min-h-0 flex flex-col rounded-xl border border-slate-800 bg-black shadow-2xl overflow-hidden relative">
+        <!-- VIEW: LIVE STREAM & TERMINAL (WHEN RUNNING / WAITING APPROVAL / TESTING) -->
+        <div v-else-if="phase === 'running' || phase === 'waiting_input' || phase === 'testing'" class="flex-1 min-h-0 flex flex-col rounded-xl border border-slate-800 bg-black shadow-2xl overflow-hidden relative">
           <!-- TOP TOOLBAR -->
           <div class="flex items-center justify-between px-3.5 py-2 border-b border-slate-800/80 bg-slate-900/80 text-xs shrink-0">
             <div class="flex items-center gap-2">
-              <span class="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span class="flex h-2 w-2 rounded-full" :class="phase === 'waiting_input' ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 animate-pulse'"></span>
               <span class="font-mono text-cyan-300 font-bold text-[11px]">{{ provider === 'antigravity' ? 'AGY' : provider.toUpperCase() }}</span>
               <span class="text-slate-600">·</span>
               <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-950 border border-slate-800 text-slate-300" :title="activeModelLabel">{{ activeModel }}</span>
@@ -5007,6 +5313,15 @@ onUnmounted(() => {
                 <i class="codicon codicon-file mr-1" />Log file
               </button>
             </div>
+          </div>
+
+          <!-- DANGEROUS COMMAND & SAFETY INTERCEPTION BANNER -->
+          <div v-if="activeSafetyAlert" class="px-3 pt-2">
+            <DangerousCommandBanner
+              :alert="activeSafetyAlert"
+              @approve="approveSafetyAlert"
+              @reject="rejectSafetyAlert"
+            />
           </div>
 
           <!-- 1. STREAM CARDS VIEW (DEFAULT) -->
@@ -5630,13 +5945,37 @@ onUnmounted(() => {
       </section>
     </div>
 
-    <!-- ACTIVITY TIMELINE: supporting detail, not a permanent sidebar section -->
-    <div v-if="showActivityTimeline" class="fixed inset-0 z-50 bg-black/60 flex justify-end" @click.self="showActivityTimeline = false">
-      <section class="h-full w-full max-w-md overflow-y-auto border-l border-slate-700 bg-slate-950 p-5 shadow-2xl">
-        <header class="mb-4 flex items-center justify-between"><div><p class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Session detail</p><h2 class="mt-1 text-base font-bold text-slate-100">Activity</h2></div><button class="grid h-8 w-8 place-items-center rounded-lg bg-slate-800 text-slate-400 hover:text-white cursor-pointer" @click="showActivityTimeline = false">✕</button></header>
-        <div v-if="timeline.length === 0" class="py-12 text-center text-xs italic text-slate-500">No activity recorded.</div>
-        <div v-else class="space-y-2"><article v-for="item in timeline" :key="item.id" class="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div class="flex justify-between gap-2"><strong class="text-xs" :class="item.tone === 'error' || item.tone === 'failed' ? 'text-rose-300' : item.tone === 'warning' ? 'text-amber-300' : item.tone === 'ok' || item.tone === 'passed' ? 'text-emerald-300' : 'text-slate-200'">{{ item.label }}</strong><time class="text-[10px] font-mono text-slate-500">{{ item.time }}</time></div><p class="mt-1 text-xs leading-relaxed text-slate-400">{{ item.detail }}</p></article></div>
-      </section>
+    <!-- ACTIVITY TIMELINE DRAWER -->
+    <ActivityTimelineDrawer
+      :show="showActivityTimeline"
+      :timeline="timeline"
+      :active-task="selectedTask"
+      @close="showActivityTimeline = false"
+      @clear-timeline="timeline = []"
+    />
+
+    <!-- ONE-CLICK ENVIRONMENT AUTO-REPAIR MODAL -->
+    <AutoRepairModal
+      :show="showAutoRepairModal"
+      :cwd="sourceWorkspace"
+      :provider="provider"
+      @close="showAutoRepairModal = false"
+      @repaired="handleEnvironmentRepaired"
+    />
+
+    <!-- DOCKABLE / FLOATING POMODORO FOCUS TIMER -->
+    <div
+      v-if="showPomodoroModal"
+      class="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 select-none"
+      @click.self="showPomodoroModal = false"
+    >
+      <div class="relative max-w-sm w-full">
+        <PomodoroTimer
+          :active-task="selectedTask"
+          @close="showPomodoroModal = false"
+          @pomodoro-completed="handlePomodoroCompleted"
+        />
+      </div>
     </div>
 
     <!-- SESSION HISTORY OVERLAY / MODAL -->
@@ -6365,13 +6704,23 @@ onUnmounted(() => {
             </button>
           </div>
 
-          <button
-            class="px-4 py-2 rounded-lg bg-[#0e639c] hover:bg-[#1177bb] text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg active:scale-98"
-            @click="() => { taskId = inspectingTask.id; closeTaskInspector(); void runPreflight(); }"
-          >
-            <i class="codicon codicon-play" />
-            <span>Prepare & Launch Task</span>
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              class="px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md hover:shadow-lg active:scale-98"
+              title="Execute full autonomous 7-stage auto-pilot loop"
+              @click="() => { if (inspectingTask) { taskId = inspectingTask.id; closeTaskInspector(); void startAutoPilotFlow(inspectingTask); } }"
+            >
+              <i class="codicon codicon-rocket" />
+              <span>⚡ Auto-Pilot</span>
+            </button>
+            <button
+              class="px-4 py-2 rounded-lg bg-[#0e639c] hover:bg-[#1177bb] text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg active:scale-98"
+              @click="() => { if (inspectingTask) { taskId = inspectingTask.id; closeTaskInspector(); void runPreflight(); } }"
+            >
+              <i class="codicon codicon-play" />
+              <span>Prepare & Launch Task</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

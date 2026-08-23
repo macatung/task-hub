@@ -7,6 +7,9 @@ import TasksEmptyState from '@/Components/tasks/TasksEmptyState.vue';
 import ProjectDocumentsPanel from '@/Components/tasks/ProjectDocumentsPanel.vue';
 import ProjectReleaseLog from '@/Components/tasks/ProjectReleaseLog.vue';
 import RunnerDashboard from '@/Components/tasks/RunnerDashboard.vue';
+import RemoteDispatchModal from '@/Components/tasks/RemoteDispatchModal.vue';
+import StreambackConsole from '@/Components/tasks/StreambackConsole.vue';
+import type { DesktopAgentItem } from '@/Components/tasks/ConnectedAgentsRegistry.vue';
 import { sound } from '@/audio/soundEffects';
 
 export interface ProjectItem {
@@ -565,6 +568,37 @@ const startAgentRun = async (provider: string, model?: string) => {
     agentRunFeedback.value = `Created a local ${provider} (${targetModel || 'default'}) run. Open Task Companion to execute it with the agent installed on your machine.`;
   } catch (err: any) {
     agentRunFeedback.value = err.response?.data?.message || 'Unable to create agent run.';
+  }
+};
+
+// Remote Task Dispatch Modal State & Handlers
+const showRemoteDispatchModal = ref(false);
+const taskForRemoteDispatch = ref<TaskItem | null>(null);
+const initialRunnerForDispatch = ref<number | null>(null);
+
+const openRemoteDispatch = (task?: TaskItem | null, runnerId?: number | null) => {
+  taskForRemoteDispatch.value = task || null;
+  initialRunnerForDispatch.value = runnerId || null;
+  showRemoteDispatchModal.value = true;
+  sound.playClick();
+};
+
+const handleRunnerDashboardDispatch = (runner: DesktopAgentItem) => {
+  const targetTask = selectedTask.value || taskList.value.find(t => t.status !== 'done') || null;
+  openRemoteDispatch(targetTask, runner.id);
+};
+
+const handleRemoteDispatched = (payload: { run: any; task: TaskItemProps }) => {
+  const idx = taskList.value.findIndex(t => t.id === payload.task.id);
+  if (idx !== -1) {
+    taskList.value[idx].status = 'in_progress';
+  }
+  const matchingTask = taskList.value.find(t => t.id === payload.task.id);
+  if (matchingTask) {
+    openTaskDrawer(matchingTask);
+  }
+  if (payload.run) {
+    selectedAgentRuns.value.unshift(payload.run);
   }
 };
 
@@ -2545,7 +2579,7 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <RunnerDashboard />
+    <RunnerDashboard :is-dark-mode="isDarkMode" @dispatch="handleRunnerDashboardDispatch" />
 
     <!-- ========================================================================= -->
     <!-- 2. MAIN LAYOUT (SIDEBAR + MAIN CANVAS)                                    -->
@@ -3223,12 +3257,22 @@ onUnmounted(() => {
                   </div>
 
                   <div :class="['flex items-center justify-between pt-1.5 border-t text-[10px]', isDarkMode ? 'border-slate-800/80' : 'border-slate-100']">
-                    <span :class="['px-1.5 py-0.2 rounded border font-medium', getCategoryBadge(task.category).class]">
-                      {{ getCategoryBadge(task.category).label }}
-                    </span>
-                    <span :class="['px-1.5 py-0.2 rounded border font-semibold', getPriorityBadge(task.priority).class]">
-                      {{ getPriorityBadge(task.priority).label }}
-                    </span>
+                    <div class="flex items-center gap-1.5">
+                      <span :class="['px-1.5 py-0.2 rounded border font-medium', getCategoryBadge(task.category).class]">
+                        {{ getCategoryBadge(task.category).label }}
+                      </span>
+                      <span :class="['px-1.5 py-0.2 rounded border font-semibold', getPriorityBadge(task.priority).class]">
+                        {{ getPriorityBadge(task.priority).label }}
+                      </span>
+                    </div>
+                    <button
+                      @click.stop="openRemoteDispatch(task)"
+                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30 active:scale-95 shadow-xs"
+                      title="⚡ Dispatch to Connected Desktop Agent"
+                    >
+                      <span>⚡</span>
+                      <span>Dispatch</span>
+                    </button>
                   </div>
                 </div>
 
@@ -3311,12 +3355,22 @@ onUnmounted(() => {
                   </div>
 
                   <div :class="['flex items-center justify-between pt-1.5 border-t text-[10px]', isDarkMode ? 'border-slate-800/80' : 'border-slate-100']">
-                    <span :class="['px-1.5 py-0.2 rounded border font-medium', getCategoryBadge(task.category).class]">
-                      {{ getCategoryBadge(task.category).label }}
-                    </span>
-                    <span :class="['px-1.5 py-0.2 rounded border font-semibold', getPriorityBadge(task.priority).class]">
-                      {{ getPriorityBadge(task.priority).label }}
-                    </span>
+                    <div class="flex items-center gap-1.5">
+                      <span :class="['px-1.5 py-0.2 rounded border font-medium', getCategoryBadge(task.category).class]">
+                        {{ getCategoryBadge(task.category).label }}
+                      </span>
+                      <span :class="['px-1.5 py-0.2 rounded border font-semibold', getPriorityBadge(task.priority).class]">
+                        {{ getPriorityBadge(task.priority).label }}
+                      </span>
+                    </div>
+                    <button
+                      @click.stop="openRemoteDispatch(task)"
+                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30 active:scale-95 shadow-xs"
+                      title="⚡ Re-dispatch / Run on Connected Desktop Agent"
+                    >
+                      <span>⚡</span>
+                      <span>Dispatch</span>
+                    </button>
                   </div>
                 </div>
 
@@ -3385,12 +3439,22 @@ onUnmounted(() => {
                   </div>
 
                   <div :class="['flex items-center justify-between pt-1.5 border-t text-[10px]', isDarkMode ? 'border-slate-800/80' : 'border-slate-100']">
-                    <span :class="['px-1.5 py-0.2 rounded border font-medium', getCategoryBadge(task.category).class]">
-                      {{ getCategoryBadge(task.category).label }}
-                    </span>
-                    <span :class="['px-1.5 py-0.2 rounded border font-semibold', getPriorityBadge(task.priority).class]">
-                      {{ getPriorityBadge(task.priority).label }}
-                    </span>
+                    <div class="flex items-center gap-1.5">
+                      <span :class="['px-1.5 py-0.2 rounded border font-medium', getCategoryBadge(task.category).class]">
+                        {{ getCategoryBadge(task.category).label }}
+                      </span>
+                      <span :class="['px-1.5 py-0.2 rounded border font-semibold', getPriorityBadge(task.priority).class]">
+                        {{ getPriorityBadge(task.priority).label }}
+                      </span>
+                    </div>
+                    <button
+                      @click.stop="openRemoteDispatch(task)"
+                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30 active:scale-95 shadow-xs"
+                      title="⚡ Re-test / Dispatch to Connected Desktop Agent"
+                    >
+                      <span>⚡</span>
+                      <span>Dispatch</span>
+                    </button>
                   </div>
                 </div>
 
@@ -3583,7 +3647,7 @@ onUnmounted(() => {
                     <span :class="['text-sm truncate font-bold', isDarkMode ? 'text-slate-100' : 'text-slate-950']">{{ task.title }}</span>
                   </div>
 
-                  <div class="flex items-center gap-2.5 shrink-0">
+                  <div class="flex items-center gap-2 shrink-0">
                     <span v-if="getTaskDelayStatus(task).isOverdue || getTaskDelayStatus(task).isDelayed" :class="['px-2 py-0.5 rounded text-[10px] font-bold border', getTaskDelayStatus(task).badgeClass]" :title="getTaskDelayStatus(task).reason">
                       {{ getTaskDelayStatus(task).label }}
                     </span>
@@ -3593,6 +3657,14 @@ onUnmounted(() => {
                     <span v-if="task.story_points" :class="['px-2 py-0.5 rounded text-xs font-mono font-bold border', isDarkMode ? 'bg-indigo-950/80 text-indigo-300 border-indigo-800' : 'bg-indigo-100 text-indigo-950 border-indigo-300']">
                       {{ task.story_points }} pts
                     </span>
+                    <button
+                      @click.stop="openRemoteDispatch(task)"
+                      class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 text-emerald-400 border-emerald-500/40 active:scale-95 shadow-xs"
+                      title="🚀 Run on Connected Desktop Agent"
+                    >
+                      <span>🚀</span>
+                      <span>Dispatch</span>
+                    </button>
                   </div>
                 </div>
 
@@ -3635,7 +3707,7 @@ onUnmounted(() => {
                     <span :class="['text-sm truncate font-bold', isDarkMode ? 'text-slate-100' : 'text-slate-950']">{{ task.title }}</span>
                   </div>
 
-                  <div class="flex items-center gap-2.5 shrink-0">
+                  <div class="flex items-center gap-2 shrink-0">
                     <span v-if="getTaskDelayStatus(task).isOverdue || getTaskDelayStatus(task).isDelayed" :class="['px-2 py-0.5 rounded text-[10px] font-bold border', getTaskDelayStatus(task).badgeClass]" :title="getTaskDelayStatus(task).reason">
                       {{ getTaskDelayStatus(task).label }}
                     </span>
@@ -3645,6 +3717,14 @@ onUnmounted(() => {
                     <span v-if="task.story_points" :class="['px-2 py-0.5 rounded text-xs font-mono font-bold border', isDarkMode ? 'bg-indigo-950/80 text-indigo-300 border-indigo-800' : 'bg-indigo-100 text-indigo-950 border-indigo-300']">
                       {{ task.story_points }} pts
                     </span>
+                    <button
+                      @click.stop="openRemoteDispatch(task)"
+                      class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 text-emerald-400 border-emerald-500/40 active:scale-95 shadow-xs"
+                      title="🚀 Run on Connected Desktop Agent"
+                    >
+                      <span>🚀</span>
+                      <span>Dispatch</span>
+                    </button>
                   </div>
                 </div>
 
@@ -4196,34 +4276,59 @@ onUnmounted(() => {
             <!-- Agent execution and verification -->
             <div :class="['space-y-3 pt-4 border-t', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
               <div class="flex items-center justify-between">
-                <label :class="['font-mono text-xs font-bold uppercase', isDarkMode ? 'text-slate-300' : 'text-slate-700']">Agent Run</label>
-                <span v-if="isAgentRunsLoading" class="text-[10px] text-slate-500">Loading…</span>
+                <label :class="['font-mono text-xs font-bold uppercase', isDarkMode ? 'text-slate-300' : 'text-slate-700']">
+                  ⚡ Remote Agent Execution & Streamback
+                </label>
+                <span v-if="isAgentRunsLoading" class="text-[10px] text-slate-500 font-mono">Syncing…</span>
               </div>
-              <div class="grid grid-cols-3 gap-1.5">
-                <button v-for="provider in ['codex', 'claude_code', 'antigravity']" :key="`local-${provider}`" @click="startAgentRun(provider)" class="rounded-lg border px-2 py-2 text-[10px] font-bold cursor-pointer hover:border-blue-500 flex flex-col items-center gap-0.5" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-200' : 'border-slate-300 bg-white text-slate-800'">
-                  <span>{{ provider === 'claude_code' ? 'Local Claude' : provider === 'antigravity' ? 'Local AGY' : 'Local Codex' }}</span>
-                  <span class="text-[8px] font-mono text-slate-400 opacity-80">{{ selectedProviderModel[provider] }}</span>
+
+              <!-- Primary Remote Dispatch CTA -->
+              <div class="space-y-2">
+                <button
+                  @click="openRemoteDispatch(selectedTask)"
+                  class="w-full py-2.5 px-4 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white shadow-md shadow-emerald-950/30 active:scale-98 border border-emerald-400/40"
+                >
+                  <span class="animate-pulse">⚡</span>
+                  <span>Dispatch to Connected Desktop Agent (Auto-Pilot)</span>
                 </button>
+
+                <!-- Quick local provider launcher -->
+                <div class="grid grid-cols-3 gap-1.5">
+                  <button v-for="provider in ['codex', 'claude_code', 'antigravity']" :key="`local-${provider}`" @click="startAgentRun(provider)" class="rounded-lg border px-2 py-1.5 text-[10px] font-bold cursor-pointer hover:border-blue-500 flex flex-col items-center gap-0.5" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-200' : 'border-slate-300 bg-white text-slate-800'">
+                    <span>{{ provider === 'claude_code' ? 'Local Claude' : provider === 'antigravity' ? 'Local AGY' : 'Local Codex' }}</span>
+                    <span class="text-[8px] font-mono text-slate-400 opacity-80">{{ selectedProviderModel[provider] }}</span>
+                  </button>
+                </div>
               </div>
+
               <p v-if="agentRunFeedback" class="text-[11px] leading-relaxed text-blue-600 dark:text-blue-300">{{ agentRunFeedback }}</p>
-              <div v-for="run in selectedAgentRuns" :key="run.id" :class="['rounded-xl border p-3 space-y-2', isDarkMode ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white']">
-                <div class="flex items-center justify-between gap-2 text-xs">
-                  <div class="flex items-center gap-1.5 flex-wrap">
-                    <span class="font-bold">{{ run.provider }} · {{ run.execution_mode || 'desktop' }}</span>
-                    <span v-if="run.metadata?.model" class="rounded px-1.5 py-0.2 font-mono text-[9px] border" :class="isDarkMode ? 'border-slate-700 bg-slate-800 text-cyan-300' : 'border-slate-200 bg-slate-100 text-cyan-700'">
-                      {{ run.metadata.model }}
-                    </span>
+
+              <!-- Real-time Streamback Console for Active Run -->
+              <StreambackConsole
+                v-if="selectedAgentRuns.length > 0"
+                :task="selectedTask"
+                :active-run="selectedAgentRuns[0] as any"
+                :is-dark-mode="isDarkMode"
+                @approved="saveTaskDrawerChanges(); loadAgentRuns(selectedTask.id)"
+                @rejected="saveTaskDrawerChanges(); loadAgentRuns(selectedTask.id)"
+                @refresh="loadAgentRuns(selectedTask.id)"
+              />
+
+              <!-- Older runs collapsed list -->
+              <div v-if="selectedAgentRuns.length > 1" class="space-y-2 pt-2 border-t border-slate-800/60">
+                <span class="font-mono text-[10px] font-bold uppercase text-slate-500">Prior Runs History</span>
+                <div v-for="run in selectedAgentRuns.slice(1)" :key="run.id" :class="['rounded-xl border p-2.5 space-y-1.5 opacity-80', isDarkMode ? 'border-slate-800 bg-slate-900/60' : 'border-slate-200 bg-white']">
+                  <div class="flex items-center justify-between gap-2 text-xs">
+                    <span class="font-bold text-[11px]">{{ run.provider }} · Run #{{ run.id }}</span>
+                    <span class="rounded-full border px-1.5 py-0.2 font-mono text-[9px]">{{ run.status }}</span>
                   </div>
-                  <span class="rounded-full border px-2 py-0.5 font-mono text-[10px]">{{ run.status }}</span>
-                </div>
-                <p v-if="run.branch || run.commit_sha" class="font-mono text-[10px] text-slate-500 truncate">{{ run.branch || 'no branch' }} · {{ run.commit_sha || 'no commit' }}</p>
-                <p v-if="run.summary" class="text-[11px] leading-relaxed text-slate-500">{{ run.summary }}</p>
-                <a v-if="run.pull_request_url" :href="run.pull_request_url" target="_blank" rel="noreferrer" class="text-[11px] text-blue-600 underline">Open Pull Request</a>
-                <div v-if="run.evidence?.length" class="space-y-1">
-                  <p v-for="item in run.evidence" :key="item.id" class="text-[10px]" :class="item.status === 'passed' ? 'text-emerald-600' : 'text-rose-600'">{{ item.status === 'passed' ? '✓' : '!' }} {{ item.evidence_type }}{{ item.command ? ` · ${item.command}` : '' }}</p>
+                  <p v-if="run.summary" class="text-[10px] text-slate-400 truncate">{{ run.summary }}</p>
                 </div>
               </div>
-              <p v-if="!selectedAgentRuns.length && !isAgentRunsLoading" class="text-[11px] text-slate-500">No agent runs yet. Select a provider to create an audited run.</p>
+
+              <p v-if="!selectedAgentRuns.length && !isAgentRunsLoading" class="text-[11px] text-slate-500">
+                No active runs yet. Click Dispatch to Desktop Agent or choose a local CLI provider.
+              </p>
             </div>
           </div>
         </div>
@@ -4231,8 +4336,19 @@ onUnmounted(() => {
     </div>
 
     <!-- ========================================================================= -->
-    <!-- 4. MODALS (CREATE SPRINT, START SPRINT, COMPLETE SPRINT, CREATE TASK)      -->
+    <!-- 4. MODALS (REMOTE DISPATCH, CREATE SPRINT, START SPRINT, ETC.)             -->
     <!-- ========================================================================= -->
+    <!-- Modal: Remote Task Dispatch to Connected Desktop -->
+    <RemoteDispatchModal
+      :show="showRemoteDispatchModal"
+      :task="taskForRemoteDispatch || selectedTask"
+      :all-tasks="taskList"
+      :initial-runner-id="initialRunnerForDispatch"
+      :is-dark-mode="isDarkMode"
+      @close="showRemoteDispatchModal = false"
+      @dispatched="handleRemoteDispatched"
+    />
+
     <!-- Modal: Create Sprint -->
     <div v-if="showSprintModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
       <div :class="['w-full max-w-md border rounded-3xl p-6 shadow-2xl space-y-4', isDarkMode ? 'bg-[#0a0f1d] border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-950']">

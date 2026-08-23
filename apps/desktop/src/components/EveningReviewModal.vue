@@ -30,7 +30,7 @@ const handlePraise = () => {
     <div class="flex items-center justify-between pb-2.5 mb-3 border-b border-purple-500/30">
       <div class="flex items-center gap-2">
         <span class="text-xl">🌙</span>
-        <span class="text-xs font-bold text-purple-300">DAILY PRODUCTIVITY REVIEW</span>
+        <span class="text-xs font-bold text-purple-300">EVENING PRODUCTIVITY REVIEW</span>
       </div>
       <button
         @click="$emit('close')"

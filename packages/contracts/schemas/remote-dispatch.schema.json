@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Task Hub Remote Task Dispatch Contract",
+  "type": "object",
+  "required": ["runner_id"],
+  "properties": {
+    "runner_id": { "type": "integer", "description": "Target desktop agent runner ID" },
+    "provider": { "type": "string", "enum": ["antigravity", "claude_code", "codex"] },
+    "model": { "type": "string" },
+    "execution_mode": { "type": "string", "enum": ["auto_pilot", "supervised", "desktop"] },
+    "custom_instruction": { "type": "string" }
+  },
+  "additionalProperties": false
+}

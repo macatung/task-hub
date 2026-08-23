@@ -1416,6 +1416,37 @@ function createWindow() {
     git(root, ['worktree', 'remove', '--force', worktree]);
     return true;
   });
+  ipcMain.handle('agent-run-test', async (_event, { cwd, command = 'npm test' }: { cwd: string; command?: string }) => {
+    const startTime = Date.now();
+    try {
+      const isWin = process.platform === 'win32';
+      const shellCmd = isWin ? 'cmd.exe' : '/bin/sh';
+      const shellArgs = isWin ? ['/d', '/s', '/c', command] : ['-c', command];
+      const result = execFileSync(shellCmd, shellArgs, {
+        cwd,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+        maxBuffer: 10 * 1024 * 1024,
+        env: { ...process.env, CI: 'true', FORCE_COLOR: '0' },
+      });
+      return {
+        success: true,
+        exitCode: 0,
+        stdout: result,
+        stderr: '',
+        durationMs: Date.now() - startTime,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        exitCode: error.status ?? 1,
+        stdout: error.stdout ? String(error.stdout) : '',
+        stderr: error.stderr ? String(error.stderr) : error.message,
+        durationMs: Date.now() - startTime,
+      };
+    }
+  });
 
   ipcMain.handle('workspace-read-file', async (_event, { cwd, relativePath }: { cwd: string; relativePath: string }) => {
     if (!cwd || !relativePath) throw new Error('Cwd and relativePath required.');

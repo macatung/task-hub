@@ -79,7 +79,7 @@ onMounted(() => {
     <div class="flex items-center justify-between pb-2.5 mb-3 border-b border-emerald-500/30">
       <div class="flex items-center gap-2 text-xs font-bold text-emerald-300">
         <span>📋</span>
-        <span>TOP PRIORITIES & QUICK SCRATCHPAD</span>
+        <span>PRIORITY WORK ITEMS & QUICK SCRATCHPAD</span>
       </div>
       <button
         @click="$emit('close')"

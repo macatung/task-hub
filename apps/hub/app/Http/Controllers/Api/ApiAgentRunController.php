@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AgentRun;
 use App\Models\AgentRunEvent;
 use App\Models\AgentRunLog;
+use App\Models\AgentRunner;
 use App\Models\GithubEvent;
 use App\Models\Task;
 use App\Models\Project;
@@ -33,7 +34,7 @@ class ApiAgentRunController extends Controller
     public function show(AgentRun $agentRun)
     {
         if (request()->user()) abort_unless((int) $agentRun->workspace_id === (int) app(WorkspaceContext::class)->resolve(request())->id, 404);
-        return response()->json(['success' => true, 'data' => $agentRun->load(['task.project', 'evidence', 'events'])]);
+        return response()->json(['success' => true, 'data' => $agentRun->load(['task.project', 'evidence', 'events', 'runner', 'logs'])]);
     }
 
     /**
@@ -143,6 +144,98 @@ class ApiAgentRunController extends Controller
         });
 
         return response()->json(['success' => true, 'data' => $run->load('task'), 'context' => $context], 201);
+    }
+
+    public function dispatch(Request $request, Task $task, TaskHubContextPackService $contextService)
+    {
+        $validated = $request->validate([
+            'runner_id' => 'required|integer|exists:agent_runners,id',
+            'provider' => 'nullable|in:' . implode(',', self::PROVIDERS),
+            'model' => 'nullable|string|max:120',
+            'execution_mode' => 'nullable|in:auto_pilot,supervised,desktop',
+            'custom_instruction' => 'nullable|string|max:10000',
+        ]);
+
+        if ($task->hasIncompleteDependencies()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Task is blocked until all dependency tasks are done.',
+                'blocked_by' => $task->dependencies()->with('dependsOn:id,issue_key,title,status')->get(),
+            ], 422);
+        }
+
+        $runner = AgentRunner::findOrFail($validated['runner_id']);
+        $provider = $validated['provider'] ?? 'antigravity';
+        $model = $validated['model'] ?? 'gemini-3.7-flash';
+        $mode = $validated['execution_mode'] ?? 'auto_pilot';
+        $customInstruction = $validated['custom_instruction'] ?? null;
+
+        $context = $contextService->build($task, ['provider' => $provider, 'model' => $model]);
+        $instruction = [
+            'prompt' => $customInstruction ?: ($task->description ?: 'Autonomous task execution'),
+            'model' => $model,
+        ];
+
+        $workspace = $task->project?->workspace ?? ($runner->workspace ?? \App\Models\Workspace::first());
+
+        $run = DB::transaction(function () use ($task, $runner, $workspace, $provider, $model, $mode, $customInstruction, $context, $instruction, $contextService, $request) {
+            $commandId = 'cmd-' . Str::uuid();
+            $run = AgentRun::create([
+                'task_id' => $task->id,
+                'workspace_id' => $workspace?->id,
+                'runner_id' => $runner->id,
+                'provider' => $provider,
+                'agent_session_id' => (string) Str::uuid(),
+                'repository' => $context['repository'] ?? (config('services.task_hub.repository') ?: env('TASK_HUB_REPOSITORY')),
+                'branch' => $context['branch'] ?? null,
+                'status' => 'queued',
+                'execution_mode' => 'desktop',
+                'run_type' => 'implementation',
+                'queued_at' => now(),
+                'context_hash' => $context['context_hash'] ?? null,
+                'instruction_hash' => $contextService->instructionHash($instruction),
+                'metadata' => [
+                    'mode' => $mode,
+                    'model' => $model,
+                    'custom_instruction' => $customInstruction,
+                    'context' => $context,
+                    'dispatch_command_id' => $commandId,
+                    'dispatched_at' => now()->toIso8601String(),
+                    'dispatched_by' => $request->user()?->id,
+                    'target_runner' => [
+                        'id' => $runner->id,
+                        'name' => $runner->name,
+                        'hostname' => $runner->hostname,
+                    ],
+                ],
+            ]);
+
+            $this->recordEvent($run, 'task_dispatched', 'queued', [
+                'runner_id' => $runner->id,
+                'command_id' => $commandId,
+                'mode' => $mode,
+                'model' => $model,
+            ]);
+
+            if (in_array($task->status, ['todo', 'backlog'], true)) {
+                $task->update(['status' => 'in_progress']);
+            }
+
+            return $run;
+        });
+
+        return response()->json([
+            'success' => true,
+            'run_id' => $run->id,
+            'status' => 'queued',
+            'dispatched_at' => now()->toIso8601String(),
+            'target_runner' => [
+                'id' => $runner->id,
+                'name' => $runner->name,
+                'hostname' => $runner->hostname,
+            ],
+            'data' => $run->load('task.project'),
+        ], 201);
     }
 
     public function update(Request $request, AgentRun $agentRun)
