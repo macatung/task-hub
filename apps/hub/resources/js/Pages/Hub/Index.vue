@@ -42,12 +42,12 @@ const flash = computed(() => page.props.flash ?? {});
     <header class="sticky top-0 z-50 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-md">
       <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <a href="/" class="flex items-center gap-3 group">
-          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-md shadow-emerald-500/20 text-slate-950 font-black text-lg group-hover:scale-105 transition-transform">
-            ⚡
+          <div class="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-cyan-500/20 border border-emerald-500/40 p-1 shadow-md shadow-emerald-500/10 group-hover:border-emerald-400 group-hover:scale-105 transition-all">
+            <img src="/brand/macatung-mascot-icon.svg" alt="Ma Cà Tưng" class="h-full w-full object-contain drop-shadow-sm" />
           </div>
           <div class="flex items-center gap-2">
             <span class="text-xl font-bold tracking-tight text-white group-hover:text-emerald-400 transition-colors">Task Hub</span>
-            <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">SaaS</span>
+            <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">AI-Native</span>
           </div>
         </a>
 
@@ -408,7 +408,7 @@ const flash = computed(() => page.props.flash ?? {});
     <footer class="border-t border-slate-800/80 bg-slate-950 px-6 py-12 text-xs text-slate-500">
       <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
         <div class="flex items-center gap-2.5">
-          <div class="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 font-bold">⚡</div>
+          <img src="/brand/macatung-mascot-icon.svg" alt="Ma Cà Tưng" class="h-6 w-6 rounded-lg object-contain" />
           <span class="font-bold text-slate-300">Task Hub</span>
           <span>· Open Source & Supervised AI Workspace</span>
         </div>

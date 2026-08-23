@@ -2289,15 +2289,15 @@ onUnmounted(() => {
 
         <!-- Logo & Brand -->
         <a href="/" class="flex items-center gap-2.5 group shrink-0">
-          <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 shadow-md shadow-emerald-500/20 text-slate-950 font-black text-sm group-hover:scale-105 transition-transform">
-            ⚡
+          <div class="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-cyan-500/20 border border-emerald-500/40 p-1 shadow-md shadow-emerald-500/10 group-hover:border-emerald-400 group-hover:scale-105 transition-all">
+            <img src="/brand/macatung-mascot-icon.svg" alt="Ma Cà Tưng" class="h-full w-full object-contain drop-shadow-sm" />
           </div>
           <div class="flex items-center gap-2">
-            <span :class="['font-bold text-base tracking-tight', isDarkMode ? 'text-white' : 'text-slate-950']">
+            <span :class="['font-bold text-base tracking-tight font-display', isDarkMode ? 'text-white' : 'text-slate-950']">
               Task Hub
             </span>
-            <span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-mono text-[10px] font-bold">
-              SAAS
+            <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-mono text-[10px] font-bold">
+              AI-NATIVE
             </span>
           </div>
         </a>
@@ -2320,80 +2320,6 @@ onUnmounted(() => {
               🏃 {{ activeSprint.name }}
             </span>
           </template>
-          
-    <!-- PROJECT DOCUMENTS MODAL -->
-    <div
-      v-if="isDocsModalOpen"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
-      @click.self="isDocsModalOpen = false"
-    >
-      <div
-        :class="[
-          'w-full max-w-4xl rounded-3xl border p-4 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar transition-all',
-          isDarkMode ? 'bg-slate-900/95 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
-        ]"
-      >
-        <div class="flex items-center justify-between border-b pb-3" :class="isDarkMode ? 'border-slate-800' : 'border-slate-200'">
-          <div class="flex items-center gap-2.5">
-            <span class="mono-icon text-xl">▤</span>
-            <div>
-              <h3 class="font-bold text-base">Project Documents & Context Pack</h3>
-            <p class="text-xs text-slate-400">{{ activeProjectObject?.title || 'Project' }} · shared context for developers and AI agents</p>
-            </div>
-          </div>
-          <button
-            @click="isDocsModalOpen = false"
-            aria-label="Close project documents"
-            title="Close project documents"
-            class="min-h-[44px] min-w-[44px] p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors cursor-pointer"
-          >
-            ✕
-          </button>
-        </div>
-
-        <ProjectDocumentsPanel
-          :project-id="activeProjectObject?.id || null"
-          :repository="activeProjectObject?.github_repository"
-          :branch="activeProjectObject?.github_default_branch"
-          :dark="isDarkMode"
-        />
-      </div>
-    </div>
-
-    <!-- PROJECT RELEASES MODAL -->
-    <div
-      v-if="isReleasesModalOpen"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
-      @click.self="isReleasesModalOpen = false"
-    >
-      <div
-        :class="[
-          'w-full max-w-2xl rounded-3xl border p-6 shadow-2xl space-y-4 max-h-[88vh] overflow-y-auto custom-scrollbar transition-all',
-          isDarkMode ? 'bg-slate-900/95 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
-        ]"
-      >
-        <div class="flex items-center justify-between border-b pb-3" :class="isDarkMode ? 'border-slate-800' : 'border-slate-200'">
-          <div class="flex items-center gap-2.5">
-            <span class="mono-icon text-xl">↗</span>
-            <div>
-              <h3 class="font-bold text-base">Project Release Log</h3>
-            <p class="text-xs text-slate-400">Track deployments, commit SHAs and release changes</p>
-            </div>
-          </div>
-          <button
-            @click="isReleasesModalOpen = false"
-            class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-          >
-            ✕
-          </button>
-        </div>
-
-        <ProjectReleaseLog
-          :project-id="activeProjectObject?.id || null"
-          :dark="isDarkMode"
-        />
-      </div>
-    </div>
         </div>
       </div>
 
@@ -2508,7 +2434,7 @@ onUnmounted(() => {
           ]"
           title="Model Context Protocol (MCP) & AI Agent Integration (Antigravity 2.0, Cursor, Claude)"
         >
-          <span>⚡</span>
+          <span>🔌</span>
           <span>MCP & Agents</span>
         </button>
 
@@ -2913,7 +2839,7 @@ onUnmounted(() => {
               >
                 <option value="all">📊 All progress</option>
                 <option value="warning" :disabled="activeProjectWarningCount === 0">
-                  ⚡ Attention needed (Overdue + At risk) ({{ activeProjectWarningCount }})
+                  ⚠️ Attention needed (Overdue + At risk) ({{ activeProjectWarningCount }})
                 </option>
                 <option value="overdue" :disabled="overdueTasksCount === 0">
                   🚨 Overdue only ({{ overdueTasksCount }})
@@ -5821,6 +5747,80 @@ onUnmounted(() => {
             <span>🔓</span>
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- PROJECT DOCUMENTS MODAL -->
+    <div
+      v-if="isDocsModalOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+      @click.self="isDocsModalOpen = false"
+    >
+      <div
+        :class="[
+          'w-full max-w-4xl rounded-3xl border p-4 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar transition-all',
+          isDarkMode ? 'bg-slate-900/95 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+        ]"
+      >
+        <div class="flex items-center justify-between border-b pb-3" :class="isDarkMode ? 'border-slate-800' : 'border-slate-200'">
+          <div class="flex items-center gap-2.5">
+            <span class="mono-icon text-xl">▤</span>
+            <div>
+              <h3 class="font-bold text-base">Project Documents & Context Pack</h3>
+              <p class="text-xs text-slate-400">{{ activeProjectObject?.title || 'Project' }} · shared context for developers and AI agents</p>
+            </div>
+          </div>
+          <button
+            @click="isDocsModalOpen = false"
+            aria-label="Close project documents"
+            title="Close project documents"
+            class="min-h-[44px] min-w-[44px] p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        <ProjectDocumentsPanel
+          :project-id="activeProjectObject?.id || null"
+          :repository="activeProjectObject?.github_repository"
+          :branch="activeProjectObject?.github_default_branch"
+          :dark="isDarkMode"
+        />
+      </div>
+    </div>
+
+    <!-- PROJECT RELEASES MODAL -->
+    <div
+      v-if="isReleasesModalOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+      @click.self="isReleasesModalOpen = false"
+    >
+      <div
+        :class="[
+          'w-full max-w-2xl rounded-3xl border p-6 shadow-2xl space-y-4 max-h-[88vh] overflow-y-auto custom-scrollbar transition-all',
+          isDarkMode ? 'bg-slate-900/95 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+        ]"
+      >
+        <div class="flex items-center justify-between border-b pb-3" :class="isDarkMode ? 'border-slate-800' : 'border-slate-200'">
+          <div class="flex items-center gap-2.5">
+            <span class="mono-icon text-xl">↗</span>
+            <div>
+              <h3 class="font-bold text-base">Project Release Log</h3>
+              <p class="text-xs text-slate-400">Track deployments, commit SHAs and release changes</p>
+            </div>
+          </div>
+          <button
+            @click="isReleasesModalOpen = false"
+            class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        <ProjectReleaseLog
+          :project-id="activeProjectObject?.id || null"
+          :dark="isDarkMode"
+        />
       </div>
     </div>
   </div>
