@@ -1808,32 +1808,44 @@ const approvedBacklogPrompt = () =>
   `The developer approved creating the backlog for this requirement: ${requirementText.value}\n\nUse Task Hub MCP for project ${docsProjectId.value}. Read get_project_state and list_project_documents again. Then call create_requirement_backlog exactly once. Its payload must include one epic and every Story/Task for this requirement. Use the active Sprint when possible (or specify a single new sprint); the MCP tool will keep all generated work in that one Sprint and link it to the one Epic. Give every task a unique ref and declare depends_on with predecessor refs, so a task can only start after its prerequisites are done. Use Fibonacci story points (1,2,3,5,8); split anything larger. Include acceptance criteria and risks in the relevant descriptions. Do not call create_sprint or create_work_item for this approved requirement unless create_requirement_backlog is unavailable. Do not modify repository files, commit, push, merge or deploy. End by listing the Epic, Sprint, every created Task Hub issue key, and the dependency chain.`;
 
 const startPairing = async () => {
-  if (!selectedTask.value) return;
   phase.value = 'pairing';
   addTimeline('Pairing', 'Awaiting Task Hub authentication approval...', 'active');
-  await verifyTaskHub();
-  const pairing = await window.desktopApi.taskHub.startPairing(taskHubUrl.value, selectedTask.value.project_id);
-  await window.desktopApi.openExternal(pairing.approval_url);
-  const started = Date.now();
-  pollTimer = setInterval(async () => {
-    try {
-      if (Date.now() - started > 600000) throw new Error('Pairing timed out.');
-      const status = await window.desktopApi.taskHub.pollPairing(taskHubUrl.value, pairing.pairing_id, pairing.device_secret);
-      if (status.status === 'approved') {
+  try {
+    await verifyTaskHub();
+    const projId = selectedTask.value?.project_id || (docsProjectId.value ? Number(docsProjectId.value) : null);
+    const pairing = await window.desktopApi.taskHub.startPairing(taskHubUrl.value, projId);
+    await window.desktopApi.openExternal(pairing.approval_url);
+    const started = Date.now();
+    pollTimer = setInterval(async () => {
+      try {
+        if (Date.now() - started > 600000) throw new Error('Pairing timed out.');
+        const status = await window.desktopApi.taskHub.pollPairing(taskHubUrl.value, pairing.pairing_id, pairing.device_secret);
+        if (status.status === 'approved') {
+          stopPolling();
+          credential.value = { token: status.mcp_token, projectId: String(status.project_id) };
+          localStorage.setItem('task_hub_credential', JSON.stringify(credential.value));
+          addTimeline('Pairing', 'MCP authenticated successfully.', 'ok');
+          await refreshAgentTasks();
+          if (selectedTask.value) {
+            await loadContext();
+          } else {
+            phase.value = 'select';
+          }
+        } else if (['denied', 'expired', 'rejected'].includes(status.status)) {
+          throw new Error(`Pairing ${status.status}.`);
+        }
+      } catch (error: any) {
         stopPolling();
-        credential.value = { token: status.mcp_token, projectId: String(status.project_id) };
-        addTimeline('Pairing', 'MCP authenticated.', 'ok');
-        await loadContext();
-      } else if (['denied', 'expired', 'rejected'].includes(status.status)) {
-        throw new Error(`Pairing ${status.status}.`);
+        phase.value = 'error';
+        errorMessage.value = error.message;
+        addTimeline('Pairing error', error.message, 'error');
       }
-    } catch (error: any) {
-      stopPolling();
-      phase.value = 'error';
-      errorMessage.value = error.message;
-      addTimeline('Pairing error', error.message, 'error');
-    }
-  }, 1800);
+    }, 1800);
+  } catch (err: any) {
+    phase.value = 'error';
+    errorMessage.value = err.message || 'Could not start pairing.';
+    addTimeline('Pairing error', errorMessage.value, 'error');
+  }
 };
 
 const runPreflight = async (initialRequest = '') => {
@@ -3082,7 +3094,15 @@ onUnmounted(() => {
               <i class="codicon codicon-folder" /><span class="max-w-[128px] truncate">{{ sourceWorkspace ? sourceWorkspace.split(/[/\\]/).pop() : 'Select workspace' }}</span>
             </button>
             <select v-if="workflowMode !== 'task'" v-model="docsProjectId" class="max-w-[180px] rounded border border-[#333333] bg-[#252526] px-2 py-1 text-[10px] text-zinc-300 outline-none focus:border-cyan-500" :disabled="busy || !isConnected"><option :value="null" disabled>Select project</option><option v-for="project in projects || []" :key="project.id" :value="project.id">{{ project.title }}</option></select>
-            <span class="inline-flex items-center gap-1 rounded border px-2 py-1 text-[10px]" :class="isConnected ? 'border-emerald-900 bg-emerald-950/50 text-emerald-300' : 'border-amber-900 bg-amber-950/40 text-amber-300'"><i class="codicon" :class="isConnected ? 'codicon-plug' : 'codicon-debug-disconnect'" />MCP {{ isConnected ? 'ready' : 'offline' }}</span>
+            <button
+              class="inline-flex items-center gap-1 rounded border px-2 py-1 text-[10px] cursor-pointer transition-colors"
+              :class="credential ? 'border-emerald-900 bg-emerald-950/50 text-emerald-300' : 'border-amber-900 bg-amber-950/40 text-amber-300 hover:bg-amber-900/50'"
+              :title="credential ? 'Task Hub Connected' : 'Click to connect Task Hub'"
+              @click="!credential && startPairing()"
+            >
+              <i class="codicon" :class="credential ? 'codicon-plug' : 'codicon-debug-disconnect'" />
+              <span>Task Hub {{ credential ? 'ready' : 'connect' }}</span>
+            </button>
           </div>
           <button class="w-full flex items-center justify-between rounded-lg border border-[#333333] bg-[#252526] px-2.5 py-2 text-left hover:border-[#4b5563] cursor-pointer" @click="showAgentSettings = true">
             <span class="flex min-w-0 items-center gap-2"><i class="codicon codicon-copilot text-cyan-300" /><span class="min-w-0"><span class="block text-[10px] text-zinc-500">Local agent</span><span class="block max-w-[220px] truncate text-xs font-medium text-zinc-100">{{ provider === 'antigravity' ? 'AGY' : provider === 'claude_code' ? 'Claude' : 'Codex' }} · {{ activeModelLabel }}</span></span></span>
@@ -3384,11 +3404,31 @@ onUnmounted(() => {
             <i class="codicon codicon-search absolute left-2 top-1/2 -translate-y-1/2 text-xs text-zinc-500" />
           </div>
 
-          <div v-if="!isConnected" class="p-2 rounded border border-[#333333] bg-[#252526] text-[11px] text-zinc-400">
-            Task Hub SaaS not connected. You can select a local workspace and run independently.
+          <div v-if="!credential && !isConnected" class="p-2.5 rounded border border-[#333333] bg-[#252526] text-[11px] text-zinc-300 flex flex-col gap-2">
+            <div class="flex items-center gap-1.5 text-amber-400 font-semibold">
+              <i class="codicon codicon-warning" />
+              <span>Task Hub Not Connected</span>
+            </div>
+            <p class="text-[10px] text-zinc-400 leading-tight">Pair with Task Hub to synchronize tasks, active sprint, and AI context packs.</p>
+            <button
+              class="w-full py-1.5 px-2.5 rounded bg-[#0e639c] hover:bg-[#1177bb] text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+              :disabled="phase === 'pairing'"
+              @click="startPairing"
+            >
+              <i class="codicon" :class="phase === 'pairing' ? 'codicon-loading animate-spin' : 'codicon-link'" />
+              <span>{{ phase === 'pairing' ? 'Awaiting Approval...' : 'Connect Task Hub' }}</span>
+            </button>
           </div>
-          <div v-else-if="filteredTasks.length === 0" class="p-2 text-center rounded border border-[#333333] bg-[#252526] text-[11px] text-zinc-500">
-            No matching tasks found.
+          <div v-else-if="filteredTasks.length === 0" class="p-2.5 text-center rounded border border-[#333333] bg-[#252526] text-[11px] text-zinc-400 flex flex-col gap-2">
+            <span>No tasks loaded yet.</span>
+            <button
+              class="w-full py-1 px-2 rounded bg-[#2d2d2d] hover:bg-[#383838] text-zinc-200 text-xs font-medium border border-[#3e3e42] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              :disabled="phase === 'pairing' || isRefreshingTasks"
+              @click="refreshAgentTasks"
+            >
+              <i class="codicon codicon-refresh" :class="{ 'animate-spin': isRefreshingTasks }" />
+              <span>Refresh Tasks</span>
+            </button>
           </div>
           <div v-else class="max-h-28 overflow-y-auto space-y-1 pr-0.5">
             <button
