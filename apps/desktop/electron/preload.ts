@@ -116,5 +116,10 @@ contextBridge.exposeInMainWorld('desktopApi', {
       ipcRenderer.on('agent-exit', listener);
       return () => ipcRenderer.removeListener('agent-exit', listener);
     },
+    onQuotaUpdated: (callback: (quota: any) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: any) => callback(payload);
+      ipcRenderer.on('agent-quota-updated', listener);
+      return () => ipcRenderer.removeListener('agent-quota-updated', listener);
+    },
   },
 });

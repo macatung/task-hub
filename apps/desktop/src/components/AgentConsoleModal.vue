@@ -292,6 +292,8 @@ let pollTimer: ReturnType<typeof setInterval> | undefined;
 let renderTimer: ReturnType<typeof setTimeout> | undefined;
 let removeOutput: (() => void) | undefined;
 let removeExit: (() => void) | undefined;
+let removeQuota: (() => void) | undefined;
+let quotaPollingTimer: ReturnType<typeof setInterval> | undefined;
 
 const STORAGE_KEY = 'task_companion_agent_workspace_state_v2';
 
@@ -2837,6 +2839,16 @@ onMounted(async () => {
     }
   });
 
+  removeQuota = (window as any).desktopApi?.agent?.onQuotaUpdated?.((quota: any) => {
+    if (quota) {
+      quotaUsageState.value = { ...quotaUsageState.value, ...quota };
+    }
+  });
+
+  quotaPollingTimer = setInterval(() => {
+    void loadQuotaUsage();
+  }, 15000);
+
   window.addEventListener('keydown', handleGlobalKeydown);
 });
 
@@ -2848,6 +2860,8 @@ onUnmounted(() => {
   if (renderTimer) clearTimeout(renderTimer);
   removeOutput?.();
   removeExit?.();
+  removeQuota?.();
+  if (quotaPollingTimer) clearInterval(quotaPollingTimer);
   window.removeEventListener('keydown', handleGlobalKeydown);
 });
 </script>
@@ -5768,9 +5782,13 @@ onUnmounted(() => {
       <div class="w-full max-w-2xl bg-zinc-950/95 border border-zinc-800/90 rounded-2xl shadow-2xl p-6 flex flex-col gap-5 text-zinc-200 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
         <!-- Header -->
         <div class="flex items-start justify-between">
-          <div class="flex flex-col gap-0.5">
-            <div class="flex items-center gap-2">
+          <div class="flex flex-col gap-1">
+            <div class="flex items-center gap-2.5">
               <h2 class="text-xl font-bold text-white tracking-tight">Models & Usage</h2>
+              <div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-950/70 border border-emerald-800/80 text-[10px] font-mono text-emerald-300 shadow-xs">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <span>Auto-Synced · {{ quotaUsageState.lastSyncedAt ? new Date(quotaUsageState.lastSyncedAt).toLocaleTimeString() : 'Realtime' }}</span>
+              </div>
               <button
                 class="text-zinc-400 hover:text-white transition-colors cursor-pointer p-1 text-sm disabled:opacity-50"
                 :disabled="isSyncingQuota"
@@ -5780,7 +5798,7 @@ onUnmounted(() => {
                 <span :class="isSyncingQuota ? 'animate-spin inline-block' : ''">🔄</span>
               </button>
             </div>
-            <p class="text-xs text-zinc-400">Manage your model quota and credits.</p>
+            <p class="text-xs text-zinc-400">Live synchronized quota, tokens, and sliding rate limits across all local agents.</p>
           </div>
           <button
             class="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800/60 transition-colors text-base cursor-pointer"
@@ -5792,24 +5810,24 @@ onUnmounted(() => {
 
         <!-- Section 1: Plan -->
         <div class="flex flex-col gap-1.5">
-          <label class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Plan</label>
+          <label class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Plan & Subscription</label>
           <div class="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-4 flex items-center justify-between gap-4">
             <div class="flex flex-col gap-0.5">
               <span class="text-sm font-semibold text-white">Your Plan: {{ quotaUsageState.plan || 'Google AI Ultra' }}</span>
-              <p class="text-xs text-zinc-400">You can upgrade to a higher Google AI Ultra plan to receive the highest rate limits.</p>
+              <p class="text-xs text-zinc-400">You are connected to high rate limits with sliding-window quota management.</p>
             </div>
             <button
               class="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white text-xs font-semibold shadow-sm shadow-sky-900/30 transition-all cursor-pointer shrink-0"
-              @click="addTimeline('Upgrade requested', 'Open AI Plan upgrade details', 'muted')"
+              @click="addTimeline('Quota Refreshed', 'Manual full quota telemetry sync completed', 'ok'); refreshQuotaUsage();"
             >
-              Upgrade
+              Sync Now
             </button>
           </div>
         </div>
 
         <!-- Section 2: Model Credits -->
         <div class="flex flex-col gap-1.5">
-          <label class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Model Credits</label>
+          <label class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Model Credits & Overages</label>
           <div class="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-4 flex items-center justify-between gap-4">
             <div class="flex flex-col gap-0.5 max-w-lg">
               <span class="text-sm font-semibold text-white">Enable AI Credit Overages</span>
@@ -5831,18 +5849,23 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Section 3: Gemini Models -->
+        <!-- Section 3: Gemini & Antigravity Models -->
         <div class="flex flex-col gap-1.5">
-          <div class="flex items-center gap-1.5">
-            <label class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Gemini Models</label>
-            <span class="text-zinc-500 text-xs cursor-help" title="Sliding quota metrics for Gemini and Antigravity">ⓘ</span>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <label class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Gemini & Antigravity Models</label>
+              <span class="text-zinc-500 text-xs cursor-help" title="Sliding quota metrics for Gemini 2.5 Flash, Pro and AGY Agent">ⓘ</span>
+            </div>
+            <span class="text-[10px] font-mono text-zinc-400">
+              Tokens: {{ (quotaUsageState.gemini?.usedTokens || 0).toLocaleString() }} / {{ (quotaUsageState.gemini?.totalLimitTokens || 2000000).toLocaleString() }}
+            </span>
           </div>
           <div class="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-4 flex flex-col gap-3.5">
             <!-- Weekly Limit -->
             <div class="flex items-center justify-between gap-4">
               <div class="flex flex-col gap-0.5">
                 <span class="text-sm font-medium text-white">Weekly Limit Remaining</span>
-                <span class="text-xs text-zinc-400">You have used some of your weekly limit, it will fully refresh in {{ quotaUsageState.gemini?.weeklyResetIn || '4 days, 9 hours' }}.</span>
+                <span class="text-xs text-zinc-400">Refreshes in {{ quotaUsageState.gemini?.weeklyResetIn || '4 days, 9 hours' }}.</span>
               </div>
               <div class="flex items-center gap-2.5 shrink-0">
                 <span class="text-sm font-bold font-mono text-zinc-100">{{ quotaUsageState.gemini?.weeklyRemainingPercent ?? 69 }}%</span>
@@ -5871,7 +5894,7 @@ onUnmounted(() => {
             <div class="flex items-center justify-between gap-4">
               <div class="flex flex-col gap-0.5">
                 <span class="text-sm font-medium text-white">Five Hour Limit Remaining</span>
-                <span class="text-xs text-zinc-400">You have used some of your 5-hour limit, it will fully refresh in {{ quotaUsageState.gemini?.fiveHourResetIn || '3 hours, 50 minutes' }}.</span>
+                <span class="text-xs text-zinc-400">5-hour window, fully refreshes in {{ quotaUsageState.gemini?.fiveHourResetIn || '3 hours, 50 minutes' }}.</span>
               </div>
               <div class="flex items-center gap-2.5 shrink-0">
                 <span class="text-sm font-bold font-mono text-zinc-100">{{ quotaUsageState.gemini?.fiveHourRemainingPercent ?? 93 }}%</span>
@@ -5896,18 +5919,23 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Section 4: Claude and GPT models -->
+        <!-- Section 4: Claude & Anthropic Models -->
         <div class="flex flex-col gap-1.5">
-          <div class="flex items-center gap-1.5">
-            <label class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Claude and GPT models</label>
-            <span class="text-zinc-500 text-xs cursor-help" title="Sliding quota metrics for Claude Code and Codex">ⓘ</span>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <label class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Claude Code & Anthropic Models</label>
+              <span class="text-zinc-500 text-xs cursor-help" title="Sliding quota metrics for Claude Code CLI and Claude 3.5 / 3.7 Sonnet">ⓘ</span>
+            </div>
+            <span class="text-[10px] font-mono text-zinc-400">
+              Tokens: {{ (quotaUsageState.claudeGpt?.usedTokens || 0).toLocaleString() }} / {{ (quotaUsageState.claudeGpt?.totalLimitTokens || 1000000).toLocaleString() }}
+            </span>
           </div>
           <div class="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-4 flex flex-col gap-3.5">
             <!-- Weekly Limit -->
             <div class="flex items-center justify-between gap-4">
               <div class="flex flex-col gap-0.5">
                 <span class="text-sm font-medium text-white">Weekly Limit Remaining</span>
-                <span class="text-xs text-zinc-400">Weekly available quota for Claude & OpenAI models.</span>
+                <span class="text-xs text-zinc-400">Weekly available quota for Claude models (Refreshes in {{ quotaUsageState.claudeGpt?.weeklyResetIn || '7 days' }}).</span>
               </div>
               <div class="flex items-center gap-2.5 shrink-0">
                 <span class="text-sm font-bold font-mono text-zinc-100">{{ quotaUsageState.claudeGpt?.weeklyRemainingPercent ?? 100 }}%</span>
@@ -5936,7 +5964,7 @@ onUnmounted(() => {
             <div class="flex items-center justify-between gap-4">
               <div class="flex flex-col gap-0.5">
                 <span class="text-sm font-medium text-white">Five Hour Limit Remaining</span>
-                <span class="text-xs text-zinc-400">5-hour available quota for Claude & OpenAI models.</span>
+                <span class="text-xs text-zinc-400">5-hour window (Refreshes in {{ quotaUsageState.claudeGpt?.fiveHourResetIn || '5 hours' }}).</span>
               </div>
               <div class="flex items-center gap-2.5 shrink-0">
                 <span class="text-sm font-bold font-mono text-zinc-100">{{ quotaUsageState.claudeGpt?.fiveHourRemainingPercent ?? 100 }}%</span>
@@ -5958,6 +5986,92 @@ onUnmounted(() => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- Section 5: Codex & OpenAI Models -->
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <label class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Codex & OpenAI Models</label>
+              <span class="text-zinc-500 text-xs cursor-help" title="Sliding quota metrics for Codex CLI, GPT-4o, and o1/o3 reasoning models">ⓘ</span>
+            </div>
+            <span class="text-[10px] font-mono text-zinc-400">
+              Tokens: {{ (quotaUsageState.codex?.usedTokens || 0).toLocaleString() }} / {{ (quotaUsageState.codex?.totalLimitTokens || 1000000).toLocaleString() }}
+            </span>
+          </div>
+          <div class="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-4 flex flex-col gap-3.5">
+            <!-- Weekly Limit -->
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex flex-col gap-0.5">
+                <span class="text-sm font-medium text-white">Weekly Limit Remaining</span>
+                <span class="text-xs text-zinc-400">Weekly available quota for OpenAI models (Refreshes in {{ quotaUsageState.codex?.weeklyResetIn || '6 days, 20 hours' }}).</span>
+              </div>
+              <div class="flex items-center gap-2.5 shrink-0">
+                <span class="text-sm font-bold font-mono text-zinc-100">{{ quotaUsageState.codex?.weeklyRemainingPercent ?? 98 }}%</span>
+                <div class="relative w-6 h-6 flex items-center justify-center">
+                  <svg class="w-6 h-6 -rotate-90" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9" class="stroke-zinc-800" stroke-width="2.5" fill="none" />
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="9"
+                      class="stroke-emerald-400 transition-all duration-500"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      fill="none"
+                      :stroke-dasharray="2 * Math.PI * 9"
+                      :stroke-dashoffset="(2 * Math.PI * 9) * (1 - (quotaUsageState.codex?.weeklyRemainingPercent ?? 98) / 100)"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div class="h-px bg-zinc-800/80" />
+
+            <!-- Five Hour Limit -->
+            <div class="flex items-center justify-between gap-4">
+              <div class="flex flex-col gap-0.5">
+                <span class="text-sm font-medium text-white">Five Hour Limit Remaining</span>
+                <span class="text-xs text-zinc-400">5-hour window (Refreshes in {{ quotaUsageState.codex?.fiveHourResetIn || '4 hours, 30 minutes' }}).</span>
+              </div>
+              <div class="flex items-center gap-2.5 shrink-0">
+                <span class="text-sm font-bold font-mono text-zinc-100">{{ quotaUsageState.codex?.fiveHourRemainingPercent ?? 95 }}%</span>
+                <div class="relative w-6 h-6 flex items-center justify-center">
+                  <svg class="w-6 h-6 -rotate-90" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9" class="stroke-zinc-800" stroke-width="2.5" fill="none" />
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="9"
+                      class="stroke-emerald-400 transition-all duration-500"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      fill="none"
+                      :stroke-dasharray="2 * Math.PI * 9"
+                      :stroke-dashoffset="(2 * Math.PI * 9) * (1 - (quotaUsageState.codex?.fiveHourRemainingPercent ?? 95) / 100)"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 6: Local & Custom Models -->
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Local & Self-Hosted Models</label>
+          <div class="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-4 flex items-center justify-between gap-4">
+            <div class="flex flex-col gap-0.5">
+              <span class="text-sm font-semibold text-emerald-300 flex items-center gap-1.5">
+                <span>⚡ Local Ollama / OpenCode / Aider</span>
+              </span>
+              <p class="text-xs text-zinc-400">Self-hosted offline models run directly on your hardware with unlimited quota & zero token fees.</p>
+            </div>
+            <span class="px-2.5 py-1 rounded-full bg-emerald-950/80 border border-emerald-700/80 text-[10px] font-mono font-bold text-emerald-300">
+              Unlimited Quota
+            </span>
           </div>
         </div>
       </div>

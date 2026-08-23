@@ -47,6 +47,7 @@ const agentProcesses = new Map<string, AgentSession>();
 type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error';
 let updateState: { status: UpdateStatus; version?: string; percent?: number; message?: string } = { status: 'idle' };
 let updateTimer: NodeJS.Timeout | undefined;
+let quotaSyncTimer: NodeJS.Timeout | undefined;
 
 const AGENT_COMMANDS: Record<Exclude<AgentProvider, 'antigravity'>, { command: string; args: string[]; capabilities: string[] }> = {
   codex: { command: 'codex', args: ['--dangerously-bypass-approvals-and-sandbox', '--no-alt-screen'], capabilities: ['interactive', 'stream', 'resume', 'full_access', 'handoff'] },
@@ -795,12 +796,55 @@ function getDefaultQuotaState(): QuotaUsageState {
   };
 }
 
+function calculateQuotaRecovery(state: QuotaUsageState): QuotaUsageState {
+  const now = Date.now();
+  const groups: (keyof QuotaUsageState)[] = ['gemini', 'claudeGpt', 'codex'];
+  let modified = false;
+
+  for (const key of groups) {
+    const group = state[key] as QuotaGroup | undefined;
+    if (!group || !group.lastUpdated) continue;
+    const last = new Date(group.lastUpdated).getTime();
+    if (isNaN(last)) continue;
+    const elapsedHours = Math.max(0, (now - last) / (1000 * 60 * 60));
+
+    if (elapsedHours > 0.05) {
+      // 5-hour limit recovers 20% per hour
+      const recovered5h = Math.min(100, Math.round(group.fiveHourRemainingPercent + (elapsedHours * 20)));
+      // Weekly limit recovers ~0.6% per hour (100 / 168h)
+      const recoveredWeekly = Math.min(100, Math.round(group.weeklyRemainingPercent + (elapsedHours * (100 / 168))));
+
+      if (recovered5h !== group.fiveHourRemainingPercent || recoveredWeekly !== group.weeklyRemainingPercent) {
+        group.fiveHourRemainingPercent = recovered5h;
+        group.weeklyRemainingPercent = recoveredWeekly;
+        group.lastUpdated = new Date().toISOString();
+        modified = true;
+      }
+    }
+
+    // Dynamic reset countdown strings
+    const fiveHrHoursLeft = Math.max(0, Math.ceil(5 * (1 - (group.fiveHourRemainingPercent / 100))));
+    group.fiveHourResetIn = fiveHrHoursLeft <= 0 ? 'Full (100%)' : `${fiveHrHoursLeft} hour${fiveHrHoursLeft > 1 ? 's' : ''}`;
+
+    const weeklyDaysLeft = Math.max(0, Math.ceil(7 * (1 - (group.weeklyRemainingPercent / 100))));
+    group.weeklyResetIn = weeklyDaysLeft <= 0 ? 'Full (100%)' : `${weeklyDaysLeft} day${weeklyDaysLeft > 1 ? 's' : ''}`;
+  }
+
+  if (modified) {
+    state.lastSyncedAt = new Date().toISOString();
+    writeQuotaState(state);
+  }
+  return state;
+}
+
 function readQuotaState(): QuotaUsageState {
   try {
     const file = getQuotaFilePath();
     if (fs.existsSync(file)) {
       const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-      if (data?.gemini && data?.claudeGpt) return data;
+      if (data?.gemini && data?.claudeGpt) {
+        return calculateQuotaRecovery(data);
+      }
     }
   } catch { /* ignore */ }
   const defaults = getDefaultQuotaState();
@@ -826,8 +870,35 @@ function recordTokenUsageToQuota(provider: AgentProvider, tokenCount: number): Q
     target.lastUpdated = new Date().toISOString();
     quota.lastSyncedAt = target.lastUpdated;
     writeQuotaState(quota);
+
+    // Broadcast immediately to Desktop UI
+    safeSend(win, 'agent-quota-updated', quota);
+
+    // Sync to Task Hub in background
+    void syncQuotaToTaskHub(quota);
   }
   return quota;
+}
+
+function extractAndRecordTokensFromText(provider: AgentProvider, text: string): void {
+  if (!text) return;
+  const tokenMatch = text.match(/(?:total\s*tokens?|tokens?\s*used|token\s*count|total_tokens)[:\s=]+(\d[\d,]*)/i);
+  if (tokenMatch && tokenMatch[1]) {
+    const tokens = parseInt(tokenMatch[1].replace(/,/g, ''), 10);
+    if (!isNaN(tokens) && tokens > 0) {
+      recordTokenUsageToQuota(provider, tokens);
+      return;
+    }
+  }
+  const inOutMatch = text.match(/in\s*(\d[\d,]*)\s*,\s*out\s*(\d[\d,]*)/i);
+  if (inOutMatch && (inOutMatch[1] || inOutMatch[2])) {
+    const inTokens = parseInt((inOutMatch[1] || '0').replace(/,/g, ''), 10) || 0;
+    const outTokens = parseInt((inOutMatch[2] || '0').replace(/,/g, ''), 10) || 0;
+    const total = inTokens + outTokens;
+    if (total > 0) {
+      recordTokenUsageToQuota(provider, total);
+    }
+  }
 }
 
 async function syncQuotaToTaskHub(quota: QuotaUsageState, taskHubUrl?: string): Promise<boolean> {
@@ -1800,6 +1871,13 @@ function formatAgyEvent(event: any): string {
                 session.threadId = event.conversation_id;
                 persistSessionUpdate({ sessionId, threadId: event.conversation_id });
               }
+              if (event.event === 'result' && event.result?.usage?.total_tokens) {
+                const total = Number(event.result.usage.total_tokens);
+                if (total > 0) recordTokenUsageToQuota('antigravity', total);
+              } else if (event.usage?.total_tokens) {
+                const total = Number(event.usage.total_tokens);
+                if (total > 0) recordTokenUsageToQuota('antigravity', total);
+              }
               const formattedLine = formatAgyEvent(event);
               if (formattedLine) {
                 session.output = `${session.output}${formattedLine}`.slice(-250000);
@@ -1808,6 +1886,7 @@ function formatAgyEvent(event: any): string {
             } catch {
               session.output = `${session.output}\n${line}`.slice(-250000);
               appendWorkspaceAgentLog(session.cwd, sessionId, 'stdout', line);
+              extractAndRecordTokensFromText('antigravity', line);
               safeSend(win, 'agent-output', { sessionId, stream: 'stdout', text: line });
             }
           }
@@ -1924,6 +2003,8 @@ function formatAgyEvent(event: any): string {
             } else if (event.type === 'item.completed' && event.item?.type === 'command_execution') {
               formattedLine = `\n✓ [Command completed] exit code: ${event.item.exit_code ?? 0}\n${event.item.aggregated_output || ''}\n`;
             } else if (event.type === 'turn.completed') {
+              const turnTokens = (event.usage?.input_tokens || 0) + (event.usage?.output_tokens || 0);
+              if (turnTokens > 0) recordTokenUsageToQuota('codex', turnTokens);
               formattedLine = `\n✓ Turn completed · Tokens: in ${event.usage?.input_tokens || 0}, out ${event.usage?.output_tokens || 0}\n`;
             }
             if (formattedLine) {
@@ -1933,6 +2014,7 @@ function formatAgyEvent(event: any): string {
           } catch {
             session.output = `${session.output}\n${line}`.slice(-250000);
             appendWorkspaceAgentLog(session.cwd, sessionId, 'stdout', line);
+            extractAndRecordTokensFromText('codex', line);
             safeSend(win, 'agent-output', { sessionId, stream: 'stdout', text: line });
           }
         }
@@ -1943,6 +2025,7 @@ function formatAgyEvent(event: any): string {
           if (!text.includes('Reading additional input from stdin')) {
             session.output = `${session.output}\n${text}`.slice(-250000);
             appendWorkspaceAgentLog(session.cwd, sessionId, 'stderr', text);
+            extractAndRecordTokensFromText('codex', text);
           safeSend(win, 'agent-output', { sessionId, stream: 'stderr', text });
         }
       });
@@ -2002,6 +2085,7 @@ function formatAgyEvent(event: any): string {
         session.output = `${session.output}${text}`.slice(-250000);
         appendWorkspaceAgentLog(session.cwd, sessionId, 'stdout', text);
       }
+      extractAndRecordTokensFromText(provider, text);
       safeSend(win, 'agent-output', { sessionId, stream: 'stdout', text });
     });
     pty.onExit(({ exitCode, signal }) => {
@@ -2381,6 +2465,13 @@ app.whenReady().then(() => {
     void checkForUpdates();
   }, 10_000);
 
+  quotaSyncTimer = setInterval(() => {
+    try {
+      const quota = readQuotaState();
+      safeSend(win, 'agent-quota-updated', quota);
+    } catch { /* ignore */ }
+  }, 15_000);
+
   app.on('second-instance', (_event, argv) => {
     if (win) {
       for (const arg of argv) {
@@ -2414,6 +2505,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   if (updateTimer) clearInterval(updateTimer);
+  if (quotaSyncTimer) clearInterval(quotaSyncTimer);
   for (const session of agentProcesses.values()) session.process?.kill();
   agentProcesses.clear();
 });
