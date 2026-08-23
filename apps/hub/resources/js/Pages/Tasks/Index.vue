@@ -1369,18 +1369,44 @@ const filteredBoardTasks = computed(() => {
   });
 });
 
-// Board Columns
-const todoTasks = computed(() => filteredBoardTasks.value.filter(t => t.status === 'todo'));
-const inProgressTasks = computed(() => filteredBoardTasks.value.filter(t => t.status === 'in_progress'));
-const reviewTasks = computed(() => filteredBoardTasks.value.filter(t => t.status === 'review'));
-const doneTasks = computed(() => filteredBoardTasks.value.filter(t => t.status === 'done'));
+// Smart Sort Score for Tasks: Status (In Progress > Todo > Review > Done) + Priority (Urgent > High > Medium > Low)
+const getTaskSortScore = (task: TaskItem) => {
+  let score = 0;
+  if (task.status === 'in_progress') score += 1000;
+  else if (task.status === 'todo') score += 800;
+  else if (task.status === 'review') score += 400;
+  else if (task.status === 'done') score += 100;
 
-// Backlog Pool Tasks (No sprint assigned, excluding epics)
+  if (task.priority === 'urgent') score += 400;
+  else if (task.priority === 'high') score += 300;
+  else if (task.priority === 'medium') score += 200;
+  else if (task.priority === 'low') score += 100;
+
+  score += Math.min(task.id || 0, 99) * 0.01;
+  return score;
+};
+
+// Board Columns (Smart Sorted by Priority & Score)
+const todoTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'todo')].sort((a, b) => getTaskSortScore(b) - getTaskSortScore(a)));
+const inProgressTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'in_progress')].sort((a, b) => getTaskSortScore(b) - getTaskSortScore(a)));
+const reviewTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'review')].sort((a, b) => getTaskSortScore(b) - getTaskSortScore(a)));
+const doneTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'done')].sort((a, b) => getTaskSortScore(b) - getTaskSortScore(a)));
+
+const webNextUpTaskId = computed(() => {
+  const candidates = filteredBoardTasks.value.filter(t => ['in_progress', 'todo'].includes(t.status) && t.issue_type !== 'epic');
+  if (!candidates.length) return null;
+  const sorted = [...candidates].sort((a, b) => getTaskSortScore(b) - getTaskSortScore(a));
+  return sorted[0]?.id || null;
+});
+
+// Backlog Pool Tasks (No sprint assigned, excluding epics, sorted by priority)
 const backlogTasks = computed(() => {
-  return taskList.value.filter(task => {
-    if (selectedProjectId.value !== 'all' && task.project_id !== Number(selectedProjectId.value)) return false;
-    return task.sprint_id === null && task.issue_type !== 'epic';
-  });
+  return taskList.value
+    .filter(task => {
+      if (selectedProjectId.value !== 'all' && task.project_id !== Number(selectedProjectId.value)) return false;
+      return task.sprint_id === null && task.issue_type !== 'epic';
+    })
+    .sort((a, b) => getTaskSortScore(b) - getTaskSortScore(a));
 });
 
 const getSprintTasks = (sprintId: number) => {
@@ -3153,6 +3179,18 @@ onUnmounted(() => {
                     getTaskDelayStatus(task).cardBorderClass
                   ]"
                 >
+                  <!-- Next Up Recommended Spotlight Banner -->
+                  <div
+                    v-if="task.id === webNextUpTaskId"
+                    class="flex items-center justify-between px-2 py-0.5 rounded-lg bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-transparent border border-amber-500/40 text-[9px] font-bold text-amber-600 dark:text-amber-300 tracking-wide uppercase shadow-xs"
+                  >
+                    <span class="flex items-center gap-1">
+                      <span class="animate-pulse">⚡</span>
+                      <span>Next Up / Recommended</span>
+                    </span>
+                    <span class="text-[8px] font-mono opacity-75">Priority #1</span>
+                  </div>
+
                   <div class="flex items-center justify-between text-xs">
                     <div class="flex items-center gap-1.5">
                       <span>{{ getIssueTypeBadge(task.issue_type).icon }}</span>
@@ -3229,6 +3267,18 @@ onUnmounted(() => {
                     getTaskDelayStatus(task).cardBorderClass
                   ]"
                 >
+                  <!-- Next Up Recommended Spotlight Banner -->
+                  <div
+                    v-if="task.id === webNextUpTaskId"
+                    class="flex items-center justify-between px-2 py-0.5 rounded-lg bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-transparent border border-amber-500/40 text-[9px] font-bold text-amber-600 dark:text-amber-300 tracking-wide uppercase shadow-xs"
+                  >
+                    <span class="flex items-center gap-1">
+                      <span class="animate-pulse">⚡</span>
+                      <span>Next Up / Recommended</span>
+                    </span>
+                    <span class="text-[8px] font-mono opacity-75">Priority #1</span>
+                  </div>
+
                   <div class="flex items-center justify-between text-xs">
                     <div class="flex items-center gap-1.5">
                       <span>{{ getIssueTypeBadge(task.issue_type).icon }}</span>

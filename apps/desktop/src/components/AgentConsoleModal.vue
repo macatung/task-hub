@@ -526,6 +526,7 @@ const refreshAgentTasks = async () => {
 };
 
 const selectedTaskStatusFilter = ref<'all' | 'todo' | 'in_progress' | 'review' | 'done'>('all');
+const selectedTaskPriorityFilter = ref<'all' | 'urgent' | 'high' | 'medium' | 'low'>('all');
 
 const taskStatusCounts = computed(() => {
   const counts = { all: allTasks.value.length, todo: 0, in_progress: 0, review: 0, done: 0 };
@@ -535,6 +536,18 @@ const taskStatusCounts = computed(() => {
     else if (['in_progress', 'doing'].includes(s)) counts.in_progress++;
     else if (['review', 'in_review', 'testing'].includes(s)) counts.review++;
     else if (['done', 'completed'].includes(s)) counts.done++;
+  });
+  return counts;
+});
+
+const taskPriorityCounts = computed(() => {
+  const counts = { all: allTasks.value.length, urgent: 0, high: 0, medium: 0, low: 0 };
+  allTasks.value.forEach((t) => {
+    const p = (t.priority || 'medium').toLowerCase();
+    if (p === 'urgent') counts.urgent++;
+    else if (p === 'high') counts.high++;
+    else if (p === 'medium') counts.medium++;
+    else if (p === 'low') counts.low++;
   });
   return counts;
 });
@@ -553,6 +566,20 @@ const getTaskStatusBadge = (status?: string) => {
   return { label: 'TODO', bg: 'bg-slate-900/90', text: 'text-slate-300', border: 'border-slate-700', dot: 'bg-slate-400' };
 };
 
+const getTaskPriorityBadge = (priority?: string) => {
+  const p = (priority || 'medium').toLowerCase();
+  if (p === 'urgent') {
+    return { label: 'URGENT', icon: '⚡', bg: 'bg-rose-950/90', text: 'text-rose-300', border: 'border-rose-600/90', dot: 'bg-rose-500' };
+  }
+  if (p === 'high') {
+    return { label: 'HIGH', icon: '▲', bg: 'bg-amber-950/90', text: 'text-amber-300', border: 'border-amber-600/90', dot: 'bg-amber-500' };
+  }
+  if (p === 'low') {
+    return { label: 'LOW', icon: '▼', bg: 'bg-zinc-900/90', text: 'text-zinc-400', border: 'border-zinc-700', dot: 'bg-zinc-500' };
+  }
+  return { label: 'MED', icon: '■', bg: 'bg-sky-950/90', text: 'text-sky-300', border: 'border-sky-700/90', dot: 'bg-sky-500' };
+};
+
 const getTaskIssueTypeInfo = (type?: string) => {
   const t = (type || 'task').toLowerCase();
   if (t === 'epic') return { icon: '⚡', label: 'EPIC', class: 'bg-purple-950/80 text-purple-300 border-purple-800/80' };
@@ -561,20 +588,175 @@ const getTaskIssueTypeInfo = (type?: string) => {
   return { icon: '☑️', label: 'TASK', class: 'bg-blue-950/80 text-blue-300 border-blue-800/80' };
 };
 
+const getTaskSortWeight = (task: any) => {
+  let score = 0;
+  const s = (task.status || 'todo').toLowerCase();
+  const p = (task.priority || 'medium').toLowerCase();
+
+  // Status weight (In Progress > Todo > Review > Done)
+  if (['in_progress', 'doing'].includes(s)) score += 1000;
+  else if (['todo', 'backlog'].includes(s)) score += 800;
+  else if (['review', 'in_review', 'testing'].includes(s)) score += 400;
+  else if (['done', 'completed'].includes(s)) score += 100;
+
+  // Priority weight (Urgent > High > Medium > Low)
+  if (p === 'urgent') score += 400;
+  else if (p === 'high') score += 300;
+  else if (p === 'medium') score += 200;
+  else if (p === 'low') score += 100;
+
+  score += Math.min(task.id || 0, 99) * 0.01;
+  return score;
+};
+
 const filteredTasks = computed(() => {
   const query = taskSearch.value.trim().toLowerCase();
-  return allTasks.value.filter((task) => {
+  const list = allTasks.value.filter((task) => {
     const matchesQuery = !query || [task.title, task.issue_key, task.project?.title, task.epic?.title].filter(Boolean).join(' ').toLowerCase().includes(query);
     if (!matchesQuery) return false;
-    if (selectedTaskStatusFilter.value === 'all') return true;
-    const s = (task.status || 'todo').toLowerCase();
-    if (selectedTaskStatusFilter.value === 'todo') return ['todo', 'backlog'].includes(s);
-    if (selectedTaskStatusFilter.value === 'in_progress') return ['in_progress', 'doing'].includes(s);
-    if (selectedTaskStatusFilter.value === 'review') return ['review', 'in_review', 'testing'].includes(s);
-    if (selectedTaskStatusFilter.value === 'done') return ['done', 'completed'].includes(s);
+    
+    // Status filter
+    if (selectedTaskStatusFilter.value !== 'all') {
+      const s = (task.status || 'todo').toLowerCase();
+      if (selectedTaskStatusFilter.value === 'todo' && !['todo', 'backlog'].includes(s)) return false;
+      if (selectedTaskStatusFilter.value === 'in_progress' && !['in_progress', 'doing'].includes(s)) return false;
+      if (selectedTaskStatusFilter.value === 'review' && !['review', 'in_review', 'testing'].includes(s)) return false;
+      if (selectedTaskStatusFilter.value === 'done' && !['done', 'completed'].includes(s)) return false;
+    }
+
+    // Priority filter
+    if (selectedTaskPriorityFilter.value !== 'all') {
+      const p = (task.priority || 'medium').toLowerCase();
+      if (p !== selectedTaskPriorityFilter.value) return false;
+    }
+
     return true;
   });
+
+  return list.sort((a, b) => getTaskSortWeight(b) - getTaskSortWeight(a));
 });
+
+const nextUpTaskId = computed(() => {
+  const candidate = filteredTasks.value.find((t) => {
+    const s = (t.status || 'todo').toLowerCase();
+    return !['done', 'completed', 'review'].includes(s);
+  });
+  return candidate?.id || null;
+});
+
+// Task Inspector state & actions
+const showTaskInspector = ref(false);
+const inspectingTaskId = ref<number | null>(null);
+const inspectingTask = computed(() => allTasks.value.find((t) => t.id === inspectingTaskId.value) || selectedTask.value || null);
+
+const openTaskInspector = (task: any) => {
+  inspectingTaskId.value = task.id;
+  taskId.value = task.id;
+  showTaskInspector.value = true;
+};
+
+const closeTaskInspector = () => {
+  showTaskInspector.value = false;
+};
+
+const getTaskSubtasks = (task?: any): Array<{ id: number; title: string; done: boolean }> => {
+  if (!task) return [];
+  if (Array.isArray(task.subtasks) && task.subtasks.length) return task.subtasks;
+  if (task.notes) {
+    try {
+      const parsed = JSON.parse(task.notes);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item: any, idx: number) => ({
+          id: item.id || idx + 1,
+          title: item.title || item.text || String(item),
+          done: Boolean(item.done || item.is_completed),
+        }));
+      }
+    } catch {
+      // not JSON
+    }
+  }
+  return [];
+};
+
+const toggleSubtaskDone = async (task: any, subtaskIndex: number) => {
+  const subtasks = getTaskSubtasks(task);
+  if (!subtasks[subtaskIndex]) return;
+  subtasks[subtaskIndex].done = !subtasks[subtaskIndex].done;
+  task.subtasks = subtasks;
+  task.notes = JSON.stringify(subtasks);
+  
+  try {
+    const hubUrl = taskHubUrl.value || (credential.value as any)?.taskHubUrl || 'http://localhost:8000';
+    const token = credential.value?.token;
+    const projId = credential.value?.projectId;
+    if (token && task.id) {
+      await fetch(`${hubUrl.replace(/\/$/, '')}/api/v1/tasks/${task.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'X-Task-Hub-Project': String(projId || ''),
+        },
+        body: JSON.stringify({ notes: task.notes }),
+      });
+    }
+  } catch (e) {
+    console.warn('Failed to sync subtask state to Task Hub:', e);
+  }
+};
+
+const updateTaskPriority = async (task: any, newPriority: 'urgent' | 'high' | 'medium' | 'low') => {
+  task.priority = newPriority;
+  try {
+    const hubUrl = taskHubUrl.value || (credential.value as any)?.taskHubUrl || 'http://localhost:8000';
+    const token = credential.value?.token;
+    const projId = credential.value?.projectId;
+    if (token && task.id) {
+      await fetch(`${hubUrl.replace(/\/$/, '')}/api/v1/tasks/${task.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'X-Task-Hub-Project': String(projId || ''),
+        },
+        body: JSON.stringify({ priority: newPriority }),
+      });
+    }
+  } catch (e) {
+    console.warn('Failed to sync priority state to Task Hub:', e);
+  }
+};
+
+const copyTaskContextPrompt = (task: any) => {
+  if (!task) return;
+  const subtasks = getTaskSubtasks(task);
+  const prompt = [
+    `# Task: [${task.issue_key || `#${task.id}`}] ${task.title}`,
+    `Priority: ${task.priority || 'medium'} | Status: ${task.status || 'todo'} | Story Points: ${task.story_points || 'N/A'}`,
+    task.epic ? `Epic: ${task.epic.title || task.epic.issue_key}` : '',
+    '',
+    '## Description',
+    task.description || 'No description provided.',
+    '',
+    task.acceptance_criteria ? `## Acceptance Criteria\n${task.acceptance_criteria}` : '',
+    subtasks.length ? `## Subtasks\n${subtasks.map(s => `- [${s.done ? 'x' : ' '}] ${s.title}`).join('\n')}` : '',
+  ].filter(Boolean).join('\n');
+
+  navigator.clipboard.writeText(prompt);
+  addTimeline('Context copied', `Copied prompt context for ${task.issue_key || `#${task.id}`} to clipboard.`, 'ok');
+};
+
+const openTaskInWebHub = (task: any) => {
+  if (!task) return;
+  const hubUrl = taskHubUrl.value || 'https://task-hub.macatung.dev';
+  const url = `${hubUrl.replace(/\/$/, '')}/tasks?task=${task.id}`;
+  if (window.desktopApi?.openExternal) {
+    window.desktopApi.openExternal(url);
+  } else {
+    window.open(url, '_blank');
+  }
+};
 
 const busy = computed(() => ['preflight', 'pairing', 'context'].includes(phase.value));
 
@@ -3559,27 +3741,54 @@ onUnmounted(() => {
             </div>
 
             <!-- Quick Status Filter Pills -->
-            <div v-if="allTasks.length > 0" class="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar">
-              <button
-                v-for="filter in ([
-                  { id: 'all', label: 'All', count: taskStatusCounts.all },
-                  { id: 'todo', label: 'To Do', count: taskStatusCounts.todo },
-                  { id: 'in_progress', label: 'In Progress', count: taskStatusCounts.in_progress },
-                  { id: 'review', label: 'Review', count: taskStatusCounts.review },
-                  { id: 'done', label: 'Done', count: taskStatusCounts.done },
-                ] as const)"
-                :key="filter.id"
-                class="px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap transition-all cursor-pointer border flex items-center gap-1 shrink-0"
-                :class="
-                  selectedTaskStatusFilter === filter.id
-                    ? 'bg-[#0e639c] border-[#007acc] text-white font-semibold shadow-xs'
-                    : 'bg-[#222225] border-[#333333] text-zinc-400 hover:text-zinc-200 hover:border-[#444444]'
-                "
-                @click="selectedTaskStatusFilter = filter.id"
-              >
-                <span>{{ filter.label }}</span>
-                <span class="opacity-75 font-mono text-[9px]">({{ filter.count }})</span>
-              </button>
+            <div v-if="allTasks.length > 0" class="flex flex-col gap-1.5 pb-0.5">
+              <div class="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                <button
+                  v-for="filter in ([
+                    { id: 'all', label: 'All', count: taskStatusCounts.all },
+                    { id: 'todo', label: 'To Do', count: taskStatusCounts.todo },
+                    { id: 'in_progress', label: 'In Progress', count: taskStatusCounts.in_progress },
+                    { id: 'review', label: 'Review', count: taskStatusCounts.review },
+                    { id: 'done', label: 'Done', count: taskStatusCounts.done },
+                  ] as const)"
+                  :key="filter.id"
+                  class="px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap transition-all cursor-pointer border flex items-center gap-1 shrink-0"
+                  :class="
+                    selectedTaskStatusFilter === filter.id
+                      ? 'bg-[#0e639c] border-[#007acc] text-white font-semibold shadow-xs'
+                      : 'bg-[#222225] border-[#333333] text-zinc-400 hover:text-zinc-200 hover:border-[#444444]'
+                  "
+                  @click="selectedTaskStatusFilter = filter.id"
+                >
+                  <span>{{ filter.label }}</span>
+                  <span class="opacity-75 font-mono text-[9px]">({{ filter.count }})</span>
+                </button>
+              </div>
+
+              <!-- Quick Priority Filter Pills -->
+              <div class="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                <button
+                  v-for="pFilter in ([
+                    { id: 'all', label: 'Priority', count: taskPriorityCounts.all, dot: 'bg-zinc-400' },
+                    { id: 'urgent', label: 'Urgent', count: taskPriorityCounts.urgent, dot: 'bg-rose-500' },
+                    { id: 'high', label: 'High', count: taskPriorityCounts.high, dot: 'bg-amber-500' },
+                    { id: 'medium', label: 'Med', count: taskPriorityCounts.medium, dot: 'bg-sky-500' },
+                    { id: 'low', label: 'Low', count: taskPriorityCounts.low, dot: 'bg-zinc-500' },
+                  ] as const)"
+                  :key="pFilter.id"
+                  class="px-1.5 py-0.5 rounded text-[9px] font-medium whitespace-nowrap transition-all cursor-pointer border flex items-center gap-1 shrink-0"
+                  :class="
+                    selectedTaskPriorityFilter === pFilter.id
+                      ? 'bg-indigo-950/80 border-indigo-500 text-indigo-200 font-semibold shadow-xs'
+                      : 'bg-[#1e1e22] border-[#303036] text-zinc-400 hover:text-zinc-200 hover:border-[#444444]'
+                  "
+                  @click="selectedTaskPriorityFilter = pFilter.id"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="pFilter.dot" />
+                  <span>{{ pFilter.label }}</span>
+                  <span class="opacity-75 font-mono text-[8px]">({{ pFilter.count }})</span>
+                </button>
+              </div>
             </div>
 
             <!-- Unconnected Prompt -->
@@ -3603,12 +3812,12 @@ onUnmounted(() => {
             <div v-else-if="filteredTasks.length === 0" class="p-4 text-center rounded-lg border border-[#333333] bg-[#222225] text-xs text-zinc-400 flex flex-col items-center gap-2">
               <i class="codicon codicon-inbox text-zinc-500 text-xl" />
               <p class="text-zinc-300 font-medium">No matching tasks found</p>
-              <p v-if="taskSearch || selectedTaskStatusFilter !== 'all'" class="text-[10px] text-zinc-500">Try clearing filters or search query</p>
+              <p v-if="taskSearch || selectedTaskStatusFilter !== 'all' || selectedTaskPriorityFilter !== 'all'" class="text-[10px] text-zinc-500">Try clearing filters or search query</p>
               <div class="flex items-center gap-2 mt-1">
                 <button
-                  v-if="taskSearch || selectedTaskStatusFilter !== 'all'"
+                  v-if="taskSearch || selectedTaskStatusFilter !== 'all' || selectedTaskPriorityFilter !== 'all'"
                   class="px-2.5 py-1 rounded bg-[#2d2d30] hover:bg-[#38383c] text-zinc-200 text-[11px] font-medium border border-[#3e3e42] transition-colors cursor-pointer"
-                  @click="taskSearch = ''; selectedTaskStatusFilter = 'all'"
+                  @click="taskSearch = ''; selectedTaskStatusFilter = 'all'; selectedTaskPriorityFilter = 'all'"
                 >
                   Clear Filters
                 </button>
@@ -3642,7 +3851,19 @@ onUnmounted(() => {
                   class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r bg-[#007acc]"
                 />
 
-                <!-- Top Row: Key, Type, Points, Status -->
+                <!-- Next Up Recommended Spotlight Banner -->
+                <div
+                  v-if="task.id === nextUpTaskId"
+                  class="flex items-center justify-between px-2 py-0.5 rounded bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-transparent border border-amber-500/30 text-[9px] font-bold text-amber-300 tracking-wide uppercase"
+                >
+                  <span class="flex items-center gap-1">
+                    <span class="animate-pulse">⚡</span>
+                    <span>Next Up / Recommended</span>
+                  </span>
+                  <span class="text-[8px] font-mono opacity-75">Priority #1</span>
+                </div>
+
+                <!-- Top Row: Key, Type, Priority, Status, Details -->
                 <div class="flex items-center justify-between gap-1.5">
                   <div class="flex items-center gap-1.5 min-w-0">
                     <span
@@ -3660,13 +3881,17 @@ onUnmounted(() => {
                   </div>
 
                   <div class="flex items-center gap-1 shrink-0">
+                    <!-- Priority Badge -->
                     <span
-                      v-if="task.story_points"
-                      class="font-mono font-bold text-[9px] px-1.5 py-0.2 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-800/60"
-                      title="Story Points"
+                      class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border flex items-center gap-1"
+                      :class="[getTaskPriorityBadge(task.priority).bg, getTaskPriorityBadge(task.priority).text, getTaskPriorityBadge(task.priority).border]"
+                      :title="`Priority: ${task.priority || 'medium'}`"
                     >
-                      {{ task.story_points }} pts
+                      <span>{{ getTaskPriorityBadge(task.priority).icon }}</span>
+                      <span>{{ getTaskPriorityBadge(task.priority).label }}</span>
                     </span>
+
+                    <!-- Status Badge -->
                     <span
                       class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border flex items-center gap-1"
                       :class="[getTaskStatusBadge(task.status).bg, getTaskStatusBadge(task.status).text, getTaskStatusBadge(task.status).border]"
@@ -3685,23 +3910,43 @@ onUnmounted(() => {
                   {{ task.title }}
                 </p>
 
-                <!-- Bottom Row: Epic & Project Context -->
-                <div v-if="task.epic || task.project" class="flex flex-wrap items-center gap-1.5 pt-0.5">
-                  <span
-                    v-if="task.epic"
-                    class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-950/50 text-purple-300 border border-purple-800/50 truncate max-w-[200px]"
-                    :title="`Epic: ${task.epic.title || task.epic.issue_key}`"
+                <!-- Bottom Row: Epic, Points, Subtasks Count, Inspect Details -->
+                <div class="flex items-center justify-between gap-1.5 pt-0.5 text-[10px]">
+                  <div class="flex flex-wrap items-center gap-1 min-w-0">
+                    <span
+                      v-if="task.epic"
+                      class="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-medium bg-purple-950/50 text-purple-300 border border-purple-800/50 truncate max-w-[120px]"
+                      :title="`Epic: ${task.epic.title || task.epic.issue_key}`"
+                    >
+                      <span>⚡</span>
+                      <span class="truncate">{{ task.epic.title || task.epic.issue_key }}</span>
+                    </span>
+
+                    <span
+                      v-if="task.story_points"
+                      class="font-mono font-bold text-[9px] px-1.5 py-0.2 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-800/60"
+                      title="Story Points"
+                    >
+                      {{ task.story_points }} pts
+                    </span>
+
+                    <span
+                      v-if="getTaskSubtasks(task).length > 0"
+                      class="font-mono text-[9px] text-zinc-400 px-1 py-0.2 rounded bg-[#1e1e22] border border-[#333338]"
+                      :title="`Subtasks: ${getTaskSubtasks(task).filter(s => s.done).length}/${getTaskSubtasks(task).length} completed`"
+                    >
+                      ☑ {{ getTaskSubtasks(task).filter(s => s.done).length }}/{{ getTaskSubtasks(task).length }}
+                    </span>
+                  </div>
+
+                  <button
+                    class="px-1.5 py-0.5 rounded text-[9px] font-medium bg-[#2d2d32] text-zinc-300 hover:text-white hover:bg-[#383840] border border-[#3e3e46] transition-colors flex items-center gap-1 shrink-0 cursor-pointer shadow-2xs"
+                    title="Inspect task description, criteria & subtasks"
+                    @click.stop="openTaskInspector(task)"
                   >
-                    <span>⚡</span>
-                    <span class="truncate">{{ task.epic.title || task.epic.issue_key }}</span>
-                  </span>
-                  <span
-                    v-if="task.project"
-                    class="text-[9px] font-mono text-zinc-400 truncate max-w-[100px]"
-                    :title="task.project.title"
-                  >
-                    📁 {{ task.project.title }}
-                  </span>
+                    <i class="codicon codicon-eye text-[10px]" />
+                    <span>Details</span>
+                  </button>
                 </div>
               </button>
             </div>
@@ -3718,12 +3963,20 @@ onUnmounted(() => {
                     Active: {{ selectedTask.issue_key || `#${selectedTask.id}` }}
                   </span>
                 </div>
-                <span
-                  class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border"
-                  :class="[getTaskStatusBadge(selectedTask.status).bg, getTaskStatusBadge(selectedTask.status).text, getTaskStatusBadge(selectedTask.status).border]"
-                >
-                  {{ getTaskStatusBadge(selectedTask.status).label }}
-                </span>
+                <div class="flex items-center gap-1 shrink-0">
+                  <span
+                    class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border"
+                    :class="[getTaskPriorityBadge(selectedTask.priority).bg, getTaskPriorityBadge(selectedTask.priority).text, getTaskPriorityBadge(selectedTask.priority).border]"
+                  >
+                    {{ getTaskPriorityBadge(selectedTask.priority).icon }} {{ getTaskPriorityBadge(selectedTask.priority).label }}
+                  </span>
+                  <span
+                    class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border"
+                    :class="[getTaskStatusBadge(selectedTask.status).bg, getTaskStatusBadge(selectedTask.status).text, getTaskStatusBadge(selectedTask.status).border]"
+                  >
+                    {{ getTaskStatusBadge(selectedTask.status).label }}
+                  </span>
+                </div>
               </div>
               <p class="text-xs font-semibold text-white leading-snug">{{ selectedTask.title }}</p>
               <div v-if="selectedTask.epic" class="text-[10px] text-purple-300 font-medium flex items-center gap-1">
@@ -3733,6 +3986,18 @@ onUnmounted(() => {
               <p v-if="selectedTask.acceptance_criteria" class="text-zinc-400 text-[10px] mt-0.5 line-clamp-2 italic">
                 {{ selectedTask.acceptance_criteria }}
               </p>
+              <div class="flex items-center justify-between pt-1 border-t border-[#007acc]/20">
+                <span class="text-[10px] text-sky-400 font-mono">
+                  {{ getTaskSubtasks(selectedTask).length ? `${getTaskSubtasks(selectedTask).filter(s => s.done).length}/${getTaskSubtasks(selectedTask).length} Subtasks` : 'No subtasks' }}
+                </span>
+                <button
+                  class="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#0e639c] hover:bg-[#1177bb] text-white transition-colors flex items-center gap-1 cursor-pointer"
+                  @click="openTaskInspector(selectedTask)"
+                >
+                  <i class="codicon codicon-eye" />
+                  <span>Inspect Full Details</span>
+                </button>
+              </div>
             </div>
           </template>
         </div>
@@ -5756,6 +6021,242 @@ onUnmounted(() => {
           >
             <i v-if="isRejecting" class="codicon codicon-loading animate-spin" />
             <span>Submit Change Request</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TASK INSPECTOR DRAWER / MODAL -->
+    <div
+      v-if="showTaskInspector && inspectingTask"
+      class="fixed inset-0 z-[110] flex items-center justify-end bg-black/70 backdrop-blur-xs transition-all"
+      @click.self="closeTaskInspector"
+    >
+      <div
+        class="w-full max-w-xl h-full bg-[#18181b] border-l border-[#333338] shadow-2xl flex flex-col overflow-hidden text-xs text-zinc-200 animate-in slide-in-from-right duration-200"
+      >
+        <!-- Drawer Header -->
+        <div class="px-5 py-4 border-b border-[#2d2d32] bg-[#1f1f23] flex items-start justify-between gap-3 shrink-0">
+          <div class="flex flex-col gap-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span
+                class="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border shrink-0"
+                :class="getTaskIssueTypeInfo(inspectingTask.issue_type).class"
+              >
+                {{ getTaskIssueTypeInfo(inspectingTask.issue_type).icon }} {{ getTaskIssueTypeInfo(inspectingTask.issue_type).label }}
+              </span>
+              <span class="font-mono font-bold text-sm text-sky-400">
+                {{ inspectingTask.issue_key || `#${inspectingTask.id}` }}
+              </span>
+
+              <!-- Priority Selector Dropdown -->
+              <div class="relative group/priority">
+                <button
+                  class="px-2 py-0.5 rounded text-[10px] font-bold uppercase border flex items-center gap-1 cursor-pointer transition-colors"
+                  :class="[getTaskPriorityBadge(inspectingTask.priority).bg, getTaskPriorityBadge(inspectingTask.priority).text, getTaskPriorityBadge(inspectingTask.priority).border]"
+                  title="Click to change priority"
+                >
+                  <span>{{ getTaskPriorityBadge(inspectingTask.priority).icon }}</span>
+                  <span>{{ getTaskPriorityBadge(inspectingTask.priority).label }}</span>
+                  <i class="codicon codicon-chevron-down text-[9px]" />
+                </button>
+                <div
+                  class="absolute left-0 top-full mt-1 hidden group-hover/priority:flex flex-col rounded-lg bg-[#25252a] border border-[#3f3f46] shadow-xl p-1 z-50 min-w-[110px]"
+                >
+                  <button
+                    v-for="p in (['urgent', 'high', 'medium', 'low'] as const)"
+                    :key="p"
+                    class="px-2 py-1 text-left rounded text-[10px] font-medium transition-colors flex items-center gap-1.5 cursor-pointer hover:bg-[#323238]"
+                    :class="inspectingTask.priority === p ? 'text-white font-bold bg-[#383840]' : 'text-zinc-400'"
+                    @click="updateTaskPriority(inspectingTask, p)"
+                  >
+                    <span>{{ getTaskPriorityBadge(p).icon }}</span>
+                    <span>{{ getTaskPriorityBadge(p).label }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Status Badge -->
+              <span
+                class="px-2 py-0.5 rounded text-[10px] font-bold uppercase border flex items-center gap-1"
+                :class="[getTaskStatusBadge(inspectingTask.status).bg, getTaskStatusBadge(inspectingTask.status).text, getTaskStatusBadge(inspectingTask.status).border]"
+              >
+                <span class="w-1.5 h-1.5 rounded-full" :class="getTaskStatusBadge(inspectingTask.status).dot" />
+                <span>{{ getTaskStatusBadge(inspectingTask.status).label }}</span>
+              </span>
+
+              <span
+                v-if="inspectingTask.story_points"
+                class="font-mono font-bold text-[10px] px-2 py-0.5 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-800/60"
+              >
+                {{ inspectingTask.story_points }} pts
+              </span>
+            </div>
+
+            <h2 class="text-base font-bold text-white leading-snug mt-1">
+              {{ inspectingTask.title }}
+            </h2>
+          </div>
+
+          <button
+            class="w-7 h-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-white hover:bg-[#2d2d32] transition-colors cursor-pointer shrink-0"
+            title="Close inspector"
+            @click="closeTaskInspector"
+          >
+            <i class="codicon codicon-close text-base" />
+          </button>
+        </div>
+
+        <!-- Drawer Scrollable Content -->
+        <div class="flex-1 overflow-y-auto p-5 space-y-5 sidebar-scrollable">
+          <!-- Metadata Chips -->
+          <div class="grid grid-cols-2 gap-2 p-3 rounded-xl bg-[#1f1f23] border border-[#2d2d32] text-[11px]">
+            <div class="flex items-center gap-2">
+              <span class="text-zinc-500">Project:</span>
+              <span class="font-medium text-zinc-200 truncate">{{ inspectingTask.project?.title || 'General' }}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-zinc-500">Epic:</span>
+              <span class="font-medium text-purple-300 truncate">{{ inspectingTask.epic?.title || inspectingTask.epic?.issue_key || 'None' }}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-zinc-500">Target Branch:</span>
+              <span class="font-mono text-sky-400 truncate">codex/{{ inspectingTask.issue_key || `task-${inspectingTask.id}` }}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-zinc-500">Est. Pomodoros:</span>
+              <span class="font-medium text-amber-300 font-mono">{{ inspectingTask.estimated_pomodoros || 1 }} 🍅</span>
+            </div>
+          </div>
+
+          <!-- Description Section -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                <i class="codicon codicon-file-text text-zinc-500" />
+                <span>Description</span>
+              </h3>
+            </div>
+            <div class="p-3.5 rounded-xl bg-[#202024] border border-[#2e2e34] leading-relaxed text-zinc-200">
+              <MarkdownView
+                v-if="inspectingTask.description"
+                :content="inspectingTask.description"
+                class="prose prose-invert max-w-none text-xs"
+              />
+              <p v-else class="text-zinc-500 italic">No description provided for this task.</p>
+            </div>
+          </div>
+
+          <!-- Acceptance Criteria Section -->
+          <div v-if="inspectingTask.acceptance_criteria" class="space-y-1.5">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+              <i class="codicon codicon-checklist text-emerald-500" />
+              <span>Acceptance Criteria</span>
+            </h3>
+            <div class="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-800/40 text-emerald-200">
+              <MarkdownView
+                :content="inspectingTask.acceptance_criteria"
+                class="prose prose-invert max-w-none text-xs"
+              />
+            </div>
+          </div>
+
+          <!-- Subtasks Checklist Section -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                <i class="codicon codicon-tasklist text-zinc-500" />
+                <span>Subtasks & Checklist</span>
+              </h3>
+              <span v-if="getTaskSubtasks(inspectingTask).length" class="text-[11px] font-mono text-zinc-400">
+                {{ getTaskSubtasks(inspectingTask).filter(s => s.done).length }} / {{ getTaskSubtasks(inspectingTask).length }} Done
+              </span>
+            </div>
+
+            <!-- Subtask Progress Bar -->
+            <div v-if="getTaskSubtasks(inspectingTask).length" class="w-full h-1.5 rounded-full bg-[#27272a] overflow-hidden">
+              <div
+                class="h-full bg-emerald-500 transition-all duration-300"
+                :style="{
+                  width: `${(getTaskSubtasks(inspectingTask).filter(s => s.done).length / getTaskSubtasks(inspectingTask).length) * 100}%`
+                }"
+              />
+            </div>
+
+            <div v-if="getTaskSubtasks(inspectingTask).length" class="space-y-1.5">
+              <div
+                v-for="(st, idx) in getTaskSubtasks(inspectingTask)"
+                :key="st.id || idx"
+                class="flex items-start gap-2.5 p-2.5 rounded-lg border transition-colors cursor-pointer"
+                :class="st.done ? 'bg-[#1a221d] border-emerald-900/60 text-zinc-400' : 'bg-[#202024] border-[#2e2e34] text-zinc-200 hover:border-[#3e3e46]'"
+                @click="toggleSubtaskDone(inspectingTask, idx)"
+              >
+                <input
+                  type="checkbox"
+                  :checked="st.done"
+                  class="mt-0.5 w-4 h-4 rounded border-zinc-600 bg-zinc-800 text-emerald-500 focus:ring-0 cursor-pointer shrink-0"
+                  @click.stop="toggleSubtaskDone(inspectingTask, idx)"
+                />
+                <span class="text-xs leading-normal" :class="{ 'line-through opacity-60': st.done }">
+                  {{ st.title }}
+                </span>
+              </div>
+            </div>
+            <p v-else class="text-xs text-zinc-500 italic p-3 rounded-lg bg-[#202024] border border-[#2e2e34]">
+              No subtasks attached to this task.
+            </p>
+          </div>
+
+          <!-- MCP Context Pack Preview -->
+          <div class="space-y-1.5">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+              <i class="codicon codicon-plug text-zinc-500" />
+              <span>MCP & Execution Blueprint</span>
+            </h3>
+            <div class="p-3 rounded-xl bg-[#1e1e22] border border-[#2d2d32] space-y-1.5 font-mono text-[11px] text-zinc-400">
+              <div class="flex items-center justify-between">
+                <span>Task Key:</span>
+                <span class="text-sky-300 font-bold">{{ inspectingTask.issue_key || `#${inspectingTask.id}` }}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span>Execution Mode:</span>
+                <span class="text-emerald-300">Full Access Supervised</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span>Provider & Model:</span>
+                <span class="text-amber-300">{{ provider }} ({{ activeModel }})</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Drawer Footer Action Bar -->
+        <div class="p-4 border-t border-[#2d2d32] bg-[#1f1f23] flex items-center justify-between gap-2 shrink-0">
+          <div class="flex items-center gap-2">
+            <button
+              class="px-3 py-2 rounded-lg border border-[#3f3f46] bg-[#2a2a30] hover:bg-[#34343a] text-zinc-200 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="Copy task context prompt for AI"
+              @click="copyTaskContextPrompt(inspectingTask)"
+            >
+              <i class="codicon codicon-copy" />
+              <span>Copy Prompt</span>
+            </button>
+            <button
+              class="px-3 py-2 rounded-lg border border-[#3f3f46] bg-[#2a2a30] hover:bg-[#34343a] text-zinc-200 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="Open task in Web Task Hub"
+              @click="openTaskInWebHub(inspectingTask)"
+            >
+              <i class="codicon codicon-globe" />
+              <span>Open in Hub</span>
+            </button>
+          </div>
+
+          <button
+            class="px-4 py-2 rounded-lg bg-[#0e639c] hover:bg-[#1177bb] text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg active:scale-98"
+            @click="() => { taskId = inspectingTask.id; closeTaskInspector(); void runPreflight(); }"
+          >
+            <i class="codicon codicon-play" />
+            <span>Prepare & Launch Task</span>
           </button>
         </div>
       </div>
