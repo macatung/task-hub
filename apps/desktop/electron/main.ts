@@ -1584,11 +1584,9 @@ function createWindow() {
   ipcMain.handle('taskhub-documents-import-generated', async (_event, { taskHubUrl, token, projectId, payload }: { taskHubUrl: string; token: string; projectId: string; payload: Record<string, any> }) => taskHubRequest(taskHubUrl, `/api/v1/projects/${encodeURIComponent(projectId)}/documents/import-generated`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'X-Task-Hub-Project': projectId }, body: JSON.stringify(payload) }));
   ipcMain.handle('taskhub-capabilities', async (_event, taskHubUrl: string) => taskHubRequest(taskHubUrl, '/api/v1/capabilities'));
 
-  ipcMain.handle('agent-configure-mcp', (_event, { cwd, provider, taskHubUrl, projectId, token }: { cwd: string; provider: string; taskHubUrl: string; projectId: string; token: string }) => {
+  ipcMain.handle('agent-configure-mcp', (_event, { cwd, provider, taskHubUrl, projectId, token }: { cwd: string; provider: string; taskHubUrl: string; projectId: string | number; token: string }) => {
     if (!cwd || !fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) throw new Error('Invalid workspace directory.');
-    if (!/^https?:\/\//i.test(taskHubUrl)) throw new Error('Task Hub URL must start with http:// or https://.');
-    if (!/^\d+$/.test(String(projectId))) throw new Error('Project ID must be a numeric ID.');
-    if (!token || token.length < 12) throw new Error('Invalid Project MCP token.');
+    if (projectId === undefined || projectId === null || String(projectId).trim() === '') throw new Error('Project ID is required.');
 
     const useAntigravityFormat = provider === 'antigravity' || provider === 'agy';
     const configDirectory = useAntigravityFormat ? path.join(cwd, '.agents') : cwd;

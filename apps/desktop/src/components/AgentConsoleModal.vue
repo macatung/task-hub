@@ -2183,7 +2183,7 @@ const loadContext = async () => {
       cwd: worktree.value,
       provider: provider.value,
       taskHubUrl: taskHubUrl.value,
-      projectId: credential.value.projectId,
+      projectId: String(selectedTask.value?.project_id || docsProjectId.value || (credential.value.projectId !== 'all' ? credential.value.projectId : null) || '1'),
       token: credential.value.token,
     });
     const session = `${provider.value}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
