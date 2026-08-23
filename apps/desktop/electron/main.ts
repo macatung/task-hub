@@ -1273,6 +1273,13 @@ function createWindow() {
 
   win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     console.error(`[Renderer Load Error] Code: ${errorCode}, Description: ${errorDescription}, URL: ${validatedURL}`);
+    if (validatedURL?.startsWith('http://') || validatedURL?.startsWith('https://')) {
+      const fallbackFile = path.join(process.env.DIST || path.join(__dirname, '../dist'), 'index.html');
+      if (fs.existsSync(fallbackFile)) {
+        console.log('[Electron] Falling back to built local index.html...');
+        win?.loadFile(fallbackFile);
+      }
+    }
   });
   win.webContents.on('render-process-gone', (_event, details) => {
     console.error(`[Renderer Process Gone] reason=${details.reason} exitCode=${details.exitCode}`);
