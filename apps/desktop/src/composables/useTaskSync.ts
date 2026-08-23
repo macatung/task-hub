@@ -104,16 +104,39 @@ export function useTaskSync() {
 
   // Fetch tasks from API
   const loadCredential = async () => {
-    try { credential.value = await window.desktopApi?.taskHub?.getCredential?.() || null; }
-    catch { credential.value = null; }
-    return credential.value;
+    try {
+      const electronCred = await window.desktopApi?.taskHub?.getCredential?.();
+      if (electronCred?.token) {
+        credential.value = electronCred;
+        try { localStorage.setItem('task_hub_credential', JSON.stringify(electronCred)); } catch {}
+        return credential.value;
+      }
+    } catch {}
+    try {
+      const saved = localStorage.getItem('task_hub_credential');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.token) {
+          credential.value = parsed;
+          return credential.value;
+        }
+      }
+    } catch {}
+    credential.value = null;
+    return null;
   };
 
   const setCredential = async (next: DesktopCredential) => {
-    await window.desktopApi?.taskHub?.saveCredential?.(next);
+    try {
+      await window.desktopApi?.taskHub?.saveCredential?.(next);
+    } catch {}
+    try {
+      localStorage.setItem('task_hub_credential', JSON.stringify(next));
+    } catch {}
     credential.value = next;
     connectionError.value = '';
-    await fetchProjects(); await fetchTasks();
+    await fetchProjects();
+    await fetchTasks();
   };
 
   const fetchProjects = async () => {
@@ -122,7 +145,12 @@ export function useTaskSync() {
   };
 
   const clearCredential = async () => {
-    await window.desktopApi?.taskHub?.clearCredential?.();
+    try {
+      await window.desktopApi?.taskHub?.clearCredential?.();
+    } catch {}
+    try {
+      localStorage.removeItem('task_hub_credential');
+    } catch {}
     credential.value = null;
     tasks.value = [];
     agentTasks.value = [];

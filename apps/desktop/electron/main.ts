@@ -210,15 +210,47 @@ function writeSavedAgentWorkspaces(workspaces: string[]) {
   return workspaces;
 }
 function saveDesktopCredential(credential: DesktopCredential) {
-  if (!safeStorage.isEncryptionAvailable()) throw new Error('OS secure storage is unavailable.');
-  fs.mkdirSync(path.dirname(desktopCredentialPath()), { recursive: true });
-  fs.writeFileSync(desktopCredentialPath(), safeStorage.encryptString(JSON.stringify(credential)));
-  return true;
+  try {
+    fs.mkdirSync(path.dirname(desktopCredentialPath()), { recursive: true });
+    const raw = JSON.stringify(credential);
+    if (safeStorage.isEncryptionAvailable()) {
+      try {
+        fs.writeFileSync(desktopCredentialPath(), safeStorage.encryptString(raw));
+        return true;
+      } catch (err) {
+        console.warn('safeStorage.encryptString failed, using base64 fallback:', err);
+      }
+    }
+    fs.writeFileSync(desktopCredentialPath(), Buffer.from(raw, 'utf8').toString('base64'), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Failed to save desktop credential:', error);
+    return false;
+  }
 }
 function loadDesktopCredential(): DesktopCredential | null {
   const file = desktopCredentialPath();
-  if (!fs.existsSync(file) || !safeStorage.isEncryptionAvailable()) return null;
-  try { return JSON.parse(safeStorage.decryptString(fs.readFileSync(file))) as DesktopCredential; } catch { return null; }
+  if (!fs.existsSync(file)) return null;
+  try {
+    const buffer = fs.readFileSync(file);
+    if (safeStorage.isEncryptionAvailable()) {
+      try {
+        const decrypted = safeStorage.decryptString(buffer);
+        return JSON.parse(decrypted) as DesktopCredential;
+      } catch {
+        /* fallback to base64 / plain */
+      }
+    }
+    const str = buffer.toString('utf8');
+    try {
+      return JSON.parse(Buffer.from(str, 'base64').toString('utf8')) as DesktopCredential;
+    } catch {
+      return JSON.parse(str) as DesktopCredential;
+    }
+  } catch (error) {
+    console.warn('Failed to load desktop credential from file:', error);
+    return null;
+  }
 }
 function clearDesktopCredential() { const file = desktopCredentialPath(); if (fs.existsSync(file)) fs.rmSync(file, { force: true }); return true; }
 

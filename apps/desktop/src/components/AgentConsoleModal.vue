@@ -163,7 +163,60 @@ const showActivityTimeline = ref(false);
 const showProcessDrawer = ref(false);
 
 const taskHubUrl = ref(localStorage.getItem('task_hub_base_url') || 'https://task-hub.macatung.dev');
-const credential = ref<{ token: string; projectId: string } | null>(null);
+const credential = ref<{ token: string; projectId: string; taskHubUrl?: string } | null>(null);
+
+const ensureCredential = async (): Promise<boolean> => {
+  if (credential.value?.token) return true;
+  if (props.desktopCredential?.token) {
+    credential.value = {
+      token: props.desktopCredential.token,
+      projectId: String(props.desktopCredential.projectId),
+      taskHubUrl: props.desktopCredential.taskHubUrl,
+    };
+    if (props.desktopCredential.taskHubUrl) taskHubUrl.value = props.desktopCredential.taskHubUrl;
+    return true;
+  }
+  try {
+    const electronCred = await window.desktopApi?.taskHub?.getCredential?.();
+    if (electronCred?.token) {
+      credential.value = {
+        token: electronCred.token,
+        projectId: String(electronCred.projectId),
+        taskHubUrl: electronCred.taskHubUrl,
+      };
+      if (electronCred.taskHubUrl) taskHubUrl.value = electronCred.taskHubUrl;
+      return true;
+    }
+  } catch {}
+  try {
+    const raw = localStorage.getItem('task_hub_credential');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.token) {
+        credential.value = {
+          token: parsed.token,
+          projectId: String(parsed.projectId),
+          taskHubUrl: parsed.taskHubUrl,
+        };
+        if (parsed.taskHubUrl) taskHubUrl.value = parsed.taskHubUrl;
+        return true;
+      }
+    }
+  } catch {}
+  return false;
+};
+
+watch(
+  () => props.desktopCredential,
+  (next) => {
+    if (next?.token) {
+      credential.value = { token: next.token, projectId: String(next.projectId), taskHubUrl: next.taskHubUrl };
+      if (next.taskHubUrl) taskHubUrl.value = next.taskHubUrl;
+    }
+  },
+  { immediate: true, deep: true }
+);
+
 const contextPack = ref<any>(null);
 const runId = ref<number | null>(null);
 const sessionId = ref<string | null>(null);
@@ -1814,8 +1867,9 @@ const runQuickSetup = async () => {
   }
 };
 
-const mcpCall = (method: string, params: Record<string, any> = {}) => {
-  if (!credential.value) throw new Error('Task Hub is not authenticated.');
+const mcpCall = async (method: string, params: Record<string, any> = {}) => {
+  const hasCred = await ensureCredential();
+  if (!hasCred || !credential.value) throw new Error('Task Hub is not authenticated.');
   return window.desktopApi.taskHub.mcpCall(taskHubUrl.value, credential.value.token, credential.value.projectId, method, params);
 };
 
@@ -1868,8 +1922,15 @@ const startPairing = async () => {
         const status = await window.desktopApi.taskHub.pollPairing(taskHubUrl.value, pairing.pairing_id, pairing.device_secret);
         if (status.status === 'approved') {
           stopPolling();
-          credential.value = { token: status.mcp_token, projectId: String(status.project_id) };
-          localStorage.setItem('task_hub_credential', JSON.stringify(credential.value));
+          const credData = {
+            taskHubUrl: taskHubUrl.value,
+            token: status.mcp_token,
+            projectId: String(status.project_id),
+            projectTitle: status.project_title,
+          };
+          credential.value = { token: status.mcp_token, projectId: String(status.project_id), taskHubUrl: taskHubUrl.value };
+          try { await window.desktopApi?.taskHub?.saveCredential?.(credData); } catch {}
+          try { localStorage.setItem('task_hub_credential', JSON.stringify(credData)); } catch {}
           addTimeline('Pairing', 'MCP authenticated successfully.', 'ok');
           await refreshAgentTasks();
           if (selectedTask.value) {
@@ -1923,8 +1984,8 @@ const runPreflight = async (initialRequest = '') => {
     worktree.value = workspace.path;
     addTimeline('Worktree ready', `${workspace.branch} · ${workspace.reused ? 'reused' : 'created'}`, 'ok');
 
-    if (props.desktopCredential) {
-      credential.value = { token: props.desktopCredential.token, projectId: props.desktopCredential.projectId };
+    const hasCred = await ensureCredential();
+    if (hasCred) {
       await loadContext();
     } else {
       await startPairing();
@@ -2503,7 +2564,9 @@ const openSessionLog = async () => {
 };
 
 onMounted(async () => {
+  await ensureCredential();
   loadCachedTasks();
+  void refreshAgentTasks();
   // Restore persisted state before checking the available model inventory.
   // Running these concurrently allowed stale localStorage to overwrite the
   // AGY 2.x model migration after it had already completed.
@@ -4319,7 +4382,65 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <div class="border-t border-slate-800 bg-slate-900/80 px-5 py-3 shrink-0"><div v-if="phase === 'running'" class="mb-2 flex gap-1.5 overflow-x-auto"><button v-for="prompt in ['Progress summary', 'Run tests', 'Check git status']" :key="prompt" class="shrink-0 rounded-full border border-slate-700 bg-slate-800 px-2.5 py-1 text-[10px] text-slate-300 hover:text-white cursor-pointer" @click="conversationDraft = prompt">{{ prompt }}</button></div><div v-if="errorMessage" class="mb-2 rounded-lg border border-rose-900 bg-rose-950/40 px-3 py-2 text-xs text-rose-200">{{ errorMessage }}</div><div class="flex items-end gap-2"><textarea v-model="conversationDraft" rows="2" class="min-h-[44px] flex-1 resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-cyan-500" :placeholder="composerPlaceholder" :disabled="['preflight', 'pairing', 'context'].includes(phase)" @keydown.ctrl.enter.prevent="sendConversation" /><button class="rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-bold text-slate-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer flex items-center gap-1.5" :disabled="['preflight', 'pairing', 'context'].includes(phase) || (workflowMode === 'discovery' && phase !== 'running' && !conversationDraft.trim()) || (workflowMode === 'task' && !selectedTask)" @click="sendConversation"><i v-if="phase === 'running'" class="codicon codicon-loading animate-spin text-xs" /><span>{{ composerActionLabel }}</span></button></div><p class="mt-1.5 text-[10px] text-slate-500">Ctrl + Enter to send · Technical process in dedicated panel</p></div>
+          <div class="border-t border-slate-800 bg-slate-900/80 px-5 py-3 shrink-0">
+            <div v-if="phase === 'running'" class="mb-2 flex gap-1.5 overflow-x-auto">
+              <button
+                v-for="prompt in ['Progress summary', 'Run tests', 'Check git status']"
+                :key="prompt"
+                class="shrink-0 rounded-full border border-slate-700 bg-slate-800 px-2.5 py-1 text-[10px] text-slate-300 hover:text-white cursor-pointer"
+                @click="conversationDraft = prompt"
+              >
+                {{ prompt }}
+              </button>
+            </div>
+            <!-- Error Banner with 1-click Connect Action -->
+            <div
+              v-if="errorMessage"
+              class="mb-2 rounded-lg border border-rose-900 bg-rose-950/50 px-3 py-2 text-xs text-rose-200 flex items-center justify-between gap-2"
+            >
+              <div class="flex items-center gap-2 min-w-0">
+                <i class="codicon codicon-error text-rose-400 shrink-0" />
+                <span class="truncate">{{ errorMessage }}</span>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <button
+                  v-if="errorMessage.toLowerCase().includes('authenticat') || errorMessage.toLowerCase().includes('not connected') || !credential"
+                  class="px-2.5 py-1 rounded bg-[#0e639c] hover:bg-[#1177bb] text-white text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+                  :disabled="phase === 'pairing'"
+                  @click="startPairing"
+                >
+                  <i class="codicon" :class="phase === 'pairing' ? 'codicon-loading animate-spin' : 'codicon-link'" />
+                  <span>{{ phase === 'pairing' ? 'Awaiting Approval...' : 'Connect Task Hub' }}</span>
+                </button>
+                <button
+                  class="p-1 rounded hover:bg-rose-900/60 text-rose-400 hover:text-rose-200 cursor-pointer"
+                  title="Dismiss error"
+                  @click="errorMessage = ''"
+                >
+                  <i class="codicon codicon-close text-xs" />
+                </button>
+              </div>
+            </div>
+            <div class="flex items-end gap-2">
+              <textarea
+                v-model="conversationDraft"
+                rows="2"
+                class="min-h-[44px] flex-1 resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-cyan-500"
+                :placeholder="composerPlaceholder"
+                :disabled="['preflight', 'pairing', 'context'].includes(phase)"
+                @keydown.ctrl.enter.prevent="sendConversation"
+              />
+              <button
+                class="rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-bold text-slate-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer flex items-center gap-1.5"
+                :disabled="['preflight', 'pairing', 'context'].includes(phase) || (workflowMode === 'discovery' && phase !== 'running' && !conversationDraft.trim()) || (workflowMode === 'task' && !selectedTask)"
+                @click="sendConversation"
+              >
+                <i v-if="phase === 'running'" class="codicon codicon-loading animate-spin text-xs" />
+                <span>{{ composerActionLabel }}</span>
+              </button>
+            </div>
+            <p class="mt-1.5 text-[10px] text-slate-500">Ctrl + Enter to send · Technical process in dedicated panel</p>
+          </div>
         </div>
 
         <!-- Legacy terminal/review layout retained only while migrating saved UI state. -->
