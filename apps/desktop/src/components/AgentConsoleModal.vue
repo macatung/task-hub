@@ -4266,7 +4266,125 @@ onUnmounted(() => {
           </header>
 
           <div ref="streamContainer" class="flex-1 min-h-0 overflow-y-auto px-5 py-6" @scroll="handleScroll">
-            <div v-if="conversationCards.length === 0" class="mx-auto flex max-w-xl flex-col items-center justify-center py-20 text-center"><div class="mb-4 grid h-12 w-12 place-items-center rounded-2xl border border-cyan-800 bg-cyan-950/40 text-cyan-300"><i class="codicon codicon-comment-discussion text-xl" /></div><h3 class="text-base font-bold text-slate-100">Start {{ workflowTitle }}</h3><p class="mt-2 text-xs leading-relaxed text-slate-400">{{ workflowMode === 'discovery' ? 'Describe the desired outcome in the composer below. The agent reads the repository, documentation, and Task Hub context.' : workflowMode === 'task' ? 'Select a Task Hub task from the left sidebar, optionally add instructions before agent begins.' : 'Select a project then click Send. You can scope document scanning using instructions.' }}</p></div>
+            <!-- Empty / Ready Interactive States -->
+            <div v-if="conversationCards.length === 0" class="mx-auto max-w-2xl py-6">
+              <!-- STATE A: READY TO LAUNCH AGENT -->
+              <div v-if="phase === 'ready'" class="rounded-2xl border border-cyan-500/50 bg-gradient-to-b from-cyan-950/40 to-slate-900/90 p-6 shadow-2xl shadow-cyan-950/60 text-center">
+                <div class="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-cyan-400 bg-cyan-500/10 text-cyan-300 shadow-lg shadow-cyan-500/20 animate-pulse">
+                  <i class="codicon codicon-rocket text-2xl" />
+                </div>
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-950 border border-cyan-700/80 text-[11px] font-bold uppercase tracking-wider text-cyan-300 mb-3">
+                  <span class="h-2 w-2 rounded-full bg-cyan-400 animate-ping" />
+                  Environment & MCP Ready
+                </span>
+                <h3 class="text-lg font-bold text-slate-50">{{ selectedTask?.issue_key ? `${selectedTask.issue_key} · ${selectedTask.title}` : (selectedTask?.title || 'Ready to Execute Task') }}</h3>
+                <p class="mt-2 text-xs text-slate-300 max-w-lg mx-auto leading-relaxed">
+                  Git worktree branch <span class="font-mono text-cyan-300 font-bold">{{ worktree ? worktree.split(/[/\\]/).pop() : 'isolated' }}</span> has been configured with Task Hub MCP context pack and supervised permissions.
+                </p>
+
+                <!-- Metadata badges -->
+                <div class="mt-5 flex flex-wrap items-center justify-center gap-2 text-xs">
+                  <span class="px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 flex items-center gap-1.5">
+                    <i class="codicon codicon-git-branch text-cyan-400" />
+                    <span>Branch: <b class="text-white">{{ worktree ? worktree.split(/[/\\]/).pop() : 'active' }}</b></span>
+                  </span>
+                  <span class="px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 flex items-center gap-1.5">
+                    <i class="codicon codicon-sparkle text-purple-400" />
+                    <span>Model: <b class="text-white">{{ activeModel }}</b></span>
+                  </span>
+                  <span class="px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 flex items-center gap-1.5">
+                    <i class="codicon codicon-shield text-emerald-400" />
+                    <span>Mode: <b class="text-emerald-300">Full Access Supervised</b></span>
+                  </span>
+                </div>
+
+                <!-- Launch Button -->
+                <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    class="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-slate-950 text-sm font-bold shadow-lg shadow-cyan-500/25 transition-all cursor-pointer flex items-center gap-2 transform hover:scale-[1.02] active:scale-[0.98]"
+                    @click="startAgent"
+                  >
+                    <i class="codicon codicon-play text-base" />
+                    <span>Launch Agent Now</span>
+                  </button>
+                  <button
+                    class="px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
+                    @click="showProcessDrawer = true"
+                  >
+                    <i class="codicon codicon-terminal" />
+                    <span>Inspect Preflight & Context</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- STATE B: SELECT & PREPARE GUIDE -->
+              <div v-else class="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
+                <div class="flex items-center gap-3 border-b border-slate-800/80 pb-4 mb-5">
+                  <div class="grid h-10 w-10 place-items-center rounded-xl border border-cyan-800 bg-cyan-950/40 text-cyan-300 shrink-0">
+                    <i class="codicon codicon-checklist text-lg" />
+                  </div>
+                  <div>
+                    <h3 class="text-base font-bold text-slate-100">{{ workflowTitle }} Workflow</h3>
+                    <p class="text-xs text-slate-400">Follow the standard 4-step developer workflow to execute tasks with AI Pair Programmer.</p>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  <!-- Step 1 -->
+                  <div class="p-3.5 rounded-xl border border-slate-800 bg-slate-950/60 flex flex-col gap-2" :class="selectedTask ? 'border-cyan-800/80 bg-cyan-950/20' : ''">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Step 1</span>
+                      <i class="codicon text-sm" :class="selectedTask ? 'codicon-pass text-emerald-400' : 'codicon-record text-slate-500'" />
+                    </div>
+                    <h4 class="font-bold text-slate-100">Select Task</h4>
+                    <p class="text-[11px] text-slate-400 leading-relaxed">
+                      {{ selectedTask ? `Selected: ${selectedTask.issue_key || `#${selectedTask.id}`}` : 'Pick an issue from Task Hub Work Items in the left sidebar.' }}
+                    </p>
+                  </div>
+
+                  <!-- Step 2 -->
+                  <div class="p-3.5 rounded-xl border border-slate-800 bg-slate-950/60 flex flex-col gap-2" :class="['preflight', 'context'].includes(phase) ? 'border-cyan-800/80 bg-cyan-950/20' : ''">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Step 2</span>
+                      <i class="codicon text-sm" :class="['preflight', 'context'].includes(phase) ? 'codicon-loading animate-spin text-cyan-400' : 'codicon-record text-slate-500'" />
+                    </div>
+                    <h4 class="font-bold text-slate-100">Prepare & Isolate</h4>
+                    <p class="text-[11px] text-slate-400 leading-relaxed">
+                      Auto-creates Git worktree branch and loads MCP context pack.
+                    </p>
+                  </div>
+
+                  <!-- Step 3 -->
+                  <div class="p-3.5 rounded-xl border border-slate-800 bg-slate-950/60 flex flex-col gap-2">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Step 3</span>
+                      <i class="codicon codicon-record text-slate-500 text-sm" />
+                    </div>
+                    <h4 class="font-bold text-slate-100">Execute & Review</h4>
+                    <p class="text-[11px] text-slate-400 leading-relaxed">
+                      Agent edits files, runs tests, and submits handoff with diff for approval.
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Action button if task selected -->
+                <div v-if="selectedTask && phase === 'select'" class="mt-5 pt-4 border-t border-slate-800 flex items-center justify-between gap-3">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-950 text-cyan-300 border border-cyan-800 shrink-0">
+                      {{ selectedTask.issue_key || `#${selectedTask.id}` }}
+                    </span>
+                    <span class="text-xs text-slate-200 truncate font-semibold">{{ selectedTask.title }}</span>
+                  </div>
+                  <button
+                    class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 shadow-sm shadow-cyan-500/20"
+                    @click="runPreflight()"
+                  >
+                    <i class="codicon codicon-gear" />
+                    <span>Prepare Task</span>
+                  </button>
+                </div>
+              </div>
+            </div>
             <div v-else class="mx-auto max-w-4xl space-y-5">
               <article v-for="card in conversationCards" :key="card.id">
                 <div v-if="card.type === 'user_message'" class="flex justify-end">
@@ -4319,7 +4437,7 @@ onUnmounted(() => {
                     </span>
                     <button class="text-[10px] text-cyan-400 hover:text-cyan-200 underline cursor-pointer flex items-center gap-1" @click="showProcessDrawer = true">
                       <i class="codicon codicon-terminal text-[11px]" />
-                      <span>Xem Process ({{ processCards.length }})</span>
+                      <span>View Process ({{ processCards.length }})</span>
                     </button>
                   </div>
                   <div class="flex items-center gap-2 text-slate-200">
@@ -4364,7 +4482,7 @@ onUnmounted(() => {
                   </div>
                   <button v-if="gitDiffData.diffs.length" class="rounded-lg border border-cyan-700 bg-cyan-950/60 px-3 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-900/60 cursor-pointer flex items-center gap-1.5" @click="loadGitDiff(); activeEditorTab = 'monaco';">
                     <i class="codicon codicon-diff" />
-                    <span>Soi Diff ({{ gitDiffData.diffs.length }} files)</span>
+                    <span>View Diff ({{ gitDiffData.diffs.length }} files)</span>
                   </button>
                 </div>
                 <p class="mt-2 text-sm text-slate-200 leading-relaxed">{{ handoff.summary || (workflowMode === 'docs' ? 'Agent completed documentation session.' : 'Agent completed execution session and attached verification evidence.') }}</p>
@@ -4394,7 +4512,7 @@ onUnmounted(() => {
                   </button>
                   <button class="rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5" @click="activeEditorTab = 'evidence'">
                     <i class="codicon codicon-file-text" />
-                    <span>Xem Evidence Log</span>
+                    <span>View Evidence Log</span>
                   </button>
                 </div>
               </section>
