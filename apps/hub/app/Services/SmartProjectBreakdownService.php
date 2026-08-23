@@ -30,8 +30,10 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
         // Check for domain keywords in the prompt
         $domains = $this->analyzeDomains($prompt);
 
-        // Generate Sprints & Tasks
-        $generatedSprints = $this->buildSprintsAndTasks($prompt, $projectTitle, $projectKey, $sprintCount, $sprintWeeks, $startDate, $domains);
+        // Generate Epics & Sprints cleanly separated
+        $breakdown = $this->buildSprintsAndTasks($prompt, $projectTitle, $projectKey, $sprintCount, $sprintWeeks, $startDate, $domains);
+        $generatedEpics = $breakdown['epics'] ?? [];
+        $generatedSprints = $breakdown['sprints'] ?? [];
 
         $totalPoints = 0;
         $totalTasks = 0;
@@ -57,6 +59,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                 'description' => Str::limit($prompt, 180),
             ],
             'summary' => [
+                'epic_count' => count($generatedEpics),
                 'sprint_count' => count($generatedSprints),
                 'total_tasks' => $totalTasks,
                 'total_story_points' => $totalPoints,
@@ -65,6 +68,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                 'start_date' => $startDate->toDateString(),
                 'end_date' => $startDate->copy()->addWeeks(count($generatedSprints) * $sprintWeeks)->toDateString(),
             ],
+            'epics' => $generatedEpics,
             'sprints' => $generatedSprints,
         ];
     }
@@ -103,6 +107,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
     private function executePlanUnsafe(array $planData, array $options = []): array
     {
         $projectInfo = $planData['project'] ?? [];
+        $epicsData = $planData['epics'] ?? [];
         $sprintsData = $planData['sprints'] ?? [];
 
         // 1. Create or select Project
@@ -140,16 +145,47 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
             throw new RuntimeException('A project is required before generating tasks.');
         }
 
+        $createdEpics = [];
         $createdSprints = [];
         $createdTasks = [];
 
         $taskCounter = $project ? Task::where('project_id', $project->id)->count() + 1 : 1;
         $prefix = $project ? $project->effective_key : ($projectInfo['key'] ?? 'MCT');
 
-        // 2. Iterate each Sprint
+        // 2. First create all Epics (sprint_id = null, issue_type = 'epic')
+        $epicMap = [];
+        foreach ($epicsData as $eIdx => $eData) {
+            $issueKey = $prefix . '-' . $taskCounter++;
+            $epic = Task::create([
+                'project_id' => $project->id,
+                'workspace_id' => $options['workspace_id'] ?? $project->workspace_id,
+                'issue_key' => $issueKey,
+                'issue_type' => 'epic',
+                'title' => $eData['title'],
+                'description' => $eData['description'] ?? null,
+                'status' => $eData['status'] ?? 'todo',
+                'priority' => $eData['priority'] ?? 'high',
+                'category' => $eData['category'] ?? 'backend',
+                'story_points' => $eData['story_points'] ?? 8,
+                'sprint_id' => null,
+                'epic_id' => null,
+                'estimated_pomodoros' => $eData['estimated_pomodoros'] ?? 4,
+                'completed_pomodoros' => 0,
+                'start_date' => $eData['start_date'] ?? null,
+                'due_date' => $eData['due_date'] ?? null,
+            ]);
+            $createdEpics[] = $epic;
+            $epicMap[$eData['title']] = $epic->id;
+            $epicMap["epic-{$eIdx}"] = $epic->id;
+        }
+
+        $firstEpicId = !empty($createdEpics) ? $createdEpics[0]->id : null;
+
+        // 3. Iterate each Sprint & create its tasks linked to parent epics
         foreach ($sprintsData as $sIndex => $sData) {
             $sprint = Sprint::create([
                 'project_id' => $project->id,
+                'workspace_id' => $options['workspace_id'] ?? $project->workspace_id,
                 'name' => $sData['name'],
                 'goal' => $sData['goal'] ?? null,
                 'start_date' => $sData['start_date'] ?? null,
@@ -158,16 +194,11 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
             ]);
             $createdSprints[] = $sprint;
 
-            $currentSprintEpicId = null;
-
-            // 3. Create Tasks for this Sprint
             if (!empty($sData['tasks'])) {
                 foreach ($sData['tasks'] as $tData) {
+                    $issueType = in_array($tData['issue_type'] ?? 'task', ['story', 'task', 'bug'], true) ? $tData['issue_type'] : 'task';
                     $issueKey = $prefix . '-' . $taskCounter++;
-                    $issueType = in_array($tData['issue_type'] ?? 'task', ['epic', 'story', 'task', 'bug'], true) ? $tData['issue_type'] : 'task';
-                    $isEpic = ($issueType === 'epic');
 
-                    // Subtasks handling
                     $subtasks = [];
                     if (!empty($tData['subtasks']) && is_array($tData['subtasks'])) {
                         foreach ($tData['subtasks'] as $stIdx => $st) {
@@ -179,6 +210,9 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                         }
                     }
 
+                    $epicRef = $tData['epic_ref'] ?? $tData['epic_title'] ?? null;
+                    $assignedEpicId = ($epicRef && isset($epicMap[$epicRef])) ? $epicMap[$epicRef] : ($tData['epic_id'] ?? $firstEpicId);
+
                     $task = Task::create([
                         'project_id' => $project->id,
                         'workspace_id' => $options['workspace_id'] ?? $project->workspace_id,
@@ -187,21 +221,17 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                         'title' => $tData['title'],
                         'description' => $tData['description'] ?? null,
                         'status' => $tData['status'] ?? 'todo',
-                        'priority' => $tData['priority'] ?? 'high',
+                        'priority' => $tData['priority'] ?? 'medium',
                         'category' => $tData['category'] ?? 'backend',
                         'story_points' => $tData['story_points'] ?? 3,
-                        'sprint_id' => $isEpic ? null : $sprint->id,
-                        'epic_id' => $isEpic ? null : ($tData['epic_id'] ?? $currentSprintEpicId),
+                        'sprint_id' => $sprint->id,
+                        'epic_id' => $assignedEpicId,
                         'estimated_pomodoros' => $tData['estimated_pomodoros'] ?? 2,
                         'completed_pomodoros' => 0,
                         'start_date' => $tData['start_date'] ?? $sData['start_date'],
                         'due_date' => $tData['due_date'] ?? $sData['end_date'],
                         'notes' => count($subtasks) > 0 ? json_encode($subtasks) : null,
                     ]);
-
-                    if ($isEpic) {
-                        $currentSprintEpicId = $task->id;
-                    }
 
                     $task->load(['project', 'sprint', 'epic']);
                     $createdTasks[] = $task;
@@ -211,11 +241,13 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
 
         return [
             'success' => true,
-            'message' => 'The project was broken down and all sprints and tasks were created successfully.',
+            'message' => 'The project was broken down and all epics, sprints and tasks were created successfully.',
             'project_id' => $project ? $project->id : null,
+            'epic_ids' => array_map(fn($e) => $e->id, $createdEpics),
             'sprint_ids' => array_map(fn($s) => $s->id, $createdSprints),
             'task_ids' => array_map(fn($t) => $t->id, $createdTasks),
             'project' => $project,
+            'epics' => $createdEpics,
             'sprints' => $createdSprints,
             'tasks' => $createdTasks,
         ];
@@ -419,6 +451,26 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
         $project['color'] = (string) ($project['color'] ?? '#2563eb');
         $project['description'] = (string) ($project['description'] ?? '');
 
+        $epics = [];
+        // 1. Process any top-level epics
+        if (isset($plan['epics']) && is_array($plan['epics'])) {
+            foreach ($plan['epics'] as $epic) {
+                if (!is_array($epic) || trim((string) ($epic['title'] ?? '')) === '') continue;
+                $epics[] = [
+                    'issue_type' => 'epic',
+                    'title' => trim((string) $epic['title']),
+                    'description' => (string) ($epic['description'] ?? ''),
+                    'priority' => in_array($epic['priority'] ?? 'high', ['urgent', 'high', 'medium', 'low'], true) ? $epic['priority'] : 'high',
+                    'category' => trim((string) ($epic['category'] ?? 'backend')) ?: 'backend',
+                    'story_points' => max(1, min(100, (int) ($epic['story_points'] ?? 8))),
+                    'status' => in_array($epic['status'] ?? 'todo', ['todo', 'in_progress'], true) ? $epic['status'] : 'todo',
+                    'estimated_pomodoros' => max(1, min(20, (int) ($epic['estimated_pomodoros'] ?? 4))),
+                    'start_date' => $epic['start_date'] ?? null,
+                    'due_date' => $epic['due_date'] ?? null,
+                ];
+            }
+        }
+
         $sprints = [];
         foreach (array_values($plan['sprints']) as $index => $sprint) {
             if (!is_array($sprint) || trim((string) ($sprint['name'] ?? '')) === '') continue;
@@ -426,10 +478,28 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
             foreach (($sprint['tasks'] ?? []) as $task) {
                 if (!is_array($task) || trim((string) ($task['title'] ?? '')) === '') continue;
                 $issueType = $task['issue_type'] ?? 'task';
+
+                // If an epic is found embedded inside sprint tasks, extract it out into epics!
+                if ($issueType === 'epic') {
+                    $epics[] = [
+                        'issue_type' => 'epic',
+                        'title' => trim((string) $task['title']),
+                        'description' => (string) ($task['description'] ?? ''),
+                        'priority' => in_array($task['priority'] ?? 'high', ['urgent', 'high', 'medium', 'low'], true) ? $task['priority'] : 'high',
+                        'category' => trim((string) ($task['category'] ?? 'backend')) ?: 'backend',
+                        'story_points' => max(1, min(100, (int) ($task['story_points'] ?? 8))),
+                        'status' => in_array($task['status'] ?? 'todo', ['todo', 'in_progress'], true) ? $task['status'] : 'todo',
+                        'estimated_pomodoros' => max(1, min(20, (int) ($task['estimated_pomodoros'] ?? 4))),
+                        'start_date' => $task['start_date'] ?? null,
+                        'due_date' => $task['due_date'] ?? null,
+                    ];
+                    continue;
+                }
+
                 $priority = $task['priority'] ?? 'medium';
                 $status = $task['status'] ?? 'todo';
                 $tasks[] = [
-                    'issue_type' => in_array($issueType, ['epic', 'story', 'task', 'bug'], true) ? $issueType : 'task',
+                    'issue_type' => in_array($issueType, ['story', 'task', 'bug'], true) ? $issueType : 'task',
                     'title' => trim((string) $task['title']),
                     'description' => (string) ($task['description'] ?? ''),
                     'priority' => in_array($priority, ['urgent', 'high', 'medium', 'low'], true) ? $priority : 'medium',
@@ -437,6 +507,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'story_points' => max(0, min(100, (int) ($task['story_points'] ?? 1))),
                     'status' => in_array($status, ['todo', 'in_progress'], true) ? $status : 'todo',
                     'estimated_pomodoros' => max(1, min(20, (int) ($task['estimated_pomodoros'] ?? 1))),
+                    'epic_ref' => $task['epic_ref'] ?? $task['epic_title'] ?? null,
                     'start_date' => $task['start_date'] ?? $sprint['start_date'] ?? null,
                     'due_date' => $task['due_date'] ?? $sprint['end_date'] ?? null,
                     'subtasks' => is_array($task['subtasks'] ?? null) ? array_slice($task['subtasks'], 0, 20) : [],
@@ -454,6 +525,19 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
 
         if ($sprints === []) throw new RuntimeException('The project plan must include at least one sprint.');
 
+        if (empty($epics)) {
+            $epics[] = [
+                'issue_type' => 'epic',
+                'title' => "Platform Foundation & Core Architecture ({$project['title']})",
+                'description' => "Initial platform setup, database schema and core features.",
+                'priority' => 'high',
+                'category' => 'backend',
+                'story_points' => 8,
+                'status' => 'in_progress',
+                'estimated_pomodoros' => 6,
+            ];
+        }
+
         $tasks = collect($sprints)->flatMap(fn (array $sprint) => $sprint['tasks']);
         $workTasks = $tasks->where('issue_type', '!=', 'epic');
         $startDate = $sprints[0]['start_date'] ?? ($options['start_date'] ?? Carbon::today()->toDateString());
@@ -462,6 +546,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
             'success' => true,
             'project' => $project,
             'summary' => [
+                'epic_count' => count($epics),
                 'sprint_count' => count($sprints),
                 'total_tasks' => $workTasks->count(),
                 'total_story_points' => $workTasks->sum('story_points'),
@@ -470,6 +555,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                 'start_date' => $startDate,
                 'end_date' => $sprints[array_key_last($sprints)]['end_date'] ?? $startDate,
             ],
+            'epics' => $epics,
             'sprints' => $sprints,
         ];
     }
@@ -560,30 +646,29 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
         Carbon $startDate,
         array $domains
     ): array {
+        $epics = [];
         $sprints = [];
+
+        // Define Epic 1: Platform Foundation & Core Architecture
+        $epic1Title = "Platform Foundation & Core Architecture ({$projectTitle})";
+        $epics[] = [
+            'issue_type' => 'epic',
+            'title' => $epic1Title,
+            'description' => "Set up the database structure, environment infrastructure, and initial system design standards.\n\n### Acceptance Criteria:\n- Complete the database schema and migrations\n- Prepare dev and staging environments\n- Establish coding conventions and a CI baseline",
+            'priority' => 'urgent',
+            'category' => 'backend',
+            'story_points' => 8,
+            'status' => 'in_progress',
+            'estimated_pomodoros' => 6,
+            'start_date' => $startDate->toDateString(),
+            'due_date' => $startDate->copy()->addWeeks($sprintWeeks)->toDateString(),
+        ];
 
         // Sprint 1: Foundation, Platform Structure & MVP Architecture
         $sprint1Start = $startDate->copy();
         $sprint1End = $sprint1Start->copy()->addWeeks($sprintWeeks);
 
         $sprint1Tasks = [
-            [
-                'issue_type' => 'epic',
-                'title' => "Platform Foundation & Core Architecture ({$projectTitle})",
-                'description' => "Set up the database structure, environment infrastructure, and initial system design standards.\n\n### Acceptance Criteria:\n- Complete the database schema and migrations\n- Prepare dev and staging environments\n- Establish coding conventions and a CI baseline",
-                'priority' => 'urgent',
-                'category' => 'backend',
-                'story_points' => 8,
-                'status' => 'in_progress',
-                'estimated_pomodoros' => 6,
-                'start_date' => $sprint1Start->toDateString(),
-                'due_date' => $sprint1Start->copy()->addDays(4)->toDateString(),
-                'subtasks' => [
-                    ['text' => 'Analyze and design the data ERD'],
-                    ['text' => 'Create migrations and model relationships'],
-                    ['text' => 'Configure .env variables and Docker containers'],
-                ],
-            ],
             [
                 'issue_type' => 'story',
                 'title' => 'Build User Authentication & Authorization',
@@ -593,6 +678,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                 'story_points' => 5,
                 'status' => 'todo',
                 'estimated_pomodoros' => 4,
+                'epic_ref' => $epic1Title,
                 'start_date' => $sprint1Start->copy()->addDays(2)->toDateString(),
                 'due_date' => $sprint1Start->copy()->addDays(7)->toDateString(),
                 'subtasks' => [
@@ -610,6 +696,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                 'story_points' => 5,
                 'status' => 'todo',
                 'estimated_pomodoros' => 4,
+                'epic_ref' => $epic1Title,
                 'start_date' => $sprint1Start->copy()->addDays(3)->toDateString(),
                 'due_date' => $sprint1End->toDateString(),
                 'subtasks' => [
@@ -627,6 +714,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                 'story_points' => 3,
                 'status' => 'todo',
                 'estimated_pomodoros' => 2,
+                'epic_ref' => $epic1Title,
                 'start_date' => $sprint1Start->copy()->addDays(4)->toDateString(),
                 'due_date' => $sprint1End->toDateString(),
                 'subtasks' => [
@@ -647,6 +735,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                 'story_points' => 3,
                 'status' => 'todo',
                 'estimated_pomodoros' => 3,
+                'epic_ref' => $epic1Title,
                 'start_date' => $sprint1Start->copy()->addDays(1)->toDateString(),
                 'due_date' => $sprint1Start->copy()->addDays(5)->toDateString(),
                 'subtasks' => [
@@ -666,27 +755,25 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
         ];
 
         if ($sprintCount >= 2) {
-            // Sprint 2: Core Business Logic
+            // Define Epic 2: Core Business Logic
+            $epic2Title = "Build Core Business Features ({$projectTitle})";
             $sprint2Start = $sprint1End->copy();
             $sprint2End = $sprint2Start->copy()->addWeeks($sprintWeeks);
 
+            $epics[] = [
+                'issue_type' => 'epic',
+                'title' => $epic2Title,
+                'description' => "Build the core business flows required by the project.\n\n### Completion Criteria:\n- Data flows work end to end\n- Client and server validation is strict and consistent",
+                'priority' => 'urgent',
+                'category' => 'backend',
+                'story_points' => 13,
+                'status' => 'todo',
+                'estimated_pomodoros' => 10,
+                'start_date' => $sprint2Start->toDateString(),
+                'due_date' => $sprint2End->toDateString(),
+            ];
+
             $sprint2Tasks = [
-                [
-                    'issue_type' => 'epic',
-                    'title' => "Build Core Business Features ({$projectTitle})",
-                    'description' => "Build the core business flows required by the project.\n\n### Completion Criteria:\n- Data flows work end to end\n- Client and server validation is strict and consistent",
-                    'priority' => 'urgent',
-                    'category' => 'backend',
-                    'story_points' => 8,
-                    'status' => 'todo',
-                    'estimated_pomodoros' => 6,
-                    'start_date' => $sprint2Start->toDateString(),
-                    'due_date' => $sprint2End->toDateString(),
-                    'subtasks' => [
-                        ['text' => 'Build business services and repositories'],
-                        ['text' => 'Write controllers and form-request validation'],
-                    ],
-                ],
                 [
                     'issue_type' => 'story',
                     'title' => 'Build the Data Administration & Analytics Dashboard',
@@ -696,6 +783,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'story_points' => 5,
                     'status' => 'todo',
                     'estimated_pomodoros' => 4,
+                    'epic_ref' => $epic2Title,
                     'start_date' => $sprint2Start->copy()->addDays(2)->toDateString(),
                     'due_date' => $sprint2End->toDateString(),
                     'subtasks' => [
@@ -716,6 +804,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'story_points' => 5,
                     'status' => 'todo',
                     'estimated_pomodoros' => 4,
+                    'epic_ref' => $epic2Title,
                     'start_date' => $sprint2Start->copy()->addDays(3)->toDateString(),
                     'due_date' => $sprint2End->toDateString(),
                     'subtasks' => [
@@ -736,6 +825,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'story_points' => 5,
                     'status' => 'todo',
                     'estimated_pomodoros' => 4,
+                    'epic_ref' => $epic2Title,
                     'start_date' => $sprint2Start->copy()->addDays(2)->toDateString(),
                     'due_date' => $sprint2End->toDateString(),
                     'subtasks' => [
@@ -756,6 +846,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'story_points' => 5,
                     'status' => 'todo',
                     'estimated_pomodoros' => 4,
+                    'epic_ref' => $epic2Title,
                     'start_date' => $sprint2Start->copy()->addDays(4)->toDateString(),
                     'due_date' => $sprint2End->toDateString(),
                     'subtasks' => [
@@ -775,6 +866,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'story_points' => 3,
                     'status' => 'todo',
                     'estimated_pomodoros' => 3,
+                    'epic_ref' => $epic2Title,
                     'start_date' => $sprint2Start->copy()->addDays(5)->toDateString(),
                     'due_date' => $sprint2End->toDateString(),
                     'subtasks' => [
@@ -795,27 +887,25 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
         }
 
         if ($sprintCount >= 3) {
-            // Sprint 3: Optimization, Testing, Security & Production Release
+            // Define Epic 3: Optimization, Testing & Release
+            $epic3Title = "Polish, Comprehensive Testing & Production Release ({$projectTitle})";
             $sprint3Start = $sprint1End->copy()->addWeeks($sprintWeeks * ($sprintCount - 2));
             $sprint3End = $sprint3Start->copy()->addWeeks($sprintWeeks);
 
+            $epics[] = [
+                'issue_type' => 'epic',
+                'title' => $epic3Title,
+                'description' => "Ensure product quality, eliminate critical issues, and prepare the system for operations handoff.",
+                'priority' => 'urgent',
+                'category' => 'qa',
+                'story_points' => 8,
+                'status' => 'todo',
+                'estimated_pomodoros' => 6,
+                'start_date' => $sprint3Start->toDateString(),
+                'due_date' => $sprint3End->toDateString(),
+            ];
+
             $sprint3Tasks = [
-                [
-                    'issue_type' => 'epic',
-                    'title' => "Polish, Comprehensive Testing & Production Release",
-                    'description' => "Ensure product quality, eliminate critical issues, and prepare the system for operations handoff.",
-                    'priority' => 'urgent',
-                    'category' => 'qa',
-                    'story_points' => 5,
-                    'status' => 'todo',
-                    'estimated_pomodoros' => 5,
-                    'start_date' => $sprint3Start->toDateString(),
-                    'due_date' => $sprint3End->toDateString(),
-                    'subtasks' => [
-                        ['text' => 'Black-box test all user flows'],
-                        ['text' => 'Audit OWASP Top 10 security and CSRF/XSS protection'],
-                    ],
-                ],
                 [
                     'issue_type' => 'task',
                     'title' => 'Optimize Page Load Speed & Advanced Caching',
@@ -825,6 +915,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'story_points' => 3,
                     'status' => 'todo',
                     'estimated_pomodoros' => 3,
+                    'epic_ref' => $epic3Title,
                     'start_date' => $sprint3Start->copy()->addDays(1)->toDateString(),
                     'due_date' => $sprint3Start->copy()->addDays(5)->toDateString(),
                     'subtasks' => [
@@ -841,7 +932,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'category' => 'frontend',
                     'story_points' => 2,
                     'status' => 'todo',
-                    'estimated_pomodoros' => 2,
+                    'epic_ref' => $epic3Title,
                     'start_date' => $sprint3Start->copy()->addDays(3)->toDateString(),
                     'due_date' => $sprint3Start->copy()->addDays(6)->toDateString(),
                     'subtasks' => [
@@ -858,6 +949,7 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
                     'story_points' => 3,
                     'status' => 'todo',
                     'estimated_pomodoros' => 3,
+                    'epic_ref' => $epic3Title,
                     'start_date' => $sprint3Start->copy()->addDays(4)->toDateString(),
                     'due_date' => $sprint3End->toDateString(),
                     'subtasks' => [
@@ -878,6 +970,9 @@ class SmartProjectBreakdownService implements ProjectPlanningProvider
             ];
         }
 
-        return $sprints;
+        return [
+            'epics' => $epics,
+            'sprints' => $sprints,
+        ];
     }
 }

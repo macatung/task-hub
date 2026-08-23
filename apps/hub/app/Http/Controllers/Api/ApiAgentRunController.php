@@ -87,7 +87,19 @@ class ApiAgentRunController extends Controller
             'execution_mode' => 'nullable|in:desktop',
         ]);
 
-        $task = !empty($validated['task_id']) ? Task::with('project.workspace')->findOrFail($validated['task_id']) : null;
+        $taskId = $request->input('task_id');
+        $task = null;
+        if (!empty($taskId)) {
+            $task = is_numeric($taskId)
+                ? Task::with('project.workspace')->find((int) $taskId)
+                : Task::with('project.workspace')->where('issue_key', trim((string) $taskId))->first();
+            if (!$task) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Không tìm thấy nhiệm vụ #{$taskId}. Vui lòng làm mới danh sách nhiệm vụ.",
+                ], 404);
+            }
+        }
         if ($task?->hasIncompleteDependencies()) {
             return response()->json([
                 'success' => false,
@@ -251,7 +263,19 @@ class ApiAgentRunController extends Controller
 
     public function context(Request $request, TaskHubContextPackService $contextService)
     {
-        $task = $request->filled('task_id') ? Task::findOrFail($request->integer('task_id')) : null;
+        $taskId = $request->input('task_id');
+        $task = null;
+        if (!empty($taskId)) {
+            $task = is_numeric($taskId)
+                ? Task::find((int) $taskId)
+                : Task::where('issue_key', trim((string) $taskId))->first();
+            if (!$task) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Không tìm thấy nhiệm vụ #{$taskId}.",
+                ], 404);
+            }
+        }
         return response()->json(['success' => true, 'data' => $contextService->build($task, $request->all())]);
     }
 

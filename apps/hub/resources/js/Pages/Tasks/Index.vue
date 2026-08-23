@@ -4700,106 +4700,186 @@ onUnmounted(() => {
 
             <div class="flex items-center gap-3 font-mono text-xs">
               <span :class="['px-3 py-1.5 rounded-xl border font-bold', isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-300 shadow-xs']">
-                <strong class="text-blue-600 font-bold">{{ aiGeneratedPlan.sprints?.length || 0 }}</strong> Sprints
+                <strong class="text-indigo-500 font-bold">⚡ {{ aiGeneratedPlan.epics?.length || 0 }}</strong> Epics
               </span>
               <span :class="['px-3 py-1.5 rounded-xl border font-bold', isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-300 shadow-xs']">
-                <strong class="text-purple-600 font-bold">{{ aiGeneratedPlan.summary?.total_tasks || 0 }}</strong> Tasks
+                <strong class="text-blue-600 font-bold">🏃 {{ aiGeneratedPlan.sprints?.length || 0 }}</strong> Sprints
               </span>
               <span :class="['px-3 py-1.5 rounded-xl border font-bold', isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-300 shadow-xs']">
-                <strong class="text-emerald-600 font-bold">{{ aiGeneratedPlan.summary?.total_story_points || 0 }}</strong> Story Pts
+                <strong class="text-purple-600 font-bold">📋 {{ aiGeneratedPlan.summary?.total_tasks || 0 }}</strong> Tasks
+              </span>
+              <span :class="['px-3 py-1.5 rounded-xl border font-bold', isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-300 shadow-xs']">
+                <strong class="text-emerald-600 font-bold">💎 {{ aiGeneratedPlan.summary?.total_story_points || 0 }}</strong> Story Pts
               </span>
             </div>
           </div>
 
-          <!-- Sprints & Tasks Hierarchy List -->
-          <div class="space-y-4">
-            <div
-              v-for="(sprint, sIdx) in aiGeneratedPlan.sprints"
-              :key="sIdx"
-              :class="[
-                'border rounded-2xl p-4 space-y-3 transition-all shadow-xs',
-                isDarkMode ? 'bg-slate-950/80 border-slate-800' : 'bg-slate-50/80 border-slate-200'
-              ]"
-            >
-              <!-- Sprint Header -->
-              <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
-                <div class="flex items-center gap-2">
-                  <span class="w-3 h-3 rounded-full bg-blue-600"></span>
-                  <input
-                    v-model="sprint.name"
-                    :class="['font-bold text-sm bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none py-0.5', isDarkMode ? 'text-white' : 'text-slate-950']"
-                  />
-                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-300">
-                    {{ sprint.start_date }} ➔ {{ sprint.end_date }}
-                  </span>
-                </div>
-                <span class="text-xs font-mono font-medium text-slate-500">
-                  {{ sprint.tasks?.filter((t: any) => t.issue_type !== 'epic').length || 0 }} tasks • {{ sprint.tasks?.filter((t: any) => t.issue_type !== 'epic').reduce((acc: number, t: any) => acc + (Number(t.story_points) || 0), 0) }} pts
+          <!-- Section 1: Epics / Roadmap (Separated from Sprints) -->
+          <div v-if="aiGeneratedPlan.epics?.length" class="space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-bold text-indigo-400">⚡ ROADMAP EPICS (INITIATIVES)</span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  {{ aiGeneratedPlan.epics.length }} Epics độc lập
                 </span>
               </div>
+              <span class="text-[11px] text-slate-400 italic">Được tạo ở cấp độ dự án (sprint_id = null), không nằm trong sprint</span>
+            </div>
 
-              <div class="text-xs italic text-slate-500 font-medium">
-                🎯 Goal: {{ sprint.goal }}
-              </div>
-
-              <!-- Sprint Tasks -->
-              <div class="space-y-2">
-                <div
-                  v-for="(task, tIdx) in sprint.tasks"
-                  :key="tIdx"
-                  :class="[
-                    'p-3 rounded-xl border space-y-2 transition-all',
-                    isDarkMode ? 'bg-[#0f1523] border-slate-800' : 'bg-white border-slate-200 shadow-xs'
-                  ]"
-                >
-                  <div class="flex items-center justify-between gap-2 text-xs">
-                    <div class="flex items-center gap-2 flex-1 min-w-0">
-                      <span class="text-sm">{{ getIssueTypeBadge(task.issue_type).icon }}</span>
-                      <input
-                        v-model="task.title"
-                        :class="['font-semibold text-xs bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none flex-1 min-w-0', isDarkMode ? 'text-slate-100' : 'text-slate-950']"
-                      />
-                    </div>
-
-                    <div class="flex items-center gap-2 shrink-0">
-                      <!-- Story Points -->
-                      <select
-                        v-model="task.story_points"
-                        :class="['p-1 rounded-lg border text-xs font-mono font-bold focus:outline-none', isDarkMode ? 'bg-slate-900 border-slate-700 text-indigo-300' : 'bg-indigo-50 border-indigo-200 text-indigo-900']"
-                      >
-                        <option :value="1">1 pt</option>
-                        <option :value="2">2 pts</option>
-                        <option :value="3">3 pts</option>
-                        <option :value="5">5 pts</option>
-                        <option :value="8">8 pts</option>
-                        <option :value="13">13 pts</option>
-                      </select>
-
-                      <!-- Priority -->
-                      <select
-                        v-model="task.priority"
-                        :class="['p-1 rounded-lg border text-[11px] font-bold focus:outline-none', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900']"
-                      >
-                        <option value="urgent">🔴 Urgent</option>
-                        <option value="high">🟠 High</option>
-                        <option value="medium">🟡 Medium</option>
-                        <option value="low">⚪ Low</option>
-                      </select>
-                    </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div
+                v-for="(epic, eIdx) in aiGeneratedPlan.epics"
+                :key="eIdx"
+                :class="[
+                  'border rounded-2xl p-3.5 space-y-2 transition-all relative overflow-hidden',
+                  isDarkMode ? 'bg-indigo-950/20 border-indigo-800/50' : 'bg-indigo-50/60 border-indigo-200 shadow-xs'
+                ]"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2 flex-1 min-w-0">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-mono font-black bg-indigo-600 text-white shrink-0">
+                      ⚡ EPIC
+                    </span>
+                    <input
+                      v-model="epic.title"
+                      :class="['font-bold text-xs bg-transparent border-b border-transparent focus:border-indigo-500 focus:outline-none flex-1 min-w-0', isDarkMode ? 'text-indigo-100' : 'text-indigo-950']"
+                    />
                   </div>
-
-                  <!-- Subtasks Mini Checklist -->
-                  <div v-if="task.subtasks?.length" class="pl-6 space-y-1">
-                    <div
-                      v-for="(st, stIdx) in task.subtasks"
-                      :key="stIdx"
-                      class="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400"
+                  <div class="flex items-center gap-1.5 shrink-0">
+                    <select
+                      v-model="epic.story_points"
+                      :class="['p-1 rounded-lg border text-[11px] font-mono font-bold focus:outline-none', isDarkMode ? 'bg-slate-900 border-slate-700 text-indigo-300' : 'bg-white border-indigo-200 text-indigo-900']"
                     >
-                      <span>▫️</span>
-                      <input
-                        v-model="st.text"
-                        :class="['bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none flex-1', isDarkMode ? 'text-slate-300' : 'text-slate-700']"
-                      />
+                      <option :value="5">5 pts</option>
+                      <option :value="8">8 pts</option>
+                      <option :value="13">13 pts</option>
+                      <option :value="21">21 pts</option>
+                    </select>
+                    <select
+                      v-model="epic.priority"
+                      :class="['p-1 rounded-lg border text-[11px] font-bold focus:outline-none', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900']"
+                    >
+                      <option value="urgent">🔴 Urgent</option>
+                      <option value="high">🟠 High</option>
+                      <option value="medium">🟡 Medium</option>
+                      <option value="low">⚪ Low</option>
+                    </select>
+                  </div>
+                </div>
+                <textarea
+                  v-model="epic.description"
+                  rows="2"
+                  :class="['w-full text-[11px] bg-transparent border-0 resize-none focus:outline-none rounded p-1', isDarkMode ? 'text-slate-300 bg-slate-900/40' : 'text-slate-600 bg-white/60']"
+                  placeholder="Mô tả phạm vi và tiêu chí hoàn thành của Epic..."
+                ></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 2: Sprints & Tasks Hierarchy List -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between pt-2">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-bold text-blue-400">🏃 SPRINTS & SPRINT TASKS</span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                  {{ aiGeneratedPlan.sprints?.length || 0 }} Sprints
+                </span>
+              </div>
+              <span class="text-[11px] text-slate-400 italic">Chỉ chứa Stories, Tasks, Bugs liên kết tới Epic cha</span>
+            </div>
+
+            <div class="space-y-4">
+              <div
+                v-for="(sprint, sIdx) in aiGeneratedPlan.sprints"
+                :key="sIdx"
+                :class="[
+                  'border rounded-2xl p-4 space-y-3 transition-all shadow-xs',
+                  isDarkMode ? 'bg-slate-950/80 border-slate-800' : 'bg-slate-50/80 border-slate-200'
+                ]"
+              >
+                <!-- Sprint Header -->
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
+                  <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-blue-600"></span>
+                    <input
+                      v-model="sprint.name"
+                      :class="['font-bold text-sm bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none py-0.5', isDarkMode ? 'text-white' : 'text-slate-950']"
+                    />
+                    <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-300">
+                      {{ sprint.start_date }} ➔ {{ sprint.end_date }}
+                    </span>
+                  </div>
+                  <span class="text-xs font-mono font-medium text-slate-500">
+                    {{ sprint.tasks?.filter((t: any) => t.issue_type !== 'epic').length || 0 }} tasks • {{ sprint.tasks?.filter((t: any) => t.issue_type !== 'epic').reduce((acc: number, t: any) => acc + (Number(t.story_points) || 0), 0) }} pts
+                  </span>
+                </div>
+
+                <div class="text-xs italic text-slate-500 font-medium">
+                  🎯 Goal: {{ sprint.goal }}
+                </div>
+
+                <!-- Sprint Tasks -->
+                <div class="space-y-2">
+                  <div
+                    v-for="(task, tIdx) in sprint.tasks"
+                    :key="tIdx"
+                    :class="[
+                      'p-3 rounded-xl border space-y-2 transition-all',
+                      isDarkMode ? 'bg-[#0f1523] border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+                    ]"
+                  >
+                    <div class="flex items-center justify-between gap-2 text-xs">
+                      <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <span class="text-sm shrink-0">{{ getIssueTypeBadge(task.issue_type).icon }}</span>
+                        <input
+                          v-model="task.title"
+                          :class="['font-semibold text-xs bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none flex-1 min-w-0', isDarkMode ? 'text-slate-100' : 'text-slate-950']"
+                        />
+                        <span v-if="task.epic_ref || task.epic_title" class="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 truncate max-w-[140px]" :title="task.epic_ref || task.epic_title">
+                          ⚡ {{ task.epic_ref || task.epic_title }}
+                        </span>
+                      </div>
+
+                      <div class="flex items-center gap-2 shrink-0">
+                        <!-- Story Points -->
+                        <select
+                          v-model="task.story_points"
+                          :class="['p-1 rounded-lg border text-xs font-mono font-bold focus:outline-none', isDarkMode ? 'bg-slate-900 border-slate-700 text-indigo-300' : 'bg-indigo-50 border-indigo-200 text-indigo-900']"
+                        >
+                          <option :value="1">1 pt</option>
+                          <option :value="2">2 pts</option>
+                          <option :value="3">3 pts</option>
+                          <option :value="5">5 pts</option>
+                          <option :value="8">8 pts</option>
+                          <option :value="13">13 pts</option>
+                        </select>
+
+                        <!-- Priority -->
+                        <select
+                          v-model="task.priority"
+                          :class="['p-1 rounded-lg border text-[11px] font-bold focus:outline-none', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900']"
+                        >
+                          <option value="urgent">🔴 Urgent</option>
+                          <option value="high">🟠 High</option>
+                          <option value="medium">🟡 Medium</option>
+                          <option value="low">⚪ Low</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <!-- Subtasks Mini Checklist -->
+                    <div v-if="task.subtasks?.length" class="pl-6 space-y-1">
+                      <div
+                        v-for="(st, stIdx) in task.subtasks"
+                        :key="stIdx"
+                        class="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400"
+                      >
+                        <span>▫️</span>
+                        <input
+                          v-model="st.text"
+                          :class="['bg-transparent border-b border-transparent focus:border-blue-500 focus:outline-none flex-1', isDarkMode ? 'text-slate-300' : 'text-slate-700']"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -168,6 +168,24 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
         ];
     }
 
+    private function resolveTask(mixed $idOrKey): Task
+    {
+        if (empty($idOrKey)) {
+            throw new \InvalidArgumentException('Mã nhiệm vụ (task_id hoặc issue_key) không được để trống.');
+        }
+        $task = null;
+        if (is_numeric($idOrKey)) {
+            $task = Task::with(['project', 'sprint', 'epic', 'agentRuns.evidence'])->find((int) $idOrKey);
+        }
+        if (!$task && is_string($idOrKey)) {
+            $task = Task::with(['project', 'sprint', 'epic', 'agentRuns.evidence'])->where('issue_key', trim($idOrKey))->first();
+        }
+        if (!$task) {
+            throw new \InvalidArgumentException("Nhiệm vụ #{$idOrKey} không tồn tại hoặc đã được cập nhật trên Task Hub. Vui lòng làm mới danh sách nhiệm vụ.");
+        }
+        return $task;
+    }
+
     private function callTool(array $params, Request $request, array $payload): array
     {
         $name = $params['name'] ?? '';
@@ -178,12 +196,12 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
         $runController = app(ApiAgentRunController::class);
 
         $data = match ($name) {
-            'get_work_item' => Task::with(['project', 'sprint', 'agentRuns.evidence'])->findOrFail($args['task_id']),
-            'get_context_pack' => $contextService->build(Task::findOrFail($args['task_id']), $args),
+            'get_work_item' => $this->resolveTask($args['task_id'] ?? null),
+            'get_context_pack' => $contextService->build($this->resolveTask($args['task_id'] ?? null), $args),
             'list_project_documents' => ['success' => true, 'data' => app(\App\Services\ProjectKnowledgeService::class)->projectState(Project::findOrFail((int) $args['project_id']))],
-            'get_task_references' => ['success' => true, 'data' => app(\App\Services\ProjectKnowledgeService::class)->documentsForTask(Task::findOrFail((int) $args['task_id']))],
+            'get_task_references' => ['success' => true, 'data' => app(\App\Services\ProjectKnowledgeService::class)->documentsForTask($this->resolveTask($args['task_id'] ?? null))],
             'start_agent_run' => $runController->store(Request::create('/', 'POST', [
-                'task_id' => $args['task_id'] ?? null,
+                'task_id' => !empty($args['task_id']) ? $this->resolveTask($args['task_id'])->id : null,
                 'provider' => $args['provider'],
                 'agent_session_id' => $args['agent_session_id'] ?? null,
                 'repository' => $args['repository'] ?? null,
@@ -194,7 +212,7 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
             'update_agent_run' => $runController->update(Request::create('/', 'PATCH', $args), AgentRun::findOrFail($args['run_id']))->getData(true),
             'attach_verification_evidence' => $runController->evidence(Request::create('/', 'POST', $args), AgentRun::findOrFail($args['run_id']))->getData(true),
             'complete_agent_handoff' => $runController->handoff(Request::create('/', 'POST', $args), AgentRun::findOrFail($args['run_id']))->getData(true),
-            'request_human_approval' => $runController->approve(Task::findOrFail($args['task_id']))->getData(true),
+            'request_human_approval' => $runController->approve($this->resolveTask($args['task_id'] ?? null))->getData(true),
             'get_next_action' => $this->getNextAction($request, $payload),
             'get_project_state' => ['success' => true, 'data' => $this->projectState((int) $args['project_id'])],
             'get_repository_context' => ['success' => true, 'data' => $githubService->repositoryContext(Project::findOrFail((int) $args['project_id']))],

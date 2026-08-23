@@ -69,15 +69,16 @@ Create a practical project plan from this idea:
 {$prompt}
 
 Return JSON with exactly these top-level keys:
-project, summary, sprints.
+project, summary, epics, sprints.
 The project object must include title, key, type, color, description.
-The summary object must include sprint_count, total_tasks, total_story_points, total_pomodoros, estimated_weeks, start_date, end_date.
-Each sprint must include name, goal, start_date, end_date, status, tasks.
-Each task must include issue_type, title, description, priority, category, story_points, status, estimated_pomodoros, start_date, due_date, subtasks.
+The summary object must include epic_count, sprint_count, total_tasks, total_story_points, total_pomodoros, estimated_weeks, start_date, end_date.
+The epics array defines high-level milestones / product modules at the roadmap level (issue_type: "epic", title, description, priority, story_points).
+The sprints array defines time-boxed iterations. Each sprint must include name, goal, start_date, end_date, status, tasks.
+Tasks inside sprints MUST be actionable items (issue_type: "story", "task", or "bug") and MUST NOT be epics. Each task must include issue_type, title, description, priority, category, story_points, status, estimated_pomodoros, epic_ref (referencing an epic title), start_date, due_date, subtasks.
 Use at most {$sprintCount} sprints of {$sprintWeeks} weeks each, starting {$startDate}.
 Preferred project title: {$title}
 Preferred project key: {$key}
-Use only statuses todo, in_progress; priorities urgent, high, medium, low; issue types epic, story, task, bug.
+Use only statuses todo, in_progress; priorities urgent, high, medium, low; issue types story, task, bug for sprint tasks, epic for epics.
 Keep the plan suitable for one indie developer. Do not include markdown fences.
 PROMPT;
     }

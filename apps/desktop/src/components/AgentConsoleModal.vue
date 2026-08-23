@@ -232,7 +232,9 @@ let removeExit: (() => void) | undefined;
 
 const STORAGE_KEY = 'task_companion_agent_workspace_state_v2';
 
-const selectedTask = computed(() => props.tasks.find((task) => task.id === taskId.value) || null);
+const localTasks = ref<TaskItem[]>([]);
+const allTasks = computed(() => localTasks.value.length ? localTasks.value : props.tasks);
+const selectedTask = computed(() => allTasks.value.find((task) => task.id === taskId.value) || null);
 const selectedDocsProject = computed(() => props.projects?.find((project) => project.id === docsProjectId.value) || null);
 const conversationCards = computed(() => streamCards.value.filter((card) => card.type === 'user_message' || card.type === 'agent_message' || card.type === 'turn_completed'));
 const processCards = computed(() => streamCards.value.filter((card) => card.type === 'command_execution' || card.type === 'tool_execution'));
@@ -407,9 +409,41 @@ const addTimeline = (label: string, detail: string, tone: 'ok' | 'passed' | 'fai
   saveWorkspaceState();
 };
 
+const isRefreshingTasks = ref(false);
+const refreshAgentTasks = async () => {
+  if (isRefreshingTasks.value) return;
+  isRefreshingTasks.value = true;
+  try {
+    const hubUrl = taskHubUrl.value || (credential.value as any)?.taskHubUrl || 'http://localhost:8000';
+    const projId = credential.value?.projectId;
+    const token = credential.value?.token;
+    if (token && projId) {
+      const url = `${hubUrl.replace(/\/$/, '')}/api/v1/desktop/tasks?status=todo,in_progress,review&project_id=${encodeURIComponent(projId)}`;
+      const res = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'X-Task-Hub-Project': projId,
+        },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          localTasks.value = json.data;
+          addTimeline('Tasks refreshed', `Đã đồng bộ ${json.data.length} nhiệm vụ mới nhất từ Task Hub.`, 'ok');
+        }
+      }
+    }
+  } catch (e: any) {
+    console.warn('Lỗi làm mới tasks:', e);
+  } finally {
+    isRefreshingTasks.value = false;
+  }
+};
+
 const filteredTasks = computed(() => {
   const query = taskSearch.value.trim().toLowerCase();
-  return props.tasks.filter((task) => !query || [task.title, task.issue_key, task.project?.title].filter(Boolean).join(' ').toLowerCase().includes(query));
+  return allTasks.value.filter((task) => !query || [task.title, task.issue_key, task.project?.title].filter(Boolean).join(' ').toLowerCase().includes(query));
 });
 
 const busy = computed(() => ['preflight', 'pairing', 'context'].includes(phase.value));
@@ -1953,8 +1987,9 @@ const loadContext = async () => {
   if (!selectedTask.value || !credential.value) return;
   phase.value = 'context';
   try {
+    const taskIdOrKey = selectedTask.value.id || selectedTask.value.issue_key;
     contextPack.value = readMcpText(
-      await mcpCall('tools/call', { name: 'get_context_pack', arguments: { task_id: selectedTask.value.id } })
+      await mcpCall('tools/call', { name: 'get_context_pack', arguments: { task_id: taskIdOrKey } })
     );
     await window.desktopApi.agent.configureMcp({
       cwd: worktree.value,
@@ -1968,7 +2003,7 @@ const loadContext = async () => {
       await mcpCall('tools/call', {
         name: 'start_agent_run',
         arguments: {
-          task_id: selectedTask.value.id,
+          task_id: taskIdOrKey,
           provider: provider.value,
           agent_session_id: session,
           repository: contextPack.value.repository,
@@ -1983,8 +2018,15 @@ const loadContext = async () => {
     phase.value = 'ready';
   } catch (error: any) {
     phase.value = 'error';
-    errorMessage.value = error.message || 'Không thể chuẩn bị agent run.';
-    addTimeline('Context error', error.message, 'error');
+    const rawMsg = error.message || 'Không thể chuẩn bị agent run.';
+    if (rawMsg.includes('không tồn tại') || rawMsg.includes('ModelNotFoundException') || rawMsg.includes('No query results')) {
+      errorMessage.value = `Nhiệm vụ #${selectedTask.value.issue_key || selectedTask.value.id} không tìm thấy trên Task Hub (có thể do DB được làm mới). Đang tự động làm mới danh sách nhiệm vụ...`;
+      addTimeline('Context error', errorMessage.value, 'error');
+      void refreshAgentTasks();
+    } else {
+      errorMessage.value = rawMsg;
+      addTimeline('Context error', rawMsg, 'error');
+    }
   }
 };
 
@@ -3153,7 +3195,16 @@ onUnmounted(() => {
               <i class="codicon text-xs" :class="collapsed.tasks ? 'codicon-chevron-right' : 'codicon-chevron-down'" />
               Nhiệm vụ Task Hub
             </button>
-            <span class="text-[10px] font-mono text-zinc-400">{{ filteredTasks.length }} tasks</span>
+            <div class="flex items-center gap-1.5">
+              <button
+                class="p-0.5 rounded text-[10px] text-zinc-400 hover:text-white hover:bg-[#333333] transition-colors flex items-center gap-1 cursor-pointer"
+                title="Làm mới danh sách nhiệm vụ từ Task Hub"
+                @click="refreshAgentTasks"
+              >
+                <i class="codicon codicon-refresh" :class="{ 'animate-spin': isRefreshingTasks }" />
+              </button>
+              <span class="text-[10px] font-mono text-zinc-400">{{ filteredTasks.length }} tasks</span>
+            </div>
           </div>
 
           <template v-if="!collapsed.tasks">
