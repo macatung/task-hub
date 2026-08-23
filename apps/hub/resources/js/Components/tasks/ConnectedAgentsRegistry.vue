@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import axios from 'axios';
+import Icons from '@/Components/ui/Icons.vue';
+import StatusBadge from '@/Components/ui/StatusBadge.vue';
 import { sound } from '@/audio/soundEffects';
 
 export interface QuotaMetrics {
@@ -255,7 +257,7 @@ onBeforeUnmount(() => {
         <button
           @click="fetchRunners"
           :disabled="isRefreshing"
-          class="p-1 rounded-lg border text-[11px] transition-all cursor-pointer"
+          class="p-1.5 rounded-lg border text-[11px] transition-all cursor-pointer flex items-center justify-center"
           :class="[
             isDarkMode
               ? 'border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white hover:border-slate-700'
@@ -263,13 +265,13 @@ onBeforeUnmount(() => {
           ]"
           title="Refresh connected agents registry"
         >
-          <span :class="['inline-block transition-transform', isRefreshing ? 'animate-spin' : '']">🔄</span>
+          <Icons name="Refresh" :size="14" :class="['transition-transform', isRefreshing ? 'animate-spin text-emerald-400' : '']" />
         </button>
 
         <!-- Toggle Workstations Grid -->
         <button
           @click="isExpanded = !isExpanded"
-          class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 border"
+          class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 border"
           :class="[
             isExpanded
               ? 'bg-blue-600/15 text-blue-400 border-blue-500/40'
@@ -277,7 +279,7 @@ onBeforeUnmount(() => {
           ]"
         >
           <span>{{ isExpanded ? 'Hide Workstations' : 'View Workstations' }}</span>
-          <span>{{ isExpanded ? '▲' : '▼' }}</span>
+          <Icons :name="isExpanded ? 'ChevronUp' : 'ChevronDown'" :size="12" />
         </button>
       </div>
     </div>
@@ -306,7 +308,7 @@ onBeforeUnmount(() => {
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0 space-y-0.5">
               <div class="flex items-center gap-1.5">
-                <span class="text-sm" :title="runner.os_platform || 'Desktop'">{{ getOsBadge(runner.os_platform).icon }}</span>
+                <Icons name="Desktop" :size="14" class="text-blue-400 shrink-0" />
                 <h4 class="font-bold text-xs truncate tracking-tight" :class="isDarkMode ? 'text-white' : 'text-slate-950'">
                   {{ runner.machine_name || runner.name }}
                 </h4>
@@ -318,19 +320,12 @@ onBeforeUnmount(() => {
             </div>
 
             <!-- Health Status Badge -->
-            <span
-              class="px-2 py-0.5 rounded-full font-mono text-[9px] font-bold uppercase tracking-wider border shrink-0 flex items-center gap-1"
-              :class="[
-                runner.health === 'busy'
-                  ? 'bg-amber-500/15 text-amber-400 border-amber-500/40 animate-pulse'
-                  : runner.health === 'offline'
-                  ? 'bg-slate-800 text-slate-400 border-slate-700'
-                  : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
-              ]"
-            >
-              <span class="w-1.5 h-1.5 rounded-full" :class="runner.health === 'busy' ? 'bg-amber-400' : runner.health === 'offline' ? 'bg-slate-500' : 'bg-emerald-400'" />
-              <span>{{ runner.health === 'busy' ? 'Busy' : runner.health === 'offline' ? 'Offline' : 'Online' }}</span>
-            </span>
+            <StatusBadge
+              :status="runner.health === 'busy' ? 'busy' : runner.health === 'offline' ? 'offline' : 'idle'"
+              variant="agent"
+              size="xs"
+              :dark="isDarkMode"
+            />
           </div>
 
           <!-- Active AI Provider & Model -->
@@ -364,13 +359,18 @@ onBeforeUnmount(() => {
             class="flex items-center justify-between gap-1.5 p-1.5 rounded-xl border font-mono text-[10px]"
             :class="isDarkMode ? 'bg-slate-950/80 border-slate-800 text-slate-300' : 'bg-slate-100/90 border-slate-200 text-slate-700'"
           >
-            <span class="truncate text-[9.5px]" :title="runner.workspace_cwd">📁 {{ runner.workspace_cwd }}</span>
+            <span class="truncate text-[9.5px] flex items-center gap-1" :title="runner.workspace_cwd">
+              <Icons name="Folder" :size="12" class="text-amber-400 shrink-0" />
+              <span class="truncate">{{ runner.workspace_cwd }}</span>
+            </span>
             <button
               @click="copyCwd(runner)"
-              class="shrink-0 p-0.5 text-[9px] text-slate-400 hover:text-white cursor-pointer font-sans"
+              class="shrink-0 p-0.5 text-[9px] text-slate-400 hover:text-white cursor-pointer font-sans flex items-center gap-1"
               :title="'Copy workspace directory path'"
             >
-              {{ copiedCwdId === runner.id ? '✓ Copied' : '📋' }}
+              <Icons v-if="copiedCwdId === runner.id" name="Check" :size="11" class="text-emerald-400" />
+              <Icons v-else name="Copy" :size="11" class="text-slate-400" />
+              <span>{{ copiedCwdId === runner.id ? 'Copied' : '' }}</span>
             </button>
           </div>
 
@@ -424,14 +424,14 @@ onBeforeUnmount(() => {
             <button
               @click="handleDispatchClick(runner)"
               :disabled="runner.health === 'offline'"
-              class="px-2.5 py-1 rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 border shadow-xs"
+              class="px-2.5 py-1 rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1.5 border shadow-xs"
               :class="[
                 runner.health === 'offline'
                   ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
                   : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-emerald-500/50 shadow-emerald-950/40 active:scale-95'
               ]"
             >
-              <span>⚡</span>
+              <Icons name="Zap" :size="12" class="text-amber-300" />
               <span>Dispatch Task</span>
             </button>
           </div>
@@ -444,7 +444,7 @@ onBeforeUnmount(() => {
         class="py-6 px-4 rounded-2xl border border-dashed text-center space-y-2"
         :class="isDarkMode ? 'border-slate-800 bg-slate-900/30' : 'border-slate-300 bg-slate-50'"
       >
-        <div class="text-2xl">💻</div>
+        <Icons name="Desktop" :size="32" class="mx-auto text-slate-500" />
         <h4 class="font-bold text-xs" :class="isDarkMode ? 'text-slate-200' : 'text-slate-800'">No Desktop Agents Connected</h4>
         <p class="text-[11px] text-slate-400 max-w-md mx-auto leading-relaxed">
           Open Task Hub Desktop App on your workstation to automatically connect and receive remote task dispatches in under 2 seconds.

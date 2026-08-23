@@ -9,6 +9,8 @@ import ProjectReleaseLog from '@/Components/tasks/ProjectReleaseLog.vue';
 import RunnerDashboard from '@/Components/tasks/RunnerDashboard.vue';
 import RemoteDispatchModal from '@/Components/tasks/RemoteDispatchModal.vue';
 import StreambackConsole from '@/Components/tasks/StreambackConsole.vue';
+import Icons from '@/Components/ui/Icons.vue';
+import StatusBadge from '@/Components/ui/StatusBadge.vue';
 import type { DesktopAgentItem } from '@/Components/tasks/ConnectedAgentsRegistry.vue';
 import { sound } from '@/audio/soundEffects';
 
@@ -1479,35 +1481,35 @@ const getIssueTypeBadge = (type: string) => {
     case 'epic':
       return {
         label: 'EPIC',
-        icon: '⚡',
+        icon: 'Zap',
         class: isDarkMode.value
-          ? 'bg-purple-950/70 text-purple-300 border-purple-700/60 font-bold'
-          : 'bg-purple-100 text-purple-950 border-purple-300 font-bold shadow-xs'
+          ? 'bg-purple-950/70 text-purple-300 border-purple-700/60 shadow-[0_0_8px_rgba(168,85,247,0.2)] font-bold'
+          : 'bg-purple-50 text-purple-700 border-purple-300 font-bold shadow-xs'
       };
     case 'story':
       return {
         label: 'STORY',
-        icon: '📖',
+        icon: 'BookOpen',
         class: isDarkMode.value
-          ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700/60 font-semibold'
-          : 'bg-emerald-100 text-emerald-950 border-emerald-300 font-bold shadow-xs'
+          ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700/60 shadow-[0_0_8px_rgba(16,185,129,0.15)] font-semibold'
+          : 'bg-emerald-50 text-emerald-700 border-emerald-300 font-bold shadow-xs'
       };
     case 'bug':
       return {
         label: 'BUG',
-        icon: '🐞',
+        icon: 'Bug',
         class: isDarkMode.value
-          ? 'bg-rose-950/70 text-rose-300 border-rose-700/60 font-semibold'
-          : 'bg-rose-100 text-rose-950 border-rose-300 font-bold shadow-xs'
+          ? 'bg-rose-950/70 text-rose-300 border-rose-700/60 shadow-[0_0_8px_rgba(244,63,94,0.2)] font-semibold'
+          : 'bg-rose-50 text-rose-700 border-rose-300 font-bold shadow-xs'
       };
     case 'task':
     default:
       return {
         label: 'TASK',
-        icon: '☑️',
+        icon: 'CheckSquare',
         class: isDarkMode.value
           ? 'bg-blue-950/70 text-blue-300 border-blue-700/60 font-semibold'
-          : 'bg-blue-100 text-blue-950 border-blue-300 font-bold shadow-xs'
+          : 'bg-blue-50 text-blue-700 border-blue-300 font-bold shadow-xs'
       };
   }
 };
@@ -1517,42 +1519,35 @@ const getPriorityBadge = (priority: string) => {
     case 'urgent':
       return {
         label: 'Urgent',
-        icon: '🔴',
+        icon: 'Flame',
         class: isDarkMode.value
-          ? 'bg-red-950/70 text-red-300 border-red-700/60 font-bold'
-          : 'bg-red-100 text-red-950 border-red-300 font-bold shadow-xs'
+          ? 'bg-rose-950/80 text-rose-300 border-rose-600/80 shadow-[0_0_12px_rgba(244,63,94,0.35)] font-bold'
+          : 'bg-rose-50 text-rose-700 border-rose-300 font-bold shadow-xs'
       };
     case 'high':
       return {
         label: 'High',
-        icon: '🟠',
+        icon: 'ChevronsUp',
         class: isDarkMode.value
-          ? 'bg-amber-950/70 text-amber-300 border-amber-700/60 font-semibold'
-          : 'bg-amber-100 text-amber-950 border-amber-300 font-bold shadow-xs'
+          ? 'bg-amber-950/70 text-amber-300 border-amber-600/70 shadow-[0_0_8px_rgba(245,158,11,0.2)] font-semibold'
+          : 'bg-amber-50 text-amber-700 border-amber-300 font-bold shadow-xs'
       };
     case 'medium':
       return {
         label: 'Medium',
-        icon: '🟡',
+        icon: 'ChevronUp',
         class: isDarkMode.value
-          ? 'bg-slate-800 text-slate-200 border-slate-700 font-medium'
-          : 'bg-slate-100 text-slate-900 border-slate-300 font-semibold shadow-xs'
+          ? 'bg-sky-950/60 text-sky-300 border-sky-600/60 font-medium'
+          : 'bg-sky-50 text-sky-700 border-sky-300 font-semibold shadow-xs'
       };
     case 'low':
-      return {
-        label: 'Low',
-        icon: '⚪',
-        class: isDarkMode.value
-          ? 'bg-slate-900 text-slate-400 border-slate-800 font-medium'
-          : 'bg-slate-100 text-slate-700 border-slate-300 font-semibold shadow-xs'
-      };
     default:
       return {
-        label: priority,
-        icon: '⚪',
+        label: 'Low',
+        icon: 'Minus',
         class: isDarkMode.value
-          ? 'bg-slate-800 text-slate-300 border-slate-700'
-          : 'bg-slate-100 text-slate-800 border-slate-300 font-semibold'
+          ? 'bg-slate-900/80 text-slate-400 border-slate-700/60 font-medium'
+          : 'bg-slate-100 text-slate-700 border-slate-300 font-semibold shadow-xs'
       };
   }
 };
@@ -3192,10 +3187,11 @@ onUnmounted(() => {
             >
               <div :class="['flex items-center justify-between pb-3 mb-3 border-b px-1', isDarkMode ? 'border-slate-800' : 'border-slate-300']">
                 <span class="flex items-center gap-2 font-mono text-xs font-bold text-slate-900 dark:text-slate-200 uppercase tracking-wide">
-                  <span class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+                  <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+                  <Icons name="Clock" :size="13" class="text-sky-400" />
                   <span>TO DO</span>
                 </span>
-                <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border', isDarkMode ? 'bg-slate-900 text-slate-200 border-slate-700' : 'bg-white text-slate-950 border-slate-300 shadow-xs']">
+                <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border', isDarkMode ? 'bg-slate-900 text-sky-300 border-sky-900/60' : 'bg-white text-slate-950 border-slate-300 shadow-xs']">
                   {{ todoTasks.length }}
                 </span>
               </div>
@@ -3209,7 +3205,7 @@ onUnmounted(() => {
                   @click="openTaskDrawer(task)"
                   :class="[
                     'p-3 rounded-xl border transition-all duration-150 cursor-pointer space-y-2 group shadow-xs hover:scale-[1.01]',
-                    isDarkMode ? 'bg-[#0b101c] border-slate-800/90 hover:border-emerald-500/60 hover:shadow-lg hover:shadow-emerald-950/20' : 'bg-white border-slate-200 hover:border-emerald-500 hover:shadow-md',
+                    isDarkMode ? 'bg-[#0b101c] border-slate-800/90 hover:border-sky-500/60 hover:shadow-lg hover:shadow-sky-950/20' : 'bg-white border-slate-200 hover:border-sky-500 hover:shadow-md',
                     getTaskDelayStatus(task).cardBorderClass
                   ]"
                 >
@@ -3218,8 +3214,8 @@ onUnmounted(() => {
                     v-if="task.id === webNextUpTaskId"
                     class="flex items-center justify-between px-2 py-0.5 rounded-lg bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-transparent border border-amber-500/40 text-[9px] font-bold text-amber-600 dark:text-amber-300 tracking-wide uppercase shadow-xs"
                   >
-                    <span class="flex items-center gap-1">
-                      <span class="animate-pulse">⚡</span>
+                    <span class="flex items-center gap-1.5">
+                      <Icons name="Sparkles" :size="12" class="text-amber-400 animate-pulse" />
                       <span>Next Up / Recommended</span>
                     </span>
                     <span class="text-[8px] font-mono opacity-75">Priority #1</span>
@@ -3227,7 +3223,7 @@ onUnmounted(() => {
 
                   <div class="flex items-center justify-between text-xs">
                     <div class="flex items-center gap-1.5">
-                      <span>{{ getIssueTypeBadge(task.issue_type).icon }}</span>
+                      <Icons :name="getIssueTypeBadge(task.issue_type).icon" :size="13" class="shrink-0 text-blue-400" />
                       <span :class="['font-mono text-[11px] font-bold px-1.5 py-0.2 rounded border', isDarkMode ? 'bg-slate-900 text-blue-300 border-blue-900/60' : 'bg-blue-50 text-blue-900 border-blue-200']">{{ task.issue_key }}</span>
                     </div>
                     <div class="flex items-center gap-1">
@@ -3240,18 +3236,18 @@ onUnmounted(() => {
                     </div>
                   </div>
 
-                  <h4 :class="['text-xs sm:text-sm font-semibold line-clamp-2 leading-snug', isDarkMode ? 'text-slate-100 group-hover:text-emerald-300' : 'text-slate-900 group-hover:text-emerald-700']">
+                  <h4 :class="['text-xs sm:text-sm font-semibold line-clamp-2 leading-snug', isDarkMode ? 'text-slate-100 group-hover:text-sky-300' : 'text-slate-900 group-hover:text-sky-700']">
                     {{ task.title }}
                   </h4>
 
                   <!-- Subtask & Due Date mini indicator -->
                   <div v-if="task.subtasks?.length || task.due_date" :class="['flex items-center justify-between text-[10px] font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600 font-semibold']">
-                    <span v-if="task.subtasks?.length" class="flex items-center gap-1">
-                      <span>☑️</span>
+                    <span v-if="task.subtasks?.length" class="flex items-center gap-1.5">
+                      <Icons name="ListChecks" :size="12" class="text-indigo-400" />
                       <span>{{ task.subtasks.filter(s => s.done).length }}/{{ task.subtasks.length }}</span>
                     </span>
-                    <span v-if="task.due_date" :class="['flex items-center gap-1', getTaskDelayStatus(task).isOverdue ? 'text-rose-500 font-bold' : '']">
-                      <span>📅</span>
+                    <span v-if="task.due_date" :class="['flex items-center gap-1.5', getTaskDelayStatus(task).isOverdue ? 'text-rose-500 font-bold' : '']">
+                      <Icons name="Clock" :size="12" :class="getTaskDelayStatus(task).isOverdue ? 'text-rose-400' : 'text-slate-400'" />
                       <span>{{ task.due_date }}</span>
                     </span>
                   </div>
@@ -3261,16 +3257,17 @@ onUnmounted(() => {
                       <span :class="['px-1.5 py-0.2 rounded border font-medium', getCategoryBadge(task.category).class]">
                         {{ getCategoryBadge(task.category).label }}
                       </span>
-                      <span :class="['px-1.5 py-0.2 rounded border font-semibold', getPriorityBadge(task.priority).class]">
-                        {{ getPriorityBadge(task.priority).label }}
+                      <span :class="['px-1.5 py-0.2 rounded border font-semibold flex items-center gap-1', getPriorityBadge(task.priority).class]">
+                        <Icons :name="getPriorityBadge(task.priority).icon" :size="10" />
+                        <span>{{ getPriorityBadge(task.priority).label }}</span>
                       </span>
                     </div>
                     <button
                       @click.stop="openRemoteDispatch(task)"
                       class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30 active:scale-95 shadow-xs"
-                      title="⚡ Dispatch to Connected Desktop Agent"
+                      title="Dispatch to Connected Desktop Agent"
                     >
-                      <span>⚡</span>
+                      <Icons name="Zap" :size="11" class="text-amber-300" />
                       <span>Dispatch</span>
                     </button>
                   </div>
@@ -3290,10 +3287,11 @@ onUnmounted(() => {
             >
               <div :class="['flex items-center justify-between pb-3 mb-3 border-b px-1', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
                 <span class="flex items-center gap-2 font-mono text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                  <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+                  <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                  <Icons name="Play" :size="13" class="text-amber-400 animate-pulse" />
                   <span>IN PROGRESS</span>
                 </span>
-                <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border', isDarkMode ? 'bg-slate-900 text-amber-300 border-slate-700' : 'bg-white text-amber-950 border-amber-300 shadow-xs']">
+                <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border', isDarkMode ? 'bg-slate-900 text-amber-300 border-amber-900/60' : 'bg-white text-amber-950 border-amber-300 shadow-xs']">
                   {{ inProgressTasks.length }}
                 </span>
               </div>
@@ -3316,8 +3314,8 @@ onUnmounted(() => {
                     v-if="task.id === webNextUpTaskId"
                     class="flex items-center justify-between px-2 py-0.5 rounded-lg bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-transparent border border-amber-500/40 text-[9px] font-bold text-amber-600 dark:text-amber-300 tracking-wide uppercase shadow-xs"
                   >
-                    <span class="flex items-center gap-1">
-                      <span class="animate-pulse">⚡</span>
+                    <span class="flex items-center gap-1.5">
+                      <Icons name="Sparkles" :size="12" class="text-amber-400 animate-pulse" />
                       <span>Next Up / Recommended</span>
                     </span>
                     <span class="text-[8px] font-mono opacity-75">Priority #1</span>
@@ -3325,7 +3323,7 @@ onUnmounted(() => {
 
                   <div class="flex items-center justify-between text-xs">
                     <div class="flex items-center gap-1.5">
-                      <span>{{ getIssueTypeBadge(task.issue_type).icon }}</span>
+                      <Icons :name="getIssueTypeBadge(task.issue_type).icon" :size="13" class="shrink-0 text-amber-400" />
                       <span :class="['font-mono text-[11px] font-bold px-1.5 py-0.2 rounded border', isDarkMode ? 'bg-amber-950/80 text-amber-300 border-amber-800' : 'bg-amber-50 text-amber-900 border-amber-200']">{{ task.issue_key }}</span>
                     </div>
                     <div class="flex items-center gap-1">
@@ -3344,12 +3342,12 @@ onUnmounted(() => {
 
                   <!-- Subtask & Due Date mini indicator -->
                   <div v-if="task.subtasks?.length || task.due_date" :class="['flex items-center justify-between text-[10px] font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600 font-semibold']">
-                    <span v-if="task.subtasks?.length" class="flex items-center gap-1">
-                      <span>☑️</span>
+                    <span v-if="task.subtasks?.length" class="flex items-center gap-1.5">
+                      <Icons name="ListChecks" :size="12" class="text-indigo-400" />
                       <span>{{ task.subtasks.filter(s => s.done).length }}/{{ task.subtasks.length }}</span>
                     </span>
-                    <span v-if="task.due_date" :class="['flex items-center gap-1', getTaskDelayStatus(task).isOverdue ? 'text-rose-500 font-bold' : '']">
-                      <span>📅</span>
+                    <span v-if="task.due_date" :class="['flex items-center gap-1.5', getTaskDelayStatus(task).isOverdue ? 'text-rose-500 font-bold' : '']">
+                      <Icons name="Clock" :size="12" :class="getTaskDelayStatus(task).isOverdue ? 'text-rose-400' : 'text-slate-400'" />
                       <span>{{ task.due_date }}</span>
                     </span>
                   </div>
@@ -3359,16 +3357,17 @@ onUnmounted(() => {
                       <span :class="['px-1.5 py-0.2 rounded border font-medium', getCategoryBadge(task.category).class]">
                         {{ getCategoryBadge(task.category).label }}
                       </span>
-                      <span :class="['px-1.5 py-0.2 rounded border font-semibold', getPriorityBadge(task.priority).class]">
-                        {{ getPriorityBadge(task.priority).label }}
+                      <span :class="['px-1.5 py-0.2 rounded border font-semibold flex items-center gap-1', getPriorityBadge(task.priority).class]">
+                        <Icons :name="getPriorityBadge(task.priority).icon" :size="10" />
+                        <span>{{ getPriorityBadge(task.priority).label }}</span>
                       </span>
                     </div>
                     <button
                       @click.stop="openRemoteDispatch(task)"
                       class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30 active:scale-95 shadow-xs"
-                      title="⚡ Re-dispatch / Run on Connected Desktop Agent"
+                      title="Dispatch to Connected Desktop Agent"
                     >
-                      <span>⚡</span>
+                      <Icons name="Zap" :size="11" class="text-amber-300" />
                       <span>Dispatch</span>
                     </button>
                   </div>
@@ -3388,10 +3387,11 @@ onUnmounted(() => {
             >
               <div :class="['flex items-center justify-between pb-3 mb-3 border-b px-1', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
                 <span class="flex items-center gap-2 font-mono text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                  <span class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+                  <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+                  <Icons name="Eye" :size="13" class="text-purple-400 animate-pulse" />
                   <span>REVIEW</span>
                 </span>
-                <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border', isDarkMode ? 'bg-slate-900 text-purple-300 border-slate-700' : 'bg-white text-purple-950 border-purple-300 shadow-xs']">
+                <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border', isDarkMode ? 'bg-slate-900 text-purple-300 border-purple-900/60' : 'bg-white text-purple-950 border-purple-300 shadow-xs']">
                   {{ reviewTasks.length }}
                 </span>
               </div>
@@ -3411,11 +3411,14 @@ onUnmounted(() => {
                 >
                   <div class="flex items-center justify-between text-xs">
                     <div class="flex items-center gap-1.5">
-                      <span>{{ getIssueTypeBadge(task.issue_type).icon }}</span>
+                      <Icons :name="getIssueTypeBadge(task.issue_type).icon" :size="13" class="shrink-0 text-purple-400" />
                       <span :class="['font-mono text-[11px] font-bold px-1.5 py-0.2 rounded border', isDarkMode ? 'bg-purple-950/80 text-purple-300 border-purple-800' : 'bg-purple-50 text-purple-900 border-purple-200']">{{ task.issue_key }}</span>
                     </div>
                     <div class="flex items-center gap-1">
-                      <span class="px-1.5 py-0.2 rounded bg-purple-500/15 border border-purple-500/30 text-purple-300 font-mono text-[9px] font-bold">🤖 Agent Review</span>
+                      <span class="px-1.5 py-0.2 rounded bg-purple-500/15 border border-purple-500/30 text-purple-300 font-mono text-[9px] font-bold flex items-center gap-1">
+                        <Icons name="Agent" :size="10" />
+                        <span>Review</span>
+                      </span>
                       <span v-if="task.story_points" :class="['px-1.5 py-0.2 rounded text-[11px] font-mono font-bold border', isDarkMode ? 'bg-indigo-950/80 text-indigo-300 border-indigo-800' : 'bg-indigo-50 text-indigo-900 border-indigo-200']">
                         {{ task.story_points }} pts
                       </span>
@@ -3428,12 +3431,12 @@ onUnmounted(() => {
 
                   <!-- Subtask & Due Date mini indicator -->
                   <div v-if="task.subtasks?.length || task.due_date" :class="['flex items-center justify-between text-[10px] font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600 font-semibold']">
-                    <span v-if="task.subtasks?.length" class="flex items-center gap-1">
-                      <span>☑️</span>
+                    <span v-if="task.subtasks?.length" class="flex items-center gap-1.5">
+                      <Icons name="ListChecks" :size="12" class="text-indigo-400" />
                       <span>{{ task.subtasks.filter(s => s.done).length }}/{{ task.subtasks.length }}</span>
                     </span>
-                    <span v-if="task.due_date" :class="['flex items-center gap-1', getTaskDelayStatus(task).isOverdue ? 'text-rose-500 font-bold' : '']">
-                      <span>📅</span>
+                    <span v-if="task.due_date" :class="['flex items-center gap-1.5', getTaskDelayStatus(task).isOverdue ? 'text-rose-500 font-bold' : '']">
+                      <Icons name="Clock" :size="12" :class="getTaskDelayStatus(task).isOverdue ? 'text-rose-400' : 'text-slate-400'" />
                       <span>{{ task.due_date }}</span>
                     </span>
                   </div>
@@ -3443,16 +3446,17 @@ onUnmounted(() => {
                       <span :class="['px-1.5 py-0.2 rounded border font-medium', getCategoryBadge(task.category).class]">
                         {{ getCategoryBadge(task.category).label }}
                       </span>
-                      <span :class="['px-1.5 py-0.2 rounded border font-semibold', getPriorityBadge(task.priority).class]">
-                        {{ getPriorityBadge(task.priority).label }}
+                      <span :class="['px-1.5 py-0.2 rounded border font-semibold flex items-center gap-1', getPriorityBadge(task.priority).class]">
+                        <Icons :name="getPriorityBadge(task.priority).icon" :size="10" />
+                        <span>{{ getPriorityBadge(task.priority).label }}</span>
                       </span>
                     </div>
                     <button
                       @click.stop="openRemoteDispatch(task)"
                       class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30 active:scale-95 shadow-xs"
-                      title="⚡ Re-test / Dispatch to Connected Desktop Agent"
+                      title="Dispatch to Connected Desktop Agent"
                     >
-                      <span>⚡</span>
+                      <Icons name="Zap" :size="11" class="text-amber-300" />
                       <span>Dispatch</span>
                     </button>
                   </div>
@@ -3472,10 +3476,11 @@ onUnmounted(() => {
             >
               <div :class="['flex items-center justify-between pb-3 mb-3 border-b px-1', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
                 <span class="flex items-center gap-2 font-mono text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                  <span class="w-2.5 h-2.5 rounded-full bg-slate-600"></span>
+                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <Icons name="CheckCircle" :size="13" class="text-emerald-400" />
                   <span>DONE</span>
                 </span>
-                <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border', isDarkMode ? 'bg-slate-900 text-emerald-300 border-slate-700' : 'bg-white text-emerald-950 border-emerald-300 shadow-xs']">
+                <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border', isDarkMode ? 'bg-slate-900 text-emerald-300 border-emerald-900/60' : 'bg-white text-emerald-950 border-emerald-300 shadow-xs']">
                   {{ doneTasks.length }}
                 </span>
               </div>
@@ -3494,7 +3499,7 @@ onUnmounted(() => {
                 >
                   <div class="flex items-center justify-between text-xs">
                     <div class="flex items-center gap-1.5">
-                      <span>{{ getIssueTypeBadge(task.issue_type).icon }}</span>
+                      <Icons :name="getIssueTypeBadge(task.issue_type).icon" :size="13" class="shrink-0 text-emerald-400" />
                       <span :class="['font-mono text-[11px] font-bold px-1.5 py-0.2 rounded border', isDarkMode ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800' : 'bg-emerald-50 text-emerald-900 border-emerald-200']">{{ task.issue_key }}</span>
                     </div>
                     <span v-if="task.story_points" :class="['px-1.5 py-0.2 rounded text-[11px] font-mono font-bold border', isDarkMode ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800' : 'bg-emerald-50 text-emerald-900 border-emerald-200']">
@@ -3510,7 +3515,10 @@ onUnmounted(() => {
                     <span :class="['px-1.5 py-0.2 rounded border font-medium', getCategoryBadge(task.category).class]">
                       {{ getCategoryBadge(task.category).label }}
                     </span>
-                    <span class="text-emerald-500 font-mono font-bold">Done ✓</span>
+                    <span class="text-emerald-400 font-mono font-bold flex items-center gap-1">
+                      <Icons name="CheckCircle" :size="12" />
+                      <span>Done</span>
+                    </span>
                   </div>
                 </div>
 

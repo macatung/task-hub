@@ -11,6 +11,8 @@ import PomodoroTimer from './PomodoroTimer.vue';
 import ActivityTimelineDrawer from './ActivityTimelineDrawer.vue';
 import AutoRepairModal from './AutoRepairModal.vue';
 import DangerousCommandBanner from './DangerousCommandBanner.vue';
+import TailwindIcon from './TailwindIcon.vue';
+import StatusBadge from './StatusBadge.vue';
 import { ansiToHtml, stripAnsiToPlainText, escapeHtml } from '../utils/ansi';
 import { parseDiscoveryPlan, serializeDiscoveryPlanContract } from '../utils/discoveryPlan';
 import { buildInitialRequest, consumePendingUserEcho, normalizeConversationText } from '../utils/conversation';
@@ -599,37 +601,37 @@ const taskPriorityCounts = computed(() => {
 const getTaskStatusBadge = (status?: string) => {
   const s = (status || 'todo').toLowerCase();
   if (['done', 'completed'].includes(s)) {
-    return { label: 'DONE', bg: 'bg-emerald-950/80', text: 'text-emerald-300', border: 'border-emerald-800/80', dot: 'bg-emerald-400' };
+    return { label: 'DONE', icon: 'check-circle', bg: 'bg-emerald-950/80', text: 'text-emerald-300', border: 'border-emerald-700/80 shadow-[0_0_8px_rgba(16,185,129,0.15)]', dot: 'bg-emerald-400' };
   }
   if (['in_progress', 'doing'].includes(s)) {
-    return { label: 'IN PROGRESS', bg: 'bg-amber-950/80', text: 'text-amber-300', border: 'border-amber-800/80', dot: 'bg-amber-400' };
+    return { label: 'IN PROGRESS', icon: 'play', bg: 'bg-amber-950/80', text: 'text-amber-300', border: 'border-amber-600/80 shadow-[0_0_10px_rgba(245,158,11,0.2)]', dot: 'bg-amber-400' };
   }
   if (['review', 'in_review', 'testing'].includes(s)) {
-    return { label: 'REVIEW', bg: 'bg-purple-950/80', text: 'text-purple-300', border: 'border-purple-800/80', dot: 'bg-purple-400' };
+    return { label: 'REVIEW', icon: 'eye', bg: 'bg-purple-950/80', text: 'text-purple-300', border: 'border-purple-600/80 shadow-[0_0_10px_rgba(168,85,247,0.2)]', dot: 'bg-purple-400' };
   }
-  return { label: 'TODO', bg: 'bg-slate-900/90', text: 'text-slate-300', border: 'border-slate-700', dot: 'bg-slate-400' };
+  return { label: 'TODO', icon: 'clock', bg: 'bg-slate-900/90', text: 'text-sky-300', border: 'border-slate-700', dot: 'bg-sky-400' };
 };
 
 const getTaskPriorityBadge = (priority?: string) => {
   const p = (priority || 'medium').toLowerCase();
   if (p === 'urgent') {
-    return { label: 'URGENT', icon: '⚡', bg: 'bg-rose-950/90', text: 'text-rose-300', border: 'border-rose-600/90', dot: 'bg-rose-500' };
+    return { label: 'URGENT', icon: 'flame', bg: 'bg-rose-950/90', text: 'text-rose-300', border: 'border-rose-600/90 shadow-[0_0_12px_rgba(244,63,94,0.35)]', dot: 'bg-rose-500' };
   }
   if (p === 'high') {
-    return { label: 'HIGH', icon: '▲', bg: 'bg-amber-950/90', text: 'text-amber-300', border: 'border-amber-600/90', dot: 'bg-amber-500' };
+    return { label: 'HIGH', icon: 'chevrons-up', bg: 'bg-amber-950/90', text: 'text-amber-300', border: 'border-amber-600/90 shadow-[0_0_8px_rgba(245,158,11,0.2)]', dot: 'bg-amber-500' };
   }
   if (p === 'low') {
-    return { label: 'LOW', icon: '▼', bg: 'bg-zinc-900/90', text: 'text-zinc-400', border: 'border-zinc-700', dot: 'bg-zinc-500' };
+    return { label: 'LOW', icon: 'minus', bg: 'bg-zinc-900/90', text: 'text-zinc-400', border: 'border-zinc-700', dot: 'bg-zinc-500' };
   }
-  return { label: 'MED', icon: '■', bg: 'bg-sky-950/90', text: 'text-sky-300', border: 'border-sky-700/90', dot: 'bg-sky-500' };
+  return { label: 'MED', icon: 'chevron-up', bg: 'bg-sky-950/90', text: 'text-sky-300', border: 'border-sky-700/90', dot: 'bg-sky-500' };
 };
 
 const getTaskIssueTypeInfo = (type?: string) => {
   const t = (type || 'task').toLowerCase();
-  if (t === 'epic') return { icon: '⚡', label: 'EPIC', class: 'bg-purple-950/80 text-purple-300 border-purple-800/80' };
-  if (t === 'story') return { icon: '📖', label: 'STORY', class: 'bg-emerald-950/80 text-emerald-300 border-emerald-800/80' };
-  if (t === 'bug') return { icon: '🐞', label: 'BUG', class: 'bg-rose-950/80 text-rose-300 border-rose-800/80' };
-  return { icon: '☑️', label: 'TASK', class: 'bg-blue-950/80 text-blue-300 border-blue-800/80' };
+  if (t === 'epic') return { icon: 'crown', label: 'EPIC', class: 'bg-purple-950/80 text-purple-300 border-purple-800/80 shadow-[0_0_8px_rgba(168,85,247,0.2)]' };
+  if (t === 'story') return { icon: 'book-open', label: 'STORY', class: 'bg-emerald-950/80 text-emerald-300 border-emerald-800/80 shadow-[0_0_8px_rgba(16,185,129,0.15)]' };
+  if (t === 'bug') return { icon: 'bug', label: 'BUG', class: 'bg-rose-950/80 text-rose-300 border-rose-800/80 shadow-[0_0_8px_rgba(244,63,94,0.2)]' };
+  return { icon: 'check-square', label: 'TASK', class: 'bg-blue-950/80 text-blue-300 border-blue-800/80' };
 };
 
 const getTaskSortWeight = (task: any) => {
@@ -4187,10 +4189,11 @@ onUnmounted(() => {
                 <div class="flex items-center justify-between gap-1.5">
                   <div class="flex items-center gap-1.5 min-w-0">
                     <span
-                      class="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono uppercase border shrink-0"
+                      class="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono uppercase border shrink-0 flex items-center gap-1"
                       :class="getTaskIssueTypeInfo(task.issue_type).class"
                     >
-                      {{ getTaskIssueTypeInfo(task.issue_type).icon }} {{ getTaskIssueTypeInfo(task.issue_type).label }}
+                      <TailwindIcon :name="getTaskIssueTypeInfo(task.issue_type).icon" :size="10" />
+                      <span>{{ getTaskIssueTypeInfo(task.issue_type).label }}</span>
                     </span>
                     <span
                       class="font-mono font-bold text-xs truncate"
@@ -4207,7 +4210,7 @@ onUnmounted(() => {
                       :class="[getTaskPriorityBadge(task.priority).bg, getTaskPriorityBadge(task.priority).text, getTaskPriorityBadge(task.priority).border]"
                       :title="`Priority: ${task.priority || 'medium'}`"
                     >
-                      <span>{{ getTaskPriorityBadge(task.priority).icon }}</span>
+                      <TailwindIcon :name="getTaskPriorityBadge(task.priority).icon" :size="9" />
                       <span>{{ getTaskPriorityBadge(task.priority).label }}</span>
                     </span>
 
@@ -4235,10 +4238,10 @@ onUnmounted(() => {
                   <div class="flex flex-wrap items-center gap-1 min-w-0">
                     <span
                       v-if="task.epic"
-                      class="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-medium bg-purple-950/50 text-purple-300 border border-purple-800/50 truncate max-w-[120px]"
+                      class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-medium bg-purple-950/50 text-purple-300 border border-purple-800/50 truncate max-w-[120px]"
                       :title="`Epic: ${task.epic.title || task.epic.issue_key}`"
                     >
-                      <span>⚡</span>
+                      <TailwindIcon name="crown" :size="9" class="text-purple-400" />
                       <span class="truncate">{{ task.epic.title || task.epic.issue_key }}</span>
                     </span>
 
@@ -4252,10 +4255,11 @@ onUnmounted(() => {
 
                     <span
                       v-if="getTaskSubtasks(task).length > 0"
-                      class="font-mono text-[9px] text-zinc-400 px-1 py-0.2 rounded bg-[#1e1e22] border border-[#333338]"
+                      class="font-mono text-[9px] text-zinc-400 px-1.5 py-0.2 rounded bg-[#1e1e22] border border-[#333338] flex items-center gap-1"
                       :title="`Subtasks: ${getTaskSubtasks(task).filter(s => s.done).length}/${getTaskSubtasks(task).length} completed`"
                     >
-                      ☑ {{ getTaskSubtasks(task).filter(s => s.done).length }}/{{ getTaskSubtasks(task).length }}
+                      <TailwindIcon name="list-checks" :size="10" class="text-indigo-400" />
+                      <span>{{ getTaskSubtasks(task).filter(s => s.done).length }}/{{ getTaskSubtasks(task).length }}</span>
                     </span>
                   </div>
 
@@ -4264,7 +4268,7 @@ onUnmounted(() => {
                     title="Inspect task description, criteria & subtasks"
                     @click.stop="openTaskInspector(task)"
                   >
-                    <i class="codicon codicon-eye text-[10px]" />
+                    <TailwindIcon name="eye" :size="10" />
                     <span>Details</span>
                   </button>
                 </div>
@@ -4285,22 +4289,25 @@ onUnmounted(() => {
                 </div>
                 <div class="flex items-center gap-1 shrink-0">
                   <span
-                    class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border"
+                    class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border flex items-center gap-1"
                     :class="[getTaskPriorityBadge(selectedTask.priority).bg, getTaskPriorityBadge(selectedTask.priority).text, getTaskPriorityBadge(selectedTask.priority).border]"
                   >
-                    {{ getTaskPriorityBadge(selectedTask.priority).icon }} {{ getTaskPriorityBadge(selectedTask.priority).label }}
+                    <TailwindIcon :name="getTaskPriorityBadge(selectedTask.priority).icon" :size="9" />
+                    <span>{{ getTaskPriorityBadge(selectedTask.priority).label }}</span>
                   </span>
                   <span
-                    class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border"
+                    class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border flex items-center gap-1"
                     :class="[getTaskStatusBadge(selectedTask.status).bg, getTaskStatusBadge(selectedTask.status).text, getTaskStatusBadge(selectedTask.status).border]"
                   >
-                    {{ getTaskStatusBadge(selectedTask.status).label }}
+                    <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="getTaskStatusBadge(selectedTask.status).dot" />
+                    <span>{{ getTaskStatusBadge(selectedTask.status).label }}</span>
                   </span>
                 </div>
               </div>
               <p class="text-xs font-semibold text-white leading-snug">{{ selectedTask.title }}</p>
               <div v-if="selectedTask.epic" class="text-[10px] text-purple-300 font-medium flex items-center gap-1">
-                <span>⚡ Epic:</span>
+                <TailwindIcon name="crown" :size="10" class="text-purple-400" />
+                <span>Epic:</span>
                 <span class="truncate">{{ selectedTask.epic.title || selectedTask.epic.issue_key }}</span>
               </div>
               <p v-if="selectedTask.acceptance_criteria" class="text-zinc-400 text-[10px] mt-0.5 line-clamp-2 italic">

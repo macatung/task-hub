@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SafetyInterceptEvent } from '../utils/safetyGuardrails';
+import TailwindIcon from './TailwindIcon.vue';
 
 const props = defineProps<{
   alert: SafetyInterceptEvent | null;
@@ -31,13 +32,13 @@ const handleReject = () => {
   >
     <div class="flex items-start justify-between gap-4">
       <div class="flex items-start gap-3">
-        <div class="p-2.5 rounded-lg bg-red-900/60 border border-red-700/50 text-red-300 text-lg flex items-center justify-center shrink-0">
-          ⚠️
+        <div class="p-2 rounded-lg bg-red-900/60 border border-red-700/50 text-rose-300 flex items-center justify-center shrink-0 shadow-[0_0_12px_rgba(244,63,94,0.3)]">
+          <TailwindIcon name="alert-triangle" :size="20" class="text-rose-400" />
         </div>
         <div>
           <div class="flex items-center gap-2">
             <span
-              class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider font-mono"
+              class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider font-mono flex items-center gap-1"
               :class="{
                 'bg-red-600 text-white': alert.riskLevel === 'critical',
                 'bg-amber-600 text-white': alert.riskLevel === 'high',
@@ -45,7 +46,8 @@ const handleReject = () => {
                 'bg-slate-700 text-slate-200': !['critical', 'high', 'medium'].includes(alert.riskLevel)
               }"
             >
-              {{ alert.riskLevel }} Risk Guardrail
+              <TailwindIcon name="shield" :size="10" />
+              <span>{{ alert.riskLevel }} Risk Guardrail</span>
             </span>
             <span class="text-xs font-semibold text-red-200 font-mono">
               Action Intercepted &middot; Waiting Developer Approval
@@ -65,7 +67,7 @@ const handleReject = () => {
           class="px-3 py-1.5 rounded-lg border border-red-700/80 bg-red-900/40 hover:bg-red-800/80 text-red-200 hover:text-white text-xs font-medium cursor-pointer transition-all shadow-sm flex items-center gap-1.5"
           title="Reject command and halt execution"
         >
-          <span>✕</span>
+          <TailwindIcon name="x" :size="13" />
           <span>Reject & Abort</span>
         </button>
         <button
@@ -73,7 +75,7 @@ const handleReject = () => {
           class="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold cursor-pointer transition-all shadow-md flex items-center gap-1.5"
           title="Approve command and proceed"
         >
-          <span>✓</span>
+          <TailwindIcon name="check" :size="13" />
           <span>Approve & Continue</span>
         </button>
       </div>

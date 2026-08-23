@@ -2,6 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import axios from 'axios';
 import { sound } from '@/audio/soundEffects';
+import Icons from '@/Components/ui/Icons.vue';
+import StatusBadge from '@/Components/ui/StatusBadge.vue';
 import type { DesktopAgentItem } from './ConnectedAgentsRegistry.vue';
 
 export interface TaskItemProps {
@@ -193,10 +195,10 @@ onMounted(() => {
         class="px-6 py-4 border-b flex items-center justify-between gap-3 shrink-0"
         :class="isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-50 border-slate-200'"
       >
-        <div class="flex items-center gap-2.5 min-w-0">
-          <span class="p-1.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-base">
-            ⚡
-          </span>
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-500/20 via-teal-500/15 to-cyan-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
+            <Icons name="Zap" :size="18" class="text-amber-300 animate-pulse" />
+          </div>
           <div>
             <h3 class="font-bold text-sm sm:text-base font-display tracking-tight">
               Remote Task Dispatch to Desktop
@@ -212,7 +214,7 @@ onMounted(() => {
           class="p-1.5 rounded-xl text-slate-400 hover:text-white cursor-pointer transition-colors"
           title="Close dialog (Esc)"
         >
-          ✕
+          <Icons name="X" :size="16" />
         </button>
       </div>
 
@@ -236,12 +238,12 @@ onMounted(() => {
                 {{ activeTask.title }}
               </h4>
             </div>
-            <span
-              class="px-2 py-0.5 rounded-full font-mono text-[10px] font-bold uppercase border shrink-0"
-              :class="isDarkMode ? 'bg-slate-900 text-slate-300 border-slate-700' : 'bg-slate-100 text-slate-700 border-slate-300'"
-            >
-              {{ activeTask.status }}
-            </span>
+            <StatusBadge
+              :status="activeTask.status"
+              variant="status"
+              size="xs"
+              :dark="isDarkMode"
+            />
           </div>
           <p v-if="activeTask.description" class="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">
             {{ activeTask.description }}
@@ -289,7 +291,7 @@ onMounted(() => {
             >
               <div class="min-w-0 space-y-0.5">
                 <div class="flex items-center gap-1.5">
-                  <span class="text-sm">{{ getOsIcon(runner.os_platform) }}</span>
+                  <Icons name="Desktop" :size="14" class="text-blue-400 shrink-0" />
                   <span class="font-bold text-xs truncate" :class="isDarkMode ? 'text-white' : 'text-slate-950'">
                     {{ runner.machine_name || runner.name }}
                   </span>
@@ -324,7 +326,10 @@ onMounted(() => {
             class="p-4 rounded-2xl border border-dashed text-center space-y-1.5"
             :class="isDarkMode ? 'border-amber-500/40 bg-amber-950/10 text-amber-300' : 'border-amber-300 bg-amber-50 text-amber-900'"
           >
-            <p class="font-bold text-xs">⚠️ No Desktop Companion Online</p>
+            <div class="flex items-center justify-center gap-1.5 text-amber-400 font-bold text-xs">
+              <Icons name="AlertTriangle" :size="14" />
+              <span>No Desktop Companion Online</span>
+            </div>
             <p class="text-[11px] opacity-85 leading-relaxed">
               Launch Task Hub Desktop App on your workstation. It will automatically pair and show up here.
             </p>
@@ -351,7 +356,10 @@ onMounted(() => {
                   : (isDarkMode ? 'bg-slate-900/70 border-slate-800 text-slate-300 hover:border-slate-700' : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300')
               ]"
             >
-              <span>{{ p === 'antigravity' ? '⚡ Antigravity' : p === 'claude_code' ? '🧠 Claude Code' : '💻 Codex' }}</span>
+              <span class="flex items-center gap-1">
+                <Icons :name="p === 'antigravity' ? 'Zap' : p === 'claude_code' ? 'Agent' : 'Terminal'" :size="12" />
+                <span>{{ p === 'antigravity' ? 'Antigravity' : p === 'claude_code' ? 'Claude Code' : 'Codex' }}</span>
+              </span>
               <span class="text-[9px] font-mono text-slate-400 font-normal">
                 {{ p === 'antigravity' ? 'Autonomous SDK' : p === 'claude_code' ? 'Anthropic CLI' : 'OpenAI CLI' }}
               </span>
@@ -388,7 +396,7 @@ onMounted(() => {
                 class="w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0"
                 :class="selectedModel === model.id ? 'border-blue-400 bg-blue-500 text-white text-[9px]' : 'border-slate-600'"
               >
-                <span v-if="selectedModel === model.id">✓</span>
+                <Icons v-if="selectedModel === model.id" name="Check" :size="10" />
               </span>
             </div>
           </div>
@@ -412,8 +420,11 @@ onMounted(() => {
               ]"
             >
               <div class="flex items-center justify-between">
-                <span class="font-bold text-xs text-emerald-400">🚀 Autonomous Auto-Pilot</span>
-                <span v-if="executionMode === 'auto_pilot'" class="text-xs">✓</span>
+                <span class="font-bold text-xs text-emerald-400 flex items-center gap-1.5">
+                  <Icons name="Zap" :size="12" />
+                  <span>Autonomous Auto-Pilot</span>
+                </span>
+                <Icons v-if="executionMode === 'auto_pilot'" name="Check" :size="12" class="text-emerald-400" />
               </div>
               <p class="text-[10px] text-slate-400 leading-tight">
                 7-stage autonomous cycle: Git worktree ➔ MCP context ➔ Coding ➔ Test verification ➔ Handoff.
@@ -431,8 +442,11 @@ onMounted(() => {
               ]"
             >
               <div class="flex items-center justify-between">
-                <span class="font-bold text-xs text-indigo-400">🛡️ Supervised Mode</span>
-                <span v-if="executionMode === 'supervised'" class="text-xs">✓</span>
+                <span class="font-bold text-xs text-indigo-400 flex items-center gap-1.5">
+                  <Icons name="Shield" :size="12" />
+                  <span>Supervised Mode</span>
+                </span>
+                <Icons v-if="executionMode === 'supervised'" name="Check" :size="12" class="text-indigo-400" />
               </div>
               <p class="text-[10px] text-slate-400 leading-tight">
                 Requires manual confirmation for critical tool calls and dangerous commands.
@@ -456,11 +470,13 @@ onMounted(() => {
         </div>
 
         <!-- Error & Success Messages -->
-        <div v-if="errorMessage" class="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-400 text-xs">
-          {{ errorMessage }}
+        <div v-if="errorMessage" class="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-400 text-xs flex items-center gap-2">
+          <Icons name="AlertCircle" :size="14" class="shrink-0" />
+          <span>{{ errorMessage }}</span>
         </div>
-        <div v-if="successMessage" class="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-xs">
-          {{ successMessage }}
+        <div v-if="successMessage" class="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-xs flex items-center gap-2">
+          <Icons name="CheckCircle" :size="14" class="shrink-0" />
+          <span>{{ successMessage }}</span>
         </div>
       </div>
 
@@ -489,9 +505,7 @@ onMounted(() => {
               : 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white border-emerald-400/40 shadow-emerald-950/40 active:scale-95'
           ]"
         >
-          <span :class="['inline-block', isDispatching ? 'animate-spin' : 'animate-pulse']">
-            {{ isDispatching ? '🔄' : '⚡' }}
-          </span>
+          <Icons :name="isDispatching ? 'Refresh' : 'Zap'" :size="14" :class="[isDispatching ? 'animate-spin' : 'text-amber-300']" />
           <span>
             {{ isDispatching ? 'Dispatching (< 2s)...' : `Dispatch to Desktop (${executionMode === 'auto_pilot' ? 'Auto-Pilot' : 'Supervised'})` }}
           </span>

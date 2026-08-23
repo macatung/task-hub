@@ -2,6 +2,8 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import axios from 'axios';
 import { sound } from '@/audio/soundEffects';
+import Icons from '@/Components/ui/Icons.vue';
+import StatusBadge from '@/Components/ui/StatusBadge.vue';
 
 export interface AgentRunEventItem {
   id?: number | string;
@@ -394,30 +396,20 @@ onBeforeUnmount(() => {
       :class="isDarkMode ? 'bg-[#0a0f1d] border-slate-800 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-900'"
     >
       <div class="flex items-center gap-2.5 min-w-0">
-        <span class="p-1.5 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-emerald-400 text-sm">
-          🚀
-        </span>
+        <div class="p-2 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+          <Icons name="Zap" :size="16" class="text-amber-300 animate-pulse" />
+        </div>
         <div class="min-w-0">
           <div class="flex items-center gap-2">
             <h4 class="font-bold text-xs font-display truncate">
               Autonomous Desktop Auto-Pilot
             </h4>
-            <span
-              class="font-mono text-[9px] font-bold px-2 py-0.5 rounded-full border uppercase"
-              :class="[
-                activeRun?.status === 'running'
-                  ? 'bg-blue-500/15 text-blue-400 border-blue-500/40 animate-pulse'
-                  : activeRun?.status === 'waiting_input'
-                  ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 animate-ping'
-                  : activeRun?.status === 'verified' || activeRun?.status === 'completed'
-                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
-                  : activeRun?.status === 'failed'
-                  ? 'bg-rose-500/15 text-rose-400 border-rose-500/40'
-                  : 'bg-slate-800 text-slate-400 border-slate-700'
-              ]"
-            >
-              ● {{ activeRun?.status || 'Active' }}
-            </span>
+            <StatusBadge
+              :status="activeRun?.status || 'idle'"
+              variant="status"
+              size="xs"
+              :dark="isDarkMode"
+            />
           </div>
           <p class="font-mono text-[10px] text-slate-400 truncate">
             Run #{{ activeRun?.id }} · {{ activeRun?.provider?.toUpperCase() }} ({{ activeRun?.metadata?.model || 'gemini-3.7-flash' }})
@@ -429,11 +421,11 @@ onBeforeUnmount(() => {
       <!-- Action: Reload Streamback -->
       <button
         @click="activeRun?.id && loadRunDetails(activeRun.id)"
-        class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1"
+        class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1.5"
         :class="isDarkMode ? 'border-slate-800 bg-slate-900 text-slate-300 hover:text-white' : 'border-slate-300 bg-white text-slate-700 hover:text-slate-950'"
         title="Refresh streamback logs"
       >
-        <span>🔄</span>
+        <Icons name="Refresh" :size="12" />
         <span>Sync</span>
       </button>
     </div>
@@ -477,7 +469,7 @@ onBeforeUnmount(() => {
                 step.status === 'completed'
                   ? 'bg-emerald-500 text-white'
                   : step.status === 'running'
-                  ? 'bg-blue-500 text-white animate-spin'
+                  ? 'bg-blue-500 text-white'
                   : step.status === 'paused'
                   ? 'bg-amber-500 text-white animate-bounce'
                   : step.status === 'failed'
@@ -485,7 +477,11 @@ onBeforeUnmount(() => {
                   : 'bg-slate-700 text-slate-300'
               ]"
             >
-              {{ step.status === 'completed' ? '✓' : step.status === 'running' ? '⚙' : step.status === 'paused' ? '!' : step.status === 'failed' ? '✕' : step.id }}
+              <Icons v-if="step.status === 'completed'" name="Check" :size="10" />
+              <Icons v-else-if="step.status === 'running'" name="Loader" :size="10" class="animate-spin" />
+              <Icons v-else-if="step.status === 'paused'" name="AlertTriangle" :size="10" />
+              <Icons v-else-if="step.status === 'failed'" name="X" :size="10" />
+              <span v-else>{{ step.id }}</span>
             </span>
           </div>
           <p class="text-[9.5px] leading-tight opacity-75 line-clamp-2">{{ step.description }}</p>
@@ -500,7 +496,7 @@ onBeforeUnmount(() => {
     >
       <div class="flex items-start justify-between gap-2">
         <div class="flex items-center gap-2">
-          <span class="text-xl">🛡️</span>
+          <Icons name="Shield" :size="20" class="text-amber-400 shrink-0" />
           <div>
             <div class="flex items-center gap-2">
               <h4 class="font-bold text-xs text-amber-400 uppercase tracking-wider">
@@ -530,7 +526,7 @@ onBeforeUnmount(() => {
           :disabled="isApproving"
           class="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
         >
-          <span>✓</span>
+          <Icons name="Check" :size="12" />
           <span>{{ isApproving ? 'Approving...' : 'Authorize & Continue Execution' }}</span>
         </button>
 
@@ -539,7 +535,7 @@ onBeforeUnmount(() => {
           :disabled="isRejecting"
           class="px-4 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
         >
-          <span>✕</span>
+          <Icons name="X" :size="12" />
           <span>{{ isRejecting ? 'Rejecting...' : 'Reject Action' }}</span>
         </button>
       </div>
@@ -573,9 +569,10 @@ onBeforeUnmount(() => {
           </label>
           <button
             @click="copyAllLogs"
-            class="px-2 py-0.5 rounded text-[10px] font-mono border border-slate-700 bg-slate-800/80 text-slate-300 hover:text-white cursor-pointer"
+            class="px-2 py-0.5 rounded text-[10px] font-mono border border-slate-700 bg-slate-800/80 text-slate-300 hover:text-white cursor-pointer flex items-center gap-1"
           >
-            {{ copiedLogs ? '✓ Copied' : '📋 Copy' }}
+            <Icons :name="copiedLogs ? 'Check' : 'Copy'" :size="11" />
+            <span>{{ copiedLogs ? 'Copied' : 'Copy' }}</span>
           </button>
           <button
             @click="logs = []"
@@ -640,7 +637,7 @@ onBeforeUnmount(() => {
             class="p-2.5 flex items-center justify-between gap-2 cursor-pointer hover:bg-slate-800/30"
           >
             <div class="flex items-center gap-2 min-w-0 font-mono text-[11px]">
-              <span class="text-emerald-400">🔧</span>
+              <Icons name="Wrench" :size="13" class="text-emerald-400 shrink-0" />
               <span class="font-bold truncate text-slate-200">{{ tc.tool }}</span>
               <span v-if="tc.durationMs" class="text-slate-500 text-[9px]">({{ tc.durationMs }}ms)</span>
             </div>
@@ -652,7 +649,7 @@ onBeforeUnmount(() => {
               >
                 {{ tc.status }}
               </span>
-              <span class="text-[10px] text-slate-400">{{ activeToolAccordion === tc.id ? '▲' : '▼' }}</span>
+              <Icons :name="activeToolAccordion === tc.id ? 'ChevronUp' : 'ChevronDown'" :size="12" class="text-slate-400" />
             </div>
           </div>
 
@@ -700,9 +697,10 @@ onBeforeUnmount(() => {
           ]"
         >
           <div class="min-w-0 space-y-1">
-            <div class="flex items-center gap-2">
-              <span class="font-bold">{{ ev.status === 'passed' ? '✓ Passed' : '✕ Failed' }}</span>
-              <span class="font-mono text-[10px] opacity-80">{{ ev.evidence_type }}</span>
+            <div class="flex items-center gap-1.5">
+              <Icons :name="ev.status === 'passed' ? 'CheckCircle' : 'AlertCircle'" :size="13" />
+              <span class="font-bold">{{ ev.status === 'passed' ? 'Passed' : 'Failed' }}</span>
+              <span class="font-mono text-[10px] opacity-80">· {{ ev.evidence_type }}</span>
             </div>
             <p v-if="ev.command" class="font-mono text-[10px] opacity-85 truncate">
               Command: {{ ev.command }}
@@ -723,12 +721,14 @@ onBeforeUnmount(() => {
           rel="noreferrer"
           class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all flex items-center gap-1.5 shadow-sm"
         >
-          <span>🔗</span>
+          <Icons name="GitPullRequest" :size="13" />
           <span>View Pull Request</span>
         </a>
 
-        <span v-if="activeRun?.commit_sha" class="font-mono text-[10px] text-slate-400">
-          Commit: <code class="px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300">{{ activeRun.commit_sha.slice(0, 7) }}</code>
+        <span v-if="activeRun?.commit_sha" class="font-mono text-[10px] text-slate-400 flex items-center gap-1">
+          <Icons name="GitBranch" :size="11" />
+          <span>Commit:</span>
+          <code class="px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300">{{ activeRun.commit_sha.slice(0, 7) }}</code>
         </span>
       </div>
     </div>
@@ -752,7 +752,7 @@ onBeforeUnmount(() => {
         :disabled="isApproving"
         class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 shadow-lg active:scale-95 shrink-0"
       >
-        <span>✓</span>
+        <Icons name="Check" :size="13" />
         <span>{{ isApproving ? 'Approving...' : 'Approve & Mark Done' }}</span>
       </button>
     </div>

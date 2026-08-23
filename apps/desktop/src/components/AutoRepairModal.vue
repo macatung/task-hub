@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import TailwindIcon from './TailwindIcon.vue';
 
 export interface RepairCheck {
   id: string;
@@ -63,13 +64,13 @@ const runAutoRepair = async () => {
 const getStatusBadge = (status: RepairCheck['status']) => {
   switch (status) {
     case 'passed':
-      return { icon: 'codicon-check', bg: 'bg-emerald-950/60 border-emerald-800 text-emerald-300', label: 'Fixed / Ready' };
+      return { icon: 'check-circle', bg: 'bg-emerald-950/60 border-emerald-800 text-emerald-300', iconClass: 'text-emerald-400', label: 'Fixed / Ready' };
     case 'warning':
-      return { icon: 'codicon-warning', bg: 'bg-amber-950/60 border-amber-800 text-amber-300', label: 'Notice' };
+      return { icon: 'alert-triangle', bg: 'bg-amber-950/60 border-amber-800 text-amber-300', iconClass: 'text-amber-400', label: 'Notice' };
     case 'failed':
-      return { icon: 'codicon-error', bg: 'bg-rose-950/60 border-rose-800 text-rose-300', label: 'Failed' };
+      return { icon: 'alert-circle', bg: 'bg-rose-950/60 border-rose-800 text-rose-300', iconClass: 'text-rose-400', label: 'Failed' };
     default:
-      return { icon: 'codicon-info', bg: 'bg-zinc-800 border-zinc-700 text-zinc-300', label: 'Check' };
+      return { icon: 'clock', bg: 'bg-zinc-800 border-zinc-700 text-zinc-300', iconClass: 'text-slate-400', label: 'Check' };
   }
 };
 </script>
@@ -87,7 +88,7 @@ const getStatusBadge = (status: RepairCheck['status']) => {
       <div class="h-12 px-4 border-b border-[#2d2d2d] bg-[#252526] flex items-center justify-between shrink-0">
         <div class="flex items-center gap-2">
           <div class="w-6 h-6 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center">
-            <i class="codicon codicon-tools text-sm" />
+            <TailwindIcon name="wrench" :size="13" />
           </div>
           <div>
             <h2 class="text-xs font-bold text-zinc-100 uppercase tracking-wider">One-Click Environment Auto-Repair</h2>
@@ -99,7 +100,7 @@ const getStatusBadge = (status: RepairCheck['status']) => {
           class="w-6 h-6 rounded hover:bg-[#333333] text-zinc-400 hover:text-white grid place-items-center transition-colors cursor-pointer"
           @click="emit('close')"
         >
-          <i class="codicon codicon-close text-xs" />
+          <TailwindIcon name="x" :size="13" />
         </button>
       </div>
 
@@ -122,19 +123,19 @@ const getStatusBadge = (status: RepairCheck['status']) => {
           <p class="text-xs text-zinc-300 font-medium">Auto-Repair checks and resolves:</p>
           <ul class="space-y-1.5 text-xs text-zinc-400">
             <li class="flex items-start gap-2">
-              <i class="codicon codicon-check text-emerald-400 mt-0.5" />
+              <TailwindIcon name="check" :size="14" class="text-emerald-400 mt-0.5 shrink-0" />
               <span>Copies <code class="bg-[#2d2d2d] px-1 rounded text-zinc-200">.env.example</code> to <code class="bg-[#2d2d2d] px-1 rounded text-zinc-200">.env</code> if missing.</span>
             </li>
             <li class="flex items-start gap-2">
-              <i class="codicon codicon-check text-emerald-400 mt-0.5" />
+              <TailwindIcon name="check" :size="14" class="text-emerald-400 mt-0.5 shrink-0" />
               <span>Installs missing package dependencies (<code class="bg-[#2d2d2d] px-1 rounded text-zinc-200">npm ci</code> / <code class="bg-[#2d2d2d] px-1 rounded text-zinc-200">composer install</code>).</span>
             </li>
             <li class="flex items-start gap-2">
-              <i class="codicon codicon-check text-emerald-400 mt-0.5" />
+              <TailwindIcon name="check" :size="14" class="text-emerald-400 mt-0.5 shrink-0" />
               <span>Prunes orphaned Git worktrees and stale temporary branch locks.</span>
             </li>
             <li class="flex items-start gap-2">
-              <i class="codicon codicon-check text-emerald-400 mt-0.5" />
+              <TailwindIcon name="check" :size="14" class="text-emerald-400 mt-0.5 shrink-0" />
               <span>Verifies local AI CLI engine permissions and executable discovery.</span>
             </li>
           </ul>
@@ -142,7 +143,7 @@ const getStatusBadge = (status: RepairCheck['status']) => {
 
         <!-- Progress Spinner -->
         <div v-if="isRepairing" class="py-8 flex flex-col items-center justify-center gap-3 text-center">
-          <i class="codicon codicon-loading animate-spin text-3xl text-sky-400" />
+          <TailwindIcon name="loader" :size="28" class="animate-spin text-sky-400" />
           <div class="space-y-1">
             <p class="text-xs font-semibold text-zinc-200">Evaluating & Auto-Repairing Workspace...</p>
             <p class="text-[11px] text-zinc-400">Checking environment files, dependencies, and git state</p>
@@ -151,7 +152,7 @@ const getStatusBadge = (status: RepairCheck['status']) => {
 
         <!-- Error Banner -->
         <div v-if="errorMessage" class="p-3 rounded-lg border border-rose-800/80 bg-rose-950/60 text-rose-300 text-xs flex items-start gap-2">
-          <i class="codicon codicon-error mt-0.5" />
+          <TailwindIcon name="alert-circle" :size="14" class="mt-0.5 shrink-0" />
           <span>{{ errorMessage }}</span>
         </div>
 
@@ -175,13 +176,13 @@ const getStatusBadge = (status: RepairCheck['status']) => {
               :class="getStatusBadge(chk.status).bg"
             >
               <div class="flex items-start gap-2 min-w-0">
-                <i class="codicon mt-0.5 shrink-0" :class="getStatusBadge(chk.status).icon" />
+                <TailwindIcon :name="getStatusBadge(chk.status).icon" :size="13" class="mt-0.5 shrink-0" :class="getStatusBadge(chk.status).iconClass" />
                 <div class="min-w-0">
                   <span class="font-mono font-medium block truncate capitalize">{{ chk.id.replace('_', ' ') }}</span>
-                  <p class="text-[11px] opacity-90 leading-tight">{{ chk.message }}</p>
+                  <p class="text-[11px] text-zinc-300 leading-relaxed">{{ chk.message }}</p>
                 </div>
               </div>
-              <span class="text-[10px] font-mono font-semibold uppercase shrink-0">{{ getStatusBadge(chk.status).label }}</span>
+              <span class="text-[10px] font-mono font-semibold shrink-0 uppercase">{{ getStatusBadge(chk.status).label }}</span>
             </div>
           </div>
         </div>
@@ -189,23 +190,26 @@ const getStatusBadge = (status: RepairCheck['status']) => {
 
       <!-- Modal Footer -->
       <div class="h-12 px-4 border-t border-[#2d2d2d] bg-[#252526] flex items-center justify-between shrink-0">
-        <span class="text-[11px] text-zinc-500 font-mono">Status: {{ isRepairing ? 'Repairing...' : repairResult ? (repairResult.ok ? 'Repaired' : 'Warnings') : 'Idle' }}</span>
+        <button
+          class="h-8 px-3 rounded text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer"
+          @click="emit('close')"
+        >
+          Close
+        </button>
 
         <div class="flex items-center gap-2">
           <button
-            class="px-3 py-1.5 rounded text-xs font-medium bg-[#2d2d2d] hover:bg-[#383838] border border-[#3e3e42] text-zinc-300 transition-colors cursor-pointer"
-            @click="emit('close')"
-          >
-            {{ repairResult ? 'Close' : 'Cancel' }}
-          </button>
-
-          <button
-            class="px-3.5 py-1.5 rounded text-xs font-bold bg-[#0e639c] hover:bg-[#1177bb] text-white flex items-center gap-1.5 transition-all shadow-md active:scale-98 cursor-pointer disabled:opacity-50"
+            class="h-8 px-4 rounded text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+            :class="[
+              isRepairing
+                ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs active:scale-98'
+            ]"
             :disabled="isRepairing"
             @click="runAutoRepair"
           >
-            <i class="codicon" :class="isRepairing ? 'codicon-loading animate-spin' : 'codicon-wrench'" />
-            <span>{{ isRepairing ? 'Repairing...' : repairResult ? 'Re-run Auto-Repair' : 'Start Auto-Repair' }}</span>
+            <TailwindIcon :name="isRepairing ? 'loader' : 'wrench'" :size="13" :class="isRepairing ? 'animate-spin' : ''" />
+            <span>{{ isRepairing ? 'Repairing...' : (repairResult ? 'Re-run Repair' : 'Execute Auto-Repair') }}</span>
           </button>
         </div>
       </div>

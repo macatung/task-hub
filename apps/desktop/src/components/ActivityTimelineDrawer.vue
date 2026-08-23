@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import TailwindIcon from './TailwindIcon.vue';
 
 export interface TimelineEvent {
   id: string;
@@ -50,46 +51,52 @@ const getToneConfig = (tone: TimelineEvent['tone']) => {
     case 'ok':
     case 'passed':
       return {
-        icon: 'codicon-check',
+        icon: 'check-circle',
         bg: 'bg-emerald-950/60 border-emerald-800/80 text-emerald-300',
         badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+        iconClass: 'text-emerald-400',
         label: 'Success',
       };
     case 'error':
     case 'failed':
       return {
-        icon: 'codicon-error',
+        icon: 'alert-circle',
         bg: 'bg-rose-950/60 border-rose-800/80 text-rose-300',
         badge: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
+        iconClass: 'text-rose-400',
         label: 'Error',
       };
     case 'warning':
       return {
-        icon: 'codicon-warning',
+        icon: 'alert-triangle',
         bg: 'bg-amber-950/60 border-amber-800/80 text-amber-300',
         badge: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+        iconClass: 'text-amber-400',
         label: 'Warning',
       };
     case 'active':
       return {
-        icon: 'codicon-loading animate-spin',
+        icon: 'loader',
         bg: 'bg-sky-950/60 border-sky-800/80 text-sky-300',
         badge: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
+        iconClass: 'text-sky-400 animate-spin',
         label: 'Running',
       };
     case 'tool':
       return {
-        icon: 'codicon-tools',
+        icon: 'wrench',
         bg: 'bg-purple-950/60 border-purple-800/80 text-purple-300',
         badge: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+        iconClass: 'text-purple-400',
         label: 'Tool Call',
       };
     case 'muted':
     default:
       return {
-        icon: 'codicon-info',
+        icon: 'clock',
         bg: 'bg-zinc-900 border-zinc-800 text-zinc-300',
         badge: 'bg-zinc-800 text-zinc-400 border-zinc-700',
+        iconClass: 'text-slate-400',
         label: 'Info',
       };
   }
@@ -143,17 +150,17 @@ const copyTimelineSummary = async () => {
             @click="copyTimelineSummary"
             title="Copy formatted markdown report"
           >
-            <i class="codicon" :class="copyFeedback ? 'codicon-check' : 'codicon-copy'" />
+            <TailwindIcon :name="copyFeedback ? 'check' : 'copy'" :size="13" />
             <span>{{ copyFeedback ? 'Copied Markdown' : 'Copy Summary' }}</span>
           </button>
 
           <button
             v-if="timeline.length > 0"
-            class="h-7 px-2 rounded text-xs text-zinc-400 hover:text-rose-400 hover:bg-[#333333] transition-colors cursor-pointer"
+            class="h-7 px-2 rounded text-xs text-zinc-400 hover:text-rose-400 hover:bg-[#333333] transition-colors cursor-pointer flex items-center justify-center"
             @click="emit('clear-timeline')"
             title="Clear all events"
           >
-            <i class="codicon codicon-trash" />
+            <TailwindIcon name="x" :size="13" />
           </button>
 
           <button
@@ -161,7 +168,7 @@ const copyTimelineSummary = async () => {
             @click="emit('close')"
             title="Close drawer"
           >
-            <i class="codicon codicon-close text-sm" />
+            <TailwindIcon name="x" :size="14" />
           </button>
         </div>
       </div>
@@ -169,8 +176,8 @@ const copyTimelineSummary = async () => {
       <!-- Filters & Search Bar -->
       <div class="p-3 border-b border-[#2d2d2d] bg-[#222222] flex flex-col gap-2.5 shrink-0">
         <!-- Search Input -->
-        <div class="relative">
-          <i class="codicon codicon-search absolute left-2.5 top-2 text-zinc-500 text-xs pointer-events-none" />
+        <div class="relative flex items-center">
+          <TailwindIcon name="search" :size="12" class="absolute left-2.5 text-zinc-500 pointer-events-none" />
           <input
             v-model="searchQuery"
             type="text"
@@ -226,7 +233,7 @@ const copyTimelineSummary = async () => {
       <!-- Events List (Chronological) -->
       <div class="flex-1 overflow-y-auto p-4 space-y-3">
         <div v-if="filteredTimeline.length === 0" class="py-12 text-center text-zinc-500 text-xs">
-          <i class="codicon codicon-inbox text-3xl mb-2 block text-zinc-600" />
+          <TailwindIcon name="book-open" :size="32" class="mx-auto mb-2 text-zinc-600" />
           <span>No activity events found.</span>
         </div>
 
@@ -238,7 +245,7 @@ const copyTimelineSummary = async () => {
         >
           <!-- Left Icon Beacon -->
           <div class="pt-0.5 shrink-0">
-            <i class="codicon text-sm" :class="getToneConfig(event.tone).icon" />
+            <TailwindIcon :name="getToneConfig(event.tone).icon" :size="15" :class="getToneConfig(event.tone).iconClass" />
           </div>
 
           <!-- Content -->
