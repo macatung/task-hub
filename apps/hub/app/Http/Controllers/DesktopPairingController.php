@@ -72,8 +72,8 @@ class DesktopPairingController extends Controller
     {
         $session = DesktopPairingSession::with('project')->where('pairing_id', $pairingId)->firstOrFail();
         $code = (string) $request->query('code');
-        if (!hash_equals($session->code_hash, hash('sha256', strtoupper($code)))) abort(403, 'Mã pairing không hợp lệ.');
-        if ($session->expires_at->isPast() || $session->status !== 'pending') abort(410, 'Pairing request đã hết hạn hoặc đã được xử lý.');
+        if (!hash_equals($session->code_hash, hash('sha256', strtoupper($code)))) abort(403, 'Invalid pairing code.');
+        if ($session->expires_at->isPast() || $session->status !== 'pending') abort(410, 'Pairing request has expired or was already processed.');
         if (!Auth::check()) {
             $request->session()->put('desktop_pairing_intended', $request->fullUrl());
             return redirect('/auth/github');
@@ -90,9 +90,9 @@ class DesktopPairingController extends Controller
         $workspaceId = (int) $request->session()->get('current_workspace_id');
         if (!$workspaceId) $workspaceId = (int) Auth::user()->workspaces()->value('workspaces.id');
         $workspace = \App\Models\Workspace::whereKey($workspaceId)->firstOrFail();
-        abort_unless(Auth::user()->workspaces()->whereKey($workspace->id)->exists(), 403, 'Bạn không có quyền với workspace này.');
+        abort_unless(Auth::user()->workspaces()->whereKey($workspace->id)->exists(), 403, 'You do not have access to this workspace.');
         $project = $session->project ?: Project::where('workspace_id', $workspace->id)->orderBy('id')->firstOrFail();
-        abort_unless((int) $project->workspace_id === (int) $workspace->id, 403, 'Project không thuộc workspace hiện tại.');
+        abort_unless((int) $project->workspace_id === (int) $workspace->id, 403, 'Project does not belong to the active workspace.');
 
         if (!$project->task_hub_mcp_token) {
             $project->task_hub_mcp_token = Crypt::encryptString(Str::random(64));

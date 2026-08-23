@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref } from 'vue';
 import { DhammapadaVerse, HealthReminder } from '../data/dhammapadaVerses';
 import { mindfulBell } from '../audio/mindfulBellAudio';
@@ -20,7 +20,7 @@ const copied = ref(false);
 
 const copyText = async () => {
   if (props.type === 'verse' && props.verse) {
-    const text = `☸️ KINH PHÁP CÚ — KỆ SỐ ${props.verse.verse_number}\n${props.verse.chapter_vi}\n\n"${props.verse.pali}"\n\n"${props.verse.vietnamese}"\n\n💡 ${props.verse.insight}\n— Ma Tọa Thiền (Desktop Companion)`;
+    const text = `☸️ THE DHAMMAPADA — VERSE ${props.verse.verse_number}\n${props.verse.chapter_en || props.verse.chapter_vi}\n\n"${props.verse.pali}"\n\n"${props.verse.english || props.verse.vietnamese}"\n\n💡 ${props.verse.insight}\n— Zen Companion`;
     try {
       await navigator.clipboard.writeText(text);
       copied.value = true;
@@ -65,7 +65,7 @@ const ringSound = () => {
       <div class="flex items-center gap-1.5 text-xs font-serif font-bold truncate" :class="persona === 'zen' ? 'text-amber-300' : 'text-emerald-300'">
         <span>{{ type === 'verse' ? '📜' : (healthReminder?.icon || '💡') }}</span>
         <span class="truncate">
-          {{ type === 'verse' ? `KINH PHÁP CÚ • KỆ SỐ ${verse?.verse_number}` : healthReminder?.title }}
+          {{ type === 'verse' ? `THE DHAMMAPADA • VERSE ${verse?.verse_number}` : healthReminder?.title }}
         </span>
       </div>
 
@@ -75,7 +75,7 @@ const ringSound = () => {
           @click="ringSound"
           class="p-1 rounded-lg text-xs transition-colors hover:scale-110 cursor-pointer"
           :class="persona === 'zen' ? 'bg-stone-900 text-amber-300 hover:bg-stone-800' : 'bg-slate-900 text-emerald-300 hover:bg-slate-800'"
-          title="Thỉnh chuông chánh niệm"
+          title="Mindful Bell"
         >
           🔔
         </button>
@@ -85,7 +85,7 @@ const ringSound = () => {
           @click="$emit('close')"
           class="p-1 rounded-lg text-xs transition-colors hover:scale-110 cursor-pointer text-stone-400 hover:text-white"
           :class="persona === 'zen' ? 'bg-stone-900 hover:bg-stone-800' : 'bg-slate-900 hover:bg-slate-800'"
-          title="Đóng"
+          title="Close"
         >
           ✕
         </button>
@@ -128,7 +128,7 @@ const ringSound = () => {
           class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-stone-950 font-bold text-xs shadow-md hover:scale-[1.02] active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5"
         >
           <span>🌸</span>
-          <span>Bắt Đầu Điều Tức 3 Nhịp Thở</span>
+          <span>Start 3-Breath Pacer</span>
         </button>
       </div>
     </div>
@@ -141,7 +141,7 @@ const ringSound = () => {
         :class="persona === 'zen' ? 'text-amber-300/80 hover:text-amber-200 bg-stone-900 hover:bg-stone-800' : 'text-emerald-300/80 hover:text-emerald-200 bg-slate-900 hover:bg-slate-800'"
       >
         <span>{{ copied ? '✅' : '📋' }}</span>
-        <span>{{ copied ? 'Đã chép' : 'Sao chép' }}</span>
+        <span>{{ copied ? 'Copied' : 'Copy' }}</span>
       </button>
 
       <button
@@ -150,7 +150,7 @@ const ringSound = () => {
         :class="persona === 'zen' ? 'bg-amber-500 hover:bg-amber-400 text-stone-950' : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'"
       >
         <span>🎲</span>
-        <span>Rút câu khác →</span>
+        <span>Another Verse →</span>
       </button>
     </div>
   </div>

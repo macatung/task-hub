@@ -9,7 +9,7 @@ const emit = defineEmits<{
 const breathCount = ref(1);
 const maxBreaths = 3;
 const phase = ref<'inhale' | 'hold' | 'exhale'>('inhale');
-const instruction = ref('Hít vào thật sâu... Thân an tịnh');
+const instruction = ref('Inhale deeply... Calm the body');
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -22,18 +22,18 @@ const runCycle = () => {
 
   // 1. Inhale (4 seconds)
   phase.value = 'inhale';
-  instruction.value = `Nhịp ${breathCount.value}/${maxBreaths}: Hít vào... Tâm tĩnh lặng 🌸`;
+  instruction.value = `Breath ${breathCount.value}/${maxBreaths}: Inhale... Peaceful mind 🌸`;
   mindfulBell.ringBell(528, 2.0);
 
   timer = setTimeout(() => {
     // 2. Hold (2 seconds)
     phase.value = 'hold';
-    instruction.value = `Giữ hơi thở... Cảm nhận sự an yên 🧘`;
+    instruction.value = `Hold breath... Feel inner peace 🧘`;
 
     timer = setTimeout(() => {
       // 3. Exhale (6 seconds)
       phase.value = 'exhale';
-      instruction.value = `Thở ra nhẹ nhàng... Miệng mỉm cười 🍃`;
+      instruction.value = `Exhale gently... Relaxed smile 🍃`;
 
       timer = setTimeout(() => {
         breathCount.value++;
@@ -57,7 +57,7 @@ onUnmounted(() => {
     <div class="flex items-center justify-between pb-2 mb-3 border-b border-amber-500/30">
       <span class="text-xs font-serif font-bold text-amber-300 flex items-center gap-1.5">
         <span>🧘</span>
-        <span>ĐIỀU TỨC 3 NHỊP THỞ CHÁNH NIỆM</span>
+        <span>MINDFUL 3-BREATH PACER</span>
       </span>
       <button
         @click="$emit('finish')"

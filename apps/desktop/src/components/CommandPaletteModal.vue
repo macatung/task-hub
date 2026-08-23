@@ -31,64 +31,64 @@ const selectedIndex = ref(0);
 const allCommands: CommandItem[] = [
   {
     id: 'pomodoro-25',
-    title: 'Bắt đầu Pomodoro 25 phút',
-    subtitle: 'Tập trung sâu không xao nhãng',
+    title: 'Start 25-minute Pomodoro',
+    subtitle: 'Deep distraction-free focus session',
     icon: '🍅',
-    category: 'Năng Suất',
-    keywords: ['pomodoro', 'pom', 'focus', 'tap trung', 'dem gio', 'timer', '25'],
+    category: 'Productivity',
+    keywords: ['pomodoro', 'pom', 'focus', 'timer', 'countdown', '25'],
     action: () => emit('start-pomodoro', 'focus25'),
   },
   {
     id: 'pomodoro-50',
-    title: 'Bắt đầu Deep Work 50 phút',
-    subtitle: 'Phiên giải quyết bài toán khó',
+    title: 'Start 50-minute Deep Work',
+    subtitle: 'Complex problem-solving focus',
     icon: '⚡',
-    category: 'Năng Suất',
-    keywords: ['deep work', '50', 'pomodoro', 'code', 'nang suat'],
+    category: 'Productivity',
+    keywords: ['deep work', '50', 'pomodoro', 'code', 'focus', 'productivity'],
     action: () => emit('start-pomodoro', 'deep50'),
   },
   {
     id: 'open-tasks',
-    title: 'Xem danh sách nhiệm vụ hôm nay',
-    subtitle: 'Đồng bộ trực tiếp task-hub.macatung.dev',
+    title: "View today's work items",
+    subtitle: 'Direct sync with task-hub.macatung.dev',
     icon: '📋',
-    category: 'Năng Suất',
-    keywords: ['task', 'tasks', 'nhiem vu', 'cong viec', 'dispatch', 'hub'],
+    category: 'Productivity',
+    keywords: ['task', 'tasks', 'todo', 'work item', 'dispatch', 'hub'],
     action: () => emit('open-dispatch'),
   },
   {
     id: 'open-duck',
-    title: 'Debug cùng Rubber Duck',
-    subtitle: 'Phân tích vấn đề và tìm hướng xử lý',
+    title: 'Debug with Rubber Duck',
+    subtitle: 'Explain issue to uncover solutions',
     icon: '🦆',
-    category: 'Công Cụ Dev',
+    category: 'Dev Tools',
     keywords: ['duck', 'rubber duck', 'debug', 'bug'],
     action: () => emit('open-duck'),
   },
   {
     id: 'open-notes',
-    title: 'Top Việc & Nháp Nhanh (Scratchpad)',
-    subtitle: 'Ghi chép ý tưởng chớp nhoáng',
+    title: 'Top Tasks & Scratchpad',
+    subtitle: 'Capture quick notes and snippets',
     icon: '📝',
-    category: 'Công Cụ Dev',
-    keywords: ['notes', 'nhap', 'ghi chu', 'scratchpad', 'memo'],
+    category: 'Dev Tools',
+    keywords: ['notes', 'scratchpad', 'memo', 'quick notes', 'todos'],
     action: () => emit('open-notes'),
   },
   {
     id: 'open-review',
-    title: 'Tổng kết ngày (Evening Review)',
-    subtitle: 'Nhìn lại kết quả và thành tựu hôm nay',
+    title: 'Evening Daily Review',
+    subtitle: 'Review accomplishments and next priorities',
     icon: '🌙',
-    category: 'Năng Suất',
-    keywords: ['review', 'tong ket', 'cuoi ngay', 'toi', 'evening'],
+    category: 'Productivity',
+    keywords: ['review', 'summary', 'daily review', 'evening', 'productivity'],
     action: () => emit('open-review'),
   },
   {
     id: 'open-web',
-    title: 'Mở Tasks Hub trên Web',
-    subtitle: 'Quản lý bảng Kanban đầy đủ (task-hub.macatung.dev)',
+    title: 'Open Task Hub on Web',
+    subtitle: 'Manage full Kanban board (task-hub.macatung.dev)',
     icon: '🌐',
-    category: 'Liên Kết',
+    category: 'Links',
     keywords: ['web', 'kanban', 'browser', 'macatung', 'link'],
     action: () => {
       const url = `${(import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev'}/tasks`;
@@ -98,20 +98,20 @@ const allCommands: CommandItem[] = [
   },
   {
     id: 'check-updates',
-    title: 'Kiểm tra cập nhật',
-    subtitle: 'Tìm phiên bản mới của Mascot Desktop',
+    title: 'Check for Updates',
+    subtitle: 'Scan for latest Desktop release',
     icon: '🔄',
-    category: 'Hệ Thống',
-    keywords: ['update', 'updates', 'cap nhat', 'version', 'phien ban'],
+    category: 'System',
+    keywords: ['update', 'updates', 'version', 'check updates'],
     action: () => emit('check-updates'),
   },
   {
     id: 'install-update',
-    title: 'Khởi động lại để cập nhật',
-    subtitle: 'Cài phiên bản đã tải xuống',
+    title: 'Restart to Update',
+    subtitle: 'Install downloaded update package',
     icon: '⬆️',
-    category: 'Hệ Thống',
-    keywords: ['install', 'restart', 'update', 'cai dat', 'khoi dong lai'],
+    category: 'System',
+    keywords: ['install', 'restart', 'update', 'upgrade'],
     action: () => emit('install-update'),
   },
 ];
@@ -128,10 +128,10 @@ const filteredCommands = computed(() => {
     if (taskName) {
       results.push({
         id: 'create-dynamic-task',
-        title: `Tạo task mới: "${taskName}"`,
-        subtitle: 'Nhấn Enter để thêm ngay vào Tasks Hub',
+        title: `Create new task: "${taskName}"`,
+        subtitle: 'Press Enter to create in Task Hub',
         icon: '✨',
-        category: 'Hành Động Trực Tiếp',
+        category: 'Quick Action',
         keywords: ['task'],
         action: () => emit('create-task', taskName),
       });
@@ -200,7 +200,7 @@ onUnmounted(() => {
         ref="searchInput"
         v-model="searchQuery"
         type="text"
-        placeholder="Gõ lệnh hoặc 'task <tên việc>'... (Esc để đóng)"
+        placeholder="Type command or 'task <name>'... (Esc to close)"
         class="flex-1 bg-transparent text-xs sm:text-sm text-white placeholder-slate-500 outline-none font-sans"
       />
       <span class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] font-mono text-slate-400 border border-slate-700">
@@ -241,16 +241,16 @@ onUnmounted(() => {
       </div>
 
       <div v-if="filteredCommands.length === 0" class="text-center py-6 text-xs text-slate-500 italic">
-        Không tìm thấy lệnh phù hợp. Gõ Enter để tạo task với tên này! ✨
+        No matching command found. Press Enter to create task with this name! ✨
       </div>
     </div>
 
     <!-- Footer Shortcuts Tip -->
     <div class="p-2 px-3 border-t border-slate-800/80 bg-slate-950 flex items-center justify-between text-[10px] text-slate-500 font-mono">
       <div class="flex items-center gap-2">
-        <span>↑↓ Điều hướng</span>
+        <span>↑↓ Navigate</span>
         <span>•</span>
-        <span>⏎ Thực thi</span>
+        <span>⏎ Execute</span>
       </div>
       <span class="text-emerald-400">Raycast Mode</span>
     </div>

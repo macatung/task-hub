@@ -23,7 +23,7 @@ class GithubProjectIntegrationService
         $credential = $workspace ? app(CredentialVaultService::class)->resolve($workspace, null, 'github') : null;
         $token = $credential ? app(CredentialVaultService::class)->reveal($credential) : null;
         $token = $token ?: $this->secret($user->github_access_token);
-        if (!$token) throw new \RuntimeException('Tài khoản GitHub chưa được cấp quyền.');
+        if (!$token) throw new \RuntimeException('GitHub account is not authorized.');
         return Http::acceptJson()->withToken($token)->withHeaders(['User-Agent' => 'TaskHub/1.0'])->timeout(15)
             ->get('https://api.github.com/user/repos', ['affiliation' => 'owner,collaborator,organization_member', 'sort' => 'updated', 'direction' => 'desc', 'per_page' => 100])
             ->throw()->collect()->map(fn (array $repo) => [
@@ -42,14 +42,14 @@ class GithubProjectIntegrationService
         $credential = $workspace ? app(CredentialVaultService::class)->resolve($workspace, null, 'github') : null;
         $token = $credential ? app(CredentialVaultService::class)->reveal($credential) : null;
         $token = $token ?: $this->secret($user->github_access_token);
-        if (!$token) throw new \RuntimeException('Tài khoản GitHub chưa được cấp quyền.');
+        if (!$token) throw new \RuntimeException('GitHub account is not authorized.');
         $repo = Http::acceptJson()->withToken($token)->withHeaders(['User-Agent' => 'TaskHub/1.0'])->timeout(15)
             ->get('https://api.github.com/repos/' . $repository)->throw()->json();
-        if (empty($repo['full_name'])) throw new \RuntimeException('Repository GitHub không hợp lệ.');
+        if (empty($repo['full_name'])) throw new \RuntimeException('Invalid GitHub repository.');
         $duplicate = Project::where('github_repository', $repo['full_name']);
         if ($workspace) $duplicate->where('workspace_id', $workspace->id);
         else $duplicate->where('user_id', $user->id);
-        if ($duplicate->exists()) throw new \RuntimeException('Repository này đã được thêm vào Task Hub.');
+        if ($duplicate->exists()) throw new \RuntimeException('This repository is already linked in Task Hub.');
         return DB::transaction(function () use ($user, $repo, $input) {
             $title = $repo['name'] ?? $repo['full_name'];
             $slugBase = Str::slug($repo['full_name'] ?: $title) ?: Str::slug($title);
@@ -71,7 +71,7 @@ class GithubProjectIntegrationService
 
     public function repositoryContext(Project $project): array
     {
-        if (!$project->github_repository) throw new \RuntimeException('Project chưa được liên kết với GitHub repository.');
+        if (!$project->github_repository) throw new \RuntimeException('Project is not linked to a GitHub repository.');
         $request = $this->githubRequest($project);
         $branch = $project->github_default_branch ?: 'main';
         $tree = $request->get('https://api.github.com/repos/' . $project->github_repository . '/git/trees/' . rawurlencode($branch), ['recursive' => 1])->throw()->json();
@@ -97,7 +97,7 @@ class GithubProjectIntegrationService
 
     public function repositoryFile(Project $project, string $path): array
     {
-        if (!$project->github_repository) throw new \RuntimeException('Project chưa được liên kết với GitHub repository.');
+        if (!$project->github_repository) throw new \RuntimeException('Project is not linked to a GitHub repository.');
         if (trim($path) === '' || Str::contains($path, ['..', '\\\\'])) throw new \InvalidArgumentException('Invalid repository path.');
         $response = $this->githubRequest($project)->get('https://api.github.com/repos/' . $project->github_repository . '/contents/' . str_replace('%2F', '/', rawurlencode(trim($path))), ['ref' => $project->github_default_branch ?: 'main'])->throw()->json();
         if (($response['type'] ?? null) !== 'file') throw new \RuntimeException('Path is not a file.');
@@ -140,7 +140,7 @@ class GithubProjectIntegrationService
 
     public function sync(Project $project): Project
     {
-        if (!$project->github_repository) throw new \RuntimeException('Project chưa được cấu hình GitHub repository.');
+        if (!$project->github_repository) throw new \RuntimeException('Project does not have a GitHub repository configured.');
 
         $project->update(['github_sync_status' => 'syncing', 'github_sync_error' => null]);
         try {

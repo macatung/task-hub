@@ -10,18 +10,18 @@ const currentStep = ref(0);
 
 const exercises = [
   {
-    title: '1. Quy Tắc 20-20-20 Cho Đôi Mắt 👀',
-    desc: 'Nhìn xa vào một vật cách khoảng 6 mét (20 feet) trong ít nhất 20 giây. Chớp mắt nhẹ nhàng 5 lần để giữ ẩm cho giác mạc.',
+    title: '1. 20-20-20 Rule for Eyes 👀',
+    desc: 'Look at an object 20 feet (6m) away for at least 20 seconds. Blink gently 5 times to lubricate the corneas.',
     icon: '🌿',
   },
   {
-    title: '2. Xoay Khớp Cổ & Thả Lỏng Vai Gáy 🧘‍♂️',
-    desc: 'Nghiêng đầu nhẹ sang phải 5 giây, sang trái 5 giây. Xoay tròn khớp vai ra sau 5 vòng để giải phóng áp lực tích tụ.',
+    title: '2. Neck Rolls & Shoulder Relaxation 🧘‍♂️',
+    desc: 'Tilt head right for 5s, left for 5s. Roll shoulders backwards 5 times to release accumulated tension.',
     icon: '⚡',
   },
   {
-    title: '3. Vươn Cột Sống Mở Rộng Lồng Ngực 🌸',
-    desc: 'Đan hai tay lại và duỗi thẳng lên trời. Hít vào thật sâu kéo giãn toàn bộ đốt sống lưng, thở ra hạ tay xuống.',
+    title: '3. Spine Extension & Chest Opener 🌸',
+    desc: 'Interlace fingers and stretch arms upward. Inhale deeply extending the spine, then gently exhale.',
     icon: '✨',
   },
 ];
@@ -43,7 +43,7 @@ const nextStep = () => {
     <div class="flex items-center justify-between pb-2.5 mb-3 border-b border-cyan-500/30">
       <div class="flex items-center gap-2 text-xs font-bold text-cyan-300">
         <span>🧘‍♂️</span>
-        <span>VẬN ĐỘNG CỘT SỐNG & NGHỈ MẮT (30s)</span>
+        <span>DESK STRETCH & EYE RELIEF (30s)</span>
       </div>
       <button
         @click="$emit('close')"
@@ -61,7 +61,7 @@ const nextStep = () => {
         </div>
         <div>
           <h4 class="text-xs font-bold text-white">{{ exercises[currentStep].title }}</h4>
-          <span class="text-[10px] text-cyan-300 font-mono">Động tác {{ currentStep + 1 }}/3</span>
+          <span class="text-[10px] text-cyan-300 font-mono">Exercise {{ currentStep + 1 }}/3</span>
         </div>
       </div>
 
@@ -85,7 +85,7 @@ const nextStep = () => {
         @click="nextStep"
         class="py-2 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-stone-950 font-bold text-xs shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer"
       >
-        {{ currentStep === exercises.length - 1 ? 'Hoàn tất ✓' : 'Động tác tiếp →' }}
+        {{ currentStep === exercises.length - 1 ? 'Done ✓' : 'Next →' }}
       </button>
     </div>
   </div>

@@ -13,11 +13,11 @@ export const buildInitialRequest = ({ mode, note, task, projectTitle }: InitialR
   const instruction = clean(note);
   if (mode === 'discovery') return instruction;
   if (mode === 'task') {
-    const taskLabel = [task?.issueKey, task?.title].filter(Boolean).join(' · ') || 'task đã chọn';
-    return [`Thực thi ${taskLabel}.`, instruction].filter(Boolean).join('\n\n');
+    const taskLabel = [task?.issueKey, task?.title].filter(Boolean).join(' · ') || 'selected task';
+    return [`Execute ${taskLabel}.`, instruction].filter(Boolean).join('\n\n');
   }
-  const projectLabel = projectTitle || 'project đã chọn';
-  return [`Quét repository và tạo/cập nhật bộ tài liệu chuẩn cho ${projectLabel}.`, instruction].filter(Boolean).join('\n\n');
+  const projectLabel = projectTitle || 'selected project';
+  return [`Scan repository and generate/update standard documentation for ${projectLabel}.`, instruction].filter(Boolean).join('\n\n');
 };
 
 export const normalizeConversationText = (value?: string) => clean(value).replace(/\s+/g, ' ').toLocaleLowerCase();

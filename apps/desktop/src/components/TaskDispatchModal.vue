@@ -56,7 +56,7 @@ const openWebHub = () => {
       <div>
         <div class="flex items-center gap-1.5 text-xs font-bold text-slate-200">
           <span>🎯</span>
-          <span class="font-mono text-[11px] uppercase tracking-wider">NHIỆM VỤ HÔM NAY</span>
+          <span class="font-mono text-[11px] uppercase tracking-wider">TODAY'S WORK ITEMS</span>
         </div>
         <div class="text-[9px] font-mono text-slate-500 flex items-center gap-1 mt-0.5">
           <span class="w-1.5 h-1.5 rounded-full" :class="isOnline ? 'bg-emerald-400' : 'bg-amber-400'"></span>
@@ -69,15 +69,15 @@ const openWebHub = () => {
       <button
         @click="$emit('close')"
         class="p-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer text-xs transition-colors"
-        title="Đóng"
+        title="Close"
       >
         ✕
       </button>
     </div>
 
     <div v-if="!credential" class="mb-2 rounded-lg border border-amber-900/60 bg-amber-950/30 px-2.5 py-2 text-[10px] text-amber-200">
-      Desktop chưa đăng nhập nên chưa thể xác định workspace.
-      <button class="mt-1 block font-semibold text-amber-100 underline" @click="$emit('close')">Mở Connect Task Hub ở thanh công cụ</button>
+      Desktop is not authenticated with Task Hub.
+      <button class="mt-1 block font-semibold text-amber-100 underline" @click="$emit('close')">Open Task Hub Connect in toolbar</button>
     </div>
 
     <!-- Quick Add Input -->
@@ -89,7 +89,7 @@ const openWebHub = () => {
         v-model="newTaskTitle"
         @keyup.enter="handleAddTask"
         type="text"
-        placeholder="+ Giao việc mới... (Enter)"
+        placeholder="+ Add work item... (Enter)"
         class="flex-1 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-slate-600 text-xs text-white placeholder-slate-500 outline-none font-sans transition-colors"
       />
       <button
@@ -97,7 +97,7 @@ const openWebHub = () => {
         :disabled="!newTaskTitle.trim()"
         class="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer shadow-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed"
       >
-        Thêm
+        Add
       </button>
     </div>
 
@@ -135,8 +135,8 @@ const openWebHub = () => {
             <!-- Metadata Info -->
             <div class="flex items-center gap-2 mt-1 text-[10px] text-slate-500 font-mono">
               <span>🍅 {{ task.completed_pomodoros }}/{{ task.estimated_pomodoros }}</span>
-              <span v-if="task.priority === 'urgent'" class="text-red-400 font-medium">Khẩn cấp</span>
-              <span v-else-if="task.priority === 'high'" class="text-amber-300 font-medium">Ưu tiên</span>
+              <span v-if="task.priority === 'urgent'" class="text-red-400 font-medium">Urgent</span>
+              <span v-else-if="task.priority === 'high'" class="text-amber-300 font-medium">High</span>
             </div>
           </div>
         </div>
@@ -146,28 +146,28 @@ const openWebHub = () => {
           v-if="task.status !== 'done'"
           @click="handleSelectForPomodoro(task)"
           class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-emerald-500 text-slate-300 hover:text-slate-950 font-medium text-[10px] shrink-0 transition-all cursor-pointer flex items-center gap-1"
-          title="Bật Pomodoro cho task này"
+          title="Start Pomodoro for this task"
         >
           <span>🍅 Focus</span>
         </button>
       </div>
 
       <div v-if="tasks.length === 0" class="text-center py-5 text-xs text-slate-500 italic">
-        Chưa có nhiệm vụ nào cho hôm nay.
+        No tasks scheduled for today.
       </div>
     </div>
 
     <!-- Bottom Actions & Web Hub Link -->
     <div class="pt-2 border-t border-slate-800 flex items-center justify-between text-xs">
       <span class="text-[10px] font-mono text-slate-500">
-        Đã hoàn tất: <strong class="text-emerald-400">{{ tasks.filter(t => t.status === 'done').length }}/{{ tasks.length }}</strong>
+        Completed: <strong class="text-emerald-400">{{ tasks.filter(t => t.status === 'done').length }}/{{ tasks.length }}</strong>
       </span>
 
       <button
         @click="openWebHub"
         class="text-[10px] font-mono text-slate-400 hover:text-white transition-colors cursor-pointer flex items-center gap-1"
       >
-        <span>Mở Bảng Kanban Web</span>
+        <span>Open Web Kanban Board</span>
         <span>↗</span>
       </button>
     </div>

@@ -27,9 +27,9 @@ onUnmounted(() => removeListener?.());
       <span v-else-if="state.status === 'error'">⚠️</span>
       <span v-else>🔄</span>
       <span class="flex-1">{{ state.message }}</span>
-      <button v-if="state.status === 'downloaded'" class="update-button primary" @click="install">Khởi động lại và cập nhật</button>
-      <button v-else-if="state.status === 'error'" class="update-button" @click="check">Thử lại</button>
-      <button v-if="state.status === 'downloaded' || state.status === 'error' || state.status === 'not-available'" class="update-button" @click="dismiss">Đóng</button>
+      <button v-if="state.status === 'downloaded'" class="update-button primary" @click="install">Restart to Update</button>
+      <button v-else-if="state.status === 'error'" class="update-button" @click="check">Retry</button>
+      <button v-if="state.status === 'downloaded' || state.status === 'error' || state.status === 'not-available'" class="update-button" @click="dismiss">Close</button>
     </div>
     <div v-if="state.status === 'downloading'" class="mt-1 h-1 rounded bg-slate-800 overflow-hidden">
       <div class="h-full bg-emerald-400 transition-all" :style="{ width: `${state.percent || 0}%` }" />

@@ -13,14 +13,14 @@ class SendWeeklyTaskReportCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'report:weekly-tasks {--email= : Gửi tới email chỉ định} {--force : Bỏ qua kiểm tra lịch và gửi ngay}';
+    protected $signature = 'report:weekly-tasks {--email= : Send to specified email address} {--force : Bypass schedule check and dispatch immediately}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Tổng hợp và gửi email báo cáo tiến độ tuần cho sếp và ban quản lý';
+    protected $description = 'Compile and send weekly task and sprint progress reports to stakeholders';
 
     /**
      * Execute the console command.

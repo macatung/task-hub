@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="vi">
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Kết nối Workspace · Ma Cà Tưng</title>
+    <title>Connect Workspace · Task Hub</title>
     <style>
         :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#07111f;color:#e6f1ff}
         *{box-sizing:border-box}body{min-height:100vh;margin:0;display:grid;place-items:center;overflow:hidden;background:radial-gradient(circle at 50% 8%,#17304a 0,#0b1729 34%,#050b15 78%)}
@@ -15,13 +15,13 @@
 <body>
     <div class="glow"></div>
     <main class="card">
-        <div class="brand"><img class="brand-mark" src="/brand/macatung-mascot-icon.svg" alt=""><span class="eyebrow">Ma Cà Tưng</span><span>·</span><span>Task Hub</span></div>
-        <section class="hero"><div class="hero-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8.5h10a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2Z"/><path d="M9 5.5V3.8M15 5.5V3.8M8.5 12h.01M15.5 12h.01M9 15h6M12 8.5V6"/></svg></div><div><p class="kicker">Browser approval</p><h1 class="title">Kết nối Workspace</h1><p class="sub">Cho phép desktop companion truy cập toàn bộ project trong workspace hiện tại.</p></div></section>
-        <div class="workspace"><div class="workspace-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.2"/><circle cx="5.5" cy="17" r="2.2"/><circle cx="18.5" cy="17" r="2.2"/><path d="m10.9 6.9-4.2 8.2M13.1 6.9l4.2 8.2M7.7 17h8.6"/></svg></div><div><small>Workspace của bạn</small><strong>{{ $session->project?->workspace?->name ?? 'Workspace của bạn' }}</strong></div></div>
-        <p class="status"><span class="dot"></span> Scoped access · chỉ dùng trong workspace này</p>
+        <div class="brand"><img class="brand-mark" src="/brand/macatung-mascot-icon.svg" alt=""><span class="eyebrow">Task Hub</span><span>·</span><span>Desktop Pairing</span></div>
+        <section class="hero"><div class="hero-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8.5h10a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2Z"/><path d="M9 5.5V3.8M15 5.5V3.8M8.5 12h.01M15.5 12h.01M9 15h6M12 8.5V6"/></svg></div><div><p class="kicker">Browser approval</p><h1 class="title">Connect Workspace</h1><p class="sub">Allow desktop companion to access all projects in the current workspace.</p></div></section>
+        <div class="workspace"><div class="workspace-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.2"/><circle cx="5.5" cy="17" r="2.2"/><circle cx="18.5" cy="17" r="2.2"/><path d="m10.9 6.9-4.2 8.2M13.1 6.9l4.2 8.2M7.7 17h8.6"/></svg></div><div><small>Your Workspace</small><strong>{{ $session->project?->workspace?->name ?? 'Your Workspace' }}</strong></div></div>
+        <p class="status"><span class="dot"></span> Scoped access · restricted to this workspace</p>
         <div class="seal"><div><small>Pairing code</small><div class="code">{{ $code }}</div></div><div class="seal-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.3 19 6v5.2c0 4.3-2.8 7.7-7 9.5-4.2-1.8-7-5.2-7-9.5V6l7-2.7Z"/><path d="m8.8 12 2.1 2.1 4.4-4.4"/></svg></div></div>
-        <div class="actions"><form method="post" action="/desktop/pairing/{{ $session->pairing_id }}/approve" style="flex:1">@csrf<input type="hidden" name="code" value="{{ $code }}"><button class="button ok" type="submit"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.2 4.2L19 7"/></svg>Cho phép kết nối</button></form><form method="post" action="/desktop/pairing/{{ $session->pairing_id }}/deny"><input type="hidden" name="code" value="{{ $code }}">@csrf<button class="button no" type="submit">Từ chối</button></form></div>
-        <p class="foot">Credential được cấp theo phiên và không hiển thị secret trên màn hình.</p>
+        <div class="actions"><form method="post" action="/desktop/pairing/{{ $session->pairing_id }}/approve" style="flex:1">@csrf<input type="hidden" name="code" value="{{ $code }}"><button class="button ok" type="submit"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.2 4.2L19 7"/></svg>Authorize Connection</button></form><form method="post" action="/desktop/pairing/{{ $session->pairing_id }}/deny"><input type="hidden" name="code" value="{{ $code }}">@csrf<button class="button no" type="submit">Deny Connection</button></form></div>
+        <p class="foot">Credentials are session-scoped and secrets are never exposed on screen.</p>
     </main>
 </body>
 </html>

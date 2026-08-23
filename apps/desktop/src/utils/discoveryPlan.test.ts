@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseDiscoveryPlan } from './discoveryPlan';
 
-const valid = `<task-hub-discovery-plan>{"summary":"Thêm login","assumptions":["OAuth"],"affected_docs":["docs/PRD.md"],"architecture_notes":["Auth module"],"risks":["Redirect"],"epic":{"title":"Google Login"},"stories":[{"title":"Đăng nhập","story_points":5,"acceptance_criteria":["Đăng nhập được"],"tasks":[{"ref":"schema","title":"Thêm config","story_points":3,"acceptance_criteria":["Có config"],"depends_on":[]},{"ref":"api","title":"OAuth callback","story_points":5,"acceptance_criteria":["Callback hợp lệ"],"depends_on":["schema"]}]}]}</task-hub-discovery-plan>`;
+const valid = `<task-hub-discovery-plan>{"summary":"Add login","assumptions":["OAuth"],"affected_docs":["docs/PRD.md"],"architecture_notes":["Auth module"],"risks":["Redirect"],"epic":{"title":"Google Login"},"stories":[{"title":"Login flow","story_points":5,"acceptance_criteria":["Successful login"],"tasks":[{"ref":"schema","title":"Add config","story_points":3,"acceptance_criteria":["Config exists"],"depends_on":[]},{"ref":"api","title":"OAuth callback","story_points":5,"acceptance_criteria":["Valid callback"],"depends_on":["schema"]}]}]}</task-hub-discovery-plan>`;
 
 describe('parseDiscoveryPlan', () => {
   it('parses and validates a compliant plan', () => {
@@ -19,8 +19,8 @@ describe('parseDiscoveryPlan', () => {
   });
 
   it('reports invalid points and missing dependency refs', () => {
-    const result = parseDiscoveryPlan(valid.replace('"story_points":5,"acceptance_criteria":["Callback', '"story_points":13,"acceptance_criteria":["Callback').replace('["schema"]', '["missing"]'));
+    const result = parseDiscoveryPlan(valid.replace('"story_points":5,"acceptance_criteria":["Successful', '"story_points":13,"acceptance_criteria":["Successful').replace('["schema"]', '["missing"]'));
     expect(result.errors.join(' ')).toContain('Fibonacci');
-    expect(result.errors.join(' ')).toContain('không tồn tại');
+    expect(result.errors.join(' ')).toContain('nonexistent');
   });
 });

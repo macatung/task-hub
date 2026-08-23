@@ -11,7 +11,7 @@ onBeforeUnmount(() => { source?.close(); if (timer) window.clearInterval(timer);
 <template>
   <section class="mx-4 mt-3 rounded-xl border border-slate-200 bg-white/80 p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900/70">
     <div class="mb-2 flex items-center justify-between text-xs"><b class="text-slate-700 dark:text-slate-100">Local Runners <span class="font-normal text-slate-400">{{ online }}/{{ runners.length }} online</span></b><span :class="connected ? 'text-emerald-500' : 'text-amber-500'">{{ connected ? '● Live' : '● Polling' }}</span></div>
-    <div v-if="!runners.length" class="text-xs text-slate-400">Chưa có runner nào trong workspace này.</div>
+    <div v-if="!runners.length" class="text-xs text-slate-400">No runners available in this workspace.</div>
     <div v-else class="grid gap-2 md:grid-cols-2 xl:grid-cols-4"><article v-for="runner in runners" :key="runner.id" class="rounded-lg border border-slate-200 p-2 text-xs dark:border-slate-700"><div class="flex justify-between gap-2"><b class="truncate">{{ runner.name }}</b><span :class="runner.health === 'offline' ? 'text-rose-500' : runner.health === 'busy' ? 'text-amber-500' : 'text-emerald-500'">{{ runner.health }}</span></div><div class="mt-1 text-slate-500">{{ runner.version || 'unknown' }} · {{ runner.active_runs_count }} active</div><div class="truncate text-slate-400">Lease: {{ runner.next_lease_expires_at || '—' }}</div><div v-if="runner.latest_error" class="truncate text-rose-500">Error: {{ runner.latest_error }}</div></article></div>
     <pre v-if="latestLog" class="mt-2 max-h-16 overflow-auto rounded bg-slate-950 p-2 text-[10px] text-emerald-300">{{ latestLog }}</pre>
   </section>

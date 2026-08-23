@@ -1,4 +1,4 @@
-﻿import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { DHAMMAPADA_VERSES, DhammapadaVerse, HEALTH_REMINDERS, HealthReminder } from '../data/dhammapadaVerses';
 import { mindfulBell } from '../audio/mindfulBellAudio';
 
@@ -17,7 +17,7 @@ const DEFAULT_SETTINGS: SchedulerSettings = {
   enableDhammapada: true,
   enableHealthReminders: true,
   volume: 80,
-  persona: 'coder', // 👉 Mặc định mở Ma Cà Tưng Developer
+  persona: 'coder', // Default coder persona
 };
 
 export function useMindfulScheduler() {

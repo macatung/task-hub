@@ -117,7 +117,7 @@ defineExpose({
           class="animate-pulse opacity-75"
         />
 
-        <!-- 2. Rotating 8-Spoke Dhammacakka Halo (Bát Chánh Đạo) -->
+        <!-- 2. Rotating 8-Spoke Dhammacakka Halo (Noble Eightfold Path) -->
         <g class="animate-dhammacakka-spin" transform-origin="90 70">
           <circle
             cx="90"
@@ -250,11 +250,11 @@ defineExpose({
             stroke="url(#goldTrimGrad)"
             stroke-width="2"
           />
-          <!-- Ūrṇā Jewel (Bạch Ngọc Minh Châu) between brows -->
+          <!-- Ūrṇā Jewel between brows -->
           <circle cx="75" cy="40" r="2.5" fill="#d97706" stroke="#fef08a" stroke-width="0.6" />
           <circle cx="75" cy="40" r="1.2" fill="#fffbeb" />
 
-          <!-- Meditative Peaceful Eyes (Khép Hờ Quán Thở) -->
+          <!-- Meditative Peaceful Eyes -->
           <path
             d="M61 51 Q67 57 73 51"
             stroke="#78350f"

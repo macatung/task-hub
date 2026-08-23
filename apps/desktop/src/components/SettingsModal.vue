@@ -30,7 +30,7 @@ const handleSave = () => {
     <div class="flex items-center justify-between pb-3 mb-3 border-b border-amber-500/30">
       <div class="flex items-center gap-2 text-sm font-bold text-amber-300">
         <span>⚙️</span>
-        <span>CÀI ĐẶT NHẮC NHỞ CHÁNH NIỆM</span>
+        <span>MINDFUL COMPANION SETTINGS</span>
       </div>
       <button
         @click="$emit('close')"
@@ -43,7 +43,7 @@ const handleSave = () => {
     <div class="space-y-4 text-xs">
       <!-- Persona Mode -->
       <div>
-        <label class="font-bold text-amber-200 block mb-1.5">Hình thái Mascot (Persona):</label>
+        <label class="font-bold text-amber-200 block mb-1.5">Mascot Persona:</label>
         <div class="grid grid-cols-2 gap-2">
           <button
             @click="localSettings.persona = 'zen'"
@@ -55,7 +55,7 @@ const handleSave = () => {
             ]"
           >
             <span>🧘</span>
-            <span>Ma Tọa Thiền</span>
+            <span>Zen Master</span>
           </button>
 
           <button
@@ -68,14 +68,14 @@ const handleSave = () => {
             ]"
           >
             <span>☕</span>
-            <span>Ma Cà Tưng</span>
+            <span>Mischief Coder</span>
           </button>
         </div>
       </div>
 
       <!-- Frequency / Interval -->
       <div>
-        <label class="font-bold text-amber-200 block mb-1.5">Tần suất nhắc nhở:</label>
+        <label class="font-bold text-amber-200 block mb-1.5">Reminder Frequency:</label>
         <div class="flex flex-wrap gap-1.5">
           <button
             v-for="mins in [15, 30, 45, 60, 90]"
@@ -88,7 +88,7 @@ const handleSave = () => {
                 : 'bg-stone-900 text-stone-300 border-stone-800 hover:border-stone-700'
             ]"
           >
-            {{ mins }}p
+            {{ mins }}m
           </button>
         </div>
       </div>
@@ -98,7 +98,7 @@ const handleSave = () => {
         <label class="flex items-center justify-between cursor-pointer p-2 rounded-xl bg-stone-900/60 hover:bg-stone-900">
           <span class="flex items-center gap-2">
             <span>🔔</span>
-            <span>Tiếng chuông chánh niệm (432Hz)</span>
+            <span>Mindful Bell Chime (432Hz)</span>
           </span>
           <input type="checkbox" v-model="localSettings.enableBellSound" class="accent-amber-500 w-4 h-4 cursor-pointer" />
         </label>
@@ -106,7 +106,7 @@ const handleSave = () => {
         <label class="flex items-center justify-between cursor-pointer p-2 rounded-xl bg-stone-900/60 hover:bg-stone-900">
           <span class="flex items-center gap-2">
             <span>📜</span>
-            <span>Rút ngẫu nhiên kệ Kinh Pháp Cú</span>
+            <span>Dhammapada Verse Cards</span>
           </span>
           <input type="checkbox" v-model="localSettings.enableDhammapada" class="accent-amber-500 w-4 h-4 cursor-pointer" />
         </label>
@@ -114,7 +114,7 @@ const handleSave = () => {
         <label class="flex items-center justify-between cursor-pointer p-2 rounded-xl bg-stone-900/60 hover:bg-stone-900">
           <span class="flex items-center gap-2">
             <span>💧</span>
-            <span>Nhắc uống nước & thư giãn mắt</span>
+            <span>Hydration & Eye Strain Break</span>
           </span>
           <input type="checkbox" v-model="localSettings.enableHealthReminders" class="accent-amber-500 w-4 h-4 cursor-pointer" />
         </label>
@@ -127,14 +127,14 @@ const handleSave = () => {
           class="px-3 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-amber-300 border border-stone-800 text-xs font-serif font-bold transition-all cursor-pointer flex items-center gap-1"
         >
           <span>🔔</span>
-          <span>Thử Chuông</span>
+          <span>Test Chime</span>
         </button>
 
         <button
           @click="handleSave"
           class="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-stone-950 text-xs font-serif font-bold shadow-lg hover:scale-105 active:scale-95 transition-all cursor-pointer"
         >
-          Lưu Cài Đặt
+          Save Settings
         </button>
       </div>
     </div>

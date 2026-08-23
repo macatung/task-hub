@@ -3,6 +3,8 @@ import { ref, computed, onMounted, onUnmounted, getCurrentInstance } from 'vue';
 export interface ZenPhaseInfo {
   id: 'midnight' | 'dawn' | 'afternoon' | 'twilight';
   paliName: string;
+  name: string;
+  englishName: string;
   vietnameseName: string;
   timeRange: string;
   icon: string;
@@ -18,7 +20,9 @@ export const ZEN_PHASES: Record<string, ZenPhaseInfo> = {
   midnight: {
     id: 'midnight',
     paliName: 'Rātribhāga',
-    vietnameseName: 'Canh Khuya Tịch Mịch',
+    name: 'Serene Midnight Watch',
+    englishName: 'Serene Midnight Watch',
+    vietnameseName: 'Serene Midnight Watch',
     timeRange: '00:00 – 05:59',
     icon: '🌌',
     accentHex: '#8b5cf6',
@@ -31,7 +35,9 @@ export const ZEN_PHASES: Record<string, ZenPhaseInfo> = {
   dawn: {
     id: 'dawn',
     paliName: 'Pubbaṇhasamaya',
-    vietnameseName: 'Bình Minh Thanh Tịnh',
+    name: 'Pure Dawn Awakening',
+    englishName: 'Pure Dawn Awakening',
+    vietnameseName: 'Pure Dawn Awakening',
     timeRange: '06:00 – 11:59',
     icon: '🌅',
     accentHex: '#f59e0b',
@@ -44,7 +50,9 @@ export const ZEN_PHASES: Record<string, ZenPhaseInfo> = {
   afternoon: {
     id: 'afternoon',
     paliName: 'Majjhanhikasamaya',
-    vietnameseName: 'Quá Ngọ Tỉnh Giác',
+    name: 'Mindful Afternoon Focus',
+    englishName: 'Mindful Afternoon Focus',
+    vietnameseName: 'Mindful Afternoon Focus',
     timeRange: '12:00 – 17:59',
     icon: '☀️',
     accentHex: '#10b981',
@@ -57,7 +65,9 @@ export const ZEN_PHASES: Record<string, ZenPhaseInfo> = {
   twilight: {
     id: 'twilight',
     paliName: 'Sāyanhasamaya',
-    vietnameseName: 'Hoàng Hôn Tịch Chiếu',
+    name: 'Reflective Twilight Glow',
+    englishName: 'Reflective Twilight Glow',
+    vietnameseName: 'Reflective Twilight Glow',
     timeRange: '18:00 – 23:59',
     icon: '🕯️',
     accentHex: '#f43f5e',

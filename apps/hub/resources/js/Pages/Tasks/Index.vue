@@ -4540,7 +4540,7 @@ onUnmounted(() => {
                 </span>
               </div>
               <p :class="['text-xs mt-0.5 font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
-                {{ aiGeneratorStep === 'input' ? 'Chọn repo, nhập requirement ngắn; AI tự đọc docs và tạo bản nháp.' : 'Xem lại, chỉnh sửa và xác nhận backlog.' }}
+                {{ aiGeneratorStep === 'input' ? 'Select repo and enter requirements; AI will analyze project context and draft the plan.' : 'Review, edit, and confirm your backlog plan.' }}
               </p>
             </div>
           </div>
@@ -4563,14 +4563,14 @@ onUnmounted(() => {
             <textarea
               v-model="aiForm.prompt"
               rows="3"
-              placeholder="Ví dụ: Thêm đăng nhập Google cho người dùng hiện tại."
+              placeholder="e.g., Implement Google OAuth authentication for existing users."
               :class="[
                 'w-full p-3.5 rounded-2xl border text-xs focus:outline-none focus:border-indigo-500 shadow-xs font-medium leading-relaxed',
                 isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' : 'bg-slate-50 border-slate-300 text-slate-950 placeholder-slate-500'
               ]"
             ></textarea>
             <p :class="['text-[11px]', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
-              Bạn chỉ cần mô tả kết quả mong muốn. AI tự dùng docs Repo, kiến trúc và backlog hiện tại.
+              Describe desired outcomes. AI leverages repository docs, architecture, and current backlog context.
             </p>
           </div>
 
@@ -4580,7 +4580,7 @@ onUnmounted(() => {
               v-model="aiForm.project_id"
               :class="['w-full p-2.5 rounded-xl border text-xs font-semibold focus:outline-none', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
             >
-              <option value="new">✨ Tạo Project mới</option>
+              <option value="new">✨ Create New Project</option>
               <option v-for="proj in projects" :key="proj.id" :value="proj.id">📁 {{ proj.title }}</option>
             </select>
           </div>
@@ -4589,7 +4589,7 @@ onUnmounted(() => {
             class="text-xs font-semibold text-indigo-500 hover:text-indigo-400 cursor-pointer"
             @click="showAiPlanningOptions = !showAiPlanningOptions"
           >
-            {{ showAiPlanningOptions ? '⌃ Ẩn tuỳ chỉnh' : '⌄ Tuỳ chỉnh sprint, lịch và mẫu' }}
+            {{ showAiPlanningOptions ? '⌃ Hide Planning Options' : '⌄ Customize Sprints, Schedule & Templates' }}
           </button>
 
           <!-- Quick Templates Picker -->
@@ -4720,10 +4720,10 @@ onUnmounted(() => {
               <div class="flex items-center gap-2">
                 <span class="text-sm font-bold text-indigo-400">⚡ ROADMAP EPICS (INITIATIVES)</span>
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  {{ aiGeneratedPlan.epics.length }} Epics độc lập
+                  {{ aiGeneratedPlan.epics.length }} Roadmap Epics
                 </span>
               </div>
-              <span class="text-[11px] text-slate-400 italic">Được tạo ở cấp độ dự án (sprint_id = null), không nằm trong sprint</span>
+              <span class="text-[11px] text-slate-400 italic">Created at project level (sprint_id = null), outside active sprints</span>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -4770,7 +4770,7 @@ onUnmounted(() => {
                   v-model="epic.description"
                   rows="2"
                   :class="['w-full text-[11px] bg-transparent border-0 resize-none focus:outline-none rounded p-1', isDarkMode ? 'text-slate-300 bg-slate-900/40' : 'text-slate-600 bg-white/60']"
-                  placeholder="Mô tả phạm vi và tiêu chí hoàn thành của Epic..."
+                  placeholder="Describe Epic scope and acceptance criteria..."
                 ></textarea>
               </div>
             </div>
@@ -4785,7 +4785,7 @@ onUnmounted(() => {
                   {{ aiGeneratedPlan.sprints?.length || 0 }} Sprints
                 </span>
               </div>
-              <span class="text-[11px] text-slate-400 italic">Chỉ chứa Stories, Tasks, Bugs liên kết tới Epic cha</span>
+              <span class="text-[11px] text-slate-400 italic">Contains Stories, Tasks, and Bugs linked to parent Epics</span>
             </div>
 
             <div class="space-y-4">
@@ -4922,7 +4922,7 @@ onUnmounted(() => {
             >
               <span v-if="isAiAnalyzing" class="animate-spin">⏳</span>
               <span v-else>✨</span>
-              <span>{{ isAiAnalyzing ? 'Đang phân tích...' : 'Phân tích Requirement' }}</span>
+              <span>{{ isAiAnalyzing ? 'Analyzing Requirements...' : 'Analyze Requirements' }}</span>
             </button>
 
             <!-- Action Button for Step 2 -->
@@ -4934,7 +4934,7 @@ onUnmounted(() => {
             >
               <span v-if="isAiCommitting" class="animate-spin">⏳</span>
               <span v-else>🚀</span>
-              <span>{{ isAiCommitting ? 'Đang lưu...' : 'Tạo Epic, Story & Task' }}</span>
+              <span>{{ isAiCommitting ? 'Saving...' : 'Generate Epics, Stories & Tasks' }}</span>
             </button>
           </div>
         </div>

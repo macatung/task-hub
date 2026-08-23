@@ -82,7 +82,7 @@ onMounted(() => {
           class="text-zinc-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333] transition-colors text-xs cursor-pointer"
           @click="emit('close')"
         >
-          ✕ Đóng
+          ✕ Close
         </button>
       </div>
 
@@ -91,7 +91,7 @@ onMounted(() => {
         <div class="w-full md:w-80 p-4 border-r border-[#2d2d2d] bg-[#181818] flex flex-col gap-3 shrink-0 overflow-y-auto">
           <h3 class="text-xs font-bold text-zinc-200 uppercase tracking-wide flex items-center gap-1.5">
             <i class="codicon codicon-add" />
-            <span>Tạo Lịch Thực Thi Mới</span>
+            <span>Create New Schedule</span>
           </h3>
 
           <div class="flex items-center bg-[#252526] p-1 rounded-lg border border-[#3e3e42] gap-1">
@@ -100,14 +100,14 @@ onMounted(() => {
               :class="scheduleType === 'timer' ? 'bg-[#007acc] text-white' : 'text-zinc-400 hover:text-white'"
               @click="scheduleType = 'timer'"
             >
-              ⏱ Timer (1 lần)
+              ⏱ Timer (One-shot)
             </button>
             <button
               class="flex-1 py-1 text-xs rounded font-semibold transition-colors cursor-pointer"
               :class="scheduleType === 'cron' ? 'bg-[#007acc] text-white' : 'text-zinc-400 hover:text-white'"
               @click="scheduleType = 'cron'"
             >
-              🔄 Cron (Lặp lại)
+              🔄 Cron (Recurring)
             </button>
           </div>
 
@@ -116,13 +116,13 @@ onMounted(() => {
             <textarea
               v-model="newPrompt"
               rows="3"
-              placeholder="VD: Kiểm tra build và chạy test suite..."
+              placeholder="E.g., Verify build and execute test suite..."
               class="w-full text-xs bg-[#1e1e1e] border border-[#3e3e42] rounded-lg p-2 text-zinc-100 placeholder-zinc-500 outline-none focus:border-[#007acc] resize-none"
             />
           </div>
 
           <div v-if="scheduleType === 'timer'">
-            <label class="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block mb-1">Thời gian chờ (giây)</label>
+            <label class="text-[10px] font-mono text-zinc-400 uppercase tracking-wider block mb-1">Wait duration (seconds)</label>
             <input
               v-model.number="durationSeconds"
               type="number"
@@ -140,32 +140,32 @@ onMounted(() => {
               placeholder="*/15 * * * *"
               class="w-full text-xs font-mono bg-[#1e1e1e] border border-[#3e3e42] rounded-lg p-2 text-zinc-100 outline-none focus:border-[#007acc]"
             />
-            <p class="text-[10px] text-zinc-500 mt-1">Ví dụ: `*/5 * * * *` (mỗi 5 phút), `0 * * * *` (mỗi giờ)</p>
+            <p class="text-[10px] text-zinc-500 mt-1">E.g., `*/5 * * * *` (every 5m), `0 * * * *` (hourly)</p>
           </div>
 
           <button
             class="w-full mt-2 py-2 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white text-xs font-semibold cursor-pointer shadow-xs transition-colors"
             @click="handleCreate"
           >
-            Lên Lịch Hẹn / Schedule
+            Create Schedule
           </button>
         </div>
 
         <!-- Scheduled Tasks List -->
         <div class="flex-1 p-4 overflow-y-auto bg-[#1e1e1e] space-y-3">
           <div class="flex items-center justify-between border-b border-[#2d2d2d] pb-2">
-            <h3 class="text-xs font-bold text-zinc-300">Danh Sách Lịch Đang Kích Hoạt ({{ scheduledTasks.length }})</h3>
+            <h3 class="text-xs font-bold text-zinc-300">Active Schedules ({{ scheduledTasks.length }})</h3>
             <button
               class="text-[10px] text-zinc-400 hover:text-white px-2 py-0.5 rounded hover:bg-[#333333] cursor-pointer"
               @click="loadScheduledTasks"
             >
-              <i class="codicon codicon-refresh" /> Làm mới
+              <i class="codicon codicon-refresh" /> Refresh
             </button>
           </div>
 
           <div v-if="scheduledTasks.length === 0" class="text-xs text-zinc-500 p-8 text-center bg-[#252526] rounded-xl border border-[#333333]">
             <i class="codicon codicon-history text-2xl text-zinc-600 mb-2 block" />
-            Không có tác vụ nào đang được lên lịch.
+            No scheduled tasks currently active.
           </div>
 
           <div
@@ -189,10 +189,10 @@ onMounted(() => {
             <div class="flex items-center gap-2 shrink-0">
               <button
                 class="px-2 py-1 rounded bg-[#333333] hover:bg-rose-900 text-zinc-300 hover:text-white text-xs cursor-pointer transition-colors"
-                title="Hủy lịch này"
+                title="Cancel this schedule"
                 @click="handleCancel(task.id)"
               >
-                Hủy
+                Cancel
               </button>
             </div>
           </div>

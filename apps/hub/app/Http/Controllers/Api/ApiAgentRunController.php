@@ -96,7 +96,7 @@ class ApiAgentRunController extends Controller
             if (!$task) {
                 return response()->json([
                     'success' => false,
-                    'message' => "Không tìm thấy nhiệm vụ #{$taskId}. Vui lòng làm mới danh sách nhiệm vụ.",
+                    'message' => "Task #{$taskId} not found. Please refresh the task list.",
                 ], 404);
             }
         }
@@ -272,7 +272,7 @@ class ApiAgentRunController extends Controller
             if (!$task) {
                 return response()->json([
                     'success' => false,
-                    'message' => "Không tìm thấy nhiệm vụ #{$taskId}.",
+                    'message' => "Task #{$taskId} not found.",
                 ], 404);
             }
         }
@@ -283,7 +283,7 @@ class ApiAgentRunController extends Controller
     {
         $latest = $task->agentRuns()->latest()->first();
         if (!$latest || !$latest->evidence()->where('status', 'passed')->exists()) {
-            return response()->json(['success' => false, 'message' => 'Cần verification evidence đạt trước khi approve.'], 422);
+            return response()->json(['success' => false, 'message' => 'Passing verification evidence is required before approval.'], 422);
         }
         $task->update(['status' => 'done', 'completed_at' => now()]);
         if ($latest->status !== 'verified') $latest->update(['status' => 'verified', 'finished_at' => now()]);
@@ -302,7 +302,7 @@ class ApiAgentRunController extends Controller
             $latest->update(['status' => 'waiting_input', 'failure_reason' => $validated['reason']]);
             $this->recordEvent($latest, 'human_rejected', 'waiting_input', $validated);
         }
-        return response()->json(['success' => true, 'message' => 'Đã trả task về trạng thái cần bổ sung.', 'data' => $task->fresh()]);
+        return response()->json(['success' => true, 'message' => 'Task returned to changes requested.', 'data' => $task->fresh()]);
     }
 
     public function githubWebhook(Request $request)
@@ -404,46 +404,46 @@ class ApiAgentRunController extends Controller
         $provider = $request->string('provider')->toString();
         $models = [
             'antigravity' => [
-                ['id' => 'gemini-3.7-flash', 'name' => 'Gemini 3.7 Flash', 'badges' => ['High', 'Fast'], 'description' => 'Mô hình thế hệ mới nhất, tối ưu tốc độ và agentic reasoning'],
-                ['id' => 'gemini-3.6-flash', 'name' => 'Gemini 3.6 Flash', 'badges' => ['Medium', 'Fast'], 'description' => 'Cân bằng tốc độ cao và năng lực suy luận'],
-                ['id' => 'gemini-3.5-flash', 'name' => 'Gemini 3.5 Flash', 'badges' => ['Medium', 'Fast'], 'description' => 'Phản hồi nhanh cho các tác vụ lập trình phổ biến'],
-                ['id' => 'gemini-3.1-pro', 'name' => 'Gemini 3.1 Pro', 'badges' => ['Low'], 'description' => 'Mô hình tiêu chuẩn cho tác vụ nhẹ'],
-                ['id' => 'claude-sonnet-4.6-thinking', 'name' => 'Claude Sonnet 4.6 (Thinking)', 'badges' => ['Thinking'], 'description' => 'Suy luận mở rộng và phân tích kiến trúc mã nguồn chuyên sâu'],
-                ['id' => 'claude-opus-4.6-thinking', 'name' => 'Claude Opus 4.6 (Thinking)', 'badges' => ['Thinking'], 'description' => 'Mô hình phân tích cấp cao nhất cho bài toán phức tạp'],
-                ['id' => 'gpt-oss-120b', 'name' => 'GPT-OSS 120B (Medium)', 'badges' => ['Open Weights', 'Medium'], 'description' => 'Mô hình mã nguồn mở 120B hiệu năng cao'],
-                ['id' => 'gemini-2.5-pro', 'name' => 'Gemini 2.5 Pro', 'badges' => ['Recommended', '1M+ Context'], 'description' => 'Mô hình mạnh nhất của DeepMind, context 1M+'],
-                ['id' => 'gemini-2.5-flash', 'name' => 'Gemini 2.5 Flash', 'badges' => ['Fast & Smart'], 'description' => 'Tốc độ cao kèm khả năng suy luận xuất sắc'],
-                ['id' => 'gemini-2.0-flash', 'name' => 'Gemini 2.0 Flash', 'badges' => ['Ultra Fast'], 'description' => 'Phản hồi tức thì cho các tác vụ lặp lại'],
-                ['id' => 'gemini-2.0-pro-exp', 'name' => 'Gemini 2.0 Pro Exp', 'badges' => ['Experimental'], 'description' => 'Bản thử nghiệm năng lực giải thuật và code gen'],
-                ['id' => 'default', 'name' => 'IDE / CLI Default', 'badges' => ['Default'], 'description' => 'Cấu hình mặc định của Antigravity'],
+                ['id' => 'gemini-3.7-flash', 'name' => 'Gemini 3.7 Flash', 'badges' => ['High', 'Fast'], 'description' => 'Next-generation model optimized for speed and agentic reasoning'],
+                ['id' => 'gemini-3.6-flash', 'name' => 'Gemini 3.6 Flash', 'badges' => ['Medium', 'Fast'], 'description' => 'Balances high throughput with strong reasoning capabilities'],
+                ['id' => 'gemini-3.5-flash', 'name' => 'Gemini 3.5 Flash', 'badges' => ['Medium', 'Fast'], 'description' => 'Fast responses for common development workflows'],
+                ['id' => 'gemini-3.1-pro', 'name' => 'Gemini 3.1 Pro', 'badges' => ['Low'], 'description' => 'Standard model for lightweight tasks'],
+                ['id' => 'claude-sonnet-4.6-thinking', 'name' => 'Claude Sonnet 4.6 (Thinking)', 'badges' => ['Thinking'], 'description' => 'Extended reasoning and deep codebase architecture analysis'],
+                ['id' => 'claude-opus-4.6-thinking', 'name' => 'Claude Opus 4.6 (Thinking)', 'badges' => ['Thinking'], 'description' => 'Top-tier analytical model for complex engineering challenges'],
+                ['id' => 'gpt-oss-120b', 'name' => 'GPT-OSS 120B (Medium)', 'badges' => ['Open Weights', 'Medium'], 'description' => 'High-performance 120B open-weights model'],
+                ['id' => 'gemini-2.5-pro', 'name' => 'Gemini 2.5 Pro', 'badges' => ['Recommended', '1M+ Context'], 'description' => 'Flagship multimodal model with 1M+ token context window'],
+                ['id' => 'gemini-2.5-flash', 'name' => 'Gemini 2.5 Flash', 'badges' => ['Fast & Smart'], 'description' => 'High speed paired with excellent reasoning capabilities'],
+                ['id' => 'gemini-2.0-flash', 'name' => 'Gemini 2.0 Flash', 'badges' => ['Ultra Fast'], 'description' => 'Instant turnaround for iterative workflows'],
+                ['id' => 'gemini-2.0-pro-exp', 'name' => 'Gemini 2.0 Pro Exp', 'badges' => ['Experimental'], 'description' => 'Experimental release for algorithmic reasoning and code generation'],
+                ['id' => 'default', 'name' => 'IDE / CLI Default', 'badges' => ['Default'], 'description' => 'Default runtime configuration for Antigravity'],
             ],
             'claude_code' => [
-                ['id' => 'claude-3-7-sonnet-20250219', 'name' => 'Claude 3.7 Sonnet', 'badges' => ['High', 'Recommended'], 'description' => 'Tối ưu hoá cao nhất cho coding, kiến trúc & hybrid reasoning'],
-                ['id' => 'claude-3-7-sonnet-thinking', 'name' => 'Claude 3.7 (Thinking)', 'badges' => ['High', 'Thinking'], 'description' => 'Kích hoạt extended thinking cho các refactor phức tạp'],
-                ['id' => 'claude-sonnet-4.6-thinking', 'name' => 'Claude Sonnet 4.6 (Thinking)', 'badges' => ['Next-Gen', 'Thinking'], 'description' => 'Mô hình Sonnet thế hệ mới tối ưu agentic workflow'],
-                ['id' => 'claude-opus-4.6-thinking', 'name' => 'Claude Opus 4.6 (Thinking)', 'badges' => ['Deep Analysis', 'Thinking'], 'description' => 'Phân tích hệ thống lớn & cấu trúc logic phức tạp'],
-                ['id' => 'claude-3-5-sonnet-20241022', 'name' => 'Claude 3.5 Sonnet (v2)', 'badges' => ['Balanced', 'Fast'], 'description' => 'Mô hình lập trình tiêu chuẩn ổn định'],
-                ['id' => 'claude-3-5-haiku-20241022', 'name' => 'Claude 3.5 Haiku', 'badges' => ['Super Fast'], 'description' => 'Tốc độ cực nhanh cho tasks nhỏ và refactor nhẹ'],
-                ['id' => 'claude-3-opus-20240229', 'name' => 'Claude 3 Opus', 'badges' => ['Deep Analysis'], 'description' => 'Phân tích hệ thống lớn & bài toán phức tạp'],
-                ['id' => 'default', 'name' => 'CLI Default', 'badges' => ['Default'], 'description' => 'Cấu hình mặc định của Claude Code CLI'],
+                ['id' => 'claude-3-7-sonnet-20250219', 'name' => 'Claude 3.7 Sonnet', 'badges' => ['High', 'Recommended'], 'description' => 'Highly optimized for coding, architecture, and hybrid reasoning'],
+                ['id' => 'claude-3-7-sonnet-thinking', 'name' => 'Claude 3.7 (Thinking)', 'badges' => ['High', 'Thinking'], 'description' => 'Enables extended thinking for complex multi-file refactors'],
+                ['id' => 'claude-sonnet-4.6-thinking', 'name' => 'Claude Sonnet 4.6 (Thinking)', 'badges' => ['Next-Gen', 'Thinking'], 'description' => 'Next-gen Sonnet model optimized for agentic workflows'],
+                ['id' => 'claude-opus-4.6-thinking', 'name' => 'Claude Opus 4.6 (Thinking)', 'badges' => ['Deep Analysis', 'Thinking'], 'description' => 'Deep analysis for large codebases and complex logic structures'],
+                ['id' => 'claude-3-5-sonnet-20241022', 'name' => 'Claude 3.5 Sonnet (v2)', 'badges' => ['Balanced', 'Fast'], 'description' => 'Battle-tested, dependable coding model'],
+                ['id' => 'claude-3-5-haiku-20241022', 'name' => 'Claude 3.5 Haiku', 'badges' => ['Super Fast'], 'description' => 'Ultra-fast execution for targeted tasks and small refactors'],
+                ['id' => 'claude-3-opus-20240229', 'name' => 'Claude 3 Opus', 'badges' => ['Deep Analysis'], 'description' => 'Large-scale system reasoning and complex problem solving'],
+                ['id' => 'default', 'name' => 'CLI Default', 'badges' => ['Default'], 'description' => 'Default configuration for Claude Code CLI'],
             ],
             'codex' => [
-                ['id' => 'gpt-5.6-sol', 'name' => 'GPT-5.6 Sol', 'badges' => ['High', 'Flagship'], 'description' => 'Mô hình flagship mạnh nhất thế hệ GPT-5.6 cho reasoning, research & agentic coding'],
-                ['id' => 'gpt-5.6-terra', 'name' => 'GPT-5.6 Terra', 'badges' => ['Medium', 'Fast'], 'description' => 'Mô hình cân bằng hoàn hảo giữa trí tuệ và tốc độ cho tác vụ production'],
-                ['id' => 'gpt-5.6-luna', 'name' => 'GPT-5.6 Luna', 'badges' => ['Low', 'Ultra Fast'], 'description' => 'Mô hình nhẹ tối ưu tốc độ và chi phí cho khối lượng công việc lớn'],
-                ['id' => 'gpt-5.6-cyber', 'name' => 'GPT-5.6 Cyber', 'badges' => ['Specialized', 'Security'], 'description' => 'Mô hình chuyên biệt phân tích an toàn thông tin & audit bảo mật mã nguồn'],
-                ['id' => 'o3-pro', 'name' => 'o3-pro', 'badges' => ['High', 'Deep Reasoning'], 'description' => 'Suy luận chuyên sâu mở rộng cho các bài toán kiến trúc & giải thuật khó'],
-                ['id' => 'o3', 'name' => 'o3', 'badges' => ['High', 'Reasoning'], 'description' => 'Mô hình suy luận logic đa bước mạnh mẽ thế hệ o-series'],
-                ['id' => 'o3-mini', 'name' => 'o3-mini', 'badges' => ['Fast Reasoning', 'High'], 'description' => 'Suy luận logic cao cấp với tốc độ phản hồi nhanh chóng'],
-                ['id' => 'gpt-5', 'name' => 'GPT-5 (Foundational)', 'badges' => ['High', 'Foundational'], 'description' => 'Mô hình nền tảng thế hệ GPT-5'],
-                ['id' => 'gpt-4.1', 'name' => 'GPT-4.1', 'badges' => ['Balanced', 'Fast'], 'description' => 'Phiên bản tối ưu hiệu năng cao cho tasks coding hàng ngày'],
-                ['id' => 'gpt-4.1-mini', 'name' => 'GPT-4.1 mini', 'badges' => ['Ultra Fast'], 'description' => 'Mô hình siêu nhẹ tốc độ cao'],
-                ['id' => 'o1', 'name' => 'o1', 'badges' => ['Deep Reasoning'], 'description' => 'Suy luận từng bước giải quyết bài toán khó'],
-                ['id' => 'gpt-4.5-preview', 'name' => 'GPT-4.5 Preview', 'badges' => ['High Quality', 'Large Context'], 'description' => 'Khả năng hiểu ngữ cảnh sâu và kiến trúc phức tạp'],
-                ['id' => 'gpt-4o', 'name' => 'GPT-4o', 'badges' => ['Omni', 'Fast'], 'description' => 'Cân bằng tốc độ và chất lượng thực thi'],
-                ['id' => 'gpt-4o-mini', 'name' => 'GPT-4o mini', 'badges' => ['Ultra Fast'], 'description' => 'Mô hình nhỏ gọn tốc độ cao'],
-                ['id' => 'gpt-oss-120b', 'name' => 'GPT-OSS 120B (Medium)', 'badges' => ['Open Weights', 'Medium'], 'description' => 'Mô hình mã nguồn mở 120B tham số'],
-                ['id' => 'default', 'name' => 'CLI Default', 'badges' => ['Default'], 'description' => 'Cấu hình mặc định của Codex CLI'],
+                ['id' => 'gpt-5.6-sol', 'name' => 'GPT-5.6 Sol', 'badges' => ['High', 'Flagship'], 'description' => 'Flagship GPT-5.6 generation model for reasoning, research, and agentic coding'],
+                ['id' => 'gpt-5.6-terra', 'name' => 'GPT-5.6 Terra', 'badges' => ['Medium', 'Fast'], 'description' => 'Balanced intelligence and low latency for production tasks'],
+                ['id' => 'gpt-5.6-luna', 'name' => 'GPT-5.6 Luna', 'badges' => ['Low', 'Ultra Fast'], 'description' => 'Lightweight model optimized for high throughput and cost efficiency'],
+                ['id' => 'gpt-5.6-cyber', 'name' => 'GPT-5.6 Cyber', 'badges' => ['Specialized', 'Security'], 'description' => 'Specialized model for security auditing and vulnerability analysis'],
+                ['id' => 'o3-pro', 'name' => 'o3-pro', 'badges' => ['High', 'Deep Reasoning'], 'description' => 'Deep extended reasoning for challenging algorithmic and architectural problems'],
+                ['id' => 'o3', 'name' => 'o3', 'badges' => ['High', 'Reasoning'], 'description' => 'Multi-step logic reasoning powered by the o-series engine'],
+                ['id' => 'o3-mini', 'name' => 'o3-mini', 'badges' => ['Fast Reasoning', 'High'], 'description' => 'High-order logic reasoning with quick response times'],
+                ['id' => 'gpt-5', 'name' => 'GPT-5 (Foundational)', 'badges' => ['High', 'Foundational'], 'description' => 'Foundational GPT-5 architecture model'],
+                ['id' => 'gpt-4.1', 'name' => 'GPT-4.1', 'badges' => ['Balanced', 'Fast'], 'description' => 'High-performance edition optimized for day-to-day engineering tasks'],
+                ['id' => 'gpt-4.1-mini', 'name' => 'GPT-4.1 mini', 'badges' => ['Ultra Fast'], 'description' => 'Super lightweight high-speed model'],
+                ['id' => 'o1', 'name' => 'o1', 'badges' => ['Deep Reasoning'], 'description' => 'Step-by-step reasoning for hard engineering problems'],
+                ['id' => 'gpt-4.5-preview', 'name' => 'GPT-4.5 Preview', 'badges' => ['High Quality', 'Large Context'], 'description' => 'Deep contextual understanding and complex architecture analysis'],
+                ['id' => 'gpt-4o', 'name' => 'GPT-4o', 'badges' => ['Omni', 'Fast'], 'description' => 'Balanced execution speed and generation quality'],
+                ['id' => 'gpt-4o-mini', 'name' => 'GPT-4o mini', 'badges' => ['Ultra Fast'], 'description' => 'Compact model with rapid response times'],
+                ['id' => 'gpt-oss-120b', 'name' => 'GPT-OSS 120B (Medium)', 'badges' => ['Open Weights', 'Medium'], 'description' => '120B parameter open-weights model'],
+                ['id' => 'default', 'name' => 'CLI Default', 'badges' => ['Default'], 'description' => 'Default configuration for Codex CLI'],
             ],
         ];
 

@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref } from 'vue';
 import { mindfulBell } from '../audio/mindfulBellAudio';
 
@@ -11,12 +11,12 @@ const isBlessed = ref(false);
 const advice = ref('');
 
 const tips = [
-  'Đã kiểm tra log request / payload đầu vào tại middleware chưa?',
-  'Chú ý các giá trị undefined / null hoặc race condition trong async/await!',
-  'Hãy in ra (console.log / dump) kiểu dữ liệu thực tế trước khi parse.',
-  'Kiểm tra lại cache: thử xóa cache Redis / Browser / Config và build lại.',
-  'Quán chiếu luồng dữ liệu từng bước: Input ➔ Transformation ➔ Output.',
-  'Nếu bế tắc hơn 30 phút, hãy đứng dậy uống 1 ngụm nước ấm rồi nhìn lại!',
+  'Have you inspected the request payload and headers at the middleware layer?',
+  'Check for undefined/null values or race conditions in async/await workflows!',
+  'Log or inspect the actual runtime data types before parsing.',
+  'Invalidate caches: clear Redis, browser state, config cache, and rebuild.',
+  'Trace the data flow step-by-step: Input ➔ Transformation ➔ Output.',
+  'Stuck for more than 30 minutes? Step back, take a breath, and look with fresh eyes!',
 ];
 
 const handleBlessBug = () => {
@@ -33,7 +33,7 @@ const handleBlessBug = () => {
     <div class="flex items-center justify-between pb-2.5 mb-3 border-b border-amber-500/30">
       <div class="flex items-center gap-2 text-xs font-bold text-amber-300">
         <span>🦆</span>
-        <span>DEBUG TÂM THỨC (RUBBER DUCK & YỂM BÙA)</span>
+        <span>RUBBER DUCK DEBUGGING & INSIGHTS</span>
       </div>
       <button
         @click="$emit('close')"
@@ -45,7 +45,7 @@ const handleBlessBug = () => {
 
     <!-- Description -->
     <p class="text-xs text-slate-300 mb-3 leading-relaxed">
-      Gặp bug hóc búa? Hãy giải thích vắn tắt vấn đề cho Ma Cà Tưng nghe. Nói ra thành lời là 70% lời giải sẽ tự xuất hiện!
+      Facing a stubborn bug? Explain it clearly to the Rubber Duck. Articulating the problem solves 70% of it!
     </p>
 
     <!-- Textarea input -->
@@ -53,7 +53,7 @@ const handleBlessBug = () => {
       <textarea
         v-model="problemInput"
         rows="3"
-        placeholder="Mô tả bug đang gặp phải (ví dụ: API trả về 500 khi upload file, UI bị re-render liên tục...)"
+        placeholder="Describe the issue (e.g., API 500 on upload, continuous UI re-renders...)"
         class="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-amber-400 text-xs text-white placeholder-slate-500 outline-none resize-none font-mono"
       ></textarea>
     </div>
@@ -62,14 +62,14 @@ const handleBlessBug = () => {
     <div v-if="isBlessed" class="mb-3 p-3 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-amber-200 text-xs space-y-1.5 animate-fadeIn">
       <div class="font-bold flex items-center gap-1.5 text-amber-300">
         <span>📜</span>
-        <span>Lời Khuyên Khai Sáng Từ Midnight Architect:</span>
+        <span>Insight from the Midnight Architect:</span>
       </div>
       <p class="italic leading-relaxed">"{{ advice }}"</p>
     </div>
 
     <!-- Action Buttons -->
     <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
-      <span class="text-[10px] text-slate-400 font-mono">Bùa chú 0 Bug ⚡</span>
+      <span class="text-[10px] text-slate-400 font-mono">0-Bug Charm ⚡</span>
 
       <button
         @click="handleBlessBug"
@@ -82,7 +82,7 @@ const handleBlessBug = () => {
         ]"
       >
         <span>📜</span>
-        <span>Yểm Bùa & Gợi Ý Debug</span>
+        <span>Duck Debug & Insights</span>
       </button>
     </div>
   </div>

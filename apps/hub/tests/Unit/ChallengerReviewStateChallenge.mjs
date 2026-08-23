@@ -81,7 +81,7 @@ class ApiAgentRunControllerSimulator {
     if (!latest || !latest.hasPassedEvidence()) {
       return {
         status: 422,
-        body: { success: false, message: 'Cần verification evidence đạt trước khi approve.' }
+        body: { success: false, message: 'Passing verification evidence is required before approval.' }
       };
     }
     task.status = 'done';
@@ -131,7 +131,7 @@ class ApiAgentRunControllerSimulator {
       status: 200,
       body: {
         success: true,
-        message: 'Đã trả task về trạng thái cần bổ sung.',
+        message: 'Task returned to changes requested.',
         data: { ...task }
       }
     };
@@ -306,7 +306,7 @@ const phpSrc = fs.readFileSync(phpPath, 'utf8');
 
 assert(phpSrc.includes('public function approve(Task $task)'), 'ApiAgentRunController defines approve(Task $task)');
 assert(phpSrc.includes("if (!$latest || !$latest->evidence()->where('status', 'passed')->exists())"), 'ApiAgentRunController::approve verifies passed evidence exists');
-assert(phpSrc.includes("return response()->json(['success' => false, 'message' => 'Cần verification evidence đạt trước khi approve.'], 422);"), 'ApiAgentRunController::approve returns 422 when evidence is missing');
+assert(phpSrc.includes("return response()->json(['success' => false, 'message' => 'Passing verification evidence is required before approval.'], 422);"), 'ApiAgentRunController::approve returns 422 when evidence is missing');
 assert(phpSrc.includes("$task->update(['status' => 'done', 'completed_at' => now()]);"), 'ApiAgentRunController::approve updates task to done with completed_at');
 assert(phpSrc.includes("if ($latest->status !== 'verified') $latest->update(['status' => 'verified', 'finished_at' => now()]);"), 'ApiAgentRunController::approve updates run to verified');
 assert(phpSrc.includes("$this->recordEvent($latest, 'human_approved', 'verified', ['task_id' => $task->id]);"), 'ApiAgentRunController::approve records human_approved event');

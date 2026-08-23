@@ -52,7 +52,7 @@ class WeeklyTaskReportService
     public function saveSettings(array $data): array
     {
         $settings = array_merge($this->getSettings(), $data);
-        SiteSetting::set('task_report_settings', json_encode($settings), 'Cấu hình gửi email báo cáo tuần cho sếp & quản lý');
+        SiteSetting::set('task_report_settings', json_encode($settings), 'Configuration for weekly executive progress reports');
         return $settings;
     }
 

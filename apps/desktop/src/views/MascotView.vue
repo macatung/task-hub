@@ -218,7 +218,7 @@ defineExpose({
       @mouseenter="isHovered = true"
       @mouseleave="isHovered = false"
       @mousedown="onMascotMouseDown"
-      title="Nhấn để mở Tasks và kéo để di chuyển vị trí"
+      title="Click to open Tasks, drag to reposition"
     >
       <!-- Companion Quick Action Dock -->
       <nav
@@ -231,7 +231,7 @@ defineExpose({
         <!-- 1-Click Launch IDE Mode -->
         <button
           class="dock-button bg-cyan-950/80 text-cyan-300 hover:bg-cyan-900 border border-cyan-800/80"
-          title="Mở Task Hub IDE (VS Code Mode)"
+          title="Open Task Hub IDE (VS Code Mode)"
           @click="switchToIde"
         >
           <MacatungIcon name="agent" :size="14" />
@@ -249,7 +249,7 @@ defineExpose({
 
         <button
           class="dock-button text-amber-300 hover:text-amber-200"
-          title="Danh sách việc hôm nay"
+          title="Today's Work Items"
           @click="openModal('dispatch')"
         >
           ✓
@@ -257,7 +257,7 @@ defineExpose({
 
         <button
           class="dock-button text-rose-300 hover:text-rose-200"
-          title="Đồng hồ Pomodoro"
+          title="Focus Pomodoro Timer"
           @click="openModal('pomodoro')"
         >
           ⏱
@@ -265,7 +265,7 @@ defineExpose({
 
         <button
           class="dock-button text-yellow-300 hover:text-yellow-200"
-          title="Debug cùng Rubber Duck"
+          title="Debug with Rubber Duck"
           @click="openModal('duck')"
         >
           🦆
@@ -281,7 +281,7 @@ defineExpose({
 
         <button
           class="dock-button text-sky-300 hover:text-sky-200"
-          title="Mở Task Hub Web"
+          title="Open Task Hub Web"
           @click="openWebAction('/tasks')"
         >
           <MacatungIcon name="arrow" :size="14" />
@@ -289,7 +289,7 @@ defineExpose({
 
         <button
           class="dock-button text-slate-400 hover:text-slate-200"
-          title="Ẩn mascot"
+          title="Hide mascot"
           @click="hideMascot"
         >
           ×

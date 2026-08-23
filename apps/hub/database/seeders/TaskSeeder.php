@@ -38,7 +38,7 @@ class TaskSeeder extends Seeder
             ['name' => 'Sprint 1 — Core Intelligence & Dispatching'],
             [
                 'project_id' => $omniProject?->id,
-                'goal' => 'Hoàn thiện luồng định tuyến Multi-Agent và xử lý khiếu nại khách hàng tự động dưới 1.2s.',
+                'goal' => 'Complete multi-agent routing workflow and resolve customer escalations automatically in under 1.2s.',
                 'start_date' => $startDate,
                 'end_date' => $endDate,
                 'status' => 'active',
@@ -49,7 +49,7 @@ class TaskSeeder extends Seeder
             ['name' => 'Sprint 2 — Transcoding Pipeline & Performance'],
             [
                 'project_id' => $streamProject?->id,
-                'goal' => 'Tối ưu hóa pipeline FFmpeg đa luồng và CDN Edge Caching.',
+                'goal' => 'Optimize multi-threaded FFmpeg pipeline and CDN edge caching.',
                 'start_date' => Carbon::today()->addDays(12)->toDateString(),
                 'end_date' => Carbon::today()->addDays(26)->toDateString(),
                 'status' => 'future',
@@ -69,12 +69,12 @@ class TaskSeeder extends Seeder
 
         // 2. Create Epics
         $epicOmni = Task::firstOrCreate(
-            ['title' => 'EPIC: Kiến Trúc Multi-Agent AI Tự Trị Phân Tán'],
+            ['title' => 'EPIC: Distributed Autonomous Multi-Agent AI Architecture'],
             [
                 'project_id' => $omniProject?->id,
                 'issue_key' => 'OMNI-1',
                 'issue_type' => 'epic',
-                'description' => '### Mục tiêu Epic\nXây dựng mạng lưới Multi-Agent phân tán có khả năng tự trị giải quyết khiếu nại, hoàn tiền và đối soát dữ liệu đa kênh.',
+                'description' => "### Epic Goal\nBuild a distributed multi-agent network capable of autonomously resolving tickets, processing refunds, and reconciling cross-channel telemetry.",
                 'status' => 'in_progress',
                 'priority' => 'urgent',
                 'category' => 'ai_agent',
@@ -85,12 +85,12 @@ class TaskSeeder extends Seeder
         );
 
         $epicStream = Task::firstOrCreate(
-            ['title' => 'EPIC: Nền Tảng Chuyển Mã Video Tải Cao Adaptive Bitrate'],
+            ['title' => 'EPIC: High-Throughput Adaptive Bitrate Video Transcoding Platform'],
             [
                 'project_id' => $streamProject?->id,
                 'issue_key' => 'STREAM-1',
                 'issue_type' => 'epic',
-                'description' => '### Mục tiêu Epic\nCung cấp dịch vụ phát sóng HLS/DASH độ trễ thấp với khả năng scale 100,000 CCU.',
+                'description' => "### Epic Goal\nDeliver low-latency HLS/DASH streaming infrastructure capable of scaling to 100,000 CCU.",
                 'status' => 'todo',
                 'priority' => 'high',
                 'category' => 'infra',
@@ -101,12 +101,12 @@ class TaskSeeder extends Seeder
         );
 
         $epicMindful = Task::firstOrCreate(
-            ['title' => 'EPIC: Pháp Bảo & Không Gian Thiền Chánh Niệm Vipassanā'],
+            ['title' => 'EPIC: Mindfulness & Vipassanā Focus Companion'],
             [
                 'project_id' => $mindfulProject->id,
                 'issue_key' => 'MCT-1',
                 'issue_type' => 'epic',
-                'description' => '### Mục tiêu Epic\nTích hợp đồng hồ tọa thiền 432Hz, chuông chánh niệm và tra cứu từ điển Pāḷi.',
+                'description' => "### Epic Goal\nIntegrate 432Hz meditation timer, mindfulness bells, and Pāḷi glossary lookup.",
                 'status' => 'done',
                 'priority' => 'medium',
                 'category' => 'mindful',
@@ -124,8 +124,8 @@ class TaskSeeder extends Seeder
                 'issue_type' => 'story',
                 'epic_id' => $epicOmni->id,
                 'sprint_id' => $sprint1->id,
-                'title' => 'Tích hợp Function Calling tra cứu trạng thái đơn hàng thời gian thực',
-                'description' => "#### User Story\nLà nhân viên CSKH hoặc khách hàng, tôi muốn Agent có thể tự động gọi API cơ sở dữ liệu tra cứu đơn hàng để trả lời ngay lập tức.\n\n```json\n{\n  \"action\": \"lookup_order\",\n  \"order_id\": \"MCT-99218\"\n}\n```",
+                'title' => 'Integrate Function Calling for Real-Time Order Status Lookup',
+                'description' => "#### User Story\nAs a support engineer or customer, I want the AI agent to automatically execute database tool calls to inspect order status in real time.\n\n```json\n{\n  \"action\": \"lookup_order\",\n  \"order_id\": \"MCT-99218\"\n}\n```",
                 'status' => 'in_progress',
                 'priority' => 'urgent',
                 'category' => 'ai_agent',
@@ -135,9 +135,9 @@ class TaskSeeder extends Seeder
                 'start_date' => $startDate,
                 'due_date' => $today,
                 'notes' => json_encode([
-                    ['id' => 'st-1', 'text' => 'Thiết kế schema JSON tool definition cho Gemini', 'done' => true],
-                    ['id' => 'st-2', 'text' => 'Tạo controller kết nối ERP API có xác thực Bearer', 'done' => true],
-                    ['id' => 'st-3', 'text' => 'Xử lý fallback khi đơn hàng không tồn tại', 'done' => false],
+                    ['id' => 'st-1', 'text' => 'Design JSON tool definition schema for Gemini', 'done' => true],
+                    ['id' => 'st-2', 'text' => 'Create ERP API controller with Bearer authentication', 'done' => true],
+                    ['id' => 'st-3', 'text' => 'Handle fallback flow when order record is not found', 'done' => false],
                 ]),
             ],
             [
@@ -146,8 +146,8 @@ class TaskSeeder extends Seeder
                 'issue_type' => 'task',
                 'epic_id' => $epicOmni->id,
                 'sprint_id' => $sprint1->id,
-                'title' => 'Thiết lập Hàng Đợi Redis Cluster xử lý đồng thời 5,000 webhook/giây',
-                'description' => "Cấu hình Redis Stream và Laravel Horizon workers để xử lý luồng webhook từ Telegram và Zalo mà không bị nghẽn.",
+                'title' => 'Configure Redis Cluster Queue for 5,000 Concurrent Webhooks/sec',
+                'description' => "Configure Redis Streams and Laravel Horizon workers to ingest high-volume incoming webhooks without bottlenecking.",
                 'status' => 'todo',
                 'priority' => 'high',
                 'category' => 'infra',
@@ -157,8 +157,8 @@ class TaskSeeder extends Seeder
                 'start_date' => $today,
                 'due_date' => Carbon::today()->addDays(2)->toDateString(),
                 'notes' => json_encode([
-                    ['id' => 'st-4', 'text' => 'Cấu hình Horizon Dashboard và metrics', 'done' => false],
-                    ['id' => 'st-5', 'text' => 'Benchmark tải bằng k6', 'done' => false],
+                    ['id' => 'st-4', 'text' => 'Configure Horizon Dashboard and queue metrics', 'done' => false],
+                    ['id' => 'st-5', 'text' => 'Run load benchmark tests using k6', 'done' => false],
                 ]),
             ],
             [
@@ -167,8 +167,8 @@ class TaskSeeder extends Seeder
                 'issue_type' => 'bug',
                 'epic_id' => $epicOmni->id,
                 'sprint_id' => $sprint1->id,
-                'title' => 'Fix lỗi Token Overflow khi ngữ cảnh hội thoại vượt quá 32k tokens',
-                'description' => "**Vấn đề**: Khi khách hàng trò chuyện dài > 50 lượt, prompt bị tràn token dẫn đến HTTP 429 từ Gemini API.\n**Giải pháp**: Áp dụng rolling window context summarization để tóm tắt các lượt hội thoại cũ.",
+                'title' => 'Fix Token Overflow Error When Conversation Context Exceeds 32k Tokens',
+                'description' => "**Problem**: When conversation exceeds 50 turns, prompt overflows token limits resulting in HTTP 429 from Gemini API.\n**Solution**: Implement rolling window context summarization to condense previous dialogue turns.",
                 'status' => 'review',
                 'priority' => 'urgent',
                 'category' => 'ai_agent',
@@ -178,8 +178,8 @@ class TaskSeeder extends Seeder
                 'start_date' => $startDate,
                 'due_date' => $today,
                 'notes' => json_encode([
-                    ['id' => 'st-6', 'text' => 'Viết thuật toán context summarizer', 'done' => true],
-                    ['id' => 'st-7', 'text' => 'Unit test với context 64k tokens', 'done' => true],
+                    ['id' => 'st-6', 'text' => 'Implement rolling context summarizer algorithm', 'done' => true],
+                    ['id' => 'st-7', 'text' => 'Unit test with 64k token context payload', 'done' => true],
                 ]),
             ],
             [
@@ -188,8 +188,8 @@ class TaskSeeder extends Seeder
                 'issue_type' => 'story',
                 'epic_id' => $epicOmni->id,
                 'sprint_id' => null, // In Backlog
-                'title' => 'Tự động phân loại sắc thái cảm xúc khách hàng (Sentiment Analysis)',
-                'description' => "Nhận diện độ tức giận của khách hàng để kích hoạt quy trình escalation khẩn cấp.",
+                'title' => 'Automated Customer Sentiment & Emotion Classification',
+                'description' => "Detect customer frustration levels to trigger automated escalation protocols.",
                 'status' => 'todo',
                 'priority' => 'medium',
                 'category' => 'ai_agent',
@@ -204,8 +204,8 @@ class TaskSeeder extends Seeder
                 'issue_type' => 'task',
                 'epic_id' => $epicStream->id,
                 'sprint_id' => $sprint2->id,
-                'title' => 'Triển khai FFmpeg H.265 / AV1 Hardware Acceleration trên GPU Node',
-                'description' => "Cấu hình Nvidia NVENC để tăng tốc transcode 4K 60fps với độ trễ < 2s.",
+                'title' => 'Deploy Hardware-Accelerated FFmpeg H.265 / AV1 on GPU Nodes',
+                'description' => "Configure Nvidia NVENC acceleration for 4K 60fps low-latency transcoding.",
                 'status' => 'todo',
                 'priority' => 'high',
                 'category' => 'infra',
@@ -220,8 +220,8 @@ class TaskSeeder extends Seeder
                 'issue_type' => 'story',
                 'epic_id' => $epicMindful->id,
                 'sprint_id' => $mindfulSprint->id,
-                'title' => 'Đồng bộ âm thanh chuông xoay Tây Tạng 432Hz với Desktop Companion',
-                'description' => "Phát chuông chánh niệm định kỳ mỗi 30 phút để nhắc nhở người dùng giữ chánh niệm và nghỉ ngơi mắt.",
+                'title' => 'Synchronize 432Hz Tibetan Singing Bowl Audio with Desktop Companion',
+                'description' => "Play mindful interval bells every 30 minutes to prompt posture check and eye rest.",
                 'status' => 'done',
                 'priority' => 'medium',
                 'category' => 'mindful',

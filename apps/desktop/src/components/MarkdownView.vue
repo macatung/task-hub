@@ -70,7 +70,7 @@ const renderMermaidDiagrams = async () => {
   const mermaid = await getMermaid();
   if (!mermaid) {
     diagramContainers.forEach((el) => {
-      el.innerHTML = '<div class="text-xs text-amber-400 py-1 flex items-center gap-1.5"><i class="codicon codicon-warning"></i><span>Không thể tải thư viện dựng sơ đồ Mermaid.</span></div>';
+      el.innerHTML = '<div class="text-xs text-amber-400 py-1 flex items-center gap-1.5"><i class="codicon codicon-warning"></i><span>Unable to load Mermaid rendering library.</span></div>';
     });
     return;
   }
@@ -96,9 +96,9 @@ const renderMermaidDiagrams = async () => {
       container.innerHTML = `<div class="p-3 text-xs bg-rose-950/40 border border-rose-800/60 rounded-lg text-rose-300 space-y-1 text-left w-full">
         <div class="flex items-center gap-1.5 font-semibold text-rose-400">
           <i class="codicon codicon-error text-xs"></i>
-          <span>Lỗi cú pháp sơ đồ Mermaid</span>
+          <span>Mermaid Syntax Error</span>
         </div>
-        <div class="text-[11px] font-mono text-rose-200/90 whitespace-pre-wrap">${renderError?.message || 'Không thể dựng sơ đồ từ mã nguồn.'}</div>
+        <div class="text-[11px] font-mono text-rose-200/90 whitespace-pre-wrap">${renderError?.message || 'Unable to render diagram from source code.'}</div>
       </div>`;
       container.setAttribute('data-rendered', 'error');
     }
@@ -150,7 +150,7 @@ const handleClick = async (event: MouseEvent) => {
         const icon = copyBtn.querySelector('.codicon');
         const origText = label?.textContent || 'Copy';
 
-        if (label) label.textContent = 'Đã chép!';
+        if (label) label.textContent = 'Copied!';
         if (icon) {
           icon.className = 'codicon codicon-check text-emerald-400 text-[11px]';
         }

@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, onMounted } from 'vue';
 
 const emit = defineEmits<{
@@ -21,9 +21,9 @@ const loadData = () => {
     if (savedTodos) todos.value = JSON.parse(savedTodos);
     else {
       todos.value = [
-        { id: '1', text: 'Hoàn thành module quan trọng nhất hôm nay', done: false },
-        { id: '2', text: 'Code review & dọn dẹp pull requests', done: false },
-        { id: '3', text: 'Kiểm tra lại task đang chờ review', done: false },
+        { id: '1', text: 'Complete key milestone module today', done: false },
+        { id: '2', text: 'Code review & clean up pull requests', done: false },
+        { id: '3', text: 'Verify pending review tasks', done: false },
       ];
     }
 
@@ -79,7 +79,7 @@ onMounted(() => {
     <div class="flex items-center justify-between pb-2.5 mb-3 border-b border-emerald-500/30">
       <div class="flex items-center gap-2 text-xs font-bold text-emerald-300">
         <span>📋</span>
-        <span>TOP VIỆC CẦN LÀM & NHÁP NHANH</span>
+        <span>TOP PRIORITIES & QUICK SCRATCHPAD</span>
       </div>
       <button
         @click="$emit('close')"
@@ -95,14 +95,14 @@ onMounted(() => {
         v-model="newTodoText"
         @keyup.enter="addTodo"
         type="text"
-        placeholder="+ Thêm mục tiêu quan trọng..."
+        placeholder="+ Add primary objective..."
         class="flex-1 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-emerald-400 text-xs text-white placeholder-slate-500 outline-none"
       />
       <button
         @click="addTodo"
         class="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer"
       >
-        Thêm
+        Add
       </button>
     </div>
 
@@ -127,7 +127,7 @@ onMounted(() => {
         <button
           @click="removeTodo(index)"
           class="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 p-1 text-[10px] cursor-pointer transition-opacity"
-          title="Xóa"
+          title="Delete"
         >
           ✕
         </button>
@@ -136,12 +136,12 @@ onMounted(() => {
 
     <!-- Quick Scratchpad -->
     <div class="pt-2 border-t border-slate-800">
-      <label class="text-[10px] font-mono text-slate-400 block mb-1">📝 Sổ tay nháp ý tưởng nhanh:</label>
+      <label class="text-[10px] font-mono text-slate-400 block mb-1">📝 Quick Idea Scratchpad:</label>
       <textarea
         v-model="scratchpad"
         @input="onScratchpadChange"
         rows="2"
-        placeholder="Ghi nhanh ghi chú, link tài liệu hoặc lệnh terminal..."
+        placeholder="Quick notes, docs links, or terminal commands..."
         class="w-full p-2 rounded-xl bg-slate-900 border border-slate-800 focus:border-emerald-400 text-xs text-slate-200 placeholder-slate-600 outline-none resize-none font-mono"
       ></textarea>
     </div>

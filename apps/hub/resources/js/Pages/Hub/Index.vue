@@ -78,7 +78,7 @@ const flash = computed(() => page.props.flash ?? {});
               href="/tasks"
               class="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-emerald-500/25 hover:from-emerald-400 hover:to-teal-400 transition-all cursor-pointer"
             >
-              <span>Vào Workspace</span>
+              <span>Enter Workspace</span>
               <span>→</span>
             </a>
           </template>

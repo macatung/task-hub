@@ -30,7 +30,7 @@ const handlePraise = () => {
     <div class="flex items-center justify-between pb-2.5 mb-3 border-b border-purple-500/30">
       <div class="flex items-center gap-2">
         <span class="text-xl">🌙</span>
-        <span class="text-xs font-bold text-purple-300">TỔNG KẾT NĂNG SUẤT CUỐI NGÀY</span>
+        <span class="text-xs font-bold text-purple-300">DAILY PRODUCTIVITY REVIEW</span>
       </div>
       <button
         @click="$emit('close')"
@@ -44,12 +44,12 @@ const handlePraise = () => {
     <div class="grid grid-cols-3 gap-2 text-center my-3">
       <div class="p-2.5 rounded-2xl bg-slate-900/90 border border-purple-500/30">
         <div class="text-xl font-bold font-mono text-purple-300">{{ completedTasks.length }}/{{ tasks.length }}</div>
-        <div class="text-[9px] text-slate-400 mt-0.5">Task Đã Xong</div>
+        <div class="text-[9px] text-slate-400 mt-0.5">Tasks Done</div>
       </div>
 
       <div class="p-2.5 rounded-2xl bg-slate-900/90 border border-emerald-500/30">
         <div class="text-xl font-bold font-mono text-emerald-400">{{ completionRate }}%</div>
-        <div class="text-[9px] text-slate-400 mt-0.5">Hoàn Thành</div>
+        <div class="text-[9px] text-slate-400 mt-0.5">Completion Rate</div>
       </div>
 
       <div class="p-2.5 rounded-2xl bg-slate-900/90 border border-amber-500/30">
@@ -62,10 +62,10 @@ const handlePraise = () => {
     <div class="p-3 rounded-2xl bg-purple-950/40 border border-purple-500/30 text-purple-200 text-xs my-3 space-y-1">
       <div class="font-bold flex items-center gap-1 text-purple-300">
         <span>✨</span>
-        <span>Ma Cà Tưng Tán Thán:</span>
+        <span>Zen Companion Reflection:</span>
       </div>
       <p class="italic leading-relaxed">
-        "Bạn đã nỗ lực hết mình hôm nay! Hãy xem lại kết quả và chọn việc quan trọng tiếp theo."
+        "Outstanding focus and perseverance today! Review your achievements and set tomorrow's course with clarity."
       </p>
     </div>
 
@@ -76,7 +76,7 @@ const handlePraise = () => {
         class="py-2 px-5 rounded-xl bg-purple-500 hover:bg-purple-400 text-white font-bold text-xs shadow-lg hover:scale-105 transition-all cursor-pointer flex items-center gap-1.5"
       >
         <span>🔔</span>
-        <span>Tiếp tục với task tiếp theo</span>
+        <span>Continue with next task</span>
       </button>
     </div>
   </div>

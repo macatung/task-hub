@@ -40,8 +40,8 @@ export function computeTaskDelayStatus(task: TaskItem, referenceDate: Date = new
       isOverdue: false,
       isDelayed: false,
       daysDiff: 0,
-      label: 'Đã hoàn tất',
-      reason: 'Nhiệm vụ đã hoàn thành',
+      label: 'Completed',
+      reason: 'Task is already completed',
       badgeClass: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700',
       cardBorderClass: '',
     };
@@ -52,8 +52,8 @@ export function computeTaskDelayStatus(task: TaskItem, referenceDate: Date = new
       isOverdue: false,
       isDelayed: false,
       daysDiff: 0,
-      label: 'Chưa đặt hạn',
-      reason: 'Chưa có hạn chót',
+      label: 'No due date',
+      reason: 'No due date assigned',
       badgeClass: '',
       cardBorderClass: '',
     };
@@ -68,15 +68,15 @@ export function computeTaskDelayStatus(task: TaskItem, referenceDate: Date = new
   const diffTime = due.getTime() - today.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  // 1. OVERDUE (Hạn chót đã qua)
+  // 1. OVERDUE (Past due date)
   if (diffDays < 0) {
     const overdueDays = Math.abs(diffDays);
     return {
       isOverdue: true,
       isDelayed: false,
       daysDiff: diffDays,
-      label: `🚨 Trễ ${overdueDays} ngày`,
-      reason: `Đã quá hạn chót ${overdueDays} ngày (${task.due_date})`,
+      label: `🚨 ${overdueDays} days overdue`,
+      reason: `${overdueDays} days past due date (${task.due_date})`,
       badgeClass: 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300 dark:border-rose-700 font-bold animate-pulse',
       cardBorderClass: 'border-l-4 border-l-rose-600 dark:border-l-rose-500 shadow-rose-500/10',
     };
@@ -93,19 +93,19 @@ export function computeTaskDelayStatus(task: TaskItem, referenceDate: Date = new
   if (diffDays === 0) {
     if (task.status === 'todo' || (totalSubtasks > 0 && doneSubtasks < totalSubtasks)) {
       isDelayed = true;
-      delayReason = 'Hôm nay là hạn chót nhưng task chưa hoàn tất!';
+      delayReason = 'Due today but task is not completed yet!';
     }
   } else if (diffDays <= 2) {
     if (task.status === 'todo') {
       isDelayed = true;
-      delayReason = `Còn ${diffDays} ngày nữa đến hạn nhưng vẫn đang ở trạng thái Cần Làm (To Do)`;
+      delayReason = `${diffDays} days left until due date but still in To Do status`;
     } else if (totalSubtasks > 0 && doneSubtasks / totalSubtasks < 0.5) {
       isDelayed = true;
-      delayReason = `Còn ${diffDays} ngày nhưng tiến độ subtask mới đạt ${doneSubtasks}/${totalSubtasks}`;
+      delayReason = `${diffDays} days remaining but subtask progress is only ${doneSubtasks}/${totalSubtasks}`;
     }
   } else if (diffDays <= 4 && (task.priority === 'urgent' || task.priority === 'high') && task.status === 'todo') {
     isDelayed = true;
-    delayReason = `Task ưu tiên cao sắp đến hạn (${diffDays} ngày) nhưng chưa bắt đầu`;
+    delayReason = `High-priority task due soon (${diffDays} days) but has not started`;
   }
 
   if (isDelayed) {
@@ -113,7 +113,7 @@ export function computeTaskDelayStatus(task: TaskItem, referenceDate: Date = new
       isOverdue: false,
       isDelayed: true,
       daysDiff: diffDays,
-      label: diffDays === 0 ? '⚠️ Đến hạn hôm nay' : `⚠️ Chậm tiến độ (${diffDays}d)`,
+      label: diffDays === 0 ? '⚠️ Due today' : `⚠️ Behind schedule (${diffDays}d)`,
       reason: delayReason,
       badgeClass: 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-700 font-bold',
       cardBorderClass: 'border-l-4 border-l-amber-500 dark:border-l-amber-400',
@@ -124,8 +124,8 @@ export function computeTaskDelayStatus(task: TaskItem, referenceDate: Date = new
     isOverdue: false,
     isDelayed: false,
     daysDiff: diffDays,
-    label: `📅 Còn ${diffDays} ngày`,
-    reason: `Đúng tiến độ (còn ${diffDays} ngày)`,
+    label: `📅 ${diffDays} days left`,
+    reason: `On track (${diffDays} days remaining)`,
     badgeClass: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300 dark:border-slate-700',
     cardBorderClass: '',
   };
@@ -149,7 +149,7 @@ describe('Task Delay and Overdue Warning Engine', () => {
     expect(status.isOverdue).toBe(true);
     expect(status.isDelayed).toBe(false);
     expect(status.daysDiff).toBe(-2);
-    expect(status.label).toContain('🚨 Trễ 2 ngày');
+    expect(status.label).toContain('🚨 2 days overdue');
     expect(status.cardBorderClass).toContain('border-l-rose-600');
   });
 
@@ -167,7 +167,7 @@ describe('Task Delay and Overdue Warning Engine', () => {
     const status = computeTaskDelayStatus(task, refDate);
     expect(status.isOverdue).toBe(false);
     expect(status.isDelayed).toBe(false);
-    expect(status.label).toBe('Đã hoàn tất');
+    expect(status.label).toBe('Completed');
   });
 
   it('marks task as at-risk if due date is today and status is todo', () => {
@@ -184,7 +184,7 @@ describe('Task Delay and Overdue Warning Engine', () => {
     const status = computeTaskDelayStatus(task, refDate);
     expect(status.isOverdue).toBe(false);
     expect(status.isDelayed).toBe(true);
-    expect(status.label).toContain('⚠️ Đến hạn hôm nay');
+    expect(status.label).toContain('⚠️ Due today');
     expect(status.cardBorderClass).toContain('border-l-amber-500');
   });
 
@@ -207,7 +207,7 @@ describe('Task Delay and Overdue Warning Engine', () => {
 
     const status = computeTaskDelayStatus(task, refDate);
     expect(status.isDelayed).toBe(true);
-    expect(status.reason).toContain('tiến độ subtask mới đạt 1/4');
+    expect(status.reason).toContain('subtask progress is only 1/4');
   });
 
   it('marks task with plenty of time as on-track', () => {
@@ -224,7 +224,7 @@ describe('Task Delay and Overdue Warning Engine', () => {
     const status = computeTaskDelayStatus(task, refDate);
     expect(status.isOverdue).toBe(false);
     expect(status.isDelayed).toBe(false);
-    expect(status.label).toContain('Còn 10 ngày');
+    expect(status.label).toContain('10 days left');
   });
 });
 

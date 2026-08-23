@@ -1,68 +1,84 @@
 export interface DhammapadaVerse {
   verse_number: number;
   chapter_vi: string;
+  chapter_en?: string;
   chapter_pali: string;
   pali: string;
   vietnamese: string;
+  english?: string;
   insight: string;
 }
 
 export const DHAMMAPADA_VERSES: DhammapadaVerse[] = [
   {
     verse_number: 1,
-    chapter_vi: 'Phẩm Song Yếu',
+    chapter_vi: 'The Twin Verses',
+    chapter_en: 'The Twin Verses',
     chapter_pali: 'Yamakavagga',
     pali: 'Manopubbaṅgamā dhammā, manosseṭṭhā manomayā;\nManasā ce paduṭṭhena, bhāsati vā karoti vā;\nTato naṃ dukkhamanveti, cakkaṃva vahato padaṃ.',
-    vietnamese: 'Ý dẫn đầu các pháp,\nÝ làm chủ, ý tạo;\nNếu với ý ô nhiễm,\nNói lên hay hành động,\nKhổ não bước theo sau,\nNhư xe chân vật kéo.',
-    insight: 'Tâm ý là cội nguồn của mọi khổ đau. Giữ tâm không vấy bẩn để thoát khỏi nghiệp báo luân hồi.',
+    vietnamese: 'Mind precedes all mental states,\nMind is their master, mind makes them;\nIf with an impure mind one speaks or acts,\nSuffering follows along,\nAs the wheel follows the hoof of the draft ox.',
+    english: 'Mind precedes all mental states,\nMind is their master, mind makes them;\nIf with an impure mind one speaks or acts,\nSuffering follows along,\nAs the wheel follows the hoof of the draft ox.',
+    insight: 'The mind is the forerunner of all experiences. Guard the mind from defilements to transcend suffering and karma.',
   },
   {
     verse_number: 2,
-    chapter_vi: 'Phẩm Song Yếu',
+    chapter_vi: 'The Twin Verses',
+    chapter_en: 'The Twin Verses',
     chapter_pali: 'Yamakavagga',
     pali: 'Manopubbaṅgamā dhammā, manosseṭṭhā manomayā;\nManasā ce pasannena, bhāsati vā karoti vā;\nTato naṃ sukhamanveti, chāyāva anapāyinī.',
-    vietnamese: 'Ý dẫn đầu các pháp,\nÝ làm chủ, ý tạo;\nNếu với ý thanh tịnh,\nNói lên hay hành động,\nAn lạc bước theo sau,\nNhư bóng không rời hình.',
-    insight: 'Mỗi suy nghĩ thanh tịnh gieo mầm cho quả phúc và sự an lạc nội tâm vững chãi.',
+    vietnamese: 'Mind precedes all mental states,\nMind is their master, mind makes them;\nIf with a pure mind one speaks or acts,\nHappiness follows along,\nLike a shadow that never departs.',
+    english: 'Mind precedes all mental states,\nMind is their master, mind makes them;\nIf with a pure mind one speaks or acts,\nHappiness follows along,\nLike a shadow that never departs.',
+    insight: 'Every pure thought plants seeds of abiding peace, joy, and serene clarity.',
   },
   {
     verse_number: 5,
-    chapter_vi: 'Phẩm Song Yếu',
+    chapter_vi: 'The Twin Verses',
+    chapter_en: 'The Twin Verses',
     chapter_pali: 'Yamakavagga',
     pali: 'Na hi verena verāni, sammantīdha kudācanaṃ;\nAverena ca sammanti, esa dhammo sanantano.',
-    vietnamese: 'Hận thù diệt hận thù,\nĐời này không thể có;\nTừ bi diệt hận thù,\nLà định luật ngàn thu.',
-    insight: 'Tâm Từ (Mettā) là liều thuốc duy nhất dập tắt lửa sân hận và kiến tạo hòa hợp.',
+    vietnamese: 'Hatred is never appeased by hatred in this world;\nBy non-hatred alone is hatred appeased.\nThis is an eternal law.',
+    english: 'Hatred is never appeased by hatred in this world;\nBy non-hatred alone is hatred appeased.\nThis is an eternal law.',
+    insight: 'Loving-kindness (Mettā) is the sole medicine that extinguishes resentment and creates harmony.',
   },
   {
     verse_number: 21,
-    chapter_vi: 'Phẩm Không Phóng Dật',
+    chapter_vi: 'Heedfulness',
+    chapter_en: 'Heedfulness',
     chapter_pali: 'Appamādavagga',
     pali: 'Appamādo amatapadaṃ, pamādo maccuno padaṃ;\nAppamattā na mīyanti, ye pamattā yathā matā.',
-    vietnamese: 'Không phóng dật: đường sống,\nPhóng dật: đường tử vong;\nNgười không phóng dật: sống,\nKẻ phóng dật: như chết.',
-    insight: 'Chánh niệm tỉnh giác trong từng giây phút là cánh cửa dẫn tới bất tử Niết-bàn.',
+    vietnamese: 'Heedfulness is the path to the Deathless;\nHeedlessness is the path to death.\nThe heedful do not die;\nThe heedless are as if already dead.',
+    english: 'Heedfulness is the path to the Deathless;\nHeedlessness is the path to death.\nThe heedful do not die;\nThe heedless are as if already dead.',
+    insight: 'Mindful alertness in every moment is the direct gateway to peace and awakening.',
   },
   {
     verse_number: 103,
-    chapter_vi: 'Phẩm Ngàn',
+    chapter_vi: 'The Thousands',
+    chapter_en: 'The Thousands',
     chapter_pali: 'Sahassavagga',
     pali: 'Yo sahassaṃ sahassena, saṅgāme mānuse jine;\nEkañca jeyyamattānaṃ, sa ve saṅgāmajuttamo.',
-    vietnamese: 'Dầu tại bãi chiến trường,\nThắng hàng ngàn quân địch;\nKhông bằng tự thắng mình,\nChiến công ấy tối thượng.',
-    insight: 'Chiến thắng vĩ đại nhất của bậc trượng phu là điều phục và làm chủ chính tâm thức mình.',
+    vietnamese: 'Though one may conquer a thousand times a thousand men in battle,\nYet one who conquers oneself\nIs the greatest conqueror of all.',
+    english: 'Though one may conquer a thousand times a thousand men in battle,\nYet one who conquers oneself\nIs the greatest conqueror of all.',
+    insight: 'The supreme victory is self-mastery—taming and directing one’s own mind with wisdom.',
   },
   {
     verse_number: 183,
-    chapter_vi: 'Phẩm Phật Đà',
+    chapter_vi: 'The Buddha',
+    chapter_en: 'The Buddha',
     chapter_pali: 'Buddhavagga',
     pali: 'Sabbapāpassa akaraṇaṃ, kusalassa upasampadā;\nSacittapariyodapanaṃ, etaṃ buddhāna sāsanaṃ.',
-    vietnamese: 'Không làm mọi điều ác,\nThành tựu các hạnh lành;\nGiữ tâm ý trong sạch,\nĐó lời chư Phật dạy.',
-    insight: 'Lời giáo huấn cốt tủy của muôn ngàn chư Phật: Dứt ác, Làm lành, Thanh lọc tâm.',
+    vietnamese: 'To avoid all evil,\nTo cultivate all good,\nTo purify one’s own mind—\nThis is the teaching of all Buddhas.',
+    english: 'To avoid all evil,\nTo cultivate all good,\nTo purify one’s own mind—\nThis is the teaching of all Buddhas.',
+    insight: 'The core essence of wisdom: Cease unwholesome deeds, cultivate goodness, and purify the mind.',
   },
   {
     verse_number: 277,
-    chapter_vi: 'Phẩm Đạo',
+    chapter_vi: 'The Path',
+    chapter_en: 'The Path',
     chapter_pali: 'Maggavagga',
     pali: 'Sabbe saṅkhārā aniccāti, yadā paññāya passati;\nAtha nibbindatī dukkhe, esa maggo visuddhiyā.',
-    vietnamese: 'Tất cả hành vô thường,\nVới tuệ quán thấy vậy;\nNhờ thế thoát khổ đau,\nLà con đường thanh tịnh.',
-    insight: 'Quán chiếu tính sinh diệt của vạn pháp giúp tâm buông xả bám víu và tự tại trước đổi thay.',
+    vietnamese: 'All conditioned things are impermanent;\nWhen one sees this with discernment,\nOne turns away from suffering.\nThis is the path to purification.',
+    english: 'All conditioned things are impermanent;\nWhen one sees this with discernment,\nOne turns away from suffering.\nThis is the path to purification.',
+    insight: 'Observing the arising and passing of all phenomena frees the heart from attachment and brings tranquility amidst change.',
   },
 ];
 
@@ -78,29 +94,29 @@ export const HEALTH_REMINDERS: HealthReminder[] = [
   {
     id: 'breathe-1',
     type: 'breathe',
-    title: 'Hít Thở Chánh Niệm 🧘',
-    message: 'Tạm dừng tay trong giây lát. Hít vào thật sâu cảm nhận sự bình an, thở ra nhẹ nhàng mỉm cười.',
+    title: 'Mindful Breathing 🧘',
+    message: 'Pause for a mindful moment. Inhale deeply feeling calm, exhale gently with a serene smile.',
     icon: '🌸',
   },
   {
     id: 'water-1',
     type: 'water',
-    title: 'Bổ Sung Nước Cho Thân Thể 💧',
-    message: 'Uống một ngụm nước ấm trong chánh niệm. Cảm nhận dòng nước mát lành nuôi dưỡng từng tế bào.',
+    title: 'Hydrate the Body 💧',
+    message: 'Take a mindful sip of warm water. Feel the refreshing flow nourishing every cell.',
     icon: '💧',
   },
   {
     id: 'eye-1',
     type: 'eye',
-    title: 'Thư Giãn Đôi Mắt 👀',
-    message: 'Nhìn xa khoảng 6 mét trong 20 giây hoặc nhắm mắt lại để đôi mắt quý giá được nghỉ ngơi.',
+    title: 'Eye Relaxation Break 👀',
+    message: 'Look 20 feet away for 20 seconds, or close your eyes gently to give them restorative rest.',
     icon: '🌿',
   },
   {
     id: 'stretch-1',
     type: 'stretch',
-    title: 'Thả Lỏng Cột Sống & Vai Gáy 🧘‍♂️',
-    message: 'Vươn vai nhẹ nhàng, xoay nhẹ khớp cổ và giữ thẳng lưng để dòng năng lượng lưu thông thông suốt.',
+    title: 'Spine & Shoulder Relief 🧘‍♂️',
+    message: 'Stretch your arms gently, roll your neck, and align your spine to restore smooth energy flow.',
     icon: '⚡',
   },
 ];

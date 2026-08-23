@@ -139,8 +139,8 @@ describe('Desktop agent execution workspace', () => {
     expect(uiSource).toContain('totalDeletions');
     expect(uiSource).toContain('revertDiffFile');
     expect(uiSource).toContain('populateHandoffFromDiff');
-    expect(uiSource).toContain('Diff sau thay đổi');
-    expect(uiSource).toContain('Xem Diff ngay');
+    expect(uiSource).toContain('Diff Inspector');
+    expect(uiSource).toContain('Inspect Diff');
   });
 
   it('implements authentic Antigravity 2.0 Studio layout, auxiliary pane, slash commands, skills & scheduling', () => {

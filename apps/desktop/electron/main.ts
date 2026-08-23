@@ -314,46 +314,46 @@ export type DiscoveredModel = {
 
 const BASE_PRESET_MODELS: Record<AgentProvider, DiscoveredModel[]> = {
   antigravity: [
-    { id: 'gemini-3.7-flash-high', name: 'Gemini 3.7 Flash (High)', badges: ['High', 'Fast'], description: 'Mô hình thế hệ mới nhất, tối ưu tốc độ và agentic reasoning', source: 'preset' },
-    { id: 'gemini-3.6-flash-medium', name: 'Gemini 3.6 Flash (Medium)', badges: ['Medium', 'Fast'], description: 'Cân bằng tốc độ cao và năng lực suy luận', source: 'preset' },
-    { id: 'gemini-3.5-flash-medium', name: 'Gemini 3.5 Flash (Medium)', badges: ['Medium', 'Fast'], description: 'Phản hồi nhanh cho các tác vụ lập trình phổ biến', source: 'preset' },
-    { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', badges: ['Low'], description: 'Mô hình tiêu chuẩn cho tác vụ nhẹ', source: 'preset' },
-    { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', badges: ['Thinking'], description: 'Suy luận mở rộng và phân tích kiến trúc mã nguồn chuyên sâu', source: 'preset' },
-    { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', badges: ['Thinking'], description: 'Mô hình phân tích cấp cao nhất cho bài toán phức tạp', source: 'preset' },
-    { id: 'gpt-oss-120b', name: 'GPT-OSS 120B (Medium)', badges: ['Open Weights', 'Medium'], description: 'Mô hình mã nguồn mở 120B hiệu năng cao', source: 'preset' },
-    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', badges: ['Recommended', '1M+ Context'], description: 'Mô hình mạnh nhất của DeepMind, context 1M+', source: 'preset' },
-    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', badges: ['Fast & Smart'], description: 'Tốc độ cao kèm khả năng suy luận xuất sắc', source: 'preset' },
-    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', badges: ['Ultra Fast'], description: 'Phản hồi tức thì cho các tác vụ lặp lại', source: 'preset' },
-    { id: 'gemini-2.0-pro-exp', name: 'Gemini 2.0 Pro Exp', badges: ['Experimental'], description: 'Bản thử nghiệm năng lực giải thuật và code gen', source: 'preset' },
-    { id: 'default', name: 'IDE / CLI Default', badges: ['Default'], description: 'Cấu hình mặc định của Antigravity', source: 'preset' },
+    { id: 'gemini-3.7-flash-high', name: 'Gemini 3.7 Flash (High)', badges: ['High', 'Fast'], description: 'Latest generation model, optimized for speed and agentic reasoning', source: 'preset' },
+    { id: 'gemini-3.6-flash-medium', name: 'Gemini 3.6 Flash (Medium)', badges: ['Medium', 'Fast'], description: 'Balanced high speed and reasoning capabilities', source: 'preset' },
+    { id: 'gemini-3.5-flash-medium', name: 'Gemini 3.5 Flash (Medium)', badges: ['Medium', 'Fast'], description: 'Fast response for standard coding tasks', source: 'preset' },
+    { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', badges: ['Low'], description: 'Standard model for lightweight tasks', source: 'preset' },
+    { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', badges: ['Thinking'], description: 'Extended reasoning and deep source code architecture analysis', source: 'preset' },
+    { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', badges: ['Thinking'], description: 'Premier analysis model for complex problems', source: 'preset' },
+    { id: 'gpt-oss-120b', name: 'GPT-OSS 120B (Medium)', badges: ['Open Weights', 'Medium'], description: 'High-performance 120B open-weights model', source: 'preset' },
+    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', badges: ['Recommended', '1M+ Context'], description: 'DeepMind flagship model, 1M+ context window', source: 'preset' },
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', badges: ['Fast & Smart'], description: 'High speed with exceptional reasoning capabilities', source: 'preset' },
+    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', badges: ['Ultra Fast'], description: 'Instant response for repetitive tasks', source: 'preset' },
+    { id: 'gemini-2.0-pro-exp', name: 'Gemini 2.0 Pro Exp', badges: ['Experimental'], description: 'Experimental model for algorithms and code generation', source: 'preset' },
+    { id: 'default', name: 'IDE / CLI Default', badges: ['Default'], description: 'Default Antigravity configuration', source: 'preset' },
   ],
   claude_code: [
-    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', badges: ['High', 'Recommended'], description: 'Tối ưu hoá cao nhất cho coding, kiến trúc & hybrid reasoning', source: 'preset' },
-    { id: 'claude-3-7-sonnet-thinking', name: 'Claude 3.7 (Thinking)', badges: ['High', 'Thinking'], description: 'Kích hoạt extended thinking cho các refactor phức tạp', source: 'preset' },
-    { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', badges: ['Next-Gen', 'Thinking'], description: 'Mô hình Sonnet thế hệ mới tối ưu agentic workflow', source: 'preset' },
-    { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', badges: ['Deep Analysis', 'Thinking'], description: 'Phân tích hệ thống lớn & cấu trúc logic phức tạp', source: 'preset' },
-    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (v2)', badges: ['Balanced', 'Fast'], description: 'Mô hình lập trình tiêu chuẩn ổn định', source: 'preset' },
-    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', badges: ['Super Fast'], description: 'Tốc độ cực nhanh cho tasks nhỏ và refactor nhẹ', source: 'preset' },
-    { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', badges: ['Deep Analysis'], description: 'Phân tích hệ thống lớn & bài toán phức tạp', source: 'preset' },
-    { id: 'default', name: 'CLI Default', badges: ['Default'], description: 'Cấu hình mặc định của Claude Code CLI', source: 'preset' },
+    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', badges: ['High', 'Recommended'], description: 'Top optimization for coding, architecture & hybrid reasoning', source: 'preset' },
+    { id: 'claude-3-7-sonnet-thinking', name: 'Claude 3.7 (Thinking)', badges: ['High', 'Thinking'], description: 'Enables extended thinking for complex refactoring', source: 'preset' },
+    { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', badges: ['Next-Gen', 'Thinking'], description: 'Next-gen Sonnet model optimized for agentic workflows', source: 'preset' },
+    { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', badges: ['Deep Analysis', 'Thinking'], description: 'Large system analysis & complex logic structures', source: 'preset' },
+    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (v2)', badges: ['Balanced', 'Fast'], description: 'Stable industry-standard coding model', source: 'preset' },
+    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', badges: ['Super Fast'], description: 'Super fast speed for small tasks and light refactoring', source: 'preset' },
+    { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', badges: ['Deep Analysis'], description: 'Large system analysis & complex problems', source: 'preset' },
+    { id: 'default', name: 'CLI Default', badges: ['Default'], description: 'Default Claude Code CLI configuration', source: 'preset' },
   ],
   codex: [
-    { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', badges: ['High', 'Flagship'], description: 'Mô hình flagship mạnh nhất thế hệ GPT-5.6 cho reasoning, research & agentic coding', source: 'preset' },
-    { id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra', badges: ['Medium', 'Fast'], description: 'Mô hình cân bằng hoàn hảo giữa trí tuệ và tốc độ cho tác vụ production', source: 'preset' },
-    { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', badges: ['Low', 'Ultra Fast'], description: 'Mô hình nhẹ tối ưu tốc độ và chi phí cho khối lượng công việc lớn', source: 'preset' },
-    { id: 'gpt-5.6-cyber', name: 'GPT-5.6 Cyber', badges: ['Specialized', 'Security'], description: 'Mô hình chuyên biệt phân tích an toàn thông tin & audit bảo mật mã nguồn', source: 'preset' },
-    { id: 'o3-pro', name: 'o3-pro', badges: ['High', 'Deep Reasoning'], description: 'Suy luận chuyên sâu mở rộng cho các bài toán kiến trúc & giải thuật khó', source: 'preset' },
-    { id: 'o3', name: 'o3', badges: ['High', 'Reasoning'], description: 'Mô hình suy luận logic đa bước mạnh mẽ thế hệ o-series', source: 'preset' },
-    { id: 'o3-mini', name: 'o3-mini', badges: ['Fast Reasoning', 'High'], description: 'Suy luận logic cao cấp với tốc độ phản hồi nhanh chóng', source: 'preset' },
-    { id: 'gpt-5', name: 'GPT-5 (Foundational)', badges: ['High', 'Foundational'], description: 'Mô hình nền tảng thế hệ GPT-5', source: 'preset' },
-    { id: 'gpt-4.1', name: 'GPT-4.1', badges: ['Balanced', 'Fast'], description: 'Phiên bản tối ưu hiệu năng cao cho tasks coding hàng ngày', source: 'preset' },
-    { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', badges: ['Ultra Fast'], description: 'Mô hình siêu nhẹ tốc độ cao', source: 'preset' },
-    { id: 'o1', name: 'o1', badges: ['Deep Reasoning'], description: 'Suy luận từng bước giải quyết bài toán khó', source: 'preset' },
-    { id: 'gpt-4.5-preview', name: 'GPT-4.5 Preview', badges: ['High Quality', 'Large Context'], description: 'Khả năng hiểu ngữ cảnh sâu và kiến trúc phức tạp', source: 'preset' },
-    { id: 'gpt-4o', name: 'GPT-4o', badges: ['Omni', 'Fast'], description: 'Cân bằng tốc độ và chất lượng thực thi', source: 'preset' },
-    { id: 'gpt-4o-mini', name: 'GPT-4o mini', badges: ['Ultra Fast'], description: 'Mô hình nhỏ gọn tốc độ cao', source: 'preset' },
-    { id: 'gpt-oss-120b', name: 'GPT-OSS 120B (Medium)', badges: ['Open Weights', 'Medium'], description: 'Mô hình mã nguồn mở 120B tham số', source: 'preset' },
-    { id: 'default', name: 'CLI Default', badges: ['Default'], description: 'Cấu hình mặc định của Codex CLI', source: 'preset' },
+    { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', badges: ['High', 'Flagship'], description: 'Flagship GPT-5.6 model for reasoning, research & agentic coding', source: 'preset' },
+    { id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra', badges: ['Medium', 'Fast'], description: 'Balanced intelligence and speed for production workloads', source: 'preset' },
+    { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', badges: ['Low', 'Ultra Fast'], description: 'Lightweight model optimized for speed and cost efficiency at scale', source: 'preset' },
+    { id: 'gpt-5.6-cyber', name: 'GPT-5.6 Cyber', badges: ['Specialized', 'Security'], description: 'Specialized model for security analysis & source code audits', source: 'preset' },
+    { id: 'o3-pro', name: 'o3-pro', badges: ['High', 'Deep Reasoning'], description: 'Deep extended reasoning for challenging architecture & algorithmic problems', source: 'preset' },
+    { id: 'o3', name: 'o3', badges: ['High', 'Reasoning'], description: 'Powerful multi-step reasoning model from the o-series', source: 'preset' },
+    { id: 'o3-mini', name: 'o3-mini', badges: ['Fast Reasoning', 'High'], description: 'High-level logical reasoning with rapid response times', source: 'preset' },
+    { id: 'gpt-5', name: 'GPT-5 (Foundational)', badges: ['High', 'Foundational'], description: 'Foundational model of the GPT-5 generation', source: 'preset' },
+    { id: 'gpt-4.1', name: 'GPT-4.1', badges: ['Balanced', 'Fast'], description: 'High-performance version optimized for daily coding tasks', source: 'preset' },
+    { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', badges: ['Ultra Fast'], description: 'Ultra-lightweight model with high execution speed', source: 'preset' },
+    { id: 'o1', name: 'o1', badges: ['Deep Reasoning'], description: 'Step-by-step reasoning for complex problem solving', source: 'preset' },
+    { id: 'gpt-4.5-preview', name: 'GPT-4.5 Preview', badges: ['High Quality', 'Large Context'], description: 'Deep context comprehension and complex architecture understanding', source: 'preset' },
+    { id: 'gpt-4o', name: 'GPT-4o', badges: ['Omni', 'Fast'], description: 'Balanced execution speed and output quality', source: 'preset' },
+    { id: 'gpt-4o-mini', name: 'GPT-4o mini', badges: ['Ultra Fast'], description: 'Compact model with high execution speed', source: 'preset' },
+    { id: 'gpt-oss-120b', name: 'GPT-OSS 120B (Medium)', badges: ['Open Weights', 'Medium'], description: '120B-parameter open-weights model', source: 'preset' },
+    { id: 'default', name: 'CLI Default', badges: ['Default'], description: 'Default Codex CLI configuration', source: 'preset' },
   ],
 };
 
@@ -552,7 +552,7 @@ function discoverAntigravityCliModels(): DiscoveredModel[] {
       const match = line.trim().match(/^([^\s]+)\s{2,}(.+)$/);
       if (!match) return [];
       const [, id, name] = match;
-      return [{ id, name, badges: inferModelBadges(id, name), description: `Model được xác nhận bởi agy CLI: ${id}`, source: 'cli' as const }];
+      return [{ id, name, badges: inferModelBadges(id, name), description: `Model confirmed by agy CLI: ${id}`, source: 'cli' as const }];
     });
   } catch {
     return [];
@@ -630,7 +630,7 @@ async function getAvailableModels(provider?: AgentProvider, options?: { forceRef
           id: m.id,
           name: m.name || m.id,
           badges: m.badges || inferModelBadges(m.id, m.name),
-          description: m.description || existing?.description || `Model ${m.id} tự động đồng bộ từ Task Hub / CLI`,
+          description: m.description || existing?.description || `Model ${m.id} automatically synced from Task Hub / CLI`,
           source: existing ? existing.source : 'hub',
         });
       });
@@ -642,7 +642,7 @@ async function getAvailableModels(provider?: AgentProvider, options?: { forceRef
         id: m.id,
         name: m.name || m.id,
         badges: m.badges || ['Custom', 'Saved'],
-        description: m.description || `Model tùy chỉnh người dùng đã lưu: ${m.id}`,
+        description: m.description || `Custom user-saved model: ${m.id}`,
         source: 'custom',
       });
     });
@@ -801,8 +801,8 @@ type EnvironmentCheck = {
 function preflightAgent(provider: AgentProvider, cwd: string) {
   const checks: EnvironmentCheck[] = [];
   const cli = provider === 'antigravity' ? (resolveCli('agy') || findAntigravityExecutable()) : resolveCli(AGENT_COMMANDS[provider].command);
-  checks.push({ id: 'provider', status: cli ? 'passed' : 'failed', message: cli ? `${provider} đã sẵn sàng.` : `Không tìm thấy ${provider}. Hãy cài CLI hoặc cấu hình đường dẫn.`, fixable: false, fixHint: 'Cài hoặc đăng nhập CLI của provider rồi kiểm tra lại.' });
-  if (!cwd || !fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) return { ok: false, provider, capabilities: PROVIDER_CAPABILITIES[provider], checks: [...checks, { id: 'workspace', status: 'failed' as const, message: 'Chọn thư mục repository hợp lệ.' }] };
+  checks.push({ id: 'provider', status: cli ? 'passed' : 'failed', message: cli ? `${provider} is ready.` : `${provider} not found. Please install the CLI or configure executable path.`, fixable: false, fixHint: 'Install or authenticate with provider CLI, then retry.' });
+  if (!cwd || !fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) return { ok: false, provider, capabilities: PROVIDER_CAPABILITIES[provider], checks: [...checks, { id: 'workspace', status: 'failed' as const, message: 'Select a valid repository directory.' }] };
   try {
     const root = git(cwd, ['rev-parse', '--show-toplevel']);
     const dirty = git(cwd, ['status', '--porcelain']);
@@ -811,34 +811,34 @@ function preflightAgent(provider: AgentProvider, cwd: string) {
     try { remote = git(root, ['remote', 'get-url', 'origin']); } catch { /* Local-only repository. */ }
     try { upstream = git(root, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']); } catch { /* No upstream configured. */ }
     if (upstream) { try { divergence = git(root, ['rev-list', '--left-right', '--count', `${upstream}...HEAD`]); } catch { /* Ignore unavailable comparison. */ } }
-    checks.push({ id: 'remote', status: remote ? (upstream && divergence !== '0\t0' ? 'warning' : 'passed') : 'warning', message: remote ? `origin: ${remote}${upstream ? ` · ${upstream}${divergence ? ` · behind/ahead ${divergence}` : ''}` : ' · chưa có upstream tracking branch.'}` : 'Chưa cấu hình remote origin; local repo chưa được xác nhận đồng bộ với Task Hub/GitHub.' });
-    checks.push({ id: 'working_tree', status: dirty ? 'warning' : 'passed', message: dirty ? 'Workspace có thay đổi chưa commit; worktree riêng sẽ dùng base commit hiện tại.' : 'Workspace sạch.' });
+    checks.push({ id: 'remote', status: remote ? (upstream && divergence !== '0\t0' ? 'warning' : 'passed') : 'warning', message: remote ? `origin: ${remote}${upstream ? ` · ${upstream}${divergence ? ` · behind/ahead ${divergence}` : ''}` : ' · no upstream tracking branch'}` : 'Remote origin not configured; local repository is not synchronized with Task Hub/GitHub.' });
+    checks.push({ id: 'working_tree', status: dirty ? 'warning' : 'passed', message: dirty ? 'Workspace has uncommitted changes; isolated worktree will branch off the current base commit.' : 'Workspace clean.' });
     const envExample = path.join(root, '.env.example');
     const envFile = path.join(root, '.env');
     if (fs.existsSync(envExample) && !fs.existsSync(envFile)) {
-      checks.push({ id: 'environment_file', status: 'warning', message: 'Thiếu .env; có thể tạo an toàn từ .env.example.', fixable: true, fixHint: 'Tự sửa sẽ sao chép .env.example thành .env.' });
+      checks.push({ id: 'environment_file', status: 'warning', message: 'Missing .env file; can safely generate from .env.example.', fixable: true, fixHint: 'Auto-fix will copy .env.example to .env.' });
     }
     if (fs.existsSync(path.join(root, 'package-lock.json')) && !fs.existsSync(path.join(root, 'node_modules'))) {
-      checks.push({ id: 'node_dependencies', status: 'warning', message: 'Thiếu Node dependencies (node_modules).', fixable: true, fixHint: 'Tự sửa sẽ chạy npm ci trong workspace.' });
+      checks.push({ id: 'node_dependencies', status: 'warning', message: 'Missing Node dependencies (node_modules).', fixable: true, fixHint: 'Auto-fix will run npm ci in workspace.' });
     }
     if (fs.existsSync(path.join(root, 'composer.lock')) && !fs.existsSync(path.join(root, 'vendor'))) {
-      checks.push({ id: 'php_dependencies', status: 'warning', message: 'Thiếu PHP dependencies (vendor).', fixable: true, fixHint: 'Tự sửa sẽ chạy composer install.' });
+      checks.push({ id: 'php_dependencies', status: 'warning', message: 'Missing PHP dependencies (vendor).', fixable: true, fixHint: 'Auto-fix will run composer install.' });
     }
     return { ok: Boolean(cli), provider, capabilities: PROVIDER_CAPABILITIES[provider], repository: root, baseCommit: git(root, ['rev-parse', 'HEAD']), remote, upstream, divergence, checks };
   } catch {
-    checks.push({ id: 'repository', status: 'failed', message: 'Workspace phải là Git repository.' });
+    checks.push({ id: 'repository', status: 'failed', message: 'Workspace must be a Git repository.' });
     return { ok: false, provider, capabilities: PROVIDER_CAPABILITIES[provider], checks };
   }
 }
 
 function quickSetupEnvironment(cwd: string, installDependencies = true) {
-  if (!cwd || !fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) throw new Error('Workspace phải là thư mục hợp lệ.');
+  if (!cwd || !fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) throw new Error('Workspace must be a valid directory.');
   const checks: EnvironmentCheck[] = [];
   const run = (id: string, command: string, args: string[], message: string) => {
     const executable = resolveCli(command);
-    if (!executable) { checks.push({ id, status: 'warning', message: `${command} chưa được cài; bỏ qua.` }); return; }
+    if (!executable) { checks.push({ id, status: 'warning', message: `${command} is not installed; skipped.` }); return; }
     try { execFileSync(executable, args, { cwd, encoding: 'utf8', windowsHide: true, timeout: 300000, stdio: 'ignore' }); checks.push({ id, status: 'passed', message }); }
-    catch { checks.push({ id, status: 'failed', message: `${command} không chạy thành công.` }); }
+    catch { checks.push({ id, status: 'failed', message: `${command} failed to execute.` }); }
   };
   const repository = git(cwd, ['rev-parse', '--show-toplevel']);
   checks.push({ id: 'repository', status: 'passed', message: `Git repository: ${repository}` });
@@ -848,11 +848,11 @@ function quickSetupEnvironment(cwd: string, installDependencies = true) {
   else if (fs.existsSync(envFile)) checks.push({ id: 'env', status: 'passed', message: '.env already exists; kept local values.' });
   else checks.push({ id: 'env', status: 'warning', message: 'No .env.example found; skipped environment file setup.' });
   if (installDependencies && fs.existsSync(path.join(repository, 'package-lock.json'))) {
-    if (fs.existsSync(path.join(repository, 'node_modules'))) checks.push({ id: 'node_dependencies', status: 'passed', message: 'Node dependencies đã có; không cài lại.' });
+    if (fs.existsSync(path.join(repository, 'node_modules'))) checks.push({ id: 'node_dependencies', status: 'passed', message: 'Node dependencies already present; skipping.' });
     else run('node_dependencies', 'npm', ['ci'], 'Installed Node dependencies with npm ci.');
   }
   if (installDependencies && fs.existsSync(path.join(repository, 'composer.lock'))) {
-    if (fs.existsSync(path.join(repository, 'vendor'))) checks.push({ id: 'php_dependencies', status: 'passed', message: 'PHP dependencies đã có; không cài lại.' });
+    if (fs.existsSync(path.join(repository, 'vendor'))) checks.push({ id: 'php_dependencies', status: 'passed', message: 'PHP dependencies already present; skipping.' });
     else run('php_dependencies', 'composer', ['install', '--no-interaction', '--prefer-dist'], 'Installed PHP dependencies with Composer.');
   }
   return { ok: checks.every((check) => check.status !== 'failed'), repository, checks };
@@ -866,12 +866,12 @@ function repairEnvironment(provider: AgentProvider, cwd: string) {
     try {
       const repository = git(cwd, ['rev-parse', '--show-toplevel']);
       git(repository, ['worktree', 'prune']);
-      checks.push({ id: 'worktree_metadata', status: 'passed', message: 'Đã dọn Git worktree metadata cũ.' });
+      checks.push({ id: 'worktree_metadata', status: 'passed', message: 'Cleaned up legacy Git worktree metadata.' });
     } catch {
-      checks.push({ id: 'worktree_metadata', status: 'warning', message: 'Không thể dọn worktree metadata; sẽ dùng trạng thái hiện có.' });
+      checks.push({ id: 'worktree_metadata', status: 'warning', message: 'Failed to clean worktree metadata; using existing state.' });
     }
   } catch (error: any) {
-    checks.push({ id: 'environment_setup', status: 'failed', message: error?.message || 'Không thể tự sửa workspace.' });
+    checks.push({ id: 'environment_setup', status: 'failed', message: error?.message || 'Failed to auto-repair workspace.' });
   }
   const preflight = preflightAgent(provider, cwd);
   return {
@@ -900,24 +900,24 @@ function createAgentWorktree(repository: string, issueKey: string) {
 
 async function checkForUpdates(): Promise<typeof updateState> {
   if (!app.isPackaged) {
-    setUpdateState({ status: 'not-available', message: 'Auto-update chỉ hoạt động ở bản Task Companion đã cài đặt.' });
+    setUpdateState({ status: 'not-available', message: 'Auto-update is only available in installed desktop releases.' });
     return updateState;
   }
   if (updateState.status === 'checking' || updateState.status === 'downloading') return updateState;
-  setUpdateState({ status: 'checking', message: 'Đang kiểm tra cập nhật...' });
+  setUpdateState({ status: 'checking', message: 'Checking for updates...' });
   try {
     await autoUpdater.checkForUpdates();
   } catch (error: any) {
-    setUpdateState({ status: 'error', message: error?.message?.slice(0, 240) || 'Không thể kiểm tra cập nhật.' });
+    setUpdateState({ status: 'error', message: error?.message?.slice(0, 240) || 'Failed to check for updates.' });
   }
   return updateState;
 }
 
 function installDownloadedUpdate(): typeof updateState {
   if (!app.isPackaged) {
-    setUpdateState({ status: 'not-available', message: 'Hãy cài bản desktop release để dùng auto-update.' });
+    setUpdateState({ status: 'not-available', message: 'Please install the desktop release to use auto-update.' });
   } else if (updateState.status !== 'downloaded') {
-    setUpdateState({ status: 'not-available', message: 'Chưa có bản cập nhật đã tải. Hãy chọn “Kiểm tra cập nhật” trước.' });
+    setUpdateState({ status: 'not-available', message: 'No update downloaded yet. Click "Check for Updates" first.' });
   } else {
     autoUpdater.quitAndInstall(false, true);
   }
@@ -928,12 +928,12 @@ function setupAutoUpdater() {
   if (!app.isPackaged) return;
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = false;
-  autoUpdater.on('checking-for-update', () => setUpdateState({ status: 'checking', message: 'Đang kiểm tra cập nhật...' }));
-  autoUpdater.on('update-available', (info) => setUpdateState({ status: 'available', version: info.version, percent: 0, message: `Đang tải bản ${info.version}...` }));
-  autoUpdater.on('update-not-available', (info) => setUpdateState({ status: 'not-available', version: info.version, percent: 100, message: 'App đang ở phiên bản mới nhất.' }));
-  autoUpdater.on('download-progress', (progress) => setUpdateState({ status: 'downloading', percent: Math.round(progress.percent), message: `Đang tải cập nhật ${Math.round(progress.percent)}%...` }));
-  autoUpdater.on('update-downloaded', (info) => setUpdateState({ status: 'downloaded', version: info.version, percent: 100, message: `Bản ${info.version} đã sẵn sàng cài đặt.` }));
-  autoUpdater.on('error', (error) => setUpdateState({ status: 'error', message: error.message.slice(0, 240) || 'Không thể kiểm tra cập nhật.' }));
+  autoUpdater.on('checking-for-update', () => setUpdateState({ status: 'checking', message: 'Checking for updates...' }));
+  autoUpdater.on('update-available', (info) => setUpdateState({ status: 'available', version: info.version, percent: 0, message: `Downloading version ${info.version}...` }));
+  autoUpdater.on('update-not-available', (info) => setUpdateState({ status: 'not-available', version: info.version, percent: 100, message: 'Application is up to date.' }));
+  autoUpdater.on('download-progress', (progress) => setUpdateState({ status: 'downloading', percent: Math.round(progress.percent), message: `Downloading update: ${Math.round(progress.percent)}%...` }));
+  autoUpdater.on('update-downloaded', (info) => setUpdateState({ status: 'downloaded', version: info.version, percent: 100, message: `Version ${info.version} is ready to install.` }));
+  autoUpdater.on('error', (error) => setUpdateState({ status: 'error', message: error.message.slice(0, 240) || 'Failed to check for updates.' }));
   updateTimer = setInterval(() => {
     void checkForUpdates();
   }, 6 * 60 * 60 * 1000);
@@ -1211,7 +1211,7 @@ function createWindow() {
   ipcMain.handle('agent-list-workspaces', () => readSavedAgentWorkspaces());
   ipcMain.handle('agent-save-workspace', (_event, cwd: string) => {
     const resolved = path.resolve(cwd || '');
-    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) throw new Error('Workspace phải là thư mục hợp lệ.');
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) throw new Error('Workspace must be a valid directory.');
     const workspaces = [resolved, ...readSavedAgentWorkspaces().filter((item) => item !== resolved)].slice(0, 12);
     return writeSavedAgentWorkspaces(workspaces);
   });
@@ -1229,11 +1229,11 @@ function createWindow() {
   ipcMain.handle('agent-read-generated-documents', (_event, worktree: string) => {
     const resolved = path.resolve(worktree || '');
     const marker = `${path.sep}.task-companion-worktrees${path.sep}`;
-    if (!resolved.includes(marker)) throw new Error('Chỉ có thể đọc docs từ worktree do Task Companion tạo.');
+    if (!resolved.includes(marker)) throw new Error('Can only read documentation from worktrees created by Task Hub Studio.');
     const paths = ['docs/PROJECT_DOCUMENTS.md', 'docs/PROJECT_BRIEF.md', 'docs/PRD.md', 'docs/ARCHITECTURE.md', 'docs/QA_PLAN.md', 'docs/RELEASE_RUNBOOK.md'];
     const documents = paths.filter((relative) => fs.existsSync(path.join(resolved, relative))).map((relative) => ({ path: relative, content: fs.readFileSync(path.join(resolved, relative), 'utf8') }));
     const manifest = documents.find((document) => document.path === 'docs/PROJECT_DOCUMENTS.md')?.content;
-    if (!manifest) throw new Error('Agent chưa tạo docs/PROJECT_DOCUMENTS.md.');
+    if (!manifest) throw new Error('Agent has not generated docs/PROJECT_DOCUMENTS.md yet.');
     return { manifest, documents: documents.filter((document) => document.path !== 'docs/PROJECT_DOCUMENTS.md') };
   });
 
@@ -1241,12 +1241,12 @@ function createWindow() {
     const resolvedWorktree = path.resolve(worktree || '');
     const resolvedDest = path.resolve(destinationWorkspace || '');
     if (!fs.existsSync(resolvedWorktree) || !fs.existsSync(resolvedDest)) {
-      throw new Error('Thư mục nguồn hoặc đích không tồn tại.');
+      throw new Error('Source or destination directory does not exist.');
     }
     const docsDirSrc = path.join(resolvedWorktree, 'docs');
     const docsDirDest = path.join(resolvedDest, 'docs');
     if (!fs.existsSync(docsDirSrc)) {
-      throw new Error('Không tìm thấy thư mục docs trong worktree.');
+      throw new Error('Docs directory not found in worktree.');
     }
     fs.mkdirSync(docsDirDest, { recursive: true });
     const copiedFiles: string[] = [];
@@ -1263,7 +1263,7 @@ function createWindow() {
   });
 
   ipcMain.handle('open-external', async (_event, url: string) => {
-    if (!/^https?:\/\//i.test(url)) throw new Error('Chỉ cho phép mở URL HTTP/HTTPS.');
+    if (!/^https?:\/\//i.test(url)) throw new Error('Only HTTP/HTTPS URLs are allowed.');
     await shell.openExternal(url);
     return true;
   });
@@ -1280,7 +1280,7 @@ function createWindow() {
   ipcMain.handle('agent-cleanup-worktree', (_event, { repository, worktree }: { repository: string; worktree: string }) => {
     const root = git(repository, ['rev-parse', '--show-toplevel']);
     const allowedRoot = path.join(path.dirname(root), '.task-companion-worktrees') + path.sep;
-    if (!path.resolve(worktree).startsWith(path.resolve(allowedRoot))) throw new Error('Chỉ có thể dọn worktree do Task Companion tạo.');
+    if (!path.resolve(worktree).startsWith(path.resolve(allowedRoot))) throw new Error('Can only clean worktrees created by Task Hub Studio.');
     git(root, ['worktree', 'remove', '--force', worktree]);
     return true;
   });
@@ -1553,17 +1553,17 @@ function createWindow() {
   ipcMain.handle('taskhub-capabilities', async (_event, taskHubUrl: string) => taskHubRequest(taskHubUrl, '/api/v1/capabilities'));
 
   ipcMain.handle('agent-configure-mcp', (_event, { cwd, provider, taskHubUrl, projectId, token }: { cwd: string; provider: string; taskHubUrl: string; projectId: string; token: string }) => {
-    if (!cwd || !fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) throw new Error('Workspace không hợp lệ.');
-    if (!/^https?:\/\//i.test(taskHubUrl)) throw new Error('Task Hub URL phải bắt đầu bằng http:// hoặc https://.');
-    if (!/^\d+$/.test(String(projectId))) throw new Error('Project ID phải là số.');
-    if (!token || token.length < 12) throw new Error('Project MCP token không hợp lệ.');
+    if (!cwd || !fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) throw new Error('Invalid workspace directory.');
+    if (!/^https?:\/\//i.test(taskHubUrl)) throw new Error('Task Hub URL must start with http:// or https://.');
+    if (!/^\d+$/.test(String(projectId))) throw new Error('Project ID must be a numeric ID.');
+    if (!token || token.length < 12) throw new Error('Invalid Project MCP token.');
 
     const useAntigravityFormat = provider === 'antigravity' || provider === 'agy';
     const configDirectory = useAntigravityFormat ? path.join(cwd, '.agents') : cwd;
     const configPath = useAntigravityFormat ? path.join(configDirectory, 'mcp_config.json') : path.join(cwd, '.mcp.json');
     let config: Record<string, any> = { mcpServers: {} };
     if (fs.existsSync(configPath)) {
-      try { config = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch { throw new Error('Không đọc được MCP config hiện tại.'); }
+      try { config = JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch { throw new Error('Failed to parse existing MCP configuration.'); }
       fs.copyFileSync(configPath, `${configPath}.bak.${Date.now()}`);
     }
     config.mcpServers = config.mcpServers || {};
@@ -1629,7 +1629,7 @@ function createWindow() {
       }
     }
 
-    if (!output && output !== '') throw new Error('Session agent không tồn tại hoặc đã bị xóa.');
+    if (!output && output !== '') throw new Error('Agent session does not exist or has been removed.');
     const workspaceLog = cwd ? path.join(cwd, '.macatung', 'agent', `${sessionId}.jsonl`) : '';
     if (workspaceLog && fs.existsSync(workspaceLog)) {
       await shell.openPath(workspaceLog);
@@ -1671,7 +1671,7 @@ function formatAgyEvent(event: any): string {
   } else if (event.event === 'result') {
     const res = event.result;
     const resp = res?.response ? `\n💬 ${res.response}\n` : '';
-    const tokens = res?.usage?.total_tokens ? `✓ Hoàn tất · Total tokens: ${res.usage.total_tokens.toLocaleString()}\n` : '';
+    const tokens = res?.usage?.total_tokens ? `✓ Completed · Total tokens: ${res.usage.total_tokens.toLocaleString()}\n` : '';
     return `${resp}${tokens}`;
   }
   return '';
@@ -1776,7 +1776,7 @@ function formatAgyEvent(event: any): string {
         return { mode: 'interactive', sessionId, provider, model: selectedModel, cwd, capabilities: PROVIDER_CAPABILITIES[provider] };
       }
       const executable = findAntigravityExecutable();
-      if (!executable) throw new Error('Không tìm thấy Antigravity.exe hoặc agy CLI.');
+      if (!executable) throw new Error('Antigravity executable or agy CLI not found.');
       const child = spawn(executable, [cwd], { cwd, detached: true, stdio: 'ignore', windowsHide: false });
       child.unref();
       if (prompt?.trim()) {
@@ -1861,11 +1861,11 @@ function formatAgyEvent(event: any): string {
             if (event.type === 'item.completed' && event.item?.type === 'agent_message') {
               formattedLine = `\n💬 ${event.item.text}\n`;
             } else if (event.type === 'item.started' && event.item?.type === 'command_execution') {
-              formattedLine = `\n⚡ [Chạy lệnh] $ ${event.item.command}\n`;
+              formattedLine = `\n⚡ [Executing command] $ ${event.item.command}\n`;
             } else if (event.type === 'item.completed' && event.item?.type === 'command_execution') {
-              formattedLine = `\n✓ [Hoàn tất lệnh] exit code: ${event.item.exit_code ?? 0}\n${event.item.aggregated_output || ''}\n`;
+              formattedLine = `\n✓ [Command completed] exit code: ${event.item.exit_code ?? 0}\n${event.item.aggregated_output || ''}\n`;
             } else if (event.type === 'turn.completed') {
-              formattedLine = `\n✓ Turn hoàn thành · Tokens: in ${event.usage?.input_tokens || 0}, out ${event.usage?.output_tokens || 0}\n`;
+              formattedLine = `\n✓ Turn completed · Tokens: in ${event.usage?.input_tokens || 0}, out ${event.usage?.output_tokens || 0}\n`;
             }
             if (formattedLine) {
               session.output = `${session.output}${formattedLine}`.slice(-250000);
@@ -1904,8 +1904,8 @@ function formatAgyEvent(event: any): string {
     }
 
     const definition = AGENT_COMMANDS[provider];
-    if (!definition) throw new Error('Agent không được hỗ trợ.');
-    if (!cwd || !fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) throw new Error('Workspace không hợp lệ.');
+    if (!definition) throw new Error('Unsupported agent provider.');
+    if (!cwd || !fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) throw new Error('Invalid workspace directory.');
 
     const sessionId = `${provider}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const command = resolveCli(definition.command) || definition.command;
@@ -1974,7 +1974,7 @@ function formatAgyEvent(event: any): string {
       id: payload.model.id,
       name: payload.model.name || payload.model.id,
       badges: payload.model.badges?.length ? payload.model.badges : inferModelBadges(payload.model.id, payload.model.name),
-      description: payload.model.description || `Model tùy chỉnh đã lưu: ${payload.model.id}`,
+      description: payload.model.description || `Custom user-saved model: ${payload.model.id}`,
       source: 'custom',
     };
     if (index >= 0) {
@@ -2077,11 +2077,11 @@ function formatAgyEvent(event: any): string {
             if (event.type === 'item.completed' && event.item?.type === 'agent_message') {
               formattedLine = `\n💬 ${event.item.text}\n`;
             } else if (event.type === 'item.started' && event.item?.type === 'command_execution') {
-              formattedLine = `\n⚡ [Chạy lệnh] $ ${event.item.command}\n`;
+              formattedLine = `\n⚡ [Executing command] $ ${event.item.command}\n`;
             } else if (event.type === 'item.completed' && event.item?.type === 'command_execution') {
-              formattedLine = `\n✓ [Hoàn tất lệnh] exit code: ${event.item.exit_code ?? 0}\n${event.item.aggregated_output || ''}\n`;
+              formattedLine = `\n✓ [Command completed] exit code: ${event.item.exit_code ?? 0}\n${event.item.aggregated_output || ''}\n`;
             } else if (event.type === 'turn.completed') {
-              formattedLine = `\n✓ Turn hoàn thành · Tokens: in ${event.usage?.input_tokens || 0}, out ${event.usage?.output_tokens || 0}\n`;
+              formattedLine = `\n✓ Turn completed · Tokens: in ${event.usage?.input_tokens || 0}, out ${event.usage?.output_tokens || 0}\n`;
             }
             if (formattedLine) {
               session.output = `${session.output}${formattedLine}`.slice(-250000);
@@ -2197,24 +2197,24 @@ function formatAgyEvent(event: any): string {
 
 function createTray() {
   tray = new Tray(getTrayImage());
-  tray.setToolTip('Task Hub — VS Code IDE & Mascot Nhắc Việc');
+  tray.setToolTip('Task Hub — Developer Studio & Mascot Companion');
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: '💻 Bản 1: Mở Task Hub IDE (VS Code Mode)',
+      label: 'Open Studio',
       click: () => {
         applyAppMode('ide');
       },
     },
     {
-      label: '🧘 Bản 2: Mở Mascot Nhắc Việc (Companion Mode)',
+      label: 'Toggle Mode',
       click: () => {
-        applyAppMode('mascot');
+        applyAppMode(currentMode === 'ide' ? 'mascot' : 'ide');
       },
     },
     { type: 'separator' },
     {
-      label: '📋 Danh sách Task hôm nay',
+      label: 'Daily Dispatch',
       click: () => {
         if (win) {
           if (currentMode !== 'mascot') applyAppMode('mascot');
@@ -2224,7 +2224,17 @@ function createTray() {
       },
     },
     {
-      label: '🍅 Bật Pomodoro tập trung',
+      label: 'Daily Review',
+      click: () => {
+        if (win) {
+          if (currentMode !== 'mascot') applyAppMode('mascot');
+          win.show();
+          win.webContents.send('tray-action', 'open-review');
+        }
+      },
+    },
+    {
+      label: 'Focus Pomodoro',
       click: () => {
         if (win) {
           if (currentMode !== 'mascot') applyAppMode('mascot');
@@ -2234,7 +2244,7 @@ function createTray() {
       },
     },
     {
-      label: '🦆 Debug cùng Rubber Duck',
+      label: 'Rubber Duck',
       click: () => {
         if (win) {
           if (currentMode !== 'mascot') applyAppMode('mascot');
@@ -2244,7 +2254,7 @@ function createTray() {
       },
     },
     {
-      label: '📝 Task Notes & Scratchpad',
+      label: 'Quick Scratchpad',
       click: () => {
         if (win) {
           if (currentMode !== 'mascot') applyAppMode('mascot');
@@ -2254,7 +2264,7 @@ function createTray() {
       },
     },
     {
-      label: '🌐 Mở Task Hub (task-hub.macatung.dev)',
+      label: 'Task Hub Sync',
       click: () => {
         import('electron').then(({ shell }) => {
           shell.openExternal(process.env.TASK_HUB_URL || 'https://task-hub.macatung.dev/tasks');
@@ -2263,14 +2273,14 @@ function createTray() {
     },
     { type: 'separator' },
     {
-      label: '🔄 Kiểm tra cập nhật',
+      label: 'Check for Updates',
       click: () => {
         if (win) { win.show(); win.focus(); }
         void checkForUpdates();
       },
     },
     {
-      label: '⬆️ Khởi động lại để cập nhật',
+      label: 'Restart to Update',
       click: () => {
         if (win) { win.show(); win.focus(); }
         installDownloadedUpdate();
@@ -2278,7 +2288,7 @@ function createTray() {
     },
     { type: 'separator' },
     {
-      label: '❌ Thoát Hoàn Toàn Ứng Dụng',
+      label: 'Quit',
       click: () => {
         app.quit();
       },

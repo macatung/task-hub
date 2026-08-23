@@ -218,7 +218,7 @@ onBeforeUnmount(() => {
         <button
           v-if="mode === 'diff'"
           class="px-2 py-0.5 rounded bg-[#333333] hover:bg-[#3e3e42] text-[10px] text-zinc-200 transition-colors cursor-pointer flex items-center gap-1.5 border border-[#3e3e42]"
-          :title="isSideBySide ? 'Chuyển sang chế độ xem Diff Inline' : 'Chuyển sang chế độ xem Diff Side-by-Side'"
+          :title="isSideBySide ? 'Switch to Inline Diff view' : 'Switch to Side-by-Side Diff view'"
           @click="toggleSideBySide"
         >
           <i class="codicon" :class="isSideBySide ? 'codicon-split-vertical' : 'codicon-split-horizontal'" />

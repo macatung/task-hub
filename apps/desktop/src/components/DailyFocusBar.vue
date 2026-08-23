@@ -43,7 +43,7 @@ const focusProgressPercent = computed(() => {
     <!-- Hover Micro Tooltip Summary -->
     <div class="opacity-0 group-hover/focusbar:opacity-100 transition-opacity duration-200 pointer-events-none absolute bottom-full mb-1.5 right-0 w-40 p-2 rounded-xl bg-slate-950/98 border border-slate-800 shadow-xl backdrop-blur-md text-[10px] text-slate-300 font-sans z-50">
       <div class="font-bold text-white mb-1 flex items-center justify-between border-b border-slate-800 pb-1">
-        <span>⚡ Tiến Độ Hôm Nay</span>
+        <span>⚡ Daily Focus Progress</span>
         <span class="font-mono text-emerald-400 font-bold">{{ focusProgressPercent }}%</span>
       </div>
       <div class="space-y-0.5 font-mono text-[9px]">
@@ -52,7 +52,7 @@ const focusProgressPercent = computed(() => {
           <span class="text-amber-300 font-bold">{{ completedPomodoros }}/{{ targetPomodoros }}</span>
         </div>
         <div class="flex justify-between">
-          <span class="text-slate-400">Task hoàn tất:</span>
+          <span class="text-slate-400">Completed tasks:</span>
           <span class="text-emerald-300 font-bold">{{ completedTasks }}/{{ totalTasks }}</span>
         </div>
       </div>

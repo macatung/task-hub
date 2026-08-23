@@ -76,7 +76,7 @@ onMounted(() => {
           class="text-zinc-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333] transition-colors text-xs cursor-pointer"
           @click="emit('close')"
         >
-          ✕ Đóng
+          ✕ Close
         </button>
       </div>
 
@@ -85,17 +85,17 @@ onMounted(() => {
         <!-- 1. Tool Execution Policy -->
         <div class="p-3.5 bg-[#252526] rounded-xl border border-[#3e3e42] space-y-2">
           <div class="flex items-center justify-between">
-            <label class="text-xs font-bold text-zinc-200">Chính Sách Thực Thi Lệnh Terminal (Tool Execution Policy)</label>
+            <label class="text-xs font-bold text-zinc-200">Tool Execution Policy</label>
             <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-[#333333] text-cyan-300">{{ permissions.toolExecutionPolicy }}</span>
           </div>
-          <p class="text-[11px] text-zinc-400">Kiểm soát xem các lệnh terminal có cần người dùng phê duyệt trước khi chạy hay không.</p>
+          <p class="text-[11px] text-zinc-400">Control whether terminal commands require user approval before execution.</p>
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
             <button
               v-for="p in [
-                { id: 'always-proceed', label: 'Tự động chạy', desc: 'Always Proceed' },
-                { id: 'request-review', label: 'Hỏi trước khi chạy', desc: 'Request Review' },
-                { id: 'strict', label: 'Nghiêm ngặt', desc: 'Strict Approval' },
-                { id: 'proceed-in-sandbox', label: 'Trong Sandbox', desc: 'Sandbox Only' }
+                { id: 'always-proceed', label: 'Always Proceed', desc: 'Auto-run tools' },
+                { id: 'request-review', label: 'Request Review', desc: 'Ask on risky actions' },
+                { id: 'strict', label: 'Strict', desc: 'Approval required' },
+                { id: 'proceed-in-sandbox', label: 'Sandbox Only', desc: 'Isolated sandbox' }
               ] as const"
               :key="p.id"
               class="p-2 rounded-lg border text-left cursor-pointer transition-colors"
@@ -112,8 +112,8 @@ onMounted(() => {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <!-- Non-Workspace File Access -->
           <div class="p-3.5 bg-[#252526] rounded-xl border border-[#3e3e42] space-y-2">
-            <label class="text-xs font-bold text-zinc-200 block">Truy Cập Tệp Ngoài Workspace</label>
-            <p class="text-[11px] text-zinc-400">Cho phép đọc/ghi các file nằm ngoài thư mục workspace hiện tại.</p>
+            <label class="text-xs font-bold text-zinc-200 block">Non-Workspace File Access</label>
+            <p class="text-[11px] text-zinc-400">Allow reading/writing files outside current workspace root.</p>
             <div class="flex rounded-lg border border-[#3e3e42] p-1 bg-[#1e1e1e] gap-1">
               <button
                 v-for="mode in ['allow', 'ask', 'deny'] as const"
@@ -129,8 +129,8 @@ onMounted(() => {
 
           <!-- Internet Access Policy -->
           <div class="p-3.5 bg-[#252526] rounded-xl border border-[#3e3e42] space-y-2">
-            <label class="text-xs font-bold text-zinc-200 block">Chính Sách Kết Nối Internet</label>
-            <p class="text-[11px] text-zinc-400">Kiểm soát quyền truy cập mạng (HTTP request / web browser tools).</p>
+            <label class="text-xs font-bold text-zinc-200 block">Internet Access Policy</label>
+            <p class="text-[11px] text-zinc-400">Control network access permissions (HTTP requests / web browser tools).</p>
             <div class="flex rounded-lg border border-[#3e3e42] p-1 bg-[#1e1e1e] gap-1">
               <button
                 v-for="mode in ['allow', 'ask', 'deny'] as const"
@@ -148,16 +148,16 @@ onMounted(() => {
         <!-- 3. Artifact Review Mode -->
         <div class="p-3.5 bg-[#252526] rounded-xl border border-[#3e3e42] space-y-2">
           <div class="flex items-center justify-between">
-            <label class="text-xs font-bold text-zinc-200">Chế Độ Duyệt Artifact (Artifact Review Mode)</label>
+            <label class="text-xs font-bold text-zinc-200">Artifact Review Mode</label>
             <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-[#333333] text-cyan-300">{{ permissions.artifactReviewMode }}</span>
           </div>
-          <p class="text-[11px] text-zinc-400">Quy định cách Agent hiển thị và yêu cầu phản hồi đối với các kế hoạch và tài liệu sinh ra.</p>
+          <p class="text-[11px] text-zinc-400">Configure how Agent presents and requests feedback for generated artifacts.</p>
           <div class="grid grid-cols-3 gap-2 pt-1">
             <button
               v-for="m in [
-                { id: 'agent-decides', label: 'Agent tự quyết định', desc: 'Agent Decides' },
-                { id: 'asks-for-review', label: 'Luôn hỏi duyệt', desc: 'Ask for Review' },
-                { id: 'always-proceed', label: 'Bỏ qua hỏi duyệt', desc: 'Always Proceed' }
+                { id: 'agent-decides', label: 'Agent Decides', desc: 'Context-dependent' },
+                { id: 'asks-for-review', label: 'Ask for Review', desc: 'Always request review' },
+                { id: 'always-proceed', label: 'Always Proceed', desc: 'Auto-approve' }
               ] as const"
               :key="m.id"
               class="p-2 rounded-lg border text-left cursor-pointer transition-colors"
@@ -173,8 +173,8 @@ onMounted(() => {
         <!-- 4. Notifications & Theme -->
         <div class="flex items-center justify-between p-3.5 bg-[#252526] rounded-xl border border-[#3e3e42]">
           <div>
-            <h4 class="text-xs font-bold text-zinc-200">Thông Báo Hoàn Thành Nhiệm Vụ</h4>
-            <p class="text-[11px] text-zinc-400">Gửi notification của hệ thống khi Agent chạy xong hoặc gặp sự cố.</p>
+            <h4 class="text-xs font-bold text-zinc-200">Task Completion Notifications</h4>
+            <p class="text-[11px] text-zinc-400">Send desktop notifications when Agent finishes execution or encounters errors.</p>
           </div>
           <input
             v-model="permissions.notificationsEnabled"
@@ -187,16 +187,16 @@ onMounted(() => {
       <!-- Footer Buttons -->
       <div class="h-14 px-4 bg-[#252526] border-t border-[#333333] flex items-center justify-between shrink-0">
         <span v-if="saveSuccess" class="text-xs text-emerald-400 font-semibold flex items-center gap-1">
-          <i class="codicon codicon-check" /> Đã lưu cấu hình thành công!
+          <i class="codicon codicon-check" /> Configuration saved successfully!
         </span>
-        <span v-else class="text-xs text-zinc-500">Các thay đổi áp dụng tức thì cho toàn bộ phiên làm việc.</span>
+        <span v-else class="text-xs text-zinc-500">Changes apply immediately across all sessions.</span>
 
         <div class="flex items-center gap-2">
           <button
             class="px-3 py-1.5 rounded-lg bg-[#333333] hover:bg-[#3e3e42] text-zinc-300 text-xs font-semibold cursor-pointer"
             @click="emit('close')"
           >
-            Đóng
+            Close
           </button>
           <button
             class="px-4 py-1.5 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white text-xs font-bold cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
@@ -204,7 +204,7 @@ onMounted(() => {
             @click="handleSave"
           >
             <i v-if="isSaving" class="codicon codicon-loading animate-spin" />
-            <span>Lưu Thiết Lập</span>
+            <span>Save Settings</span>
           </button>
         </div>
       </div>

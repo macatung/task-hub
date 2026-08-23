@@ -24,10 +24,10 @@ const completedSessions = ref(0);
 let timerInterval: ReturnType<typeof setInterval> | null = null;
 
 const modes: Record<PomodoroMode, { label: string; duration: number; icon: string }> = {
-  focus25: { label: 'Tập Trung 25p', duration: 25 * 60, icon: '🍅' },
-  deep50: { label: 'Deep Work 50p', duration: 50 * 60, icon: '⚡' },
-  shortBreak: { label: 'Nghỉ Ngắn 5p', duration: 5 * 60, icon: '☕' },
-  longBreak: { label: 'Nghỉ Dài 15p', duration: 15 * 60, icon: '🍃' },
+  focus25: { label: 'Focus 25m', duration: 25 * 60, icon: '🍅' },
+  deep50: { label: 'Deep Work 50m', duration: 50 * 60, icon: '⚡' },
+  shortBreak: { label: 'Short Break 5m', duration: 5 * 60, icon: '☕' },
+  longBreak: { label: 'Long Break 15m', duration: 15 * 60, icon: '🍃' },
 };
 
 const formattedTime = computed(() => {
@@ -105,7 +105,7 @@ onUnmounted(() => {
 
 <template>
   <!-- ========================================================================= -->
-  <!-- 1. COMPACT MINI PILL MODE (TIẾT KIỆM KHÔNG GIAN TỐI ĐA TRÊN MÀN HÌNH)     -->
+  <!-- 1. COMPACT MINI PILL MODE -->
   <!-- ========================================================================= -->
   <div
     v-if="isCompact"
@@ -126,7 +126,7 @@ onUnmounted(() => {
           {{ activeTask.title }}
         </span>
         <span class="text-[9px] font-mono text-slate-400 block truncate">
-          {{ activeTask.project ? activeTask.project.title : 'Chung' }}
+          {{ activeTask.project ? activeTask.project.title : 'General' }}
         </span>
       </div>
       <div v-else class="text-[11px] text-slate-400 font-mono truncate">
@@ -143,7 +143,7 @@ onUnmounted(() => {
           'p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer',
           isRunning ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-slate-950' : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
         ]"
-        :title="isRunning ? 'Tạm dừng' : 'Tiếp tục'"
+        :title="isRunning ? 'Pause' : 'Resume'"
       >
         <span>{{ isRunning ? '⏸' : '▶' }}</span>
       </button>
@@ -152,7 +152,7 @@ onUnmounted(() => {
       <button
         @click="isCompact = false"
         class="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer text-xs"
-        title="Mở rộng chi tiết"
+        title="Expand details"
       >
         ⤢
       </button>
@@ -161,7 +161,7 @@ onUnmounted(() => {
       <button
         @click="$emit('close')"
         class="p-1.5 rounded-lg bg-slate-900 hover:bg-red-500/20 text-slate-400 hover:text-red-300 transition-colors cursor-pointer text-xs"
-        title="Đóng đồng hồ"
+        title="Close timer"
       >
         ✕
       </button>
@@ -169,7 +169,7 @@ onUnmounted(() => {
   </div>
 
   <!-- ========================================================================= -->
-  <!-- 2. FULL DIAL MODE (GIAO DIỆN CHI TIẾT TỐI GIẢN DARK SLATE)                -->
+  <!-- 2. FULL DIAL MODE (MINIMALIST DARK SLATE DIAL)                           -->
   <!-- ========================================================================= -->
   <div
     v-else
@@ -186,14 +186,14 @@ onUnmounted(() => {
         <button
           @click="isCompact = true"
           class="px-2 py-0.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white text-xs cursor-pointer"
-          title="Thu nhỏ thành thanh mini"
+          title="Collapse to mini pill"
         >
           —
         </button>
         <button
           @click="$emit('close')"
           class="p-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer text-xs"
-          title="Đóng"
+          title="Close"
         >
           ✕
         </button>
@@ -203,7 +203,7 @@ onUnmounted(() => {
     <!-- Active Task Badge -->
     <div v-if="activeTask" class="p-2 mb-2.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-xs">
       <div class="truncate flex-1 pr-2">
-        <span class="text-[9px] text-slate-400 font-mono block">🎯 Nhiệm vụ:</span>
+        <span class="text-[9px] text-slate-400 font-mono block">🎯 Work Item:</span>
         <span class="font-semibold text-slate-100 text-xs truncate block">{{ activeTask.title }}</span>
       </div>
       <span class="text-[10px] font-mono text-emerald-400 shrink-0 font-bold">
@@ -253,7 +253,7 @@ onUnmounted(() => {
             {{ formattedTime }}
           </span>
           <span class="text-[9px] font-mono text-emerald-400 mt-0.5">
-            {{ isRunning ? '⚡ Đang chạy' : 'Tạm dừng' }}
+            {{ isRunning ? '⚡ Running' : 'Paused' }}
           </span>
         </div>
       </div>
@@ -261,8 +261,8 @@ onUnmounted(() => {
 
     <!-- Completed Sessions Counter -->
     <div class="text-center text-[10px] text-slate-500 mb-2.5 flex items-center justify-center gap-1 font-mono">
-      <span>Hoàn thành:</span>
-      <span class="font-bold text-emerald-400">{{ completedSessions }} phiên</span>
+      <span>Completed:</span>
+      <span class="font-bold text-emerald-400">{{ completedSessions }} sessions</span>
     </div>
 
     <!-- Action Controls -->
@@ -271,7 +271,7 @@ onUnmounted(() => {
         @click="resetTimer"
         class="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-medium transition-all cursor-pointer flex-1 text-center"
       >
-        ↺ Đặt lại
+        ↺ Reset
       </button>
 
       <button
@@ -283,7 +283,7 @@ onUnmounted(() => {
             : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
         ]"
       >
-        <span>{{ isRunning ? '⏸ Tạm dừng' : '▶ Bắt đầu' }}</span>
+        <span>{{ isRunning ? '⏸ Pause' : '▶ Start' }}</span>
       </button>
     </div>
   </div>

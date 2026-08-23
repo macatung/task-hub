@@ -53,7 +53,7 @@ const viewSkill = async (sk: { id: string; name: string; description: string; pa
       selectedSkill.value.content = text || '';
     }
   } catch (err) {
-    if (selectedSkill.value) selectedSkill.value.content = 'Không thể tải nội dung SKILL.md';
+    if (selectedSkill.value) selectedSkill.value.content = 'Unable to load SKILL.md contents';
   } finally {
     isLoadingContent.value = false;
   }
@@ -102,7 +102,7 @@ onMounted(() => {
             class="text-zinc-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333] transition-colors text-xs cursor-pointer"
             @click="emit('close')"
           >
-            ✕ Đóng
+            ✕ Close
           </button>
         </div>
       </div>
@@ -182,7 +182,7 @@ onMounted(() => {
                   @click="emit('run-skill', selectedSkill.id); emit('close');"
                 >
                   <i class="codicon codicon-play" />
-                  <span>Kích hoạt Skill</span>
+                  <span>Activate Skill</span>
                 </button>
               </div>
 
@@ -193,7 +193,7 @@ onMounted(() => {
 
               <div>
                 <label class="text-[10px] font-mono text-zinc-500 uppercase tracking-wider block mb-1">SKILL.md Instructions</label>
-                <div v-if="isLoadingContent" class="text-xs text-zinc-400 p-4">Đang tải nội dung...</div>
+                <div v-if="isLoadingContent" class="text-xs text-zinc-400 p-4">Loading content...</div>
                 <div v-else class="max-h-96 overflow-y-auto rounded-lg border border-[#2d2d2d] bg-[#141414] p-3 text-xs text-zinc-200">
                   <MarkdownView :content="selectedSkill.content" />
                 </div>
@@ -201,7 +201,7 @@ onMounted(() => {
             </div>
             <div v-else class="flex flex-col items-center justify-center h-full text-zinc-500 gap-2">
               <i class="codicon codicon-sparkle text-3xl text-zinc-600" />
-              <p class="text-xs">Chọn một kỹ năng từ danh mục bên trái để xem hướng dẫn chi tiết.</p>
+              <p class="text-xs">Select a skill from the catalog on the left to view detailed instructions.</p>
             </div>
           </div>
         </template>
@@ -225,7 +225,7 @@ onMounted(() => {
                   </span>
                 </div>
 
-                <p class="text-[11px] text-zinc-400">Model Context Protocol Server cung cấp các công cụ mở rộng cho Agent.</p>
+                <p class="text-[11px] text-zinc-400">Model Context Protocol Server providing extension tools for the Agent.</p>
 
                 <div class="flex flex-wrap gap-1 mt-1">
                   <span
@@ -245,7 +245,7 @@ onMounted(() => {
         <template v-else-if="activeTab === 'rules'">
           <div class="flex-1 p-4 overflow-y-auto space-y-3">
             <div v-if="rules.length === 0" class="text-xs text-zinc-500 p-8 text-center bg-[#252526] rounded-xl border border-[#333333]">
-              Chưa cấu hình rules riêng trong thư mục `.gemini/rules`.
+              No custom rules configured in `.gemini/rules`.
             </div>
             <div
               v-for="rl in rules"

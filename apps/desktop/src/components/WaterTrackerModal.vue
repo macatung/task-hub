@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { mindfulBell } from '../audio/mindfulBellAudio';
 
@@ -57,7 +57,7 @@ onMounted(() => {
     <div class="flex items-center justify-between pb-2.5 mb-3 border-b border-blue-500/30">
       <div class="flex items-center gap-2 text-xs font-bold text-blue-300">
         <span>💧</span>
-        <span>NHẬT KÝ UỐNG NƯỚC HÔM NAY</span>
+        <span>DAILY HYDRATION LOG</span>
       </div>
       <button
         @click="$emit('close')"
@@ -70,10 +70,10 @@ onMounted(() => {
     <!-- Count & Progress -->
     <div class="text-center my-3">
       <div class="text-3xl font-extrabold text-blue-400 font-mono">
-        {{ glasses }} / {{ target }} <span class="text-lg">ly</span>
+        {{ glasses }} / {{ target }} <span class="text-lg">glasses</span>
       </div>
       <p class="text-[11px] text-slate-400 mt-1">
-        {{ glasses >= target ? '🎉 Tuyệt vời! Bạn đã nạp đủ 2 lít nước hôm nay!' : 'Mỗi ngụm nước nuôi dưỡng sự minh mẫn và tỉnh táo!' }}
+        {{ glasses >= target ? '🎉 Fantastic! You reached your 2L daily hydration goal!' : 'Stay hydrated to maintain peak mental clarity!' }}
       </p>
     </div>
 
@@ -89,10 +89,10 @@ onMounted(() => {
             ? 'bg-blue-500/20 border-blue-400 text-blue-300 shadow-sm shadow-blue-500/20'
             : 'bg-slate-900/60 border-slate-800 text-slate-600 hover:border-slate-700'
         ]"
-        :title="i <= glasses ? 'Bấm để hoàn tác' : 'Bấm để uống 1 ly'"
+        :title="i <= glasses ? 'Undo glass' : 'Log 1 glass'"
       >
         <span class="text-lg">{{ i <= glasses ? '🥤' : '🥛' }}</span>
-        <span class="text-[9px] font-mono mt-1">Ly {{ i }}</span>
+        <span class="text-[9px] font-mono mt-1">Glass {{ i }}</span>
       </button>
     </div>
 
@@ -103,7 +103,7 @@ onMounted(() => {
         :disabled="glasses === 0"
         class="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 text-xs font-bold transition-all cursor-pointer disabled:opacity-40"
       >
-        - Bớt 1 ly
+        - Remove 1 glass
       </button>
 
       <button
@@ -112,7 +112,7 @@ onMounted(() => {
         class="flex-1 py-2 px-4 rounded-xl bg-blue-500 hover:bg-blue-400 text-slate-950 font-bold text-xs shadow-md transition-all hover:scale-105 active:scale-95 cursor-pointer disabled:opacity-40 flex items-center justify-center gap-1.5"
       >
         <span>💧</span>
-        <span>+ Đã Uống 1 Ly Nước</span>
+        <span>+ Drank 1 Glass</span>
       </button>
     </div>
   </div>

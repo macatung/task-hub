@@ -50,46 +50,46 @@ type ModelOption = {
 
 const PROVIDER_MODELS: Record<Provider, ModelOption[]> = {
   antigravity: [
-    { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', badges: ['High', 'Fast'], description: 'Mô hình thế hệ mới nhất, tối ưu tốc độ và agentic reasoning' },
-    { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', badges: ['Medium', 'Fast'], description: 'Cân bằng tốc độ cao và năng lực suy luận' },
-    { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', badges: ['Medium', 'Fast'], description: 'Phản hồi nhanh cho các tác vụ lập trình phổ biến' },
-    { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', badges: ['Low'], description: 'Mô hình tiêu chuẩn cho tác vụ nhẹ' },
-    { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', badges: ['Thinking'], description: 'Suy luận mở rộng và phân tích kiến trúc mã nguồn chuyên sâu' },
-    { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', badges: ['Thinking'], description: 'Mô hình phân tích cấp cao nhất cho bài toán phức tạp' },
-    { id: 'gpt-oss-120b', name: 'GPT-OSS 120B (Medium)', badges: ['Open Weights', 'Medium'], description: 'Mô hình mã nguồn mở 120B hiệu năng cao' },
-    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', badges: ['Recommended', '1M+ Context'], description: 'Mô hình mạnh nhất của DeepMind, context 1M+' },
-    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', badges: ['Fast & Smart'], description: 'Tốc độ cao kèm khả năng suy luận xuất sắc' },
-    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', badges: ['Ultra Fast'], description: 'Phản hồi tức thì cho các tác vụ lặp lại' },
-    { id: 'gemini-2.0-pro-exp', name: 'Gemini 2.0 Pro Exp', badges: ['Experimental'], description: 'Bản thử nghiệm năng lực giải thuật và code gen' },
-    { id: 'default', name: 'IDE / CLI Default', badges: ['Default'], description: 'Cấu hình mặc định của Antigravity' },
+    { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', badges: ['High', 'Fast'], description: 'Latest generation model, optimized for speed and agentic reasoning' },
+    { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', badges: ['Medium', 'Fast'], description: 'Balanced high speed and reasoning capabilities' },
+    { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', badges: ['Medium', 'Fast'], description: 'Fast response for standard coding tasks' },
+    { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', badges: ['Low'], description: 'Standard model for lightweight tasks' },
+    { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', badges: ['Thinking'], description: 'Extended reasoning and deep source code architecture analysis' },
+    { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', badges: ['Thinking'], description: 'Premier analysis model for complex problems' },
+    { id: 'gpt-oss-120b', name: 'GPT-OSS 120B (Medium)', badges: ['Open Weights', 'Medium'], description: 'High-performance 120B open-weights model' },
+    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', badges: ['Recommended', '1M+ Context'], description: 'DeepMind flagship model, 1M+ context window' },
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', badges: ['Fast & Smart'], description: 'High speed with exceptional reasoning capabilities' },
+    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', badges: ['Ultra Fast'], description: 'Instant response for repetitive tasks' },
+    { id: 'gemini-2.0-pro-exp', name: 'Gemini 2.0 Pro Exp', badges: ['Experimental'], description: 'Experimental model for algorithms and code generation' },
+    { id: 'default', name: 'IDE / CLI Default', badges: ['Default'], description: 'Default Antigravity configuration' },
   ],
   claude_code: [
-    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', badges: ['High', 'Recommended'], description: 'Tối ưu hoá cao nhất cho coding, kiến trúc & hybrid reasoning' },
-    { id: 'claude-3-7-sonnet-thinking', name: 'Claude 3.7 (Thinking)', badges: ['High', 'Thinking'], description: 'Kích hoạt extended thinking cho các refactor phức tạp' },
-    { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', badges: ['Next-Gen', 'Thinking'], description: 'Mô hình Sonnet thế hệ mới tối ưu agentic workflow' },
-    { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', badges: ['Deep Analysis', 'Thinking'], description: 'Phân tích hệ thống lớn & cấu trúc logic phức tạp' },
-    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (v2)', badges: ['Balanced', 'Fast'], description: 'Mô hình lập trình tiêu chuẩn ổn định' },
-    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', badges: ['Super Fast'], description: 'Tốc độ cực nhanh cho tasks nhỏ và refactor nhẹ' },
-    { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', badges: ['Deep Analysis'], description: 'Phân tích hệ thống lớn & bài toán phức tạp' },
-    { id: 'default', name: 'CLI Default', badges: ['Default'], description: 'Cấu hình mặc định của Claude Code CLI' },
+    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', badges: ['High', 'Recommended'], description: 'Top optimization for coding, architecture & hybrid reasoning' },
+    { id: 'claude-3-7-sonnet-thinking', name: 'Claude 3.7 (Thinking)', badges: ['High', 'Thinking'], description: 'Enables extended thinking for complex refactoring' },
+    { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', badges: ['Next-Gen', 'Thinking'], description: 'Next-gen Sonnet model optimized for agentic workflows' },
+    { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', badges: ['Deep Analysis', 'Thinking'], description: 'Large system analysis & complex logic structures' },
+    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (v2)', badges: ['Balanced', 'Fast'], description: 'Stable industry-standard coding model' },
+    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', badges: ['Super Fast'], description: 'Super fast speed for small tasks and light refactoring' },
+    { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', badges: ['Deep Analysis'], description: 'Large system analysis & complex problems' },
+    { id: 'default', name: 'CLI Default', badges: ['Default'], description: 'Default Claude Code CLI configuration' },
   ],
   codex: [
-    { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', badges: ['High', 'Flagship'], description: 'Mô hình flagship mạnh nhất thế hệ GPT-5.6 cho reasoning, research & agentic coding' },
-    { id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra', badges: ['Medium', 'Fast'], description: 'Mô hình cân bằng hoàn hảo giữa trí tuệ và tốc độ cho tác vụ production' },
-    { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', badges: ['Low', 'Ultra Fast'], description: 'Mô hình nhẹ tối ưu tốc độ và chi phí cho khối lượng công việc lớn' },
-    { id: 'gpt-5.6-cyber', name: 'GPT-5.6 Cyber', badges: ['Specialized', 'Security'], description: 'Mô hình chuyên biệt phân tích an toàn thông tin & audit bảo mật mã nguồn' },
-    { id: 'o3-pro', name: 'o3-pro', badges: ['High', 'Deep Reasoning'], description: 'Suy luận chuyên sâu mở rộng cho các bài toán kiến trúc & giải thuật khó' },
-    { id: 'o3', name: 'o3', badges: ['High', 'Reasoning'], description: 'Mô hình suy luận logic đa bước mạnh mẽ thế hệ o-series' },
-    { id: 'o3-mini', name: 'o3-mini', badges: ['Fast Reasoning', 'High'], description: 'Suy luận logic cao cấp với tốc độ phản hồi nhanh chóng' },
-    { id: 'gpt-5', name: 'GPT-5 (Foundational)', badges: ['High', 'Foundational'], description: 'Mô hình nền tảng thế hệ GPT-5' },
-    { id: 'gpt-4.1', name: 'GPT-4.1', badges: ['Balanced', 'Fast'], description: 'Phiên bản tối ưu hiệu năng cao cho tasks coding hàng ngày' },
-    { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', badges: ['Ultra Fast'], description: 'Mô hình siêu nhẹ tốc độ cao' },
-    { id: 'o1', name: 'o1', badges: ['Deep Reasoning'], description: 'Suy luận từng bước giải quyết bài toán khó' },
-    { id: 'gpt-4.5-preview', name: 'GPT-4.5 Preview', badges: ['High Quality', 'Large Context'], description: 'Khả năng hiểu ngữ cảnh sâu và kiến trúc phức tạp' },
-    { id: 'gpt-4o', name: 'GPT-4o', badges: ['Omni', 'Fast'], description: 'Cân bằng tốc độ và chất lượng thực thi' },
-    { id: 'gpt-4o-mini', name: 'GPT-4o mini', badges: ['Ultra Fast'], description: 'Mô hình nhỏ gọn tốc độ cao' },
-    { id: 'gpt-oss-120b', name: 'GPT-OSS 120B (Medium)', badges: ['Open Weights', 'Medium'], description: 'Mô hình mã nguồn mở 120B tham số' },
-    { id: 'default', name: 'CLI Default', badges: ['Default'], description: 'Cấu hình mặc định của Codex CLI' },
+    { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', badges: ['High', 'Flagship'], description: 'Flagship GPT-5.6 model for reasoning, research & agentic coding' },
+    { id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra', badges: ['Medium', 'Fast'], description: 'Balanced intelligence and speed for production workloads' },
+    { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', badges: ['Low', 'Ultra Fast'], description: 'Lightweight model optimized for speed and cost efficiency at scale' },
+    { id: 'gpt-5.6-cyber', name: 'GPT-5.6 Cyber', badges: ['Specialized', 'Security'], description: 'Specialized model for security analysis & source code audits' },
+    { id: 'o3-pro', name: 'o3-pro', badges: ['High', 'Deep Reasoning'], description: 'Deep extended reasoning for challenging architecture & algorithmic problems' },
+    { id: 'o3', name: 'o3', badges: ['High', 'Reasoning'], description: 'Powerful multi-step reasoning model from the o-series' },
+    { id: 'o3-mini', name: 'o3-mini', badges: ['Fast Reasoning', 'High'], description: 'High-level logical reasoning with rapid response times' },
+    { id: 'gpt-5', name: 'GPT-5 (Foundational)', badges: ['High', 'Foundational'], description: 'Foundational model of the GPT-5 generation' },
+    { id: 'gpt-4.1', name: 'GPT-4.1', badges: ['Balanced', 'Fast'], description: 'High-performance version optimized for daily coding tasks' },
+    { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', badges: ['Ultra Fast'], description: 'Ultra-lightweight model with high execution speed' },
+    { id: 'o1', name: 'o1', badges: ['Deep Reasoning'], description: 'Step-by-step reasoning for complex problem solving' },
+    { id: 'gpt-4.5-preview', name: 'GPT-4.5 Preview', badges: ['High Quality', 'Large Context'], description: 'Deep context comprehension and complex architecture understanding' },
+    { id: 'gpt-4o', name: 'GPT-4o', badges: ['Omni', 'Fast'], description: 'Balanced execution speed and output quality' },
+    { id: 'gpt-4o-mini', name: 'GPT-4o mini', badges: ['Ultra Fast'], description: 'Compact model with high execution speed' },
+    { id: 'gpt-oss-120b', name: 'GPT-OSS 120B (Medium)', badges: ['Open Weights', 'Medium'], description: '120B-parameter open-weights model' },
+    { id: 'default', name: 'CLI Default', badges: ['Default'], description: 'Default Codex CLI configuration' },
   ],
 };
 
@@ -250,21 +250,21 @@ const activeWorkingStatus = computed(() => {
     if (activeProcessCard.value.type === 'tool_execution') {
       const tool = activeProcessCard.value.toolName || 'tool';
       const cmd = activeProcessCard.value.command ? ` · ${activeProcessCard.value.command}` : '';
-      return `Đang thực thi công cụ: ${tool}${cmd}`;
+      return `Executing tool: ${tool}${cmd}`;
     }
     if (activeProcessCard.value.type === 'command_execution') {
-      return `Đang thực thi lệnh: ${activeProcessCard.value.command || 'terminal'}`;
+      return `Executing command: ${activeProcessCard.value.command || 'terminal'}`;
     }
   }
-  return 'Local agent đang đọc ngữ cảnh và chuẩn bị phản hồi…';
+  return 'Local agent is reading context and preparing response…';
 });
 const composerPlaceholder = computed(() => {
-  if (phase.value === 'running') return `Agent đang xử lý turn (${formattedDuration.value})… Bạn có thể gửi thêm ghi chú`;
-  if (workflowMode.value === 'discovery') return 'Bạn muốn xây dựng hoặc thay đổi điều gì?';
-  if (workflowMode.value === 'task') return selectedTask.value ? 'Ghi chú thêm cho task này (tuỳ chọn)…' : 'Chọn task ở cột trái trước.';
-  return 'Giới hạn phạm vi tài liệu cần quét (tuỳ chọn)…';
+  if (phase.value === 'running') return `Agent processing turn (${formattedDuration.value})… You can send additional notes`;
+  if (workflowMode.value === 'discovery') return 'What would you like to build or change?';
+  if (workflowMode.value === 'task') return selectedTask.value ? 'Additional notes for this task (optional)…' : 'Select a task from the left sidebar first.';
+  return 'Scope documentation scan (optional)…';
 });
-const composerActionLabel = computed(() => phase.value === 'running' ? 'Gửi' : phase.value === 'ready' && workflowMode.value === 'task' ? 'Khởi chạy agent' : workflowMode.value === 'discovery' ? 'Phân tích' : workflowMode.value === 'docs' ? 'Tạo docs' : 'Chuẩn bị task');
+const composerActionLabel = computed(() => phase.value === 'running' ? 'Send' : phase.value === 'ready' && workflowMode.value === 'task' ? 'Launch Agent' : workflowMode.value === 'discovery' ? 'Analyze' : workflowMode.value === 'docs' ? 'Generate Docs' : 'Prepare Task');
 
 watch(
   () => props.projects,
@@ -378,7 +378,7 @@ const saveWorkspaceState = () => {
         sourceWorkspace: sourceWorkspace.value,
         worktree: worktree.value,
         taskId: taskId.value,
-        taskTitle: selectedTask.value?.title || (workflowMode.value === 'discovery' ? 'Requirement Discovery' : docsOnly.value ? 'Tạo bộ tài liệu Repo (Docs)' : undefined),
+        taskTitle: selectedTask.value?.title || (workflowMode.value === 'discovery' ? 'Requirement Discovery' : docsOnly.value ? 'Repo Documentation (Docs)' : undefined),
         issueKey: selectedTask.value?.issue_key,
         mode: 'exec',
         kind: workflowMode.value === 'discovery' ? 'discovery' : docsOnly.value ? 'docs' : 'task',
@@ -421,7 +421,7 @@ const loadCachedTasks = () => {
       }
     }
   } catch (e) {
-    console.warn('Lỗi đọc cache tasks:', e);
+    console.warn('Error reading task cache:', e);
   }
 };
 
@@ -447,7 +447,7 @@ const refreshAgentTasks = async () => {
         if (json.success && Array.isArray(json.data)) {
           localTasks.value = json.data;
           try { localStorage.setItem(TASKS_CACHE_KEY, JSON.stringify(json.data)); } catch {}
-          addTimeline('Tasks refreshed', `Đã đồng bộ ${json.data.length} nhiệm vụ mới nhất từ Task Hub.`, 'ok');
+          addTimeline('Tasks refreshed', `Synced ${json.data.length} latest tasks from Task Hub.`, 'ok');
         }
       } else if (res.status === 404 || res.status === 401) {
         loadCachedTasks();
@@ -456,7 +456,7 @@ const refreshAgentTasks = async () => {
       loadCachedTasks();
     }
   } catch (e: any) {
-    console.warn('Lỗi làm mới tasks, sử dụng fallback cache:', e);
+    console.warn('Error refreshing tasks, using fallback cache:', e);
     loadCachedTasks();
   } finally {
     isRefreshingTasks.value = false;
@@ -472,15 +472,15 @@ const busy = computed(() => ['preflight', 'pairing', 'context'].includes(phase.v
 
 const phaseLabel = computed(() => {
   const map: Record<Phase, string> = {
-    select: 'Chuẩn bị',
+    select: 'Prepare',
     preflight: 'Preflight',
-    pairing: 'Kết nối Task Hub',
-    context: 'Nạp Context & MCP',
-    ready: 'Sẵn sàng khởi chạy',
-    running: workflowMode.value === 'discovery' ? 'Đang phân tích requirement' : docsOnly.value ? 'Đang tạo tài liệu' : 'Agent đang chạy',
-    handoff: 'Bàn giao & Nghiệm thu',
-    review: 'Review kết quả',
-    error: 'Cần chú ý',
+    pairing: 'Task Hub Pairing',
+    context: 'Context & MCP Load',
+    ready: 'Ready to Launch',
+    running: workflowMode.value === 'discovery' ? 'Analyzing Requirements' : docsOnly.value ? 'Generating Docs' : 'Agent Running',
+    handoff: 'Handoff & Review',
+    review: 'Review Results',
+    error: 'Action Required',
   };
   return map[phase.value];
 });
@@ -511,25 +511,25 @@ const discoveryPlanResult = computed(() => parseDiscoveryPlan(latestDiscoveryAge
 const parsedDiscoveryPlan = computed(() => discoveryPlanResult.value.plan);
 const discoveryPlanErrors = computed(() => discoveryPlanResult.value.errors);
 const discoveryPlan = computed(() => parsedDiscoveryPlan.value || {
-  summary: discoveryPlanErrors.value?.[0] || 'Chưa có kế hoạch hợp lệ.',
+  summary: discoveryPlanErrors.value?.[0] || 'No valid plan generated.',
   assumptions: [] as string[],
   affected_docs: [] as string[],
   architecture_notes: [] as string[],
   risks: [] as string[],
-  epic: { title: 'Kế hoạch cần chuẩn hoá' },
+  epic: { title: 'Plan Requires Normalization' },
   stories: [] as Array<{ title: string; story_points: number; acceptance_criteria: string[]; tasks: Array<{ ref: string; title: string; story_points: number; acceptance_criteria: string[]; depends_on: string[] }> }>,
 });
 const isDiscoveryPlanValid = computed(() => Boolean(parsedDiscoveryPlan.value && discoveryPlanErrors.value.length === 0));
 const discoveryTotalPoints = computed(() => discoveryPlan.value.stories.reduce((total, story) => total + story.story_points, 0));
 const discoveryTaskCount = computed(() => discoveryPlan.value.stories.reduce((total, story) => total + story.tasks.length, 0));
-const workflowTitle = computed(() => workflowMode.value === 'discovery' ? 'Requirement' : workflowMode.value === 'docs' ? 'Tài liệu Repo' : 'Thực thi Task');
+const workflowTitle = computed(() => workflowMode.value === 'discovery' ? 'Requirement Discovery' : workflowMode.value === 'docs' ? 'Repo Documentation' : 'Task Execution');
 
 const requestDiscoveryPlanCorrection = () => {
   if (!sessionId.value) {
-    errorMessage.value = 'Phiên agent đã đóng trước khi trả lời. Hãy chạy lại phân tích để tạo một phiên mới.';
+    errorMessage.value = 'Agent session closed before responding. Please rerun analysis to create a new session.';
     return;
   }
-  followUp.value = 'Hãy sửa kế hoạch theo Task Hub contract: trả về đầy đủ payload <task-hub-discovery-plan> JSON hợp lệ, story point Fibonacci, acceptance criteria và dependency refs hợp lệ ở cuối phản hồi.';
+  followUp.value = 'Please fix the plan according to the Task Hub contract: output a valid <task-hub-discovery-plan> JSON payload with Fibonacci story points, acceptance criteria, and valid dependency refs at the end of the response.';
   sendFollowUp();
   phase.value = 'running';
 };
@@ -637,7 +637,7 @@ const syncAvailableModels = async (forceRefresh = false) => {
       const available = modelsState.value[provider.value] || [];
       if (available.length && !available.some((model: any) => model.id === selectedModels.value[provider.value])) {
         selectedModels.value[provider.value] = available[0].id;
-        addTimeline('Model updated', `Đã thay model cũ bằng ${available[0].name || available[0].id} do AGY CLI không còn hỗ trợ model trước đó.`, 'warning');
+        addTimeline('Model updated', `Replaced legacy model with ${available[0].name || available[0].id} as AGY CLI no longer supports the previous model.`, 'warning');
       }
       if (res.syncedAt) {
         modelSyncTimestamp.value = new Date(res.syncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -759,7 +759,7 @@ const refreshQuotaUsage = async () => {
     const res = await (window as any).desktopApi?.agent?.syncQuotaUsage?.(localStorage.getItem('task_companion_hub_url') || undefined);
     if (res) {
       quotaUsageState.value = { ...quotaUsageState.value, ...res };
-      addTimeline('Quota synced', 'Đã đồng bộ thông số Quota & Rate limits mới nhất.', 'ok');
+      addTimeline('Quota synced', 'Synced latest Quota & Rate limits metrics.', 'ok');
     }
   } catch (err) {
     console.warn('Failed to refresh quota:', err);
@@ -819,28 +819,28 @@ const addManualWorkspacePath = async () => {
     manualWorkspaceInput.value = '';
     addTimeline('Workspace added', p, 'ok');
   } catch (err: any) {
-    errorMessage.value = err?.message || 'Đường dẫn thư mục không hợp lệ.';
+    errorMessage.value = err?.message || 'Invalid directory path.';
   }
 };
 
 // Antigravity 2.0 Subagents & Tasks tracking state
 const activeSubagents = ref<Array<{ id: string; role: string; type: string; model: string; state: string; stateDetail?: string }>>([
-  { id: 'sub-self-01', role: 'Code Refactor Specialist', type: 'self', model: 'Gemini 3.7 Flash', state: 'idle', stateDetail: 'Sẵn sàng tiếp nhận nhiệm vụ chuyên sâu' },
-  { id: 'sub-research-01', role: 'Codebase Researcher', type: 'research', model: 'Gemini 3.7 Flash', state: 'idle', stateDetail: 'Sẵn sàng khảo sát tài liệu và mã nguồn' }
+  { id: 'sub-self-01', role: 'Code Refactor Specialist', type: 'self', model: 'Gemini 3.7 Flash', state: 'idle', stateDetail: 'Ready for specialized tasks' },
+  { id: 'sub-research-01', role: 'Codebase Researcher', type: 'research', model: 'Gemini 3.7 Flash', state: 'idle', stateDetail: 'Ready to survey documentation and codebase' }
 ]);
 
 const activeBackgroundTasks = ref<Array<{ id: string; name: string; status: 'running' | 'completed' | 'failed'; duration: string; progress?: string }>>([]);
 
 // Antigravity 2.0 Slash Commands
 const slashCommands = [
-  { cmd: '/goal', label: '/goal', desc: 'Thực thi tự động dài hạn đến khi hoàn thành mục tiêu', icon: 'codicon-milestone' },
-  { cmd: '/schedule', label: '/schedule', desc: 'Lên lịch hẹn thực thi định kỳ hoặc hẹn giờ 1 lần', icon: 'codicon-history' },
-  { cmd: '/browser', label: '/browser', desc: 'Tự động hóa trình duyệt và trích xuất dữ liệu web', icon: 'codicon-globe' },
-  { cmd: '/grill-me', label: '/grill-me', desc: 'Phỏng vấn chi tiết để làm rõ yêu cầu thiết kế và kiến trúc', icon: 'codicon-comment-discussion' },
-  { cmd: '/teamwork-preview', label: '/teamwork-preview', desc: 'Phối hợp đa agent thực thi song song theo nhóm', icon: 'codicon-organization' },
-  { cmd: '/learn', label: '/learn', desc: 'Lưu ghi nhớ và bài học kinh nghiệm vào project rules', icon: 'codicon-book' },
-  { cmd: '/diff', label: '/diff', desc: 'Mở trình soi mã nguồn Monaco Diff Inspector', icon: 'codicon-diff' },
-  { cmd: '/clear', label: '/clear', desc: 'Xóa sạch màn hình Terminal stream', icon: 'codicon-clear-all' },
+  { cmd: '/goal', label: '/goal', desc: 'Autonomous long-horizon execution until goal completion', icon: 'codicon-milestone' },
+  { cmd: '/schedule', label: '/schedule', desc: 'Schedule recurring cron or one-shot timer execution', icon: 'codicon-history' },
+  { cmd: '/browser', label: '/browser', desc: 'Automate browser interactions and web data extraction', icon: 'codicon-globe' },
+  { cmd: '/grill-me', label: '/grill-me', desc: 'Interactive interview to clarify design and architecture requirements', icon: 'codicon-comment-discussion' },
+  { cmd: '/teamwork-preview', label: '/teamwork-preview', desc: 'Multi-agent team coordination with parallel execution', icon: 'codicon-organization' },
+  { cmd: '/learn', label: '/learn', desc: 'Extract lessons and persist guidelines to project rules', icon: 'codicon-book' },
+  { cmd: '/diff', label: '/diff', desc: 'Open Monaco Diff Inspector', icon: 'codicon-diff' },
+  { cmd: '/clear', label: '/clear', desc: 'Clear terminal stream output', icon: 'codicon-clear-all' },
 ];
 
 const showSlashMenu = ref(false);
@@ -871,7 +871,7 @@ watch(
 
 const startNewConversation = () => {
   if (phase.value === 'running') {
-    const ok = confirm('Agent đang chạy. Bạn có muốn dừng phiên hiện tại và bắt đầu phiên mới?');
+    const ok = confirm('Agent is currently running. Stop current session and start a new one?');
     if (!ok) return;
     void stopAgent();
   }
@@ -883,7 +883,7 @@ const startNewConversation = () => {
   activeEditorTab.value = 'terminal';
   selectedDiffFile.value = null;
   selectedEditorFile.value = null;
-  addTimeline('New Session', 'Đã khởi tạo phiên làm việc mới của Antigravity 2.0', 'ok');
+  addTimeline('New Session', 'Initialized new Antigravity 2.0 session', 'ok');
 };
 
 const activeCwd = computed(() => worktree.value || sourceWorkspace.value || '');
@@ -957,21 +957,21 @@ const loadGitDiff = async () => {
 const revertDiffFile = async (filePath: string) => {
   const dir = activeCwd.value;
   if (!dir || !filePath) return;
-  const ok = confirm(`Bạn có chắc muốn khôi phục (revert) tệp "${filePath}" về trạng thái trước khi Agent sửa đổi?`);
+  const ok = confirm(`Are you sure you want to revert "${filePath}" to its state before agent modification?`);
   if (!ok) return;
   try {
     const res = await (window as any).desktopApi?.agent?.revertFile?.(dir, filePath);
     if (res?.success) {
-      addTimeline('File Reverted', `Đã khôi phục file: ${filePath}`, 'ok');
+      addTimeline('File Reverted', `Reverted file: ${filePath}`, 'ok');
       await loadGitDiff();
       if (selectedDiffFile.value?.file === filePath) {
         selectedDiffFile.value = gitDiffData.value.diffs[0] || null;
       }
     } else {
-      errorMessage.value = res?.message || 'Không thể revert file.';
+      errorMessage.value = res?.message || 'Failed to revert file.';
     }
   } catch (err: any) {
-    errorMessage.value = err.message || 'Lỗi khi revert file.';
+    errorMessage.value = err.message || 'Error reverting file.';
   }
 };
 
@@ -980,7 +980,7 @@ const populateHandoffFromDiff = () => {
   const fileList = gitDiffData.value.diffs.map((d: any) => `${d.file} (+${d.additions || 0} -${d.deletions || 0})`).join('\n');
   handoff.value.changedFiles = fileList;
   if (!handoff.value.summary) {
-    handoff.value.summary = `Agent đã hoàn thành sửa đổi trên ${gitDiffData.value.totalChangedFiles || gitDiffData.value.diffs.length} tệp tin (+${gitDiffData.value.totalAdditions || 0} / -${gitDiffData.value.totalDeletions || 0} dòng).`;
+    handoff.value.summary = `Agent completed changes on ${gitDiffData.value.totalChangedFiles || gitDiffData.value.diffs.length} files (+${gitDiffData.value.totalAdditions || 0} / -${gitDiffData.value.totalDeletions || 0} lines).`;
   }
   activeEditorTab.value = 'evidence';
 };
@@ -1263,10 +1263,10 @@ const switchSession = async (sess: any) => {
     if (active) {
       phase.value = 'running';
       startDurationTimer();
-      addTimeline('Session resumed', `Đang tiếp tục phiên nền ${sess.provider}...`, 'ok');
+      addTimeline('Session resumed', `Resuming background session ${sess.provider}...`, 'ok');
     } else {
       phase.value = workflowMode.value === 'discovery' || sess.kind === 'docs' ? 'review' : 'handoff';
-      addTimeline('Session loaded', `Đã mở lại dữ liệu phiên ${sess.sessionId.slice(0, 16)}...`, 'ok');
+      addTimeline('Session loaded', `Reopened session data ${sess.sessionId.slice(0, 16)}...`, 'ok');
     }
   } catch {
     phase.value = workflowMode.value === 'discovery' || sess.kind === 'docs' ? 'review' : 'handoff';
@@ -1359,7 +1359,7 @@ const restoreWorkspaceState = async () => {
   // looking approvable after an upgrade.
   if (workflowMode.value === 'discovery' && phase.value === 'review' && !hasDiscoveryAgentResponse.value) {
     phase.value = 'error';
-    errorMessage.value = 'Kế hoạch cũ không có phản hồi từ agent. Hãy chạy lại phân tích để tạo plan mới.';
+    errorMessage.value = 'Previous plan has no agent response. Please rerun analysis to generate a new plan.';
   }
 
   // Refresh saved sessions list
@@ -1379,13 +1379,13 @@ const restoreWorkspaceState = async () => {
         active.events.forEach((ev: any) => handleStreamEvent({ event: ev }));
       }
       startDurationTimer();
-      addTimeline('Session reconnected', `Đang kết nối lại phiên ${active.provider}...`, 'ok');
+      addTimeline('Session reconnected', `Reconnecting to session ${active.provider}...`, 'ok');
     } else if (phase.value === 'running') {
       stopDurationTimer();
       if (workflowMode.value === 'discovery' || docsOnly.value) {
         if (workflowMode.value === 'discovery' && !hasDiscoveryAgentResponse.value) {
           phase.value = 'error';
-          errorMessage.value = 'Phiên agent trước đã kết thúc nhưng không có phản hồi để tạo kế hoạch. Hãy chạy lại phân tích.';
+          errorMessage.value = 'Previous agent session ended without a plan response. Please rerun analysis.';
           addTimeline('Discovery response missing', errorMessage.value, 'error');
         } else {
           phase.value = 'review';
@@ -1428,7 +1428,7 @@ const startNewRun = () => {
     pullRequestUrl: '',
     blockers: '',
   };
-  addTimeline('New run started', 'Đã khởi tạo lại không gian làm việc mới.', 'muted');
+  addTimeline('New run started', 'Initialized fresh workspace environment.', 'muted');
   saveWorkspaceState();
 };
 
@@ -1684,20 +1684,20 @@ const clearTerminal = () => {
   terminalHtml.value = '';
   plainOutput.value = '';
   streamCards.value = [];
-  addTimeline('Logs cleared', 'Đã làm mới màn hình logs và cards.', 'muted');
+  addTimeline('Logs cleared', 'Cleared logs and cards screen.', 'muted');
 };
 
 const copyTerminalOutput = async () => {
   const text = plainOutput.value || stripAnsiToPlainText(rawOutput.value);
   if (!text) return;
   await navigator.clipboard.writeText(text);
-  addTimeline('Logs copied', 'Toàn bộ nội dung terminal đã được sao chép.', 'ok');
+  addTimeline('Logs copied', 'Full terminal content copied to clipboard.', 'ok');
 };
 
 const copyCardText = async (text?: string) => {
   if (!text) return;
   await navigator.clipboard.writeText(text);
-  addTimeline('Message copied', 'Đã sao chép phản hồi của agent.', 'ok');
+  addTimeline('Message copied', 'Agent response copied to clipboard.', 'ok');
 };
 
 const startDurationTimer = () => {
@@ -1762,21 +1762,21 @@ const runQuickSetup = async () => {
     setupState.value.checks.forEach((check: any) => addTimeline(`Setup · ${check.id}`, check.message, check.status));
   } catch (error: any) {
     setupState.value = { ok: false, checks: [{ id: 'setup', status: 'failed', message: error.message || 'Local setup failed.' }] };
-    addTimeline('Setup error', error.message || 'Lỗi khi setup môi trường.', 'error');
+    addTimeline('Setup error', error.message || 'Error setting up environment.', 'error');
   } finally {
     setupBusy.value = false;
   }
 };
 
 const mcpCall = (method: string, params: Record<string, any> = {}) => {
-  if (!credential.value) throw new Error('Task Hub chưa được xác thực.');
+  if (!credential.value) throw new Error('Task Hub is not authenticated.');
   return window.desktopApi.taskHub.mcpCall(taskHubUrl.value, credential.value.token, credential.value.projectId, method, params);
 };
 
 const readMcpText = (response: any) => {
   if (response?.error) throw new Error(response.error.message || 'MCP request failed.');
   const text = response?.result?.content?.find((item: any) => item.type === 'text')?.text;
-  if (!text) throw new Error('MCP không trả về dữ liệu.');
+  if (!text) throw new Error('MCP returned no data.');
   return JSON.parse(text);
 };
 
@@ -1789,7 +1789,7 @@ const verifyTaskHub = async () => {
   const response = await window.desktopApi.taskHub.getCapabilities(taskHubUrl.value);
   const capabilities = response?.data;
   if (capabilities?.api_version !== 'v1') {
-    throw new Error('Task Hub server không hỗ trợ API v1. Hãy nâng cấp server hoặc chọn URL khác.');
+    throw new Error('Task Hub server does not support API v1. Please upgrade server or select another URL.');
   }
   localStorage.setItem('task_hub_base_url', taskHubUrl.value.replace(/\/$/, ''));
   addTimeline('Server compatible', `Task Hub API ${capabilities.api_version}`, 'ok');
@@ -1810,14 +1810,14 @@ const approvedBacklogPrompt = () =>
 const startPairing = async () => {
   if (!selectedTask.value) return;
   phase.value = 'pairing';
-  addTimeline('Pairing', 'Chờ phê duyệt xác thực Task Hub...', 'active');
+  addTimeline('Pairing', 'Awaiting Task Hub authentication approval...', 'active');
   await verifyTaskHub();
   const pairing = await window.desktopApi.taskHub.startPairing(taskHubUrl.value, selectedTask.value.project_id);
   await window.desktopApi.openExternal(pairing.approval_url);
   const started = Date.now();
   pollTimer = setInterval(async () => {
     try {
-      if (Date.now() - started > 600000) throw new Error('Pairing đã hết hạn.');
+      if (Date.now() - started > 600000) throw new Error('Pairing timed out.');
       const status = await window.desktopApi.taskHub.pollPairing(taskHubUrl.value, pairing.pairing_id, pairing.device_secret);
       if (status.status === 'approved') {
         stopPolling();
@@ -1839,12 +1839,12 @@ const startPairing = async () => {
 const runPreflight = async (initialRequest = '') => {
   errorMessage.value = '';
   if (!selectedTask.value?.project_id) {
-    errorMessage.value = 'Vui lòng chọn một task từ danh sách trước khi bắt đầu.';
+    errorMessage.value = 'Please select a task from the list before starting.';
     return;
   }
   if (!sourceWorkspace.value) await chooseWorkspace();
   if (!sourceWorkspace.value) {
-    errorMessage.value = 'Vui lòng chọn thư mục Git repository trên máy.';
+    errorMessage.value = 'Please select a local Git repository directory.';
     return;
   }
   phase.value = 'preflight';
@@ -1852,18 +1852,18 @@ const runPreflight = async (initialRequest = '') => {
     pendingInitialRequest.value = initialRequest;
     beginConversationRun(initialRequest);
   }
-  addTimeline('Preflight', `Kiểm tra ${provider.value} (${activeModel.value}) và repository...`, 'active');
+  addTimeline('Preflight', `Checking ${provider.value} (${activeModel.value}) and repository...`, 'active');
   try {
     preflight.value = await window.desktopApi.agent.preflight(provider.value, sourceWorkspace.value);
     preflight.value.checks.forEach((check: any) => addTimeline(check.id, check.message, check.status));
-    if (!preflight.value.ok) throw new Error('Preflight chưa đạt. Xử lý các mục cảnh báo/lỗi rồi thử lại.');
+    if (!preflight.value.ok) throw new Error('Preflight failed. Address warnings/errors and retry.');
 
     const workspace = await window.desktopApi.agent.createWorktree(
       preflight.value.repository,
       selectedTask.value.issue_key || `task-${selectedTask.value.id}`
     );
     worktree.value = workspace.path;
-    addTimeline('Worktree ready', `${workspace.branch} · ${workspace.reused ? 'đã tồn tại' : 'tạo mới'}`, 'ok');
+    addTimeline('Worktree ready', `${workspace.branch} · ${workspace.reused ? 'reused' : 'created'}`, 'ok');
 
     if (props.desktopCredential) {
       credential.value = { token: props.desktopCredential.token, projectId: props.desktopCredential.projectId };
@@ -1873,7 +1873,7 @@ const runPreflight = async (initialRequest = '') => {
     }
   } catch (error: any) {
     phase.value = 'error';
-    errorMessage.value = error.message || 'Preflight thất bại.';
+    errorMessage.value = error.message || 'Preflight failed.';
     addTimeline('Preflight failed', error.message, 'error');
   }
 };
@@ -1883,25 +1883,25 @@ const startDocsGeneration = async (scopeNote = '', initialRequest = '') => {
   workflowMode.value = 'docs';
   docsOnly.value = true;
   if (!docsProjectId.value) {
-    errorMessage.value = 'Chọn Repo/Project trên Task Hub trước khi quét và đồng bộ tài liệu.';
+    errorMessage.value = 'Select Repo/Project on Task Hub before scanning and syncing documentation.';
     return;
   }
   if (!sourceWorkspace.value) await chooseWorkspace();
   if (!sourceWorkspace.value) {
     docsOnly.value = false;
-    errorMessage.value = 'Vui lòng chọn thư mục Git repository.';
+    errorMessage.value = 'Please select a Git repository directory.';
     return;
   }
   phase.value = 'preflight';
-  addTimeline('Docs scan', `Kiểm tra ${provider.value} (${activeModel.value}) và repository...`, 'active');
+  addTimeline('Docs scan', `Checking ${provider.value} (${activeModel.value}) and repository...`, 'active');
   try {
     preflight.value = await window.desktopApi.agent.preflight(provider.value, sourceWorkspace.value);
     preflight.value.checks.forEach((check: any) => addTimeline(check.id, check.message, check.status));
-    if (!preflight.value.ok) throw new Error('Preflight chưa đạt. Kiểm tra lại môi trường.');
+    if (!preflight.value.ok) throw new Error('Preflight checks failed. Please check environment.');
 
     const workspace = await window.desktopApi.agent.createWorktree(preflight.value.repository, 'docs-from-repo');
     worktree.value = workspace.path;
-    addTimeline('Docs worktree', `${workspace.branch} · ${workspace.reused ? 'reused' : 'tạo mới'}`, 'ok');
+    addTimeline('Docs worktree', `${workspace.branch} · ${workspace.reused ? 'reused' : 'created'}`, 'ok');
 
     phase.value = 'running';
     beginConversationRun(initialRequest || buildInitialRequest({ mode: 'docs', projectTitle: selectedDocsProject.value?.title, note: scopeNote }));
@@ -1913,19 +1913,19 @@ const startDocsGeneration = async (scopeNote = '', initialRequest = '') => {
     localStorage.setItem('task_companion_active_session', result.sessionId);
 
     if (result.mode === 'external') {
-      rawOutput.value = `Agent đang chạy trong ứng dụng bên ngoài (Antigravity · ${activeModel.value}). Hãy hoàn tất rồi dừng phiên để review.\n`;
+      rawOutput.value = `Agent is running in external application (Antigravity · ${activeModel.value}). Complete execution then stop session to review.\n`;
       updateTerminalRender();
     }
     addTimeline(
       'Docs agent started',
-      result.mode === 'external' ? `Prompt đã gửi cho Antigravity (${activeModel.value}).` : `${provider.value} (${activeModel.value}) đang quét repository và tạo tài liệu...`,
+      result.mode === 'external' ? `Prompt sent to Antigravity (${activeModel.value}).` : `${provider.value} (${activeModel.value}) is scanning repository and generating documentation...`,
       'ok'
     );
   } catch (error: any) {
     docsOnly.value = false;
     stopDurationTimer();
     phase.value = 'error';
-    errorMessage.value = error.message || 'Không thể khởi động docs agent.';
+    errorMessage.value = error.message || 'Failed to launch docs agent.';
     addTimeline('Docs agent error', error.message, 'error');
   }
 };
@@ -1935,24 +1935,24 @@ const startRequirementDiscovery = async (initialRequest = '') => {
   workflowMode.value = 'discovery';
   docsOnly.value = false;
   if (!props.desktopCredential || !docsProjectId.value) {
-    errorMessage.value = 'Kết nối Task Hub và chọn Repo/Project trước khi phân tích requirement.';
+    errorMessage.value = 'Connect Task Hub and select Repo/Project before analyzing requirements.';
     return;
   }
   if (!requirementText.value.trim()) {
-    errorMessage.value = 'Nhập requirement ngắn để agent phân tích.';
+    errorMessage.value = 'Enter a requirement description for the agent to analyze.';
     return;
   }
   if (!sourceWorkspace.value) await chooseWorkspace();
   if (!sourceWorkspace.value) {
-    errorMessage.value = 'Chọn thư mục Git repository trước khi bắt đầu.';
+    errorMessage.value = 'Select a Git repository directory before starting.';
     return;
   }
   phase.value = 'preflight';
-  addTimeline('Requirement discovery', `Đang chuẩn bị ${provider.value} (${activeModel.value}) với docs Repo và MCP...`, 'active');
+  addTimeline('Requirement discovery', `Preparing ${provider.value} (${activeModel.value}) with Repo docs and MCP...`, 'active');
   try {
     preflight.value = await window.desktopApi.agent.preflight(provider.value, sourceWorkspace.value);
     preflight.value.checks.forEach((check: any) => addTimeline(check.id, check.message, check.status));
-    if (!preflight.value.ok) throw new Error('Preflight chưa đạt. Kiểm tra lại môi trường.');
+    if (!preflight.value.ok) throw new Error('Preflight checks failed. Please check environment.');
     const workspace = await window.desktopApi.agent.createWorktree(preflight.value.repository, 'requirement-discovery');
     worktree.value = workspace.path;
     await window.desktopApi.agent.configureMcp({
@@ -1970,14 +1970,14 @@ const startRequirementDiscovery = async (initialRequest = '') => {
     sessionId.value = result.sessionId;
     localStorage.setItem('task_companion_active_session', result.sessionId);
     if (result.mode === 'external') {
-      rawOutput.value = `Agent đang chạy trong ứng dụng bên ngoài (${provider.value}). Hoàn tất phân tích rồi bấm Dừng để review.\n`;
+      rawOutput.value = `Agent is running in external application (${provider.value}). Complete analysis then click Stop to review.\n`;
       updateTerminalRender();
     }
-    addTimeline('Discovery agent started', 'Local agent đang đọc docs, repository và Task Hub MCP; chưa tạo backlog.', 'ok');
+    addTimeline('Discovery agent started', 'Local agent is reading docs, repository and Task Hub MCP; backlog is not created yet.', 'ok');
   } catch (error: any) {
     stopDurationTimer();
     phase.value = 'error';
-    errorMessage.value = error.message || 'Không thể khởi động Requirement Discovery.';
+    errorMessage.value = error.message || 'Failed to launch Requirement Discovery.';
     addTimeline('Discovery error', errorMessage.value, 'error');
   }
 };
@@ -1997,7 +1997,7 @@ const repairEnvironment = async () => {
   if (!sourceWorkspace.value) return;
   setupBusy.value = true;
   errorMessage.value = '';
-  addTimeline('Environment repair', 'Đang tự sửa .env, dependencies và Git worktree metadata an toàn...', 'active');
+  addTimeline('Environment repair', 'Safely auto-repairing .env, dependencies and Git worktree metadata...', 'active');
   try {
     const result = await window.desktopApi.agent.repairEnvironment(provider.value, sourceWorkspace.value);
     setupState.value = result;
@@ -2005,14 +2005,14 @@ const repairEnvironment = async () => {
     result.checks.forEach((check: any) => addTimeline(`Repair · ${check.id}`, check.message, check.status));
     if (result.ok) {
       phase.value = 'select';
-      addTimeline('Environment ready', 'Môi trường đã được sửa và kiểm tra lại. Có thể bắt đầu preflight.', 'ok');
+      addTimeline('Environment ready', 'Environment repaired and rechecked. Ready for preflight.', 'ok');
     } else {
       phase.value = 'error';
-      errorMessage.value = 'Vẫn còn mục cần xử lý thủ công. Xem chi tiết trong danh sách kiểm tra.';
+      errorMessage.value = 'Some items still require manual resolution. See checklist for details.';
     }
   } catch (error: any) {
     phase.value = 'error';
-    errorMessage.value = error.message || 'Không thể tự sửa môi trường.';
+    errorMessage.value = error.message || 'Failed to auto-repair environment.';
     addTimeline('Environment repair failed', errorMessage.value, 'error');
   } finally {
     setupBusy.value = false;
@@ -2022,7 +2022,7 @@ const repairEnvironment = async () => {
 const createApprovedBacklog = async () => {
   if (!props.desktopCredential || !docsProjectId.value || !requirementText.value.trim() || !worktree.value) return;
   if (!isDiscoveryPlanValid.value) {
-    errorMessage.value = 'Kế hoạch chưa hợp lệ. Hãy yêu cầu local agent sửa trước khi tạo backlog.';
+    errorMessage.value = 'Plan is not valid. Please request local agent to correct it before creating backlog.';
     addTimeline('Backlog blocked', errorMessage.value, 'warning');
     return;
   }
@@ -2043,11 +2043,11 @@ const createApprovedBacklog = async () => {
     const result = await window.desktopApi.agent.startInteractive(provider.value, worktree.value, approvedBacklogPrompt(), 'task', activeModel.value);
     sessionId.value = result.sessionId;
     localStorage.setItem('task_companion_active_session', result.sessionId);
-    addTimeline('Backlog creation started', 'Đã được duyệt: local agent đang tạo Epic, Story và Task qua Task Hub MCP.', 'active');
+    addTimeline('Backlog creation started', 'Approved: local agent is creating Epic, Story and Tasks via Task Hub MCP.', 'active');
   } catch (error: any) {
     stopDurationTimer();
     phase.value = 'review';
-    errorMessage.value = error.message || 'Không thể tạo backlog.';
+    errorMessage.value = error.message || 'Failed to create backlog.';
     addTimeline('Backlog creation error', errorMessage.value, 'error');
   }
 };
@@ -2083,13 +2083,13 @@ const loadContext = async () => {
       })
     );
     runId.value = run?.data?.id || run?.id || null;
-    addTimeline('Context ready', `Nạp Context pack + cấu hình MCP thành công (Full Access · ${activeModel.value}).`, 'ok');
+    addTimeline('Context ready', `Loaded Context pack + MCP configured successfully (Full Access · ${activeModel.value}).`, 'ok');
     phase.value = 'ready';
   } catch (error: any) {
     phase.value = 'error';
-    const rawMsg = error.message || 'Không thể chuẩn bị agent run.';
-    if (rawMsg.includes('không tồn tại') || rawMsg.includes('ModelNotFoundException') || rawMsg.includes('No query results')) {
-      errorMessage.value = `Nhiệm vụ #${selectedTask.value.issue_key || selectedTask.value.id} không tìm thấy trên Task Hub (có thể do DB được làm mới). Đang tự động làm mới danh sách nhiệm vụ...`;
+    const rawMsg = error.message || 'Failed to prepare agent run.';
+    if (rawMsg.includes('does not exist') || rawMsg.includes('ModelNotFoundException') || rawMsg.includes('No query results')) {
+      errorMessage.value = `Task #${selectedTask.value.issue_key || selectedTask.value.id} not found on Task Hub. Refreshing task list...`;
       addTimeline('Context error', errorMessage.value, 'error');
       void refreshAgentTasks();
     } else {
@@ -2138,7 +2138,7 @@ const startAgent = async () => {
 
     addTimeline(
       'Agent started',
-      result.mode === 'external' ? `Antigravity (${activeModel.value}) đã mở · prompt đã copy.` : `${provider.value} (${activeModel.value}) execution đã kích hoạt với full quyền.`,
+      result.mode === 'external' ? `Antigravity (${activeModel.value}) launched · prompt copied.` : `${provider.value} (${activeModel.value}) execution activated with full permissions.`,
       'ok'
     );
     if (result.mode === 'external') {
@@ -2148,7 +2148,7 @@ const startAgent = async () => {
   } catch (error: any) {
     stopDurationTimer();
     phase.value = 'error';
-    errorMessage.value = error.message || 'Không thể khởi động agent.';
+    errorMessage.value = error.message || 'Failed to launch agent.';
     addTimeline('Agent start error', error.message, 'error');
   }
 };
@@ -2181,7 +2181,7 @@ const sendConversation = () => {
   }
   if (workflowMode.value === 'discovery') {
     if (!note) {
-      errorMessage.value = 'Nhập outcome mong muốn trước khi phân tích.';
+      errorMessage.value = 'Enter desired outcome before analysis.';
       return;
     }
     requirementText.value = note;
@@ -2196,7 +2196,7 @@ const sendConversation = () => {
     return;
   }
   if (!selectedTask.value) {
-    errorMessage.value = 'Chọn Task Hub task ở cột trái trước khi gửi.';
+    errorMessage.value = 'Select a Task Hub task in the left sidebar before sending.';
     return;
   }
   if (phase.value === 'ready') {
@@ -2221,31 +2221,31 @@ const stopAgent = async () => {
     sessionId.value = null;
   }
   if (workflowMode.value === 'discovery') {
-    handoff.value.summary = 'Local agent đã hoàn tất phân tích requirement. Chờ developer duyệt trước khi tạo backlog.';
+    handoff.value.summary = 'Local agent completed requirement analysis. Awaiting developer approval before creating backlog.';
     handoff.value.tests = 'Requirement discovery and Task Hub MCP context review';
     handoff.value.testSummary = 'Plan is ready for human approval.';
-    addTimeline('Discovery review', 'Xem kết quả agent, sau đó duyệt để tạo backlog trên Task Hub.', 'ok');
+    addTimeline('Discovery review', 'Review agent outcome, then approve to create backlog on Task Hub.', 'ok');
     phase.value = 'review';
     return;
   }
   if (docsOnly.value) {
-    handoff.value.summary = 'Agent đã hoàn tất quét repository và tạo các file tài liệu chuẩn docs/.';
+    handoff.value.summary = 'Agent completed repository scan and created standard docs/ files.';
     handoff.value.changedFiles = 'docs/PROJECT_DOCUMENTS.md\ndocs/PROJECT_BRIEF.md\ndocs/PRD.md\ndocs/ARCHITECTURE.md\ndocs/QA_PLAN.md\ndocs/RELEASE_RUNBOOK.md';
     handoff.value.tests = 'Documentation scan & schema verification';
-    handoff.value.testSummary = 'Tài liệu đã được tạo thành công trong worktree.';
-    addTimeline('Docs review', 'Đã dừng phiên tạo docs. Bạn có thể review và sync lên Task Hub.', 'ok');
+    handoff.value.testSummary = 'Documentation generated successfully in worktree.';
+    addTimeline('Docs review', 'Docs generation session stopped. You can review and sync to Task Hub.', 'ok');
     phase.value = 'review';
     return;
   }
   await updateRun('cancelled', 'Agent stopped by user.');
   phase.value = 'handoff';
-  addTimeline('Agent stopped', 'Phiên làm việc đã dừng · chuyển sang handoff.', 'warning');
+  addTimeline('Agent stopped', 'Session stopped · transitioned to handoff.', 'warning');
 };
 
 const completeExternalSession = async () => {
   stopDurationTimer();
   await updateRun('waiting_input', 'External agent completed; structured handoff required.');
-  addTimeline('External session', 'Đã hoàn tất phiên làm việc ngoài · sẵn sàng handoff.', 'ok');
+  addTimeline('External session', 'External session completed · ready for handoff.', 'ok');
   phase.value = 'handoff';
 };
 
@@ -2265,10 +2265,10 @@ const submitHandoff = async () => {
         },
       })
     );
-    addTimeline('Handoff submitted', `Đã submit lên Task Hub · Run ID: ${data?.data?.id || runId.value}`, 'ok');
+    addTimeline('Handoff submitted', `Submitted to Task Hub · Run ID: ${data?.data?.id || runId.value}`, 'ok');
     phase.value = 'review';
   } catch (error: any) {
-    errorMessage.value = error.message || 'Không thể submit handoff.';
+    errorMessage.value = error.message || 'Failed to submit handoff.';
     addTimeline('Handoff error', error.message, 'error');
   }
 };
@@ -2276,7 +2276,7 @@ const submitHandoff = async () => {
 const copyHandoff = async () => {
   const content = `## Task Hub Agent Handoff\n\n**Summary:**\n${handoff.value.summary}\n\n**Changed Files:**\n${handoff.value.changedFiles}\n\n**Tests:**\n- Command: \`${handoff.value.tests}\`\n- Status: ${handoff.value.testStatus}\n- Result: ${handoff.value.testSummary}\n\n**Commit / PR:**\n- Commit: ${handoff.value.commitSha || 'N/A'}\n- PR: ${handoff.value.pullRequestUrl || 'N/A'}\n\n**Blockers:**\n${handoff.value.blockers || 'None'}`;
   await navigator.clipboard.writeText(content);
-  addTimeline('Handoff copied', 'Bản ghi handoff markdown đã được sao chép.', 'ok');
+  addTimeline('Handoff copied', 'Handoff markdown report copied to clipboard.', 'ok');
 };
 
 const isApproving = ref(false);
@@ -2307,16 +2307,16 @@ const approveTaskReview = async () => {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || 'Duyệt task thất bại.');
+        throw new Error(err.message || 'Task approval failed.');
       }
     }
     if (selectedTask.value) {
       selectedTask.value.status = 'done';
     }
-    addTimeline('Task Approved', `Nhiệm vụ ${selectedTask.value?.issue_key || `#${selectedTask.value?.id}`} đã được duyệt hoàn thành (Task Done · Verified).`, 'ok');
+    addTimeline('Task Approved', `Task ${selectedTask.value?.issue_key || `#${selectedTask.value?.id}`} approved successfully (Task Done · Verified).`, 'ok');
     void refreshAgentTasks();
   } catch (err: any) {
-    errorMessage.value = err.message || 'Lỗi khi duyệt hoàn thành task.';
+    errorMessage.value = err.message || 'Error approving task completion.';
     addTimeline('Approval Error', errorMessage.value, 'error');
   } finally {
     isApproving.value = false;
@@ -2331,7 +2331,7 @@ const openRejectDialog = () => {
 const confirmRejectTask = async () => {
   const reason = rejectReason.value.trim();
   if (!reason || !selectedTask.value) {
-    errorMessage.value = 'Vui lòng nhập lý do yêu cầu bổ sung.';
+    errorMessage.value = 'Please enter a reason for requested changes.';
     return;
   }
   isRejecting.value = true;
@@ -2356,19 +2356,19 @@ const confirmRejectTask = async () => {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || 'Yêu cầu bổ sung thất bại.');
+        throw new Error(err.message || 'Change request submission failed.');
       }
     }
     if (selectedTask.value) {
       selectedTask.value.status = 'in_progress';
     }
     showRejectModal.value = false;
-    addTimeline('Changes Requested', `Đã gửi yêu cầu bổ sung: ${reason}`, 'warning');
-    followUp.value = `Yêu cầu bổ sung từ Reviewer: ${reason}`;
+    addTimeline('Changes Requested', `Submitted change request: ${reason}`, 'warning');
+    followUp.value = `Change request from Reviewer: ${reason}`;
     phase.value = 'ready';
     void refreshAgentTasks();
   } catch (err: any) {
-    errorMessage.value = err.message || 'Lỗi khi gửi yêu cầu bổ sung.';
+    errorMessage.value = err.message || 'Error submitting change request.';
     addTimeline('Rejection Error', errorMessage.value, 'error');
   } finally {
     isRejecting.value = false;
@@ -2384,8 +2384,8 @@ const openWorktree = () => {
 
 const syncGeneratedDocs = async () => {
   if (!props.desktopCredential || !worktree.value) {
-    errorMessage.value = 'Chưa kết nối Task Hub. Bạn có thể bấm "Lưu vào Workspace chính" để lưu tài liệu trực tiếp vào dự án.';
-    addTimeline('Docs sync info', 'Chưa kết nối Task Hub SaaS. Hãy dùng tùy chọn lưu vào Workspace.', 'muted');
+    errorMessage.value = 'Task Hub not connected. You can click "Save to Main Workspace" to save docs directly to your project.';
+    addTimeline('Docs sync info', 'Task Hub SaaS not connected. Use the option to save to Workspace.', 'muted');
     return;
   }
   // Documentation is owned by a repository/project, not by an individual
@@ -2393,7 +2393,7 @@ const syncGeneratedDocs = async () => {
   // project choice is required for the project-scoped import endpoint.
   const projectId = docsProjectId.value;
   if (!projectId) {
-    errorMessage.value = 'Chọn Repo/Project trước khi đồng bộ tài liệu.';
+    errorMessage.value = 'Select Repo/Project before syncing documentation.';
     addTimeline('Docs sync info', errorMessage.value, 'muted');
     return;
   }
@@ -2405,13 +2405,13 @@ const syncGeneratedDocs = async () => {
       projectId,
       payload
     );
-    addTimeline('Docs synced', 'Đã đồng bộ bộ tài liệu chuẩn vào Task Hub thành công!', 'ok');
+    addTimeline('Docs synced', 'Standard documentation synced to Task Hub successfully!', 'ok');
   } catch (error: any) {
-    const raw = error.message || 'Không thể đồng bộ docs vào Task Hub.';
+    const raw = error.message || 'Failed to sync docs to Task Hub.';
     if (raw.includes('404')) {
-      errorMessage.value = `Máy chủ Task Hub (${props.desktopCredential.taskHubUrl}) chưa có endpoint đồng bộ docs. Hãy bấm "Lưu vào Workspace chính" để đưa tài liệu vào repo.`;
+      errorMessage.value = `Task Hub server (${props.desktopCredential.taskHubUrl}) does not support docs sync endpoint. Click "Save to Main Workspace" to save docs into repo.`;
     } else if (raw.includes('500') && props.desktopCredential.projectId === 'all') {
-      errorMessage.value = 'Task Hub không thể xác định Repo/Project cho bộ docs. Chọn Repo/Project rồi thử lại.';
+      errorMessage.value = 'Task Hub could not determine Repo/Project for this docs set. Select Repo/Project and retry.';
     } else {
       errorMessage.value = raw;
     }
@@ -2421,15 +2421,15 @@ const syncGeneratedDocs = async () => {
 
 const applyDocsToWorkspace = async () => {
   if (!worktree.value || !sourceWorkspace.value) {
-    errorMessage.value = 'Không tìm thấy đường dẫn worktree hoặc workspace chính.';
+    errorMessage.value = 'Worktree or main workspace path not found.';
     return;
   }
   try {
     const res = await window.desktopApi.agent.applyDocsToWorkspace(worktree.value, sourceWorkspace.value);
-    addTimeline('Docs applied', `Đã lưu thành công ${res.count} file tài liệu vào thư mục docs/ của repo!`, 'ok');
+    addTimeline('Docs applied', `Saved ${res.count} document files to docs/ in repo successfully!`, 'ok');
     errorMessage.value = '';
   } catch (error: any) {
-    errorMessage.value = error.message || 'Không thể sao chép docs vào workspace.';
+    errorMessage.value = error.message || 'Failed to copy docs to workspace.';
     addTimeline('Docs apply error', error.message, 'error');
   }
 };
@@ -2438,9 +2438,9 @@ const openSessionLog = async () => {
   if (!sessionId.value) return;
   try {
     const logPath = await window.desktopApi.agent.openSessionLog(sessionId.value);
-    addTimeline('Logs opened', `Đã mở log file: ${logPath}`, 'ok');
+    addTimeline('Logs opened', `Opened log file: ${logPath}`, 'ok');
   } catch (error: any) {
-    errorMessage.value = error.message || 'Không thể mở log agent.';
+    errorMessage.value = error.message || 'Failed to open agent log.';
   }
 };
 
@@ -2476,14 +2476,14 @@ onMounted(async () => {
       if (workflowMode.value === 'discovery') {
         const completedWithoutResponse = event.code === 0 && !hasDiscoveryAgentResponse.value;
         handoff.value.summary = completedWithoutResponse
-          ? 'Agent đã kết thúc nhưng không trả nội dung để tạo kế hoạch.'
+          ? 'Agent finished without returning content to create a plan.'
           : event.code === 0
-            ? 'Local agent đã hoàn tất phân tích requirement. Chờ developer duyệt trước khi tạo backlog.'
-            : `Requirement Discovery kết thúc với mã lỗi ${event.code}.`;
+            ? 'Local agent completed requirement analysis. Awaiting developer approval before creating backlog.'
+            : `Requirement Discovery exited with code ${event.code}.`;
         handoff.value.tests = 'Requirement discovery and Task Hub MCP context review';
         handoff.value.testSummary = completedWithoutResponse ? 'No agent response' : event.code === 0 ? 'Plan ready for review' : 'Needs review';
         if (completedWithoutResponse) {
-          errorMessage.value = 'Agent kết thúc thành công nhưng không gửi phản hồi. Không thể review hoặc tạo backlog; hãy mở Process để xem log rồi chạy lại.';
+          errorMessage.value = 'Agent finished successfully but sent no response. Cannot review or create backlog; open Process to view logs and retry.';
           addTimeline('Discovery response missing', errorMessage.value, 'error');
           phase.value = 'error';
         } else {
@@ -2491,7 +2491,7 @@ onMounted(async () => {
         }
       } else if (docsOnly.value) {
         handoff.value.summary =
-          event.code === 0 ? 'Agent đã quét repository và tạo bộ tài liệu chuẩn docs/.' : `Docs agent kết thúc với mã lỗi ${event.code}.`;
+          event.code === 0 ? 'Agent scanned repository and created standard docs/ files.' : `Docs agent exited with code ${event.code}.`;
         handoff.value.changedFiles = 'docs/PROJECT_DOCUMENTS.md\ndocs/PROJECT_BRIEF.md\ndocs/PRD.md\ndocs/ARCHITECTURE.md\ndocs/QA_PLAN.md\ndocs/RELEASE_RUNBOOK.md';
         handoff.value.tests = 'Documentation scan';
         handoff.value.testSummary = event.code === 0 ? 'Completed' : 'Needs review';
@@ -2555,7 +2555,7 @@ onUnmounted(() => {
         <button
           class="w-full h-6 px-3 rounded bg-[#252526] hover:bg-[#2d2d2d] border border-[#3e3e42] text-[11px] text-zinc-400 flex items-center justify-between gap-2 transition-colors cursor-pointer"
           @click="showCommandPalette = true; commandPaletteSearch = '';"
-          title="Mở Command Palette (Ctrl+P / ⌘P)"
+          title="Open Command Palette (Ctrl+P / ⌘P)"
         >
           <div class="flex items-center gap-1.5 truncate">
             <i class="codicon codicon-search text-zinc-400 text-xs" />
@@ -2571,10 +2571,10 @@ onUnmounted(() => {
         <button
           class="h-6 px-2.5 rounded bg-[#2d2d2d] hover:bg-[#383838] border border-[#3e3e42] text-zinc-300 text-[11px] font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
           @click="emit('switch-mode', 'mascot')"
-          title="Chuyển sang Mascot Nhắc Việc (Ctrl+Shift+M)"
+          title="Switch to Zen Companion (Ctrl+Shift+M)"
         >
           <i class="codicon codicon-device-desktop text-xs text-zinc-400" />
-          <span>Mascot Nhắc việc</span>
+          <span>Zen Companion</span>
         </button>
 
         <!-- Quick Quota Button -->
@@ -2595,7 +2595,7 @@ onUnmounted(() => {
         <!-- Window Controls -->
         <button
           class="w-7 h-6 rounded hover:bg-[#333333] text-zinc-400 hover:text-white grid place-items-center transition-colors cursor-pointer text-xs"
-          title="Thu nhỏ cửa sổ"
+          title="Minimize window"
           @click="handleMinimizeWindow"
         >
           <i class="codicon codicon-chrome-minimize" />
@@ -2603,7 +2603,7 @@ onUnmounted(() => {
 
         <button
           class="w-7 h-6 rounded hover:bg-[#333333] text-zinc-400 hover:text-white grid place-items-center transition-colors cursor-pointer text-xs"
-          :title="isFullscreen ? 'Khôi phục kích thước cửa sổ' : 'Phóng to trong vùng làm việc'"
+          :title="isFullscreen ? 'Restore window size' : 'Maximize window'"
           @click="toggleFullscreen"
         >
           <i class="codicon" :class="isFullscreen ? 'codicon-screen-normal' : 'codicon-screen-full'" />
@@ -2611,7 +2611,7 @@ onUnmounted(() => {
 
         <button
           class="w-7 h-6 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white grid place-items-center transition-colors cursor-pointer text-xs font-bold"
-          title="Đóng cửa sổ"
+          title="Close window"
           @click="emit('close')"
         >
           <i class="codicon codicon-close" />
@@ -2622,8 +2622,8 @@ onUnmounted(() => {
     <button
       class="window-resize-grip no-drag"
       type="button"
-      aria-label="Đổi kích thước cửa sổ"
-      title="Kéo để đổi kích thước"
+      aria-label="Resize window"
+      title="Drag to resize"
       @pointerdown.stop="startWindowResize"
     />
 
@@ -2637,7 +2637,7 @@ onUnmounted(() => {
           <button
             class="w-10 h-10 rounded flex items-center justify-center text-zinc-300 hover:text-white hover:bg-[#007acc] transition-colors cursor-pointer"
             @click="startNewConversation"
-            title="Cuộc trò chuyện mới (+ New Conversation)"
+            title="New Conversation (+ New Conversation)"
           >
             <i class="codicon codicon-add text-lg" />
           </button>
@@ -2660,7 +2660,7 @@ onUnmounted(() => {
             class="w-10 h-10 rounded flex items-center justify-center transition-colors cursor-pointer relative"
             :class="activeActivity === 'workspaces' ? 'text-white bg-[#252526]' : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#3e3e42]'"
             @click="selectActivity('workspaces')"
-            title="Quản lý Workspace"
+            title="Manage Workspaces"
           >
             <span v-if="activeActivity === 'workspaces'" class="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-[#007acc] rounded-r" />
             <i class="codicon codicon-root-folder text-lg" />
@@ -2766,16 +2766,16 @@ onUnmounted(() => {
               v-if="activeActivity === 'workspaces'"
               class="text-[11px] text-zinc-400 hover:text-white cursor-pointer px-1.5 py-0.5 rounded hover:bg-[#333333] flex items-center gap-1"
               @click="addWorkspaceFolder"
-              title="Thêm thư mục workspace"
+              title="Add workspace directory"
             >
               <i class="codicon codicon-add text-xs" />
-              <span>Thêm</span>
+              <span>Add</span>
             </button>
             <button
               v-if="activeActivity === 'explorer'"
               class="text-[11px] text-zinc-400 hover:text-white cursor-pointer p-1 rounded hover:bg-[#333333]"
               @click="loadWorkspaceFiles"
-              title="Làm mới danh sách file"
+              title="Refresh file list"
             >
               <i class="codicon codicon-refresh text-xs" />
             </button>
@@ -2783,7 +2783,7 @@ onUnmounted(() => {
               v-if="activeActivity === 'diff'"
               class="text-[11px] text-zinc-400 hover:text-white cursor-pointer p-1 rounded hover:bg-[#333333]"
               @click="loadGitDiff"
-              title="Làm mới Git Diff"
+              title="Refresh Git Diff"
             >
               <i class="codicon codicon-refresh text-xs" />
             </button>
@@ -2796,7 +2796,7 @@ onUnmounted(() => {
           <div class="flex flex-col gap-2 p-2.5 rounded bg-[#1e1e1e] border border-[#333333]">
             <span class="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
               <i class="codicon codicon-folder-opened text-zinc-400" />
-              <span>Thêm Workspace</span>
+              <span>Add Workspace</span>
             </span>
 
             <button
@@ -2804,7 +2804,7 @@ onUnmounted(() => {
               @click="addWorkspaceFolder"
             >
               <i class="codicon codicon-folder-opened text-xs" />
-              <span>Chọn thư mục từ máy tính</span>
+              <span>Browse folder from disk</span>
             </button>
 
             <!-- Manual Path Input -->
@@ -2817,7 +2817,7 @@ onUnmounted(() => {
               />
               <button
                 class="px-2 py-1 rounded bg-[#2d2d2d] hover:bg-[#383838] text-zinc-300 text-xs cursor-pointer border border-[#3e3e42]"
-                title="Thêm đường dẫn"
+                title="Add path"
                 @click="addManualWorkspacePath"
               >
                 <i class="codicon codicon-add text-xs" />
@@ -2830,7 +2830,7 @@ onUnmounted(() => {
             <input
               v-model="workspaceSearchQuery"
               class="w-full pl-7 pr-2.5 py-1 rounded bg-[#1e1e1e] border border-[#333333] text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-[#007acc]"
-              placeholder="Lọc danh sách workspace..."
+              placeholder="Filter workspaces..."
             />
             <i class="codicon codicon-search absolute left-2 top-1/2 -translate-y-1/2 text-xs text-zinc-500" />
           </div>
@@ -2869,11 +2869,11 @@ onUnmounted(() => {
                     class="px-2 py-0.5 rounded bg-[#2d2d2d] hover:bg-[#383838] text-zinc-300 text-[11px] cursor-pointer"
                     @click="selectWorkspace(w)"
                   >
-                    Chọn
+                    Select
                   </button>
                   <button
                     class="px-2 py-0.5 rounded bg-[#2d2d2d] hover:bg-[#383838] text-zinc-300 text-[11px] cursor-pointer flex items-center gap-1"
-                    title="Mở Explorer xem tệp"
+                    title="Open in Explorer"
                     @click="selectWorkspace(w); selectActivity('explorer')"
                   >
                     <i class="codicon codicon-files text-xs" />
@@ -2881,7 +2881,7 @@ onUnmounted(() => {
                   </button>
                   <button
                     class="px-2 py-0.5 rounded bg-[#2d2d2d] hover:bg-[#383838] text-zinc-300 text-[11px] cursor-pointer flex items-center gap-1"
-                    title="Chạy Quick Setup"
+                    title="Run Quick Setup"
                     @click="selectWorkspace(w); runQuickSetup()"
                   >
                     <i class="codicon codicon-tools text-xs" />
@@ -2891,7 +2891,7 @@ onUnmounted(() => {
 
                 <button
                   class="w-5 h-5 rounded hover:bg-[#383838] text-zinc-500 hover:text-rose-400 grid place-items-center transition-colors cursor-pointer"
-                  title="Xóa khỏi danh sách lưu"
+                  title="Remove from saved"
                   @click.stop="removeSavedWorkspace(w)"
                 >
                   <i class="codicon codicon-trash text-xs" />
@@ -2902,12 +2902,12 @@ onUnmounted(() => {
             <!-- Empty State -->
             <div v-if="filteredSavedWorkspaces.length === 0" class="p-4 rounded bg-[#1e1e1e] border border-[#333333] text-center text-xs text-zinc-400 flex flex-col items-center gap-2">
               <i class="codicon codicon-folder text-2xl text-zinc-500" />
-              <p>Chưa có workspace nào được lưu.</p>
+              <p>No saved workspaces.</p>
               <button
                 class="px-3 py-1 rounded bg-[#0e639c] text-white text-xs font-medium cursor-pointer hover:bg-[#1177bb]"
                 @click="addWorkspaceFolder"
               >
-                + Thêm Workspace
+                + Add Workspace
               </button>
             </div>
           </div>
@@ -2917,14 +2917,14 @@ onUnmounted(() => {
         <div v-else-if="activeActivity === 'explorer'" class="flex flex-col gap-2 flex-1">
           <p class="text-[11px] text-zinc-400 font-mono truncate px-1 flex items-center gap-1.5" :title="activeCwd">
             <i class="codicon codicon-root-folder text-zinc-400" />
-            <span class="truncate font-semibold">{{ activeCwd ? activeCwd.split('\\').pop() : 'Chưa chọn workspace' }}</span>
+            <span class="truncate font-semibold">{{ activeCwd ? activeCwd.split('\\').pop() : 'No workspace selected' }}</span>
           </p>
           <div v-if="isLoadingFiles" class="text-xs text-zinc-400 p-3 flex items-center gap-2">
             <i class="codicon codicon-loading animate-spin text-zinc-400" />
-            <span>Đang quét tệp workspace...</span>
+            <span>Scanning workspace files...</span>
           </div>
           <div v-else-if="workspaceFiles.length === 0" class="text-xs text-zinc-500 p-3 bg-[#1e1e1e] rounded border border-[#333333]">
-            Không có tệp nào hoặc chưa mở workspace.
+            No files found or no workspace opened.
           </div>
           <div v-else class="space-y-0.5 overflow-y-auto max-h-[calc(100vh-280px)] font-mono text-[11px]">
             <button
@@ -2947,14 +2947,14 @@ onUnmounted(() => {
             <div class="flex items-center justify-between text-xs">
               <span class="font-semibold text-zinc-200 flex items-center gap-1.5">
                 <i class="codicon codicon-source-control text-zinc-400" />
-                <span>Diff sau thay đổi</span>
+                <span>Diff Inspector</span>
               </span>
               <span v-if="isLoadingDiff" class="codicon codicon-loading animate-spin text-zinc-400" />
               <button
                 v-else
                 class="text-[10px] text-zinc-400 hover:text-white px-1 py-0.5 rounded hover:bg-[#333333] cursor-pointer"
                 @click="loadGitDiff"
-                title="Làm mới lại Diff"
+                title="Refresh Diff"
               >
                 <i class="codicon codicon-refresh" />
               </button>
@@ -2962,7 +2962,7 @@ onUnmounted(() => {
 
             <!-- Stats Bar -->
             <div class="flex items-center justify-between text-[11px] font-mono border-t border-[#2d2d2d] pt-1.5">
-              <span class="text-zinc-400">{{ gitDiffData.diffs.length }} tệp thay đổi</span>
+              <span class="text-zinc-400">{{ gitDiffData.diffs.length }} changed files</span>
               <div class="flex items-center gap-1.5 font-bold">
                 <span class="text-emerald-400">+{{ gitDiffData.totalAdditions || 0 }}</span>
                 <span class="text-rose-400">-{{ gitDiffData.totalDeletions || 0 }}</span>
@@ -2974,18 +2974,18 @@ onUnmounted(() => {
               v-if="gitDiffData.diffs.length > 0"
               class="w-full mt-1 py-1 px-2 rounded bg-[#094771] hover:bg-[#007acc] text-white text-[11px] font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5"
               @click="populateHandoffFromDiff"
-              title="Điền danh sách file thay đổi và số dòng diff vào mẫu bàn giao Handoff"
+              title="Insert changed files list and diff stats into handoff summary"
             >
               <i class="codicon codicon-checklist" />
-              <span>Điền vào Handoff Summary</span>
+              <span>Insert into Handoff Summary</span>
             </button>
           </div>
 
           <!-- Empty State -->
           <div v-if="gitDiffData.diffs.length === 0" class="text-xs text-zinc-400 p-4 bg-[#1e1e1e] rounded border border-[#333333] flex flex-col items-center gap-2 text-center">
             <i class="codicon codicon-check text-emerald-400 text-2xl" />
-            <p class="font-medium text-zinc-300">Không có thay đổi mã nguồn.</p>
-            <p class="text-[11px] text-zinc-500">Working tree sạch hoặc chưa có file nào được chỉnh sửa.</p>
+            <p class="font-medium text-zinc-300">No source code changes.</p>
+            <p class="text-[11px] text-zinc-500">Working tree is clean or no files have been modified.</p>
           </div>
 
           <!-- Changed Files List -->
@@ -3020,7 +3020,7 @@ onUnmounted(() => {
                 <!-- Revert Single File Button -->
                 <button
                   class="w-5 h-5 rounded hover:bg-[#383838] hover:text-rose-300 text-zinc-500 grid place-items-center transition-colors cursor-pointer"
-                  title="Khôi phục (Revert) file này về HEAD"
+                  title="Revert this file to HEAD"
                   @click.stop="revertDiffFile(d.file)"
                 >
                   <i class="codicon codicon-discard text-xs" />
@@ -3048,40 +3048,40 @@ onUnmounted(() => {
               @click="selectWorkflowMode('discovery')"
             >
               <span class="block text-xs font-semibold">Requirement</span>
-              <span class="block mt-0.5 text-[10px] opacity-75">Nhập → Local agent → Duyệt</span>
+              <span class="block mt-0.5 text-[10px] opacity-75">Input → Local Agent → Approve</span>
             </button>
             <button
               class="rounded px-3 py-2 text-left transition-colors cursor-pointer border"
               :class="workflowMode === 'task' ? 'bg-[#0e639c]/25 border-[#007acc] text-white' : 'bg-[#252526] border-[#333333] text-zinc-400 hover:text-zinc-200'"
               @click="selectWorkflowMode('task')"
             >
-              <span class="block text-xs font-semibold">Thực thi Task</span>
-              <span class="block mt-0.5 text-[10px] opacity-75">Chọn task → Agent → Handoff</span>
+              <span class="block text-xs font-semibold">Task Execution</span>
+              <span class="block mt-0.5 text-[10px] opacity-75">Select Task → Agent → Handoff</span>
             </button>
             <button
               class="rounded px-3 py-2 text-left transition-colors cursor-pointer border"
               :class="workflowMode === 'docs' ? 'bg-emerald-950/50 border-emerald-700 text-emerald-100' : 'bg-[#252526] border-[#333333] text-zinc-400 hover:text-zinc-200'"
               @click="selectWorkflowMode('docs')"
             >
-              <span class="block text-xs font-semibold">Tài liệu Repo</span>
-              <span class="block mt-0.5 text-[10px] opacity-75">Chọn repo → Quét → Đồng bộ</span>
+              <span class="block text-xs font-semibold">Repo Documentation</span>
+              <span class="block mt-0.5 text-[10px] opacity-75">Select Repo → Scan → Sync</span>
             </button>
           </div>
         </div>
 
         <div class="rounded-xl border border-[#333333] bg-[#1e1e1e] p-2.5 shrink-0 space-y-2">
           <div class="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide">
-            <span :class="phase === 'select' || phase === 'error' ? 'text-white' : 'text-emerald-400'">1. Nhập</span>
+            <span :class="phase === 'select' || phase === 'error' ? 'text-white' : 'text-emerald-400'">1. Input</span>
             <span class="text-zinc-600">→</span>
             <span :class="phase === 'running' ? 'text-amber-300' : ['review', 'handoff'].includes(phase) ? 'text-emerald-400' : 'text-zinc-500'">2. Agent</span>
             <span class="text-zinc-600">→</span>
             <span :class="['review', 'handoff'].includes(phase) ? 'text-white' : 'text-zinc-500'">3. Review</span>
           </div>
           <div class="flex flex-wrap gap-1.5">
-            <button class="max-w-full inline-flex items-center gap-1 rounded border border-[#333333] bg-[#252526] px-2 py-1 text-[10px] text-zinc-300 hover:text-white cursor-pointer" @click="chooseWorkspace" :title="sourceWorkspace || 'Chọn workspace'">
-              <i class="codicon codicon-folder" /><span class="max-w-[128px] truncate">{{ sourceWorkspace ? sourceWorkspace.split(/[/\\]/).pop() : 'Chọn workspace' }}</span>
+            <button class="max-w-full inline-flex items-center gap-1 rounded border border-[#333333] bg-[#252526] px-2 py-1 text-[10px] text-zinc-300 hover:text-white cursor-pointer" @click="chooseWorkspace" :title="sourceWorkspace || 'Select workspace'">
+              <i class="codicon codicon-folder" /><span class="max-w-[128px] truncate">{{ sourceWorkspace ? sourceWorkspace.split(/[/\\]/).pop() : 'Select workspace' }}</span>
             </button>
-            <select v-if="workflowMode !== 'task'" v-model="docsProjectId" class="max-w-[180px] rounded border border-[#333333] bg-[#252526] px-2 py-1 text-[10px] text-zinc-300 outline-none focus:border-cyan-500" :disabled="busy || !isConnected"><option :value="null" disabled>Chọn project</option><option v-for="project in projects || []" :key="project.id" :value="project.id">{{ project.title }}</option></select>
+            <select v-if="workflowMode !== 'task'" v-model="docsProjectId" class="max-w-[180px] rounded border border-[#333333] bg-[#252526] px-2 py-1 text-[10px] text-zinc-300 outline-none focus:border-cyan-500" :disabled="busy || !isConnected"><option :value="null" disabled>Select project</option><option v-for="project in projects || []" :key="project.id" :value="project.id">{{ project.title }}</option></select>
             <span class="inline-flex items-center gap-1 rounded border px-2 py-1 text-[10px]" :class="isConnected ? 'border-emerald-900 bg-emerald-950/50 text-emerald-300' : 'border-amber-900 bg-amber-950/40 text-amber-300'"><i class="codicon" :class="isConnected ? 'codicon-plug' : 'codicon-debug-disconnect'" />MCP {{ isConnected ? 'ready' : 'offline' }}</span>
           </div>
           <button class="w-full flex items-center justify-between rounded-lg border border-[#333333] bg-[#252526] px-2.5 py-2 text-left hover:border-[#4b5563] cursor-pointer" @click="showAgentSettings = true">
@@ -3090,8 +3090,8 @@ onUnmounted(() => {
           </button>
           <div class="flex gap-1.5">
             <button class="flex-1 rounded border border-[#333333] bg-[#252526] py-1.5 text-[10px] text-zinc-300 hover:text-white cursor-pointer" @click="openCurrentProcess('cards')"><i class="codicon codicon-terminal mr-1" />Process</button>
-            <button class="flex-1 rounded border border-[#333333] bg-[#252526] py-1.5 text-[10px] text-zinc-300 hover:text-white cursor-pointer" @click="showActivityTimeline = true"><i class="codicon codicon-history mr-1" />Hoạt động<span v-if="timeline.length" class="ml-1 text-zinc-500">{{ timeline.length }}</span></button>
-            <button class="flex-1 rounded border border-[#333333] bg-[#252526] py-1.5 text-[10px] text-zinc-300 hover:text-white cursor-pointer" @click="openSessionHistory"><i class="codicon codicon-archive mr-1" />Phiên</button>
+            <button class="flex-1 rounded border border-[#333333] bg-[#252526] py-1.5 text-[10px] text-zinc-300 hover:text-white cursor-pointer" @click="showActivityTimeline = true"><i class="codicon codicon-history mr-1" />Activity<span v-if="timeline.length" class="ml-1 text-zinc-500">{{ timeline.length }}</span></button>
+            <button class="flex-1 rounded border border-[#333333] bg-[#252526] py-1.5 text-[10px] text-zinc-300 hover:text-white cursor-pointer" @click="openSessionHistory"><i class="codicon codicon-archive mr-1" />Sessions</button>
           </div>
         </div>
 
@@ -3122,7 +3122,7 @@ onUnmounted(() => {
         <div
           class="rounded border border-[#333333] bg-[#1e1e1e] p-2 shrink-0 flex items-center justify-between gap-2 hover:border-[#444444] transition-all cursor-pointer group"
           @click="openModelsAndUsageModal"
-          title="Bấm để xem và quản lý Models & Quota Usage"
+          title="View and manage Models & Quota Usage"
         >
           <div class="flex items-center gap-2 min-w-0">
             <i class="codicon codicon-dashboard text-zinc-400 text-sm shrink-0" />
@@ -3132,7 +3132,7 @@ onUnmounted(() => {
                 <span class="text-[8px] font-mono px-1 rounded bg-[#2d2d2d] text-zinc-400 font-medium shrink-0">{{ activeQuotaGroup.name }}</span>
               </div>
               <span class="text-[10px] text-zinc-400 truncate">
-                5h: <strong class="text-zinc-200 font-mono">{{ activeQuotaGroup.fiveHourRemainingPercent }}%</strong> · Tuần: <strong class="text-zinc-200 font-mono">{{ activeQuotaGroup.weeklyRemainingPercent }}%</strong>
+                5h: <strong class="text-zinc-200 font-mono">{{ activeQuotaGroup.fiveHourRemainingPercent }}%</strong> · Weekly: <strong class="text-zinc-200 font-mono">{{ activeQuotaGroup.weeklyRemainingPercent }}%</strong>
               </span>
             </div>
           </div>
@@ -3151,9 +3151,9 @@ onUnmounted(() => {
               <span
                 v-if="modelSyncTimestamp"
                 class="text-[8px] font-mono text-zinc-400 px-1 py-0.2 rounded bg-[#2d2d2d] border border-[#3e3e42]"
-                :title="`Đồng bộ từ Task Hub & CLI lúc ${modelSyncTimestamp}`"
+                :title="`Synced from Task Hub & CLI at ${modelSyncTimestamp}`"
               >
-                ● {{ modelSyncSource === 'live' ? 'Live' : 'Đồng bộ' }}
+                ● {{ modelSyncSource === 'live' ? 'Live' : 'Synced' }}
               </span>
             </div>
             <div class="flex items-center gap-1">
@@ -3162,20 +3162,20 @@ onUnmounted(() => {
                 class="px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors cursor-pointer border flex items-center gap-1 bg-[#252526] border-[#333333] text-zinc-400 hover:text-white hover:border-[#444444] disabled:opacity-50"
                 :disabled="isSyncingModels || busy || phase === 'running'"
                 @click="syncAvailableModels(true)"
-                title="Tự động quét và lấy danh sách model mới nhất từ Task Hub & CLI"
+                title="Scan and fetch latest model list from Task Hub & CLI"
               >
                 <i class="codicon codicon-refresh text-xs" :class="isSyncingModels ? 'animate-spin' : ''" />
-                <span>{{ isSyncingModels ? 'Quét...' : 'Đồng bộ' }}</span>
+                <span>{{ isSyncingModels ? 'Scanning...' : 'Sync' }}</span>
               </button>
 
               <button
                 class="px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors cursor-pointer border flex items-center gap-1"
                 :class="isCustomModel[provider] ? 'bg-[#0e639c]/30 border-[#007acc] text-white' : 'bg-[#252526] border-[#333333] text-zinc-400 hover:text-zinc-200'"
                 @click="toggleCustomModelMode"
-                :title="isCustomModel[provider] ? 'Chuyển về danh sách có sẵn' : 'Nhập model ID tùy chỉnh'"
+                :title="isCustomModel[provider] ? 'Switch to presets' : 'Enter custom model ID'"
               >
                 <i class="codicon codicon-edit text-xs" />
-                <span>Tùy chỉnh</span>
+                <span>Custom</span>
               </button>
             </div>
           </div>
@@ -3186,7 +3186,7 @@ onUnmounted(() => {
             <input
               v-model="modelSearchQuery"
               class="w-full pl-7 pr-6 py-1 rounded bg-[#252526] border border-[#333333] text-[11px] text-zinc-200 placeholder-zinc-500 outline-none focus:border-[#007acc] transition-colors"
-              placeholder="Lọc model..."
+              placeholder="Filter models..."
             />
             <i class="codicon codicon-search absolute left-2 top-1/2 -translate-y-1/2 text-xs text-zinc-500" />
             <button
@@ -3244,7 +3244,7 @@ onUnmounted(() => {
                 <button
                   v-if="m.source === 'custom'"
                   class="text-zinc-500 hover:text-rose-400 p-0.5 ml-0.5 cursor-pointer"
-                  title="Xóa model tùy chỉnh này"
+                  title="Delete this custom model"
                   @click.stop="deleteCustomModelOption(m.id)"
                 >
                   <i class="codicon codicon-trash text-xs" />
@@ -3259,14 +3259,14 @@ onUnmounted(() => {
             </div>
 
             <div v-if="filteredProviderModels.length === 0" class="text-center py-3 text-[10px] text-zinc-500 italic">
-              Không tìm thấy model phù hợp.
+              No matching models found.
             </div>
           </div>
 
           <!-- Custom Model Free Text Input Mode -->
           <div v-if="isCustomModel[provider]" class="pt-1 flex flex-col gap-2">
             <div class="flex items-center justify-between text-[10px] text-zinc-400 font-medium">
-              <span>Model ID tùy chỉnh:</span>
+              <span>Custom Model ID:</span>
               <span class="text-zinc-500 font-mono text-[9px]">{{ provider === 'codex' ? '-m' : '--model' }}</span>
             </div>
             <div class="flex items-center gap-1">
@@ -3281,10 +3281,10 @@ onUnmounted(() => {
                 v-if="customModelInput[provider]?.trim()"
                 class="px-2 py-1.5 rounded border border-[#3e3e42] bg-[#2d2d2d] hover:bg-[#383838] text-zinc-200 text-xs font-medium shrink-0 cursor-pointer transition-colors flex items-center gap-1"
                 @click="saveCustomModelOption"
-                title="Lưu model này vào danh sách"
+                title="Save model to list"
               >
                 <i class="codicon codicon-save text-xs" />
-                <span>Lưu</span>
+                <span>Save</span>
               </button>
             </div>
           </div>
@@ -3303,18 +3303,18 @@ onUnmounted(() => {
               <button
                 class="px-2 py-0.5 rounded border border-[#333333] bg-[#252526] hover:bg-[#2d2d2d] text-[10px] text-zinc-300 transition-colors cursor-pointer flex items-center gap-1"
                 @click="selectActivity('workspaces')"
-                title="Mở bảng quản lý tất cả Workspaces"
+                title="Manage all workspaces"
               >
                 <i class="codicon codicon-root-folder text-xs" />
-                <span>Quản lý</span>
+                <span>Manage</span>
               </button>
               <button
                 class="px-2 py-0.5 rounded border border-[#333333] bg-[#252526] hover:bg-[#2d2d2d] text-[10px] text-zinc-300 transition-colors cursor-pointer flex items-center gap-1"
                 @click="chooseWorkspace"
-                title="Chọn thư mục"
+                title="Select directory"
               >
                 <i class="codicon codicon-folder text-xs" />
-                <span>Đổi</span>
+                <span>Change</span>
               </button>
             </div>
           </div>
@@ -3322,15 +3322,15 @@ onUnmounted(() => {
           <template v-if="!collapsed.workspace">
           <div class="p-2 rounded bg-[#252526] border border-[#333333] flex items-center gap-2">
             <i class="codicon codicon-root-folder text-zinc-400 text-xs shrink-0" />
-            <span class="text-xs font-mono text-zinc-300 truncate flex-1" :title="sourceWorkspace || 'Chưa chọn repository'">
-              {{ sourceWorkspace || 'Chưa chọn repository' }}
+            <span class="text-xs font-mono text-zinc-300 truncate flex-1" :title="sourceWorkspace || 'No repository selected'">
+              {{ sourceWorkspace || 'No repository selected' }}
             </span>
           </div>
 
           <!-- SAVED WORKSPACES QUICK BAR -->
           <div v-if="savedWorkspaces.length > 0" class="pt-0.5">
             <div class="flex items-center justify-between text-[10px] text-zinc-400 mb-1">
-              <span>Đã lưu ({{ savedWorkspaces.length }}):</span>
+              <span>Saved ({{ savedWorkspaces.length }}):</span>
             </div>
             <div class="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
               <div
@@ -3343,7 +3343,7 @@ onUnmounted(() => {
                 <span class="truncate max-w-[110px]" :title="w">{{ w.split(/[/\\]/).pop() || w }}</span>
                 <button
                   class="w-3.5 h-3.5 rounded grid place-items-center hover:bg-[#383838] hover:text-rose-400 text-zinc-500 transition-colors"
-                  title="Xóa"
+                  title="Remove"
                   @click.stop="removeSavedWorkspace(w)"
                 >
                   <i class="codicon codicon-close text-[8px]" />
@@ -3359,12 +3359,12 @@ onUnmounted(() => {
           <div class="flex items-center justify-between">
             <button class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1 cursor-pointer" @click="collapsed.tasks = !collapsed.tasks">
               <i class="codicon text-xs" :class="collapsed.tasks ? 'codicon-chevron-right' : 'codicon-chevron-down'" />
-              Nhiệm vụ Task Hub
+              Task Hub Work Items
             </button>
             <div class="flex items-center gap-1.5">
               <button
                 class="p-0.5 rounded text-[10px] text-zinc-400 hover:text-white hover:bg-[#333333] transition-colors flex items-center gap-1 cursor-pointer"
-                title="Làm mới danh sách nhiệm vụ từ Task Hub"
+                title="Refresh tasks from Task Hub"
                 @click="refreshAgentTasks"
               >
                 <i class="codicon codicon-refresh" :class="{ 'animate-spin': isRefreshingTasks }" />
@@ -3378,17 +3378,17 @@ onUnmounted(() => {
             <input
               v-model="taskSearch"
               class="w-full pl-7 pr-2.5 py-1 rounded border border-[#333333] bg-[#252526] text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-[#007acc] transition-colors"
-              placeholder="Tìm theo title, issue key..."
+              placeholder="Search by title, issue key..."
               :disabled="busy"
             />
             <i class="codicon codicon-search absolute left-2 top-1/2 -translate-y-1/2 text-xs text-zinc-500" />
           </div>
 
           <div v-if="!isConnected" class="p-2 rounded border border-[#333333] bg-[#252526] text-[11px] text-zinc-400">
-            Chưa kết nối Task Hub SaaS. Bạn có thể chọn thư mục workspace và khởi chạy độc lập.
+            Task Hub SaaS not connected. You can select a local workspace and run independently.
           </div>
           <div v-else-if="filteredTasks.length === 0" class="p-2 text-center rounded border border-[#333333] bg-[#252526] text-[11px] text-zinc-500">
-            Không có task nào phù hợp.
+            No matching tasks found.
           </div>
           <div v-else class="max-h-28 overflow-y-auto space-y-1 pr-0.5">
             <button
@@ -3479,15 +3479,15 @@ onUnmounted(() => {
           <div class="text-xs font-semibold text-violet-100 flex items-center gap-1.5">
             <i class="codicon codicon-lightbulb" /> Requirement Discovery
           </div>
-          <p class="text-[10px] text-zinc-400">Chỉ nhập kết quả mong muốn. Local agent tự đọc repo, docs và Task Hub MCP; chưa tạo backlog cho tới khi bạn duyệt.</p>
+          <p class="text-[10px] text-zinc-400">Specify desired outcome. Local agent reads repo, docs, and Task Hub MCP; backlog will only be created upon your approval.</p>
           <label class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Repo / Project</label>
           <select v-model="docsProjectId" class="w-full rounded border border-[#333333] bg-[#252526] px-2 py-1.5 text-xs text-zinc-200 outline-none focus:border-violet-500" :disabled="busy || !isConnected">
-            <option :value="null" disabled>Chọn Repo/Project</option>
+            <option :value="null" disabled>Select Repo / Project</option>
             <option v-for="project in projects || []" :key="project.id" :value="project.id">{{ project.title }}</option>
           </select>
-          <textarea v-model="requirementText" rows="3" class="w-full rounded border border-[#333333] bg-[#252526] px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-violet-500" placeholder="Ví dụ: Thêm đăng nhập Google cho người dùng hiện tại." :disabled="busy" />
+          <textarea v-model="requirementText" rows="3" class="w-full rounded border border-[#333333] bg-[#252526] px-2 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-violet-500" placeholder="E.g., Add Google login for authenticated users." :disabled="busy" />
           <button class="w-full py-1.5 px-3 rounded bg-violet-700 hover:bg-violet-600 text-white text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50" :disabled="busy || !docsProjectId || !requirementText.trim()" @click="() => startRequirementDiscovery()">
-            Phân tích bằng Local Agent
+            Analyze with Local Agent
           </button>
         </div>
 
@@ -3496,30 +3496,30 @@ onUnmounted(() => {
             <button class="text-xs font-semibold text-zinc-200 flex items-center gap-1.5 cursor-pointer" @click="collapsed.docs = !collapsed.docs">
               <i class="codicon text-xs" :class="collapsed.docs ? 'codicon-chevron-right' : 'codicon-chevron-down'" />
               <i class="codicon codicon-book text-zinc-400" />
-              <span>Tài liệu Repo</span>
+              <span>Repo Documentation</span>
             </button>
           </div>
           <template v-if="!collapsed.docs">
           <p class="text-[10px] text-zinc-400 leading-relaxed">
-            Chọn Repo/Project, rồi agent quét repo và cập nhật bộ tài liệu chuẩn vào <code>docs/</code>.
+            Select Repo/Project; the agent scans repo and updates standard documentation in <code>docs/</code>.
           </p>
-          <label class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Repo / Project trên Task Hub</label>
+          <label class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Task Hub Repo / Project</label>
           <select
             v-model="docsProjectId"
             class="w-full rounded border border-[#333333] bg-[#252526] px-2 py-1.5 text-xs text-zinc-200 outline-none focus:border-emerald-600"
             :disabled="busy || !isConnected"
           >
-            <option :value="null" disabled>Chọn Repo/Project</option>
+            <option :value="null" disabled>Select Repo / Project</option>
             <option v-for="project in projects || []" :key="project.id" :value="project.id">{{ project.title }}</option>
           </select>
-          <p v-if="selectedDocsProject" class="text-[10px] text-emerald-300">Docs chuẩn sẽ thuộc Repo/Project: {{ selectedDocsProject?.title }}</p>
-          <p v-if="!isConnected" class="text-[10px] text-amber-300">Kết nối Task Hub để chọn Repo/Project và đồng bộ docs.</p>
+          <p v-if="selectedDocsProject" class="text-[10px] text-emerald-300">Standard docs will belong to Repo/Project: {{ selectedDocsProject?.title }}</p>
+          <p v-if="!isConnected" class="text-[10px] text-amber-300">Connect Task Hub to select Repo/Project and sync docs.</p>
           <button
             class="w-full py-1.5 px-3 rounded border border-[#333333] bg-[#252526] hover:bg-[#2d2d2d] text-zinc-200 text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
             :disabled="busy || phase === 'running' || !docsProjectId"
             @click="() => startDocsGeneration()"
           >
-            Quét & tạo Docs
+            Scan & Generate Docs
           </button>
           </template>
         </div>
@@ -3534,11 +3534,11 @@ onUnmounted(() => {
             </button>
             <span class="text-[9px] font-mono text-zinc-400 bg-[#252526] px-1.5 py-0.5 rounded">{{ timeline.length }}</span>
           </div>
-          <div v-if="collapsed.timeline" class="text-[10px] text-zinc-500">Mở để xem lịch sử thao tác.</div>
+          <div v-if="collapsed.timeline" class="text-[10px] text-zinc-500">Expand to view activity timeline.</div>
           <template v-else>
           <div class="space-y-1.5 overflow-y-auto max-h-[260px] pr-0.5">
             <div v-if="timeline.length === 0" class="text-[10px] text-zinc-500 text-center py-6 italic">
-              Chưa có sự kiện nào.
+              No events recorded.
             </div>
             <div
               v-for="item in timeline"
@@ -3597,7 +3597,7 @@ onUnmounted(() => {
               <span
                 v-if="gitDiffData.diffs.length > 0 && !selectedEditorFile"
                 class="px-1.5 py-0.2 rounded-full bg-emerald-950 border border-emerald-800/80 text-[9px] text-emerald-300 font-mono font-bold"
-                title="Tổng số dòng thêm/bớt"
+                title="Total additions and deletions"
               >
                 +{{ gitDiffData.totalAdditions || 0 }} -{{ gitDiffData.totalDeletions || 0 }}
               </span>
@@ -3676,13 +3676,13 @@ onUnmounted(() => {
               class="text-[10px] px-2 py-0.5 rounded bg-[#333333] hover:bg-[#3e3e42] text-zinc-300 transition-colors cursor-pointer"
               @click="showAdvancedTools = !showAdvancedTools"
             >
-              {{ showAdvancedTools ? 'Ẩn nâng cao' : 'Công cụ nâng cao' }}
+              {{ showAdvancedTools ? 'Hide Advanced' : 'Advanced Tools' }}
             </button>
             <button
               v-if="workflowMode === 'task'"
               class="text-[10px] px-2 py-0.5 rounded bg-[#333333] hover:bg-[#3e3e42] text-zinc-200 transition-colors cursor-pointer flex items-center gap-1.5 border border-[#3e3e42]"
               @click="loadGitDiff(); activeEditorTab = 'monaco';"
-              title="Tải lại Git Diff trong Monaco Diff Viewer"
+              title="Reload Git Diff in Monaco Diff Viewer"
             >
               <i class="codicon codicon-diff" />
               <span>Git Diff ({{ gitDiffData.diffs.length }})</span>
@@ -3711,11 +3711,11 @@ onUnmounted(() => {
           <div class="flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span class="text-zinc-200 font-semibold">
-              Agent đã sửa đổi <strong class="text-cyan-300">{{ gitDiffData.diffs.length }} tệp</strong>:
+              Agent modified <strong class="text-cyan-300">{{ gitDiffData.diffs.length }} files</strong>:
             </span>
             <span class="text-[11px] font-mono">
               <span class="text-emerald-400 font-bold">+{{ gitDiffData.totalAdditions || 0 }}</span> /
-              <span class="text-rose-400 font-bold">-{{ gitDiffData.totalDeletions || 0 }}</span> dòng
+              <span class="text-rose-400 font-bold">-{{ gitDiffData.totalDeletions || 0 }}</span> lines
             </span>
           </div>
 
@@ -3725,7 +3725,7 @@ onUnmounted(() => {
               @click="activeEditorTab = 'monaco'; if (!selectedDiffFile && gitDiffData.diffs.length) selectedDiffFile = gitDiffData.diffs[0];"
             >
               <i class="codicon codicon-diff" />
-              <span>Xem Diff ngay</span>
+              <span>Inspect Diff</span>
             </button>
             <button
               v-if="phase === 'handoff' || phase === 'review'"
@@ -3733,7 +3733,7 @@ onUnmounted(() => {
               @click="populateHandoffFromDiff"
             >
               <i class="codicon codicon-checklist" />
-              <span>Điền Handoff</span>
+              <span>Insert Handoff</span>
             </button>
           </div>
         </div>
@@ -3758,20 +3758,20 @@ onUnmounted(() => {
           <div v-else class="flex flex-col items-center justify-center h-full text-zinc-400 gap-3 p-6 select-none">
             <i class="codicon codicon-file text-4xl text-zinc-300" />
             <p class="text-sm text-center max-w-md text-zinc-300">
-              Chọn một file từ Explorer hoặc Source Control để xem và chỉnh sửa với bộ lõi Microsoft Monaco Editor.
+              Select a file from Explorer or Source Control to view and edit with Monaco Editor.
             </p>
             <div class="flex items-center gap-2">
               <button
                 class="px-3 py-1.5 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white text-xs font-semibold cursor-pointer shadow-xs"
                 @click="selectActivity('diff')"
               >
-                <i class="codicon codicon-diff mr-1" />Xem Thay đổi Git Diff
+                <i class="codicon codicon-diff mr-1" />View Git Diff Changes
               </button>
               <button
                 class="px-3 py-1.5 rounded-lg bg-[#333333] hover:bg-[#3e3e42] text-zinc-200 text-xs font-semibold cursor-pointer border border-[#444444]"
                 @click="selectActivity('explorer')"
               >
-                <i class="codicon codicon-folder-opened mr-1" />Mở File Explorer
+                <i class="codicon codicon-folder-opened mr-1" />Open File Explorer
               </button>
             </div>
           </div>
@@ -3785,7 +3785,7 @@ onUnmounted(() => {
               Task Context & Environment Details
             </h3>
             <p class="text-slate-400 text-xs mt-1 leading-relaxed">
-              Thông tin chi tiết về repository, branch, isolated worktree và ngữ cảnh nhiệm vụ đang được thực thi.
+              Detailed information on repository, branch, isolated worktree, and execution context.
             </p>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -3795,7 +3795,7 @@ onUnmounted(() => {
             </div>
             <div class="p-3 rounded-lg border border-slate-700/80 bg-slate-950 flex flex-col gap-1 font-mono text-[11px]" :class="!worktree ? 'sm:col-span-2' : ''">
               <div class="text-slate-400">Active Workspace:</div>
-              <div class="text-cyan-300 font-semibold break-all">{{ activeCwd || 'Chưa chọn' }}</div>
+              <div class="text-cyan-300 font-semibold break-all">{{ activeCwd || 'None selected' }}</div>
             </div>
           </div>
           <div v-if="selectedTask" class="p-4 rounded-xl border border-[#333333] bg-[#252526] flex flex-col gap-2.5">
@@ -3855,7 +3855,7 @@ onUnmounted(() => {
                 v-model="handoff.summary"
                 rows="4"
                 class="w-full p-2.5 rounded-lg border border-[#333333] bg-[#1e1e1e] text-zinc-200 text-xs font-mono outline-none focus:border-[#007acc]"
-                placeholder="Tóm tắt công việc và kết quả..."
+                placeholder="Summary of work and outcomes..."
               />
             </div>
             <div class="p-3.5 rounded-xl border border-[#333333] bg-[#252526] flex flex-col gap-2">
@@ -3864,7 +3864,7 @@ onUnmounted(() => {
                 v-model="handoff.changedFiles"
                 rows="3"
                 class="w-full p-2.5 rounded-lg border border-[#333333] bg-[#1e1e1e] text-zinc-200 text-xs font-mono outline-none focus:border-[#007acc]"
-                placeholder="Danh sách file thay đổi..."
+                placeholder="Changed files list..."
               />
             </div>
           </div>
@@ -3879,7 +3879,7 @@ onUnmounted(() => {
                 <span>Antigravity 2.0 · Autonomous Subagents Swarm</span>
               </h3>
               <p class="text-slate-400 text-xs mt-0.5">
-                Các Agent con chuyên biệt được điều phối song song trong không gian làm việc isolated.
+                Specialized subagents coordinated in parallel isolated workspaces.
               </p>
             </div>
             <button
@@ -3887,7 +3887,7 @@ onUnmounted(() => {
               @click="followUp = '/teamwork-preview '; activeEditorTab = 'terminal';"
             >
               <i class="codicon codicon-add" />
-              <span>Gọi Subagent mới</span>
+              <span>Spawn Subagent</span>
             </button>
           </div>
 
@@ -3912,7 +3912,7 @@ onUnmounted(() => {
               </div>
 
               <p class="text-xs text-zinc-300 bg-[#1e1e1e] p-2 rounded-lg border border-[#333333]">
-                {{ sub.stateDetail || 'Đang sẵn sàng nhận nhiệm vụ...' }}
+                {{ sub.stateDetail || 'Ready to receive tasks...' }}
               </p>
             </div>
           </div>
@@ -3927,7 +3927,7 @@ onUnmounted(() => {
                 <span>Background Tasks & Scheduled Timers</span>
               </h3>
               <p class="text-slate-400 text-xs mt-0.5">
-                Quản lý các lệnh tiến trình chạy ngầm, cron job và bộ đếm thời gian.
+                Manage background processes, cron schedules, and timers.
               </p>
             </div>
             <button
@@ -3935,7 +3935,7 @@ onUnmounted(() => {
               @click="showScheduledTasksModal = true"
             >
               <i class="codicon codicon-add" />
-              <span>Thêm lịch hẹn</span>
+              <span>Schedule Task</span>
             </button>
           </div>
 
@@ -3945,7 +3945,7 @@ onUnmounted(() => {
                 <i class="codicon codicon-pulse text-emerald-400" />
                 <div>
                   <h4 class="font-bold text-xs text-zinc-100">Antigravity Reactive Wakeup Service</h4>
-                  <p class="text-[11px] text-zinc-400">Tự động đánh thức khi có tin nhắn từ Subagent hoặc tiến trình ngầm hoàn thành.</p>
+                  <p class="text-[11px] text-zinc-400">Automatic wake-up on subagent messages or background task completion.</p>
                 </div>
               </div>
               <span class="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-[10px] text-emerald-300 font-mono font-semibold">
@@ -3964,24 +3964,24 @@ onUnmounted(() => {
                 <span>Antigravity Generated Artifacts & Documents</span>
               </h3>
               <p class="text-slate-400 text-xs mt-0.5">
-                Các bản kế hoạch (Implementation Plan), tài liệu bàn giao (Walkthrough), và báo cáo kiến trúc.
+                Implementation plans, walkthrough handoffs, and architecture reports.
               </p>
             </div>
             <button
               class="px-2.5 py-1 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white text-xs font-semibold cursor-pointer shadow-xs"
               @click="applyDocsToWorkspace"
             >
-              Lưu toàn bộ vào Workspace
+              Save All to Workspace
             </button>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div
               v-for="art in [
-                { name: 'walkthrough.md', title: 'Walkthrough Summary', desc: 'Báo cáo tổng kết thay đổi và kết quả kiểm thử' },
-                { name: 'implementation_plan.md', title: 'Implementation Plan', desc: 'Kế hoạch triển khai kỹ thuật và verification' },
-                { name: 'INCIDENT_RESPONSE.md', title: 'Incident Response SOP', desc: 'Quy trình xử lý sự cố chuẩn cho production' },
-                { name: 'PROJECT_DOCUMENTS.md', title: 'Project Master Index', desc: 'Mục lục tổng hợp toàn bộ tài liệu dự án' }
+                { name: 'walkthrough.md', title: 'Walkthrough Summary', desc: 'Summary of modifications and test results' },
+                { name: 'implementation_plan.md', title: 'Implementation Plan', desc: 'Technical implementation plan and verification' },
+                { name: 'INCIDENT_RESPONSE.md', title: 'Incident Response SOP', desc: 'Standard operating procedure for production incident response' },
+                { name: 'PROJECT_DOCUMENTS.md', title: 'Project Master Index', desc: 'Master index for all project documentation' }
               ]"
               :key="art.name"
               class="p-3.5 rounded-xl border border-[#3e3e42] bg-[#252526] flex flex-col gap-2"
@@ -4000,7 +4000,7 @@ onUnmounted(() => {
                 class="mt-1 py-1 px-2 rounded bg-[#333333] hover:bg-[#3e3e42] text-zinc-200 text-[11px] cursor-pointer self-start"
                 @click="openFileInMonaco({ path: `docs/${art.name}`, isDir: false })"
               >
-                Mở trong Monaco Editor
+                Open in Monaco Editor
               </button>
             </div>
           </div>
@@ -4009,17 +4009,17 @@ onUnmounted(() => {
         <!-- CHAT-FIRST CONTENT: requests and replies remain in the primary right column -->
         <div v-show="activeEditorTab === 'terminal'" class="flex-1 min-h-0 overflow-hidden flex flex-col bg-slate-950">
           <header class="flex items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/70 px-5 py-3 shrink-0">
-            <div class="min-w-0"><p class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">{{ workflowTitle }} · Conversation</p><div class="mt-1 flex items-center gap-2 text-xs"><span class="truncate font-semibold text-slate-100">{{ workflowMode === 'task' ? (selectedTask?.issue_key || selectedTask?.title || 'Chọn task') : (selectedDocsProject?.title || 'Chọn project') }}</span><span class="rounded-full px-2 py-0.5 text-[10px] flex items-center gap-1.5" :class="phaseTone === 'active' ? 'bg-amber-950 text-amber-300 border border-amber-800/80' : phaseTone === 'success' ? 'bg-emerald-950 text-emerald-300' : phaseTone === 'error' ? 'bg-rose-950 text-rose-300' : 'bg-slate-800 text-slate-400'"><span v-if="phase === 'running'" class="h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping" /><span>{{ phaseLabel }}</span><span v-if="phase === 'running'" class="font-mono text-[9px] text-amber-400/80">({{ formattedDuration }})</span></span></div></div>
-            <div class="flex shrink-0 gap-1.5"><button class="rounded-lg border px-2.5 py-1.5 text-[11px] cursor-pointer transition-all flex items-center gap-1.5" :class="phase === 'running' ? 'border-cyan-500 bg-cyan-950/60 text-cyan-200 shadow-sm shadow-cyan-500/20' : 'border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700'" @click="showProcessDrawer = true"><span v-if="phase === 'running'" class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" /><span class="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" /></span><i v-else class="codicon codicon-terminal" /><span>Process</span><span v-if="processCards.length" class="ml-0.5 px-1 rounded bg-slate-900 text-cyan-300 font-mono text-[10px]">{{ processCards.length }}</span></button><button class="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-[11px] text-slate-200 hover:bg-slate-700 cursor-pointer" @click="openSessionHistory"><i class="codicon codicon-history mr-1" />Lịch sử</button></div>
+            <div class="min-w-0"><p class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">{{ workflowTitle }} · Conversation</p><div class="mt-1 flex items-center gap-2 text-xs"><span class="truncate font-semibold text-slate-100">{{ workflowMode === 'task' ? (selectedTask?.issue_key || selectedTask?.title || 'Select task') : (selectedDocsProject?.title || 'Select project') }}</span><span class="rounded-full px-2 py-0.5 text-[10px] flex items-center gap-1.5" :class="phaseTone === 'active' ? 'bg-amber-950 text-amber-300 border border-amber-800/80' : phaseTone === 'success' ? 'bg-emerald-950 text-emerald-300' : phaseTone === 'error' ? 'bg-rose-950 text-rose-300' : 'bg-slate-800 text-slate-400'"><span v-if="phase === 'running'" class="h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping" /><span>{{ phaseLabel }}</span><span v-if="phase === 'running'" class="font-mono text-[9px] text-amber-400/80">({{ formattedDuration }})</span></span></div></div>
+            <div class="flex shrink-0 gap-1.5"><button class="rounded-lg border px-2.5 py-1.5 text-[11px] cursor-pointer transition-all flex items-center gap-1.5" :class="phase === 'running' ? 'border-cyan-500 bg-cyan-950/60 text-cyan-200 shadow-sm shadow-cyan-500/20' : 'border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700'" @click="showProcessDrawer = true"><span v-if="phase === 'running'" class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" /><span class="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" /></span><i v-else class="codicon codicon-terminal" /><span>Process</span><span v-if="processCards.length" class="ml-0.5 px-1 rounded bg-slate-900 text-cyan-300 font-mono text-[10px]">{{ processCards.length }}</span></button><button class="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-[11px] text-slate-200 hover:bg-slate-700 cursor-pointer" @click="openSessionHistory"><i class="codicon codicon-history mr-1" />History</button></div>
           </header>
 
           <div ref="streamContainer" class="flex-1 min-h-0 overflow-y-auto px-5 py-6" @scroll="handleScroll">
-            <div v-if="conversationCards.length === 0" class="mx-auto flex max-w-xl flex-col items-center justify-center py-20 text-center"><div class="mb-4 grid h-12 w-12 place-items-center rounded-2xl border border-cyan-800 bg-cyan-950/40 text-cyan-300"><i class="codicon codicon-comment-discussion text-xl" /></div><h3 class="text-base font-bold text-slate-100">Bắt đầu {{ workflowTitle }}</h3><p class="mt-2 text-xs leading-relaxed text-slate-400">{{ workflowMode === 'discovery' ? 'Mô tả outcome ở composer phía dưới. Agent sẽ đọc repo, docs và context Task Hub.' : workflowMode === 'task' ? 'Chọn một Task Hub task ở cột trái, sau đó có thể thêm ghi chú trước khi agent bắt đầu.' : 'Chọn project rồi bấm gửi. Bạn có thể giới hạn phạm vi tài liệu bằng ghi chú.' }}</p></div>
+            <div v-if="conversationCards.length === 0" class="mx-auto flex max-w-xl flex-col items-center justify-center py-20 text-center"><div class="mb-4 grid h-12 w-12 place-items-center rounded-2xl border border-cyan-800 bg-cyan-950/40 text-cyan-300"><i class="codicon codicon-comment-discussion text-xl" /></div><h3 class="text-base font-bold text-slate-100">Start {{ workflowTitle }}</h3><p class="mt-2 text-xs leading-relaxed text-slate-400">{{ workflowMode === 'discovery' ? 'Describe the desired outcome in the composer below. The agent reads the repository, documentation, and Task Hub context.' : workflowMode === 'task' ? 'Select a Task Hub task from the left sidebar, optionally add instructions before agent begins.' : 'Select a project then click Send. You can scope document scanning using instructions.' }}</p></div>
             <div v-else class="mx-auto max-w-4xl space-y-5">
               <article v-for="card in conversationCards" :key="card.id">
                 <div v-if="card.type === 'user_message'" class="flex justify-end">
                   <div class="max-w-[82%] rounded-2xl rounded-tr-sm bg-blue-600 px-4 py-3 text-sm text-white shadow-sm">
-                    <p class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-blue-100">Bạn · {{ card.time }}</p>
+                    <p class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-blue-100">You · {{ card.time }}</p>
                     <MarkdownView :content="card.text" :is-user="true" />
                   </div>
                 </div>
@@ -4031,7 +4031,7 @@ onUnmounted(() => {
                     <div class="mb-1.5 flex items-center justify-between border-b border-purple-900/40 pb-1.5">
                       <span class="text-[10px] font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
                         <i class="codicon codicon-lightbulb text-[11px]" />
-                        <span>Suy luận / Thinking · {{ card.time }}</span>
+                        <span>Thinking / Reasoning · {{ card.time }}</span>
                       </span>
                       <button class="text-[10px] text-slate-500 hover:text-white cursor-pointer" @click="copyCardText(card.text)">Copy</button>
                     </div>
@@ -4050,7 +4050,7 @@ onUnmounted(() => {
                 </div>
                 <div v-else class="flex items-center gap-2 py-1 text-[10px] text-slate-500">
                   <span class="h-px flex-1 bg-slate-800" />
-                  <span>Turn hoàn thành · {{ (card.usage?.total_tokens || card.usage?.output_tokens || 0).toLocaleString() }} tokens</span>
+                  <span>Turn completed · {{ (card.usage?.total_tokens || card.usage?.output_tokens || 0).toLocaleString() }} tokens</span>
                   <span class="h-px flex-1 bg-slate-800" />
                 </div>
               </article>
@@ -4077,22 +4077,22 @@ onUnmounted(() => {
                 </div>
               </div>
               <section v-if="workflowMode === 'discovery' && phase === 'error'" class="rounded-2xl border border-rose-800/70 bg-rose-950/20 p-4">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-rose-300">Không có phản hồi từ agent</p>
-                <h3 class="mt-1 text-base font-bold text-rose-50">Kế hoạch chưa được tạo</h3>
-                <p class="mt-2 text-xs leading-relaxed text-rose-100/80">{{ errorMessage || 'Phiên agent kết thúc trước khi gửi phản hồi.' }}</p>
+                <p class="text-[10px] font-bold uppercase tracking-wider text-rose-300">No response from agent</p>
+                <h3 class="mt-1 text-base font-bold text-rose-50">Plan Was Not Generated</h3>
+                <p class="mt-2 text-xs leading-relaxed text-rose-100/80">{{ errorMessage || 'Agent session ended before sending response.' }}</p>
                 <div class="mt-4 flex flex-wrap gap-2">
-                  <button class="rounded-lg bg-cyan-500 px-3 py-1.5 text-xs font-bold text-slate-950 hover:bg-cyan-400 cursor-pointer" @click="retryRequirementDiscovery">Chạy lại phân tích</button>
-                  <button class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800 cursor-pointer" @click="openCurrentProcess('terminal')">Mở Process & log</button>
+                  <button class="rounded-lg bg-cyan-500 px-3 py-1.5 text-xs font-bold text-slate-950 hover:bg-cyan-400 cursor-pointer" @click="retryRequirementDiscovery">Rerun Analysis</button>
+                  <button class="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800 cursor-pointer" @click="openCurrentProcess('terminal')">Open Process & Log</button>
                 </div>
               </section>
               <section v-if="workflowMode === 'discovery' && phase === 'review'" class="rounded-2xl border border-violet-800/70 bg-violet-950/20 p-4">
                 <div class="flex items-start justify-between gap-3">
                   <div>
-                    <p class="text-[10px] font-bold uppercase tracking-wider text-violet-300">Review kế hoạch</p>
-                    <h3 class="mt-1 text-base font-bold text-violet-50">{{ discoveryPlan?.epic.title || 'Kế hoạch cần chuẩn hoá' }}</h3>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-violet-300">Review Plan</p>
+                    <h3 class="mt-1 text-base font-bold text-violet-50">{{ discoveryPlan?.epic.title || 'Plan Requires Normalization' }}</h3>
                     <p class="mt-2 text-xs text-violet-100/80">{{ discoveryPlan?.summary || discoveryPlanErrors[0] }}</p>
                   </div>
-                  <button v-if="!isDiscoveryPlanValid" class="rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-amber-950 cursor-pointer" @click="requestDiscoveryPlanCorrection">Yêu cầu sửa</button>
+                  <button v-if="!isDiscoveryPlanValid" class="rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-amber-950 cursor-pointer" @click="requestDiscoveryPlanCorrection">Request Correction</button>
                 </div>
                 <div v-if="discoveryPlan" class="mt-4 space-y-2">
                   <div v-for="story in discoveryPlan.stories" :key="story.title" class="rounded-lg border border-violet-900/70 bg-slate-950/50 p-3">
@@ -4107,22 +4107,22 @@ onUnmounted(() => {
               <section v-if="(workflowMode === 'task' && (phase === 'handoff' || phase === 'review')) || (workflowMode === 'docs' && phase === 'review')" class="rounded-2xl border border-emerald-900/70 bg-emerald-950/20 p-4">
                 <div class="flex items-start justify-between gap-3">
                   <div>
-                    <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Bảng Tóm Tắt Bàn Giao & Review Nghiệm Thu</p>
-                    <h3 class="mt-1 text-base font-bold text-slate-100">{{ selectedTask?.title || 'Nghiệm thu kết quả thực thi' }}</h3>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Handoff Summary & Review</p>
+                    <h3 class="mt-1 text-base font-bold text-slate-100">{{ selectedTask?.title || 'Review Execution Outcome' }}</h3>
                   </div>
                   <button v-if="gitDiffData.diffs.length" class="rounded-lg border border-cyan-700 bg-cyan-950/60 px-3 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-900/60 cursor-pointer flex items-center gap-1.5" @click="loadGitDiff(); activeEditorTab = 'monaco';">
                     <i class="codicon codicon-diff" />
                     <span>Soi Diff ({{ gitDiffData.diffs.length }} files)</span>
                   </button>
                 </div>
-                <p class="mt-2 text-sm text-slate-200 leading-relaxed">{{ handoff.summary || (workflowMode === 'docs' ? 'Agent đã hoàn thành phiên tạo tài liệu.' : 'Agent đã hoàn thành phiên thực thi và đính kèm bằng chứng kiểm định.') }}</p>
+                <p class="mt-2 text-sm text-slate-200 leading-relaxed">{{ handoff.summary || (workflowMode === 'docs' ? 'Agent completed documentation session.' : 'Agent completed execution session and attached verification evidence.') }}</p>
                 <div v-if="handoff.changedFiles" class="mt-3 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-                  <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Danh sách tệp tin thay đổi:</p>
+                  <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Changed Files:</p>
                   <p class="whitespace-pre-wrap font-mono text-[11px] text-slate-300">{{ handoff.changedFiles }}</p>
                 </div>
                 <div v-if="handoff.tests || handoff.testSummary" class="mt-3 rounded-lg border border-slate-800 bg-slate-950/60 p-3">
                   <div class="flex items-center justify-between gap-2">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Bằng chứng kiểm định (Test Evidence):</span>
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Test Evidence & Verification:</span>
                     <span class="rounded px-2 py-0.5 text-[10px] font-bold uppercase" :class="handoff.testStatus === 'passed' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-rose-950 text-rose-300 border border-rose-800'">
                       {{ handoff.testStatus }}
                     </span>
@@ -4134,11 +4134,11 @@ onUnmounted(() => {
                   <button class="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-2 text-xs font-bold shadow-sm transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-40" :disabled="isApproving" @click="approveTaskReview">
                     <i v-if="isApproving" class="codicon codicon-loading animate-spin" />
                     <i v-else class="codicon codicon-pass" />
-                    <span>Duyệt hoàn thành (Human Approval ➔ Task Done)</span>
+                    <span>Approve (Human Approval ➔ Task Done)</span>
                   </button>
                   <button class="rounded-xl border border-amber-700 bg-amber-950/50 hover:bg-amber-900/60 text-amber-200 px-4 py-2 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5" @click="openRejectDialog">
                     <i class="codicon codicon-warning" />
-                    <span>Yêu cầu bổ sung (Reject with feedback)</span>
+                    <span>Request Changes (Reject with feedback)</span>
                   </button>
                   <button class="rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5" @click="activeEditorTab = 'evidence'">
                     <i class="codicon codicon-file-text" />
@@ -4149,7 +4149,7 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <div class="border-t border-slate-800 bg-slate-900/80 px-5 py-3 shrink-0"><div v-if="phase === 'running'" class="mb-2 flex gap-1.5 overflow-x-auto"><button v-for="prompt in ['Tóm tắt tiến độ', 'Chạy tests', 'Kiểm tra git status']" :key="prompt" class="shrink-0 rounded-full border border-slate-700 bg-slate-800 px-2.5 py-1 text-[10px] text-slate-300 hover:text-white cursor-pointer" @click="conversationDraft = prompt">{{ prompt }}</button></div><div v-if="errorMessage" class="mb-2 rounded-lg border border-rose-900 bg-rose-950/40 px-3 py-2 text-xs text-rose-200">{{ errorMessage }}</div><div class="flex items-end gap-2"><textarea v-model="conversationDraft" rows="2" class="min-h-[44px] flex-1 resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-cyan-500" :placeholder="composerPlaceholder" :disabled="['preflight', 'pairing', 'context'].includes(phase)" @keydown.ctrl.enter.prevent="sendConversation" /><button class="rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-bold text-slate-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer flex items-center gap-1.5" :disabled="['preflight', 'pairing', 'context'].includes(phase) || (workflowMode === 'discovery' && phase !== 'running' && !conversationDraft.trim()) || (workflowMode === 'task' && !selectedTask)" @click="sendConversation"><i v-if="phase === 'running'" class="codicon codicon-loading animate-spin text-xs" /><span>{{ composerActionLabel }}</span></button></div><p class="mt-1.5 text-[10px] text-slate-500">Ctrl + Enter để gửi · Process kỹ thuật ở panel riêng</p></div>
+          <div class="border-t border-slate-800 bg-slate-900/80 px-5 py-3 shrink-0"><div v-if="phase === 'running'" class="mb-2 flex gap-1.5 overflow-x-auto"><button v-for="prompt in ['Progress summary', 'Run tests', 'Check git status']" :key="prompt" class="shrink-0 rounded-full border border-slate-700 bg-slate-800 px-2.5 py-1 text-[10px] text-slate-300 hover:text-white cursor-pointer" @click="conversationDraft = prompt">{{ prompt }}</button></div><div v-if="errorMessage" class="mb-2 rounded-lg border border-rose-900 bg-rose-950/40 px-3 py-2 text-xs text-rose-200">{{ errorMessage }}</div><div class="flex items-end gap-2"><textarea v-model="conversationDraft" rows="2" class="min-h-[44px] flex-1 resize-none rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-cyan-500" :placeholder="composerPlaceholder" :disabled="['preflight', 'pairing', 'context'].includes(phase)" @keydown.ctrl.enter.prevent="sendConversation" /><button class="rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-bold text-slate-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer flex items-center gap-1.5" :disabled="['preflight', 'pairing', 'context'].includes(phase) || (workflowMode === 'discovery' && phase !== 'running' && !conversationDraft.trim()) || (workflowMode === 'task' && !selectedTask)" @click="sendConversation"><i v-if="phase === 'running'" class="codicon codicon-loading animate-spin text-xs" /><span>{{ composerActionLabel }}</span></button></div><p class="mt-1.5 text-[10px] text-slate-500">Ctrl + Enter to send · Technical process in dedicated panel</p></div>
         </div>
 
         <!-- Legacy terminal/review layout retained only while migrating saved UI state. -->
@@ -4162,10 +4162,10 @@ onUnmounted(() => {
           <div class="border-b border-slate-800 pb-3">
             <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
               <i class="codicon codicon-run text-zinc-200" />
-              {{ phase === 'select' ? `Bước 1 · Chuẩn bị ${workflowTitle}` : phase === 'ready' ? 'Sẵn sàng khởi chạy Agent' : 'Đang chuẩn bị local agent' }}
+              {{ phase === 'select' ? `Step 1 · Prepare ${workflowTitle}` : phase === 'ready' ? 'Ready to Launch Agent' : 'Preparing local agent' }}
             </h3>
             <p class="text-slate-400 text-xs mt-1 leading-relaxed">
-              {{ phase === 'select' ? 'Chọn đúng repo/project ở panel bên trái, sau đó nhập yêu cầu hoặc chọn task. Agent settings và process kỹ thuật chỉ mở khi cần.' : 'Desktop đang tạo worktree Git cách ly và nạp MCP context để local agent làm việc an toàn.' }}
+              {{ phase === 'select' ? 'Select repo/project in left panel, then enter requirements or select a task. Agent settings and technical process available on demand.' : 'Desktop is creating isolated Git worktree and loading MCP context for safe local agent execution.' }}
             </p>
           </div>
 
@@ -4194,7 +4194,7 @@ onUnmounted(() => {
 
           <!-- CHECKLIST -->
           <div v-if="preflight?.checks" class="space-y-2">
-            <h4 class="font-bold text-slate-300 text-xs uppercase tracking-wider">Trạng thái kiểm tra môi trường:</h4>
+            <h4 class="font-bold text-slate-300 text-xs uppercase tracking-wider">Environment Check Status:</h4>
             <div class="grid gap-2">
               <div
                 v-for="check in preflight.checks"
@@ -4215,7 +4215,7 @@ onUnmounted(() => {
                   <div class="font-semibold text-xs capitalize flex items-center gap-1.5">
                     <span>{{ check.id.replace(/_/g, ' ') }}</span>
                     <span v-if="check.fixable" class="px-1.5 py-0.5 rounded border border-zinc-600 text-[9px] font-mono uppercase text-zinc-300">
-                      Có thể tự sửa
+                      Auto-fixable
                     </span>
                   </div>
                   <div class="text-[11px] opacity-90 mt-0.5">{{ check.message }}</div>
@@ -4226,7 +4226,7 @@ onUnmounted(() => {
           </div>
 
           <div v-if="errorMessage" class="p-3 rounded-lg border border-rose-900/80 bg-rose-950/40 text-rose-200 text-xs">
-            <b>Lỗi:</b> {{ errorMessage }}
+            <b>Error:</b> {{ errorMessage }}
           </div>
         </div>
 
@@ -4265,25 +4265,25 @@ onUnmounted(() => {
                 v-if="viewMode === 'terminal'"
                 v-model="logSearchQuery"
                 class="px-2 py-0.5 rounded bg-slate-950 border border-slate-700 text-[10px] text-slate-200 placeholder-slate-500 outline-none w-24 focus:w-40 transition-all"
-                placeholder="Lọc logs..."
+                placeholder="Filter logs..."
               />
               <button
                 class="px-2 py-0.5 rounded border border-slate-700 bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 transition-colors cursor-pointer"
-                title="Sao chép logs"
+                title="Copy logs"
                 @click="copyTerminalOutput"
               >
                 <i class="codicon codicon-copy mr-1" />Copy
               </button>
               <button
                 class="px-2 py-0.5 rounded border border-slate-700 bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 transition-colors cursor-pointer"
-                title="Xóa màn hình"
+                title="Clear output"
                 @click="clearTerminal"
               >
-                <i class="codicon codicon-trash mr-1" />Xóa
+                <i class="codicon codicon-trash mr-1" />Clear
               </button>
               <button
                 class="px-2 py-0.5 rounded border border-slate-700 bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 transition-colors cursor-pointer"
-                title="Mở file log ngoài"
+                title="Open external log file"
                 @click="openSessionLog"
               >
                 <i class="codicon codicon-file mr-1" />Log file
@@ -4300,14 +4300,14 @@ onUnmounted(() => {
           >
             <div v-if="streamCards.length === 0" class="text-slate-500 italic py-8 text-center animate-pulse flex flex-col items-center gap-2">
               <i class="codicon codicon-copilot text-lg" />
-              <span>Đang khởi động Agent và chuẩn bị context...</span>
+              <span>Launching Agent and preparing context...</span>
             </div>
 
             <div v-for="card in streamCards" :key="card.id" class="space-y-1">
               <!-- USER MESSAGE -->
               <div v-if="card.type === 'user_message'" class="flex justify-end">
                 <div class="max-w-[85%] rounded-2xl rounded-tr-none bg-blue-600/90 text-white px-3.5 py-2 shadow-md">
-                  <div class="text-[10px] opacity-75 font-mono mb-0.5 text-blue-200">Bạn · {{ card.time }}</div>
+                  <div class="text-[10px] opacity-75 font-mono mb-0.5 text-blue-200">You · {{ card.time }}</div>
                   <MarkdownView :content="card.text" :is-user="true" />
                 </div>
               </div>
@@ -4429,7 +4429,7 @@ onUnmounted(() => {
               <!-- TURN COMPLETED METRICS -->
               <div v-else-if="card.type === 'turn_completed'" class="flex items-center justify-center gap-2 text-[10px] text-slate-500 py-1">
                 <span class="h-px bg-slate-800 flex-1"></span>
-                <span>✓ Turn hoàn thành · Tokens: {{ (card.usage?.input_tokens || 0).toLocaleString() }} in / {{ (card.usage?.output_tokens || 0).toLocaleString() }} out</span>
+                <span>✓ Turn completed · Tokens: {{ (card.usage?.input_tokens || 0).toLocaleString() }} in / {{ (card.usage?.output_tokens || 0).toLocaleString() }} out</span>
                 <span class="h-px bg-slate-800 flex-1"></span>
               </div>
             </div>
@@ -4443,7 +4443,7 @@ onUnmounted(() => {
             @scroll="handleScroll"
           >
             <div v-if="!rawOutput" class="text-slate-500 italic py-8 text-center animate-pulse">
-              Đang chờ dữ liệu log từ agent...
+              Waiting for log output from agent...
             </div>
             <div v-else class="whitespace-pre-wrap break-words font-mono" v-html="filteredTerminalHtml"></div>
           </div>
@@ -4454,32 +4454,26 @@ onUnmounted(() => {
             class="absolute bottom-16 right-6 px-3 py-1 rounded-full bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-[10px] shadow-lg flex items-center gap-1.5 transition-all cursor-pointer animate-bounce"
             @click="scrollToBottom"
           >
-            <span>↓</span> Cuộn xuống mới nhất
+            <span>↓</span> Scroll to bottom
           </button>
 
           <!-- BOTTOM FOLLOW-UP INPUT -->
           <div class="p-2.5 border-t border-slate-800/80 bg-slate-900/60 flex flex-col gap-2 shrink-0">
             <!-- QUICK PROMPT CHIPS -->
             <div class="flex items-center gap-1.5 overflow-x-auto text-[10px] text-slate-400 pb-0.5">
-              <span class="text-slate-500 font-mono text-[9px] uppercase">Gợi ý:</span>
+              <span class="text-slate-500 font-mono text-[9px] uppercase">Suggestions:</span>
               <button
                 class="px-2 py-0.5 rounded-full border border-slate-700/80 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer shrink-0"
-                @click="sendQuickPrompt('Kiểm tra git status hiện tại trong worktree')"
-              >
-                Kiểm tra git status
-              </button>
+                @click="sendQuickPrompt('Check current git status in worktree')"
+              >Check git status</button>
               <button
                 class="px-2 py-0.5 rounded-full border border-slate-700/80 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer shrink-0"
-                @click="sendQuickPrompt('Chạy automated tests và báo cáo kết quả')"
-              >
-                Chạy tests
-              </button>
+                @click="sendQuickPrompt('Run automated tests and report results')"
+              >Run tests</button>
               <button
                 class="px-2 py-0.5 rounded-full border border-slate-700/80 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer shrink-0"
-                @click="sendQuickPrompt('Tóm tắt những thay đổi bạn vừa thực hiện')"
-              >
-                Tóm tắt tiến độ
-              </button>
+                @click="sendQuickPrompt('Summarize changes you just made')"
+              >Progress summary</button>
             </div>
 
             <!-- SLASH COMMANDS POPUP -->
@@ -4510,7 +4504,7 @@ onUnmounted(() => {
               <input
                 v-model="followUp"
                 class="flex-1 px-3 py-2 rounded-xl border border-slate-700 bg-slate-950 text-xs text-white placeholder-slate-500 outline-none focus:border-cyan-500 font-sans transition-colors"
-                placeholder="Nhập yêu cầu, lệnh (/goal, /diff, /schedule...) hoặc follow-up... (Enter để gửi)"
+                placeholder="Type instructions, command (/goal, /diff, /schedule...) or follow-up... (Enter to send)"
                 @keyup.enter="sendFollowUp"
                 @keydown.esc="showSlashMenu = false"
               />
@@ -4518,9 +4512,7 @@ onUnmounted(() => {
                 class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition-colors cursor-pointer disabled:opacity-40"
                 :disabled="!followUp.trim()"
                 @click="sendFollowUp"
-              >
-                Gửi
-              </button>
+              >Send</button>
             </div>
           </div>
         </div>
@@ -4530,26 +4522,26 @@ onUnmounted(() => {
           <div class="border-b border-slate-800 pb-2.5 flex items-center justify-between">
             <div>
               <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
-                <i class="codicon codicon-checklist text-zinc-200" />{{ workflowMode === 'discovery' ? 'Review Requirement Plan' : docsOnly ? 'Review Tài liệu Đã Tạo' : 'Structured Agent Handoff' }}
+                <i class="codicon codicon-checklist text-zinc-200" />{{ workflowMode === 'discovery' ? 'Review Requirement Plan' : docsOnly ? 'Review Generated Documentation' : 'Structured Agent Handoff' }}
               </h3>
               <p class="text-slate-400 text-xs mt-0.5">
-                {{ workflowMode === 'discovery' ? 'Kế hoạch đã được tách khỏi process kỹ thuật. Backlog chỉ được tạo khi bạn bấm phê duyệt.' : docsOnly ? 'Kiểm tra các file tài liệu trước khi đồng bộ lên Task Hub.' : 'Ghi nhận kết quả thực thi, test results, and bằng chứng hoàn thành.' }}
+                {{ workflowMode === 'discovery' ? 'Plan is separated from technical process. Backlog is only created upon approval.' : docsOnly ? 'Inspect documentation files before syncing to Task Hub.' : 'Review execution outcome, test results, and verification evidence.' }}
               </p>
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <button
                 class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
-                title="Mở process kỹ thuật của local agent"
+                title="Open technical process of local agent"
                 @click="openCurrentProcess('cards')"
               >
                 <i class="codicon codicon-terminal mr-1" />Process
               </button>
               <button
                 class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
-                title="Mở lại process của các phiên đã hoàn thành"
+                title="Reopen process of completed sessions"
                 @click="openSessionHistory"
               >
-                <i class="codicon codicon-history mr-1" />Lịch sử
+                <i class="codicon codicon-history mr-1" />History
               </button>
               <button
                 v-if="workflowMode !== 'discovery'"
@@ -4563,29 +4555,29 @@ onUnmounted(() => {
 
           <div v-if="workflowMode === 'discovery'" class="space-y-3">
             <div v-if="!isDiscoveryPlanValid" class="rounded-xl border border-amber-800/70 bg-amber-950/25 p-4">
-              <div class="flex items-start justify-between gap-3"><div><h4 class="text-sm font-bold text-amber-100">Kế hoạch cần được chuẩn hoá</h4><p class="mt-1 text-xs text-amber-200/80">Không hiển thị raw log ở đây. Hãy yêu cầu agent trả lại kế hoạch có cấu trúc trước khi duyệt.</p></div><button class="shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-amber-950 hover:bg-amber-400 cursor-pointer" :disabled="!sessionId" @click="requestDiscoveryPlanCorrection">Yêu cầu sửa</button></div>
+              <div class="flex items-start justify-between gap-3"><div><h4 class="text-sm font-bold text-amber-100">Plan Requires Normalization</h4><p class="mt-1 text-xs text-amber-200/80">Raw logs are hidden here. Request structured plan from agent before approval.</p></div><button class="shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-amber-950 hover:bg-amber-400 cursor-pointer" :disabled="!sessionId" @click="requestDiscoveryPlanCorrection">Request Correction</button></div>
               <ul class="mt-3 list-disc space-y-1 pl-4 text-xs text-amber-200/80"><li v-for="error in discoveryPlanErrors" :key="error">{{ error }}</li></ul>
             </div>
             <template v-else-if="discoveryPlan">
-              <section class="rounded-xl border border-violet-800/70 bg-violet-950/20 p-4"><div class="flex flex-wrap items-start justify-between gap-3"><div><p class="text-[10px] font-bold uppercase tracking-wider text-violet-300">Kế hoạch đã sẵn sàng review</p><h4 class="mt-1 text-base font-bold text-violet-50">{{ discoveryPlan.epic.title }}</h4><p class="mt-2 max-w-3xl text-xs leading-relaxed text-violet-100/80">{{ discoveryPlan.summary }}</p></div><div class="flex gap-2 text-center"><span class="rounded-lg border border-violet-800 bg-violet-950 px-3 py-2"><b class="block text-base text-violet-100">{{ discoveryPlan.stories.length }}</b><small class="text-[10px] text-violet-300">Stories</small></span><span class="rounded-lg border border-violet-800 bg-violet-950 px-3 py-2"><b class="block text-base text-violet-100">{{ discoveryTaskCount }}</b><small class="text-[10px] text-violet-300">Tasks</small></span><span class="rounded-lg border border-violet-800 bg-violet-950 px-3 py-2"><b class="block text-base text-violet-100">{{ discoveryTotalPoints }}</b><small class="text-[10px] text-violet-300">Points</small></span></div></div><p v-if="discoveryPlan.epic.description" class="mt-3 border-t border-violet-900/70 pt-3 text-xs text-violet-200/80">{{ discoveryPlan.epic.description }}</p></section>
-              <div class="grid gap-3 lg:grid-cols-3"><section class="rounded-xl border border-slate-800 bg-slate-950/50 p-3"><h5 class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Giả định</h5><ul class="mt-2 space-y-1 text-xs text-slate-300"><li v-for="item in discoveryPlan.assumptions" :key="item">• {{ item }}</li><li v-if="!discoveryPlan.assumptions.length" class="text-slate-500">Không có.</li></ul></section><section class="rounded-xl border border-slate-800 bg-slate-950/50 p-3"><h5 class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Docs & kiến trúc</h5><ul class="mt-2 space-y-1 text-xs text-slate-300"><li v-for="item in [...discoveryPlan.affected_docs, ...discoveryPlan.architecture_notes]" :key="item">• {{ item }}</li><li v-if="!discoveryPlan.affected_docs.length && !discoveryPlan.architecture_notes.length" class="text-slate-500">Không có.</li></ul></section><section class="rounded-xl border border-slate-800 bg-slate-950/50 p-3"><h5 class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Rủi ro</h5><ul class="mt-2 space-y-1 text-xs text-slate-300"><li v-for="item in discoveryPlan.risks" :key="item">• {{ item }}</li><li v-if="!discoveryPlan.risks.length" class="text-slate-500">Không có.</li></ul></section></div>
+              <section class="rounded-xl border border-violet-800/70 bg-violet-950/20 p-4"><div class="flex flex-wrap items-start justify-between gap-3"><div><p class="text-[10px] font-bold uppercase tracking-wider text-violet-300">Plan Ready for Review</p><h4 class="mt-1 text-base font-bold text-violet-50">{{ discoveryPlan.epic.title }}</h4><p class="mt-2 max-w-3xl text-xs leading-relaxed text-violet-100/80">{{ discoveryPlan.summary }}</p></div><div class="flex gap-2 text-center"><span class="rounded-lg border border-violet-800 bg-violet-950 px-3 py-2"><b class="block text-base text-violet-100">{{ discoveryPlan.stories.length }}</b><small class="text-[10px] text-violet-300">Stories</small></span><span class="rounded-lg border border-violet-800 bg-violet-950 px-3 py-2"><b class="block text-base text-violet-100">{{ discoveryTaskCount }}</b><small class="text-[10px] text-violet-300">Tasks</small></span><span class="rounded-lg border border-violet-800 bg-violet-950 px-3 py-2"><b class="block text-base text-violet-100">{{ discoveryTotalPoints }}</b><small class="text-[10px] text-violet-300">Points</small></span></div></div><p v-if="discoveryPlan.epic.description" class="mt-3 border-t border-violet-900/70 pt-3 text-xs text-violet-200/80">{{ discoveryPlan.epic.description }}</p></section>
+              <div class="grid gap-3 lg:grid-cols-3"><section class="rounded-xl border border-slate-800 bg-slate-950/50 p-3"><h5 class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Assumptions</h5><ul class="mt-2 space-y-1 text-xs text-slate-300"><li v-for="item in discoveryPlan.assumptions" :key="item">• {{ item }}</li><li v-if="!discoveryPlan.assumptions.length" class="text-slate-500">None.</li></ul></section><section class="rounded-xl border border-slate-800 bg-slate-950/50 p-3"><h5 class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Docs & Architecture</h5><ul class="mt-2 space-y-1 text-xs text-slate-300"><li v-for="item in [...discoveryPlan.affected_docs, ...discoveryPlan.architecture_notes]" :key="item">• {{ item }}</li><li v-if="!discoveryPlan.affected_docs.length && !discoveryPlan.architecture_notes.length" class="text-slate-500">None.</li></ul></section><section class="rounded-xl border border-slate-800 bg-slate-950/50 p-3"><h5 class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Risks</h5><ul class="mt-2 space-y-1 text-xs text-slate-300"><li v-for="item in discoveryPlan.risks" :key="item">• {{ item }}</li><li v-if="!discoveryPlan.risks.length" class="text-slate-500">None.</li></ul></section></div>
               <section class="rounded-xl border border-slate-800 bg-slate-950/40 p-3"><h5 class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Stories, tasks & dependencies</h5><div class="mt-3 space-y-3"><article v-for="(story, storyIndex) in discoveryPlan.stories" :key="`${story.title}-${storyIndex}`" class="rounded-lg border border-slate-800 bg-slate-900/50 p-3"><div class="flex items-start justify-between gap-3"><div><h6 class="text-sm font-semibold text-slate-100">{{ storyIndex + 1 }}. {{ story.title }}</h6><p class="mt-1 text-xs text-slate-400">{{ story.acceptance_criteria.join(' · ') }}</p></div><span class="rounded bg-violet-950 px-2 py-1 text-[10px] font-bold text-violet-200">{{ story.story_points }} pts</span></div><div class="mt-3 space-y-1.5"><div v-for="task in story.tasks" :key="task.ref" class="grid grid-cols-[auto_1fr_auto] items-start gap-2 rounded border border-slate-800 bg-slate-950/70 p-2"><code class="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-cyan-300">{{ task.ref }}</code><div><p class="text-xs font-medium text-slate-200">{{ task.title }}</p><p class="mt-0.5 text-[10px] text-slate-500">{{ task.acceptance_criteria.join(' · ') }}<span v-if="task.depends_on.length"> · depends on: {{ task.depends_on.join(', ') }}</span></p></div><span class="text-[10px] font-mono text-slate-400">{{ task.story_points }}pt</span></div></div></article></div></section>
             </template>
           </div>
 
           <div v-else class="space-y-3">
             <div>
-              <label class="font-bold text-slate-300 block mb-1 text-[11px] uppercase tracking-wider">Tóm tắt công việc hoàn thành</label>
+              <label class="font-bold text-slate-300 block mb-1 text-[11px] uppercase tracking-wider">Work Completion Summary</label>
               <textarea
                 v-model="handoff.summary"
                 class="w-full p-2.5 rounded-lg border border-slate-700 bg-slate-950 text-xs text-slate-200 placeholder-slate-500 outline-none focus:border-cyan-500 transition-colors"
                 rows="3"
-                placeholder="Tóm tắt những thay đổi chính..."
+                placeholder="Summary of key modifications and architectural changes..."
               />
             </div>
 
             <div>
-              <label class="font-bold text-slate-300 block mb-1 text-[11px] uppercase tracking-wider">Changed files (mỗi file một dòng)</label>
+              <label class="font-bold text-slate-300 block mb-1 text-[11px] uppercase tracking-wider">Changed files (one file per line)</label>
               <textarea
                 v-model="handoff.changedFiles"
                 class="w-full p-2.5 rounded-lg border border-slate-700 bg-slate-950 font-mono text-[11px] text-slate-200 placeholder-slate-500 outline-none focus:border-cyan-500 transition-colors"
@@ -4621,13 +4613,13 @@ onUnmounted(() => {
               <input
                 v-model="handoff.testSummary"
                 class="w-full p-2 rounded-lg border border-slate-700 bg-slate-950 text-xs text-slate-200 outline-none focus:border-cyan-500"
-                placeholder="Tất cả unit test đều pass."
+                placeholder="All unit tests passed successfully."
               />
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label class="font-bold text-slate-300 block mb-1 text-[11px] uppercase tracking-wider">Commit SHA (tùy chọn)</label>
+                <label class="font-bold text-slate-300 block mb-1 text-[11px] uppercase tracking-wider">Commit SHA (optional)</label>
                 <input
                   v-model="handoff.commitSha"
                   class="w-full p-2 rounded-lg border border-slate-700 bg-slate-950 font-mono text-xs text-slate-200 outline-none focus:border-cyan-500"
@@ -4635,7 +4627,7 @@ onUnmounted(() => {
                 />
               </div>
               <div>
-                <label class="font-bold text-slate-300 block mb-1 text-[11px] uppercase tracking-wider">Pull Request URL (tùy chọn)</label>
+                <label class="font-bold text-slate-300 block mb-1 text-[11px] uppercase tracking-wider">Pull Request URL (optional)</label>
                 <input
                   v-model="handoff.pullRequestUrl"
                   class="w-full p-2 rounded-lg border border-slate-700 bg-slate-950 text-xs text-slate-200 outline-none focus:border-cyan-500"
@@ -4645,12 +4637,12 @@ onUnmounted(() => {
             </div>
 
             <div>
-              <label class="font-bold text-slate-300 block mb-1 text-[11px] uppercase tracking-wider">Blockers / Ghi chú bổ sung</label>
+              <label class="font-bold text-slate-300 block mb-1 text-[11px] uppercase tracking-wider">Blockers / Additional Notes</label>
               <textarea
                 v-model="handoff.blockers"
                 class="w-full p-2 rounded-lg border border-slate-700 bg-slate-950 text-xs text-slate-200 outline-none focus:border-cyan-500"
                 rows="2"
-                placeholder="Không có blocker."
+                placeholder="No blockers encountered."
               />
             </div>
           </div>
@@ -4668,7 +4660,7 @@ onUnmounted(() => {
           :disabled="busy || !selectedTask"
           @click="() => runPreflight()"
         >
-          <i v-if="phase !== 'error'" class="codicon codicon-run mr-1" />{{ phase === 'error' ? 'Thử lại Preflight' : 'Bắt đầu Preflight' }}
+          <i v-if="phase !== 'error'" class="codicon codicon-run mr-1" />{{ phase === 'error' ? 'Retry Preflight' : 'Start Preflight' }}
         </button>
 
         <button
@@ -4677,14 +4669,14 @@ onUnmounted(() => {
           :disabled="setupBusy"
           @click="repairEnvironment"
         >
-          <i class="codicon codicon-tools mr-1" />{{ setupBusy ? 'Đang tự sửa...' : hasFixableEnvironmentIssue ? 'Tự sửa & kiểm tra lại' : 'Dọn môi trường & kiểm tra lại' }}
+          <i class="codicon codicon-tools mr-1" />{{ setupBusy ? 'Auto-repairing...' : hasFixableEnvironmentIssue ? 'Auto-Repair & Recheck' : 'Clean Environment & Recheck' }}
         </button>
 
         <button
           v-if="false && workflowMode === 'task' && phase === 'ready'"
           @click="startAgent"
         >
-          <i class="codicon codicon-play mr-1" />Khởi chạy Agent (Full Access)
+          <i class="codicon codicon-play mr-1" />Launch Agent (Full Access)
         </button>
 
         <button
@@ -4692,7 +4684,7 @@ onUnmounted(() => {
           class="px-3.5 py-1.5 rounded-lg bg-[#007acc] hover:bg-[#0062a3] text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
           @click="completeExternalSession"
         >
-          Hoàn tất ngoài → Handoff
+          External Complete → Handoff
         </button>
 
         <button
@@ -4700,7 +4692,7 @@ onUnmounted(() => {
           class="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
           @click="stopAgent"
         >
-          <i class="codicon codicon-debug-stop mr-1" />{{ workflowMode === 'discovery' ? 'Dừng → Review Plan' : docsOnly ? 'Dừng → Review Docs' : 'Dừng Agent → Handoff' }}
+          <i class="codicon codicon-debug-stop mr-1" />{{ workflowMode === 'discovery' ? 'Stop → Review Plan' : docsOnly ? 'Stop → Review Docs' : 'Stop Agent → Handoff' }}
         </button>
 
         <button
@@ -4709,7 +4701,7 @@ onUnmounted(() => {
           :disabled="!handoff.summary || !handoff.changedFiles"
           @click="submitHandoff"
         >
-          Submit Handoff lên Task Hub
+          Submit Handoff to Task Hub
         </button>
 
         <button
@@ -4720,7 +4712,7 @@ onUnmounted(() => {
         >
           <i v-if="isApproving" class="codicon codicon-loading animate-spin" />
           <i v-else class="codicon codicon-pass" />
-          <span>✓ Duyệt hoàn thành</span>
+          <span>✓ Approve</span>
         </button>
 
         <button
@@ -4729,7 +4721,7 @@ onUnmounted(() => {
           @click="openRejectDialog"
         >
           <i class="codicon codicon-warning" />
-          <span>Yêu cầu bổ sung</span>
+          <span>Request Changes</span>
         </button>
 
         <button
@@ -4737,19 +4729,19 @@ onUnmounted(() => {
           class="px-3.5 py-1.5 rounded-lg bg-violet-700 hover:bg-violet-600 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
           :class="!isDiscoveryPlanValid ? 'opacity-40 cursor-not-allowed' : ''"
           :disabled="!isDiscoveryPlanValid"
-          title="Chỉ tạo backlog khi kế hoạch cấu trúc hợp lệ"
+          title="Only create backlog when structured plan is valid"
           @click="createApprovedBacklog"
         >
-          ✓ Duyệt & tạo Backlog
+          ✓ Approve & Create Backlog
         </button>
 
         <button
           v-if="phase === 'review' && docsOnly"
           class="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-          title="Sao chép toàn bộ file tài liệu đã tạo vào thư mục docs/ của workspace chính"
+          title="Copy all generated document files to docs/ in the main workspace"
           @click="applyDocsToWorkspace"
         >
-          <i class="codicon codicon-save mr-1" />Lưu vào Workspace chính
+          <i class="codicon codicon-save mr-1" />Save to Main Workspace
         </button>
 
         <button
@@ -4757,7 +4749,7 @@ onUnmounted(() => {
           class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
           @click="syncGeneratedDocs"
         >
-          ✓ Đồng bộ Docs lên Task Hub
+          ✓ Sync Docs to Task Hub
         </button>
 
         <button
@@ -4765,7 +4757,7 @@ onUnmounted(() => {
           class="px-2.5 py-1 rounded-lg border border-[#3e3e42] bg-[#333333] hover:bg-[#3e3e42] text-zinc-200 text-xs transition-colors cursor-pointer"
           @click="openWorktree"
         >
-          <i class="codicon codicon-folder-opened mr-1" />Mở Worktree
+          <i class="codicon codicon-folder-opened mr-1" />Open Worktree
         </button>
 
         <button
@@ -4773,7 +4765,7 @@ onUnmounted(() => {
           class="px-2.5 py-1 rounded-lg border border-[#3e3e42] bg-[#333333] hover:bg-[#3e3e42] text-zinc-200 text-xs transition-colors cursor-pointer"
           @click="openSessionLog"
         >
-          <i class="codicon codicon-file mr-1" />Mở Log File
+          <i class="codicon codicon-file mr-1" />Open Log File
         </button>
       </div>
 
@@ -4784,9 +4776,7 @@ onUnmounted(() => {
         <button
           class="text-zinc-400 hover:text-white px-2 py-1 rounded hover:bg-[#333333] transition-colors text-xs cursor-pointer"
           @click="emit('close')"
-        >
-          Đóng
-        </button>
+        >Close</button>
       </div>
     </div>
 
@@ -4824,7 +4814,7 @@ onUnmounted(() => {
         <!-- Quota 5h / Weekly -->
         <span class="flex items-center gap-1 hover:bg-white/20 px-1.5 py-0.2 rounded cursor-pointer" @click="openModelsAndUsageModal">
           <i class="codicon codicon-pulse text-xs" />
-          <span>5h: {{ activeQuotaGroup.fiveHourRemainingPercent }}% · Tuần: {{ activeQuotaGroup.weeklyRemainingPercent }}%</span>
+          <span>5h: {{ activeQuotaGroup.fiveHourRemainingPercent }}% · Weekly: {{ activeQuotaGroup.weeklyRemainingPercent }}%</span>
         </span>
 
         <!-- Indentation -->
@@ -4836,18 +4826,18 @@ onUnmounted(() => {
         <!-- Mascot Mode Switcher in Status Bar -->
         <span
           class="bg-violet-950 hover:bg-violet-900 border border-violet-700/80 text-violet-200 px-2 py-0.2 rounded font-medium flex items-center gap-1 cursor-pointer transition-colors"
-          title="Chuyển sang Mascot Nhắc Việc (Ctrl+Shift+M)"
+          title="Switch to Zen Companion (Ctrl+Shift+M)"
           @click="emit('switch-mode', 'mascot')"
         >
           <i class="codicon codicon-device-desktop text-xs" />
-          <span>Mascot Nhắc Việc</span>
+          <span>Zen Companion</span>
         </span>
 
         <!-- Core Marker -->
         <span class="bg-white/25 px-1.5 py-0.2 rounded font-mono font-bold text-[10px]">VS Code Core</span>
 
         <!-- Notification Bell -->
-        <span class="hover:bg-white/20 px-1.5 py-0.2 rounded cursor-pointer" title="Thông báo">
+        <span class="hover:bg-white/20 px-1.5 py-0.2 rounded cursor-pointer" title="Notifications">
           <i class="codicon codicon-bell text-xs" />
         </span>
       </div>
@@ -4901,8 +4891,8 @@ onUnmounted(() => {
     <div v-if="showProcessDrawer" class="fixed inset-0 z-50 bg-black/60 flex justify-end" @click.self="showProcessDrawer = false">
       <section class="flex h-full w-full max-w-2xl flex-col border-l border-slate-700 bg-slate-950 shadow-2xl">
         <header class="flex items-center justify-between border-b border-slate-800 px-5 py-3"><div><p class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Technical detail</p><h2 class="mt-1 text-sm font-bold text-slate-100">Process & logs</h2></div><div class="flex items-center gap-2"><button class="rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-300 hover:text-white cursor-pointer" @click="viewMode = viewMode === 'cards' ? 'terminal' : 'cards'">{{ viewMode === 'cards' ? 'Raw logs' : 'Process cards' }}</button><button class="grid h-8 w-8 place-items-center rounded-lg bg-slate-800 text-slate-400 hover:text-white cursor-pointer" @click="showProcessDrawer = false">✕</button></div></header>
-        <div v-if="viewMode === 'cards'" class="flex-1 overflow-y-auto p-4"><div v-if="processCards.length === 0" class="py-16 text-center text-xs italic text-slate-500">Chưa có command hoặc tool output.</div><div v-else class="space-y-2"><article v-for="card in processCards" :key="card.id" class="rounded-xl border border-slate-800 bg-slate-900/60 p-3"><button class="flex w-full items-center justify-between gap-3 text-left cursor-pointer" @click="card.expanded = !card.expanded"><span class="min-w-0 truncate font-mono text-xs text-slate-200"><span class="mr-2 text-cyan-400">{{ card.type === 'tool_execution' ? '⚙' : '$' }}</span>{{ card.toolName || card.command }}</span><span class="text-[10px] text-slate-500">{{ card.expanded ? 'Ẩn' : 'Xem' }}</span></button><pre v-if="card.expanded && (card.output || card.toolParameters)" class="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-black p-3 text-[10px] text-slate-300">{{ card.output || JSON.stringify(card.toolParameters, null, 2) }}</pre></article></div></div>
-        <div v-else class="flex-1 overflow-y-auto bg-black p-4 font-mono text-[11px] leading-relaxed text-slate-200"><div v-if="!rawOutput" class="py-16 text-center font-sans text-xs italic text-slate-500">Chưa có raw log.</div><div v-else class="whitespace-pre-wrap break-words" v-html="filteredTerminalHtml" /></div>
+        <div v-if="viewMode === 'cards'" class="flex-1 overflow-y-auto p-4"><div v-if="processCards.length === 0" class="py-16 text-center text-xs italic text-slate-500">No command or tool output yet.</div><div v-else class="space-y-2"><article v-for="card in processCards" :key="card.id" class="rounded-xl border border-slate-800 bg-slate-900/60 p-3"><button class="flex w-full items-center justify-between gap-3 text-left cursor-pointer" @click="card.expanded = !card.expanded"><span class="min-w-0 truncate font-mono text-xs text-slate-200"><span class="mr-2 text-cyan-400">{{ card.type === 'tool_execution' ? '⚙' : '$' }}</span>{{ card.toolName || card.command }}</span><span class="text-[10px] text-slate-500">{{ card.expanded ? 'Hide' : 'View' }}</span></button><pre v-if="card.expanded && (card.output || card.toolParameters)" class="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-black p-3 text-[10px] text-slate-300">{{ card.output || JSON.stringify(card.toolParameters, null, 2) }}</pre></article></div></div>
+        <div v-else class="flex-1 overflow-y-auto bg-black p-4 font-mono text-[11px] leading-relaxed text-slate-200"><div v-if="!rawOutput" class="py-16 text-center font-sans text-xs italic text-slate-500">No raw log output yet.</div><div v-else class="whitespace-pre-wrap break-words" v-html="filteredTerminalHtml" /></div>
       </section>
     </div>
 
@@ -4910,14 +4900,14 @@ onUnmounted(() => {
     <div v-if="showAgentSettings" class="fixed inset-0 z-50 bg-black/60 flex justify-end" @click.self="showAgentSettings = false">
       <section class="h-full w-full max-w-md overflow-y-auto border-l border-slate-700 bg-slate-950 p-5 shadow-2xl">
         <header class="mb-5 flex items-start justify-between gap-4">
-          <div><p class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Advanced</p><h2 class="mt-1 text-base font-bold text-slate-100">Agent settings</h2><p class="mt-1 text-xs text-slate-400">Lựa chọn này được lưu cho lần chạy tiếp theo.</p></div>
+          <div><p class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Advanced</p><h2 class="mt-1 text-base font-bold text-slate-100">Agent settings</h2><p class="mt-1 text-xs text-slate-400">This choice is saved for subsequent runs.</p></div>
           <button class="grid h-8 w-8 place-items-center rounded-lg bg-slate-800 text-slate-400 hover:text-white cursor-pointer" @click="showAgentSettings = false">✕</button>
         </header>
         <div class="space-y-5">
           <div><label class="mb-2 block text-[10px] font-bold uppercase tracking-wider text-slate-500">Provider</label><div class="grid grid-cols-3 gap-2"><button v-for="p in ([{ id: 'codex', name: 'Codex' }, { id: 'claude_code', name: 'Claude' }, { id: 'antigravity', name: 'AGY' }] as const)" :key="p.id" class="rounded-lg border px-2 py-2 text-xs font-medium cursor-pointer" :class="provider === p.id ? 'border-cyan-500 bg-cyan-950/50 text-cyan-100' : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'" :disabled="busy || phase === 'running'" @click="provider = p.id">{{ p.name }}</button></div></div>
-          <div class="space-y-2"><div class="flex items-center justify-between"><label class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Model</label><div class="flex gap-1"><button class="rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-300 hover:text-white cursor-pointer" :disabled="isSyncingModels || phase === 'running'" @click="syncAvailableModels(true)"><i class="codicon codicon-refresh" :class="isSyncingModels ? 'animate-spin' : ''" /> Đồng bộ</button><button class="rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-300 hover:text-white cursor-pointer" @click="toggleCustomModelMode">{{ isCustomModel[provider] ? 'Danh sách' : 'Tuỳ chỉnh' }}</button></div></div><input v-if="isCustomModel[provider]" :value="customModelInput[provider]" @input="setCustomModel(($event.target as HTMLInputElement).value)" class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-mono text-slate-100 outline-none focus:border-cyan-500" placeholder="Nhập model ID" /><select v-else :value="activeModel" class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 outline-none focus:border-cyan-500" @change="selectModel(($event.target as HTMLSelectElement).value)"><option v-for="model in filteredProviderModels" :key="model.id" :value="model.id">{{ model.name }} · {{ model.id }}</option></select></div>
-          <button class="flex w-full items-center justify-between rounded-lg border border-slate-700 bg-slate-900 p-3 text-left hover:border-slate-600 cursor-pointer" @click="openModelsAndUsageModal"><span><span class="block text-xs font-semibold text-slate-100">Quota & usage</span><span class="mt-0.5 block text-[10px] text-slate-400">5h {{ activeQuotaGroup.fiveHourRemainingPercent }}% · Tuần {{ activeQuotaGroup.weeklyRemainingPercent }}%</span></span><i class="codicon codicon-dashboard text-slate-400" /></button>
-          <button class="w-full rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 hover:bg-slate-900 cursor-pointer" @click="showAdvancedTools = !showAdvancedTools">{{ showAdvancedTools ? 'Ẩn công cụ IDE nâng cao' : 'Mở công cụ IDE nâng cao' }}</button>
+          <div class="space-y-2"><div class="flex items-center justify-between"><label class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Model</label><div class="flex gap-1"><button class="rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-300 hover:text-white cursor-pointer" :disabled="isSyncingModels || phase === 'running'" @click="syncAvailableModels(true)"><i class="codicon codicon-refresh" :class="isSyncingModels ? 'animate-spin' : ''" /> Sync</button><button class="rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-300 hover:text-white cursor-pointer" @click="toggleCustomModelMode">{{ isCustomModel[provider] ? 'List' : 'Custom' }}</button></div></div><input v-if="isCustomModel[provider]" :value="customModelInput[provider]" @input="setCustomModel(($event.target as HTMLInputElement).value)" class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-mono text-slate-100 outline-none focus:border-cyan-500" placeholder="Enter model ID" /><select v-else :value="activeModel" class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 outline-none focus:border-cyan-500" @change="selectModel(($event.target as HTMLSelectElement).value)"><option v-for="model in filteredProviderModels" :key="model.id" :value="model.id">{{ model.name }} · {{ model.id }}</option></select></div>
+          <button class="flex w-full items-center justify-between rounded-lg border border-slate-700 bg-slate-900 p-3 text-left hover:border-slate-600 cursor-pointer" @click="openModelsAndUsageModal"><span><span class="block text-xs font-semibold text-slate-100">Quota & usage</span><span class="mt-0.5 block text-[10px] text-slate-400">5h {{ activeQuotaGroup.fiveHourRemainingPercent }}% · Weekly {{ activeQuotaGroup.weeklyRemainingPercent }}%</span></span><i class="codicon codicon-dashboard text-slate-400" /></button>
+          <button class="w-full rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 hover:bg-slate-900 cursor-pointer" @click="showAdvancedTools = !showAdvancedTools">{{ showAdvancedTools ? 'Hide Advanced IDE Tools' : 'Open Advanced IDE Tools' }}</button>
         </div>
       </section>
     </div>
@@ -4925,8 +4915,8 @@ onUnmounted(() => {
     <!-- ACTIVITY TIMELINE: supporting detail, not a permanent sidebar section -->
     <div v-if="showActivityTimeline" class="fixed inset-0 z-50 bg-black/60 flex justify-end" @click.self="showActivityTimeline = false">
       <section class="h-full w-full max-w-md overflow-y-auto border-l border-slate-700 bg-slate-950 p-5 shadow-2xl">
-        <header class="mb-4 flex items-center justify-between"><div><p class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Session detail</p><h2 class="mt-1 text-base font-bold text-slate-100">Hoạt động</h2></div><button class="grid h-8 w-8 place-items-center rounded-lg bg-slate-800 text-slate-400 hover:text-white cursor-pointer" @click="showActivityTimeline = false">✕</button></header>
-        <div v-if="timeline.length === 0" class="py-12 text-center text-xs italic text-slate-500">Chưa có hoạt động.</div>
+        <header class="mb-4 flex items-center justify-between"><div><p class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Session detail</p><h2 class="mt-1 text-base font-bold text-slate-100">Activity</h2></div><button class="grid h-8 w-8 place-items-center rounded-lg bg-slate-800 text-slate-400 hover:text-white cursor-pointer" @click="showActivityTimeline = false">✕</button></header>
+        <div v-if="timeline.length === 0" class="py-12 text-center text-xs italic text-slate-500">No activity recorded.</div>
         <div v-else class="space-y-2"><article v-for="item in timeline" :key="item.id" class="rounded-lg border border-slate-800 bg-slate-900/60 p-3"><div class="flex justify-between gap-2"><strong class="text-xs" :class="item.tone === 'error' || item.tone === 'failed' ? 'text-rose-300' : item.tone === 'warning' ? 'text-amber-300' : item.tone === 'ok' || item.tone === 'passed' ? 'text-emerald-300' : 'text-slate-200'">{{ item.label }}</strong><time class="text-[10px] font-mono text-slate-500">{{ item.time }}</time></div><p class="mt-1 text-xs leading-relaxed text-slate-400">{{ item.detail }}</p></article></div>
       </section>
     </div>
@@ -4941,9 +4931,9 @@ onUnmounted(() => {
         <div class="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
           <div class="flex items-center gap-2">
             <span class="text-base">📜</span>
-            <h3 class="text-sm font-bold text-slate-100">Lịch sử các phiên Agent đã lưu</h3>
+            <h3 class="text-sm font-bold text-slate-100">Saved Agent Sessions History</h3>
             <span class="px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800/60 text-[10px] text-cyan-300 font-mono">
-              {{ savedSessions.length }} phiên
+              {{ savedSessions.length }} sessions
             </span>
           </div>
           <button
@@ -4956,7 +4946,7 @@ onUnmounted(() => {
 
         <div class="flex-1 overflow-y-auto p-4 space-y-2.5">
           <div v-if="savedSessions.length === 0" class="text-center py-12 text-slate-500 text-xs italic">
-            Chưa có phiên làm việc nào được lưu.
+            No saved sessions.
           </div>
 
           <div
@@ -4987,7 +4977,7 @@ onUnmounted(() => {
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2">
                   <span class="font-semibold text-slate-200 text-xs truncate">
-                    {{ sess.taskTitle || (sess.kind === 'discovery' || sess.workflowMode === 'discovery' ? 'Requirement Discovery' : sess.kind === 'docs' ? 'Tạo bộ tài liệu Repo (Docs)' : sess.issueKey || 'Agent Task Run') }}
+                    {{ sess.taskTitle || (sess.kind === 'discovery' || sess.workflowMode === 'discovery' ? 'Requirement Discovery' : sess.kind === 'docs' ? 'Repo Documentation (Docs)' : sess.issueKey || 'Agent Task Run') }}
                   </span>
                   <span
                     v-if="sess.model"
@@ -4999,7 +4989,7 @@ onUnmounted(() => {
                     v-if="sess.sessionId === sessionId"
                     class="px-1.5 py-0.2 rounded text-[9px] bg-cyan-900/90 text-cyan-200 font-bold uppercase"
                   >
-                    Đang mở
+                    Active
                   </span>
                   <span
                     class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase"
@@ -5011,7 +5001,7 @@ onUnmounted(() => {
                         : 'bg-emerald-950 text-emerald-300'
                     "
                   >
-                    {{ sess.status === 'running' ? 'Đang chạy' : sess.status === 'failed' ? 'Thất bại' : 'Hoàn thành' }}
+                    {{ sess.status === 'running' ? 'Running' : sess.status === 'failed' ? 'Failed' : 'Completed' }}
                   </span>
                 </div>
 
@@ -5027,21 +5017,21 @@ onUnmounted(() => {
             <div class="flex items-center gap-1.5 shrink-0">
               <button
                 class="px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors flex items-center gap-1 cursor-pointer"
-                title="Mở toàn bộ process/log đã lưu của phiên này"
+                title="Open full saved process/log for this session"
                 @click.stop="openSavedSessionProcess(sess, 'terminal')"
               >
                 <i class="codicon codicon-terminal mr-1" /><span>Process</span>
               </button>
               <button
                 class="px-2.5 py-1.5 rounded-lg bg-cyan-600/90 hover:bg-cyan-500 text-slate-950 font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
-                title="Mở lại phiên này trong màn hình review"
+                title="Reopen this session in review view"
                 @click.stop="switchSession(sess)"
               >
-                <i class="codicon codicon-play mr-1" /><span>Mở lại</span>
+                <i class="codicon codicon-play mr-1" /><span>Reopen</span>
               </button>
               <button
                 class="p-1.5 rounded-lg hover:bg-rose-950 text-slate-500 hover:text-rose-400 text-xs transition-colors cursor-pointer"
-                title="Xóa phiên này khỏi lịch sử"
+                title="Delete this session from history"
                 @click.stop="removeSavedSession(sess.sessionId, $event)"
               >
                 <i class="codicon codicon-trash" />
@@ -5055,14 +5045,12 @@ onUnmounted(() => {
             class="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-colors cursor-pointer"
             @click="startNewRun(); showSessionHistory = false;"
           >
-            <i class="codicon codicon-add mr-1" />Tạo phiên mới
+            <i class="codicon codicon-add mr-1" />New Session
           </button>
           <button
             class="text-slate-400 hover:text-white px-3 py-1.5 rounded hover:bg-slate-800 transition-colors text-xs cursor-pointer"
             @click="showSessionHistory = false"
-          >
-            Đóng
-          </button>
+          >Close</button>
         </div>
       </div>
     </div>
@@ -5083,7 +5071,7 @@ onUnmounted(() => {
                 class="text-zinc-400 hover:text-white transition-colors cursor-pointer p-1 text-sm disabled:opacity-50"
                 :disabled="isSyncingQuota"
                 @click="refreshQuotaUsage"
-                title="Đồng bộ lại thông số Quota từ Task Hub & CLI"
+                title="Sync quota metrics from Task Hub & CLI"
               >
                 <span :class="isSyncingQuota ? 'animate-spin inline-block' : ''">🔄</span>
               </button>
@@ -5108,7 +5096,7 @@ onUnmounted(() => {
             </div>
             <button
               class="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white text-xs font-semibold shadow-sm shadow-sky-900/30 transition-all cursor-pointer shrink-0"
-              @click="addTimeline('Upgrade requested', 'Mở thông tin nâng cấp gói AI Plan', 'muted')"
+              @click="addTimeline('Upgrade requested', 'Open AI Plan upgrade details', 'muted')"
             >
               Upgrade
             </button>
@@ -5143,7 +5131,7 @@ onUnmounted(() => {
         <div class="flex flex-col gap-1.5">
           <div class="flex items-center gap-1.5">
             <label class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Gemini Models</label>
-            <span class="text-zinc-500 text-xs cursor-help" title="Thông số quota trượt của Gemini và Antigravity">ⓘ</span>
+            <span class="text-zinc-500 text-xs cursor-help" title="Sliding quota metrics for Gemini and Antigravity">ⓘ</span>
           </div>
           <div class="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-4 flex flex-col gap-3.5">
             <!-- Weekly Limit -->
@@ -5208,14 +5196,14 @@ onUnmounted(() => {
         <div class="flex flex-col gap-1.5">
           <div class="flex items-center gap-1.5">
             <label class="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Claude and GPT models</label>
-            <span class="text-zinc-500 text-xs cursor-help" title="Thông số quota trượt của Claude Code và Codex">ⓘ</span>
+            <span class="text-zinc-500 text-xs cursor-help" title="Sliding quota metrics for Claude Code and Codex">ⓘ</span>
           </div>
           <div class="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-4 flex flex-col gap-3.5">
             <!-- Weekly Limit -->
             <div class="flex items-center justify-between gap-4">
               <div class="flex flex-col gap-0.5">
                 <span class="text-sm font-medium text-white">Weekly Limit Remaining</span>
-                <span class="text-xs text-zinc-400">Quota khả dụng tuần cho các mô hình Claude & OpenAI.</span>
+                <span class="text-xs text-zinc-400">Weekly available quota for Claude & OpenAI models.</span>
               </div>
               <div class="flex items-center gap-2.5 shrink-0">
                 <span class="text-sm font-bold font-mono text-zinc-100">{{ quotaUsageState.claudeGpt?.weeklyRemainingPercent ?? 100 }}%</span>
@@ -5244,7 +5232,7 @@ onUnmounted(() => {
             <div class="flex items-center justify-between gap-4">
               <div class="flex flex-col gap-0.5">
                 <span class="text-sm font-medium text-white">Five Hour Limit Remaining</span>
-                <span class="text-xs text-zinc-400">Quota khả dụng 5 giờ cho các mô hình Claude & OpenAI.</span>
+                <span class="text-xs text-zinc-400">5-hour available quota for Claude & OpenAI models.</span>
               </div>
               <div class="flex items-center gap-2.5 shrink-0">
                 <span class="text-sm font-bold font-mono text-zinc-100">{{ quotaUsageState.claudeGpt?.fiveHourRemainingPercent ?? 100 }}%</span>
@@ -5276,7 +5264,7 @@ onUnmounted(() => {
       v-if="showSkillsModal"
       :workspace-path="activeCwd"
       @close="showSkillsModal = false"
-      @run-skill="followUp = `/skill ${$event} `; activeEditorTab = 'terminal'; addTimeline('Skill Loaded', `Đã nạp chỉ dẫn skill: ${$event}`, 'ok');"
+      @run-skill="followUp = `/skill ${$event} `; activeEditorTab = 'terminal'; addTimeline('Skill Loaded', `Loaded skill instructions: ${$event}`, 'ok');"
     />
 
     <!-- ANTIGRAVITY 2.0 SCHEDULED TASKS & TIMERS MODAL -->
@@ -5302,35 +5290,33 @@ onUnmounted(() => {
         <div class="flex items-center justify-between border-b border-slate-800 pb-3">
           <div class="flex items-center gap-2 text-amber-300 font-bold text-sm">
             <i class="codicon codicon-warning text-base" />
-            <span>Yêu cầu bổ sung cho nhiệm vụ</span>
+            <span>Request Task Changes</span>
           </div>
           <button class="text-slate-400 hover:text-white cursor-pointer" @click="showRejectModal = false">
             <i class="codicon codicon-close" />
           </button>
         </div>
         <p class="text-xs text-slate-300 leading-relaxed">
-          Nhập phản hồi hoặc lý do cần chỉnh sửa / bổ sung. Nhiệm vụ sẽ chuyển sang trạng thái <code class="rounded bg-slate-800 px-1.5 py-0.5 text-amber-300 font-mono">waiting_input</code> để Agent tiếp tục hoàn thiện:
+          Enter feedback or reason for requested changes. The task will transition to <code class="rounded bg-slate-800 px-1.5 py-0.5 text-amber-300 font-mono">waiting_input</code> for the Agent to continue:
         </p>
         <textarea
           v-model="rejectReason"
           rows="4"
-          placeholder="Ví dụ: Cần bổ sung test case cho trường hợp boundary, hoặc tối ưu lại layout responsive..."
+          placeholder="E.g., Add test cases for boundary conditions, optimize responsive layout..."
           class="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 p-3 text-xs text-slate-100 outline-none placeholder:text-slate-500 focus:border-amber-500"
         />
         <div class="flex justify-end gap-2 pt-2">
           <button
             class="rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-1.5 text-xs text-slate-300 hover:bg-slate-700 cursor-pointer"
             @click="showRejectModal = false"
-          >
-            Hủy
-          </button>
+          >Cancel</button>
           <button
             class="rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-1.5 text-xs font-bold cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
             :disabled="!rejectReason.trim() || isRejecting"
             @click="confirmRejectTask"
           >
             <i v-if="isRejecting" class="codicon codicon-loading animate-spin" />
-            <span>Gửi yêu cầu bổ sung</span>
+            <span>Submit Change Request</span>
           </button>
         </div>
       </div>

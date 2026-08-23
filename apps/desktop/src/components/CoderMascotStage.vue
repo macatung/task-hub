@@ -6,7 +6,7 @@ defineProps<{
 
 <template>
   <div class="relative flex flex-col items-center justify-center select-none cursor-pointer group">
-    <!-- Authentic Minimalist Jiangshi Developer Mascot (Chuẩn Vector gốc, đứng yên thanh tịnh) -->
+    <!-- Authentic Minimalist Jiangshi Developer Mascot (Vector origin, mindful stillness) -->
     <div class="relative z-10 flex flex-col items-center">
       <svg
         width="135"

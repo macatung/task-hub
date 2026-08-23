@@ -44,50 +44,50 @@ describe('markdown utilities', () => {
   it('renders GitHub alert callouts for all 5 alert levels', () => {
     const alertsMd = `
 > [!NOTE]
-> Đây là một ghi chú quan trọng.
+> This is an important note.
 
 > [!TIP]
-> Đây là mẹo tối ưu hiệu suất.
+> This is a performance tip.
 
 > [!IMPORTANT]
-> Đây là điều kiện bắt buộc.
+> This is a required condition.
 
 > [!WARNING]
-> Cảnh báo thay đổi tương thích.
+> Warning regarding breaking changes.
 
 > [!CAUTION]
-> Nguy cơ mất dữ liệu nếu không cẩn trọng.
+> Risk of data loss if not careful.
 `;
     const html = renderMarkdown(alertsMd);
     expect(html).toContain('markdown-alert-note');
-    expect(html).toContain('Lưu ý');
-    expect(html).toContain('Đây là một ghi chú quan trọng.');
+    expect(html).toContain('Note');
+    expect(html).toContain('This is an important note.');
 
     expect(html).toContain('markdown-alert-tip');
-    expect(html).toContain('Mẹo hữu ích');
-    expect(html).toContain('Đây là mẹo tối ưu hiệu suất.');
+    expect(html).toContain('Tip');
+    expect(html).toContain('This is a performance tip.');
 
     expect(html).toContain('markdown-alert-important');
-    expect(html).toContain('Quan trọng');
-    expect(html).toContain('Đây là điều kiện bắt buộc.');
+    expect(html).toContain('Important');
+    expect(html).toContain('This is a required condition.');
 
     expect(html).toContain('markdown-alert-warning');
-    expect(html).toContain('Cảnh báo');
-    expect(html).toContain('Cảnh báo thay đổi tương thích.');
+    expect(html).toContain('Warning');
+    expect(html).toContain('Warning regarding breaking changes.');
 
     expect(html).toContain('markdown-alert-caution');
-    expect(html).toContain('Cẩn trọng');
-    expect(html).toContain('Nguy cơ mất dữ liệu nếu không cẩn trọng.');
+    expect(html).toContain('Caution');
+    expect(html).toContain('Risk of data loss if not careful.');
   });
 
   it('renders GFM task lists with checked and unchecked items', () => {
-    const md = '- [ ] Task cần làm\n- [x] Task đã hoàn thành';
+    const md = '- [ ] Pending task\n- [x] Completed task';
     const html = renderMarkdown(md);
     expect(html).toContain('markdown-task-item');
     expect(html).toContain('task-list-checkbox');
     expect(html).toContain('checked');
-    expect(html).toContain('Task cần làm');
-    expect(html).toContain('Task đã hoàn thành');
+    expect(html).toContain('Pending task');
+    expect(html).toContain('Completed task');
     expect(html).toContain('line-through');
   });
 
@@ -108,7 +108,7 @@ describe('markdown utilities', () => {
     expect(html).toContain('mermaid-block-wrapper');
     expect(html).toContain('mermaid-diagram-container');
     expect(html).toContain('view-mermaid-source-btn');
-    expect(html).toContain('SƠ ĐỒ MERMAID');
+    expect(html).toContain('MERMAID DIAGRAM');
     expect(html).toContain('data-raw-mermaid=');
   });
 

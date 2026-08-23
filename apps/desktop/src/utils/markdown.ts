@@ -21,35 +21,35 @@ export type AlertType = 'NOTE' | 'TIP' | 'IMPORTANT' | 'WARNING' | 'CAUTION';
 
 const ALERT_CONFIG: Record<AlertType, { title: string; icon: string; borderClass: string; textClass: string; bgClass: string }> = {
   NOTE: {
-    title: 'Lưu ý',
+    title: 'Note',
     icon: 'info',
     borderClass: 'border-cyan-500',
     textClass: 'text-cyan-400',
     bgClass: 'bg-cyan-950/30',
   },
   TIP: {
-    title: 'Mẹo hữu ích',
+    title: 'Tip',
     icon: 'lightbulb',
     borderClass: 'border-emerald-500',
     textClass: 'text-emerald-400',
     bgClass: 'bg-emerald-950/30',
   },
   IMPORTANT: {
-    title: 'Quan trọng',
+    title: 'Important',
     icon: 'bell',
     borderClass: 'border-purple-500',
     textClass: 'text-purple-400',
     bgClass: 'bg-purple-950/30',
   },
   WARNING: {
-    title: 'Cảnh báo',
+    title: 'Warning',
     icon: 'warning',
     borderClass: 'border-amber-500',
     textClass: 'text-amber-400',
     bgClass: 'bg-amber-950/30',
   },
   CAUTION: {
-    title: 'Cẩn trọng',
+    title: 'Caution',
     icon: 'error',
     borderClass: 'border-rose-500',
     textClass: 'text-rose-400',
@@ -98,11 +98,11 @@ markedInstance.use({
   <div class="flex items-center justify-between px-3 py-1.5 bg-slate-900/90 border-b border-slate-800 text-[11px] font-mono text-slate-400 select-none">
     <span class="font-semibold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
       <i class="codicon codicon-symbol-structure text-xs"></i>
-      <span>SƠ ĐỒ MERMAID</span>
+      <span>MERMAID DIAGRAM</span>
     </span>
     <div class="flex items-center gap-1.5">
       <button type="button" class="view-mermaid-source-btn text-[10px] text-slate-400 hover:text-white px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 transition cursor-pointer">
-        <span>Mã nguồn</span>
+        <span>Source</span>
       </button>
       <button type="button" class="copy-code-btn text-[10px] text-slate-400 hover:text-white px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 transition cursor-pointer flex items-center gap-1" data-code="${encodedCode}">
         <i class="codicon codicon-copy text-[11px]"></i>
@@ -113,7 +113,7 @@ markedInstance.use({
   <div class="mermaid-diagram-container p-4 flex justify-center items-center overflow-x-auto text-slate-200" data-code="${encodedCode}">
     <div class="mermaid-loading flex items-center gap-2 text-xs text-slate-400 py-2">
       <i class="codicon codicon-loading codicon-modifier-spin"></i>
-      <span>Đang dựng sơ đồ...</span>
+      <span>Rendering diagram...</span>
     </div>
   </div>
   <pre class="mermaid-source-code hidden p-3.5 overflow-x-auto text-xs font-mono text-slate-200 leading-relaxed border-t border-slate-800"><code>${escapedCode}</code></pre>

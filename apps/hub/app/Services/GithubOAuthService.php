@@ -36,7 +36,7 @@ class GithubOAuthService
     {
         $clientId = $this->clientId();
         $clientSecret = $this->clientSecret();
-        if (!$clientId || !$clientSecret) throw new \RuntimeException('GitHub OAuth chưa được cấu hình.');
+        if (!$clientId || !$clientSecret) throw new \RuntimeException('GitHub OAuth is not configured.');
 
         $tokenResponse = Http::asForm()->acceptJson()->timeout(10)->post('https://github.com/login/oauth/access_token', [
             'client_id' => $clientId,
@@ -44,7 +44,7 @@ class GithubOAuthService
             'code' => $code,
             'redirect_uri' => $redirectUri ?: $this->redirectUri(),
         ])->throw()->json();
-        if (empty($tokenResponse['access_token'])) throw new \RuntimeException($tokenResponse['error_description'] ?? 'GitHub không cấp access token.');
+        if (empty($tokenResponse['access_token'])) throw new \RuntimeException($tokenResponse['error_description'] ?? 'GitHub did not grant an access token.');
 
         $token = $tokenResponse['access_token'];
         $github = Http::acceptJson()->withToken($token)->withHeaders(['User-Agent' => 'TaskHub/1.0'])->timeout(10);
