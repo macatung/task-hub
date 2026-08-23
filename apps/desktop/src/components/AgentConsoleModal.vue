@@ -463,9 +463,55 @@ const refreshAgentTasks = async () => {
   }
 };
 
+const selectedTaskStatusFilter = ref<'all' | 'todo' | 'in_progress' | 'review' | 'done'>('all');
+
+const taskStatusCounts = computed(() => {
+  const counts = { all: allTasks.value.length, todo: 0, in_progress: 0, review: 0, done: 0 };
+  allTasks.value.forEach((t) => {
+    const s = (t.status || 'todo').toLowerCase();
+    if (['todo', 'backlog'].includes(s)) counts.todo++;
+    else if (['in_progress', 'doing'].includes(s)) counts.in_progress++;
+    else if (['review', 'in_review', 'testing'].includes(s)) counts.review++;
+    else if (['done', 'completed'].includes(s)) counts.done++;
+  });
+  return counts;
+});
+
+const getTaskStatusBadge = (status?: string) => {
+  const s = (status || 'todo').toLowerCase();
+  if (['done', 'completed'].includes(s)) {
+    return { label: 'DONE', bg: 'bg-emerald-950/80', text: 'text-emerald-300', border: 'border-emerald-800/80', dot: 'bg-emerald-400' };
+  }
+  if (['in_progress', 'doing'].includes(s)) {
+    return { label: 'IN PROGRESS', bg: 'bg-amber-950/80', text: 'text-amber-300', border: 'border-amber-800/80', dot: 'bg-amber-400' };
+  }
+  if (['review', 'in_review', 'testing'].includes(s)) {
+    return { label: 'REVIEW', bg: 'bg-purple-950/80', text: 'text-purple-300', border: 'border-purple-800/80', dot: 'bg-purple-400' };
+  }
+  return { label: 'TODO', bg: 'bg-slate-900/90', text: 'text-slate-300', border: 'border-slate-700', dot: 'bg-slate-400' };
+};
+
+const getTaskIssueTypeInfo = (type?: string) => {
+  const t = (type || 'task').toLowerCase();
+  if (t === 'epic') return { icon: '⚡', label: 'EPIC', class: 'bg-purple-950/80 text-purple-300 border-purple-800/80' };
+  if (t === 'story') return { icon: '📖', label: 'STORY', class: 'bg-emerald-950/80 text-emerald-300 border-emerald-800/80' };
+  if (t === 'bug') return { icon: '🐞', label: 'BUG', class: 'bg-rose-950/80 text-rose-300 border-rose-800/80' };
+  return { icon: '☑️', label: 'TASK', class: 'bg-blue-950/80 text-blue-300 border-blue-800/80' };
+};
+
 const filteredTasks = computed(() => {
   const query = taskSearch.value.trim().toLowerCase();
-  return allTasks.value.filter((task) => !query || [task.title, task.issue_key, task.project?.title].filter(Boolean).join(' ').toLowerCase().includes(query));
+  return allTasks.value.filter((task) => {
+    const matchesQuery = !query || [task.title, task.issue_key, task.project?.title, task.epic?.title].filter(Boolean).join(' ').toLowerCase().includes(query);
+    if (!matchesQuery) return false;
+    if (selectedTaskStatusFilter.value === 'all') return true;
+    const s = (task.status || 'todo').toLowerCase();
+    if (selectedTaskStatusFilter.value === 'todo') return ['todo', 'backlog'].includes(s);
+    if (selectedTaskStatusFilter.value === 'in_progress') return ['in_progress', 'doing'].includes(s);
+    if (selectedTaskStatusFilter.value === 'review') return ['review', 'in_review', 'testing'].includes(s);
+    if (selectedTaskStatusFilter.value === 'done') return ['done', 'completed'].includes(s);
+    return true;
+  });
 });
 
 const busy = computed(() => ['preflight', 'pairing', 'context'].includes(phase.value));
@@ -3374,143 +3420,227 @@ onUnmounted(() => {
           </template>
         </div>
 
-        <!-- 3. TASK HUB & TASK SELECTOR -->
-        <div v-if="workflowMode === 'task'" class="rounded border border-[#333333] bg-[#1e1e1e] p-2.5 flex flex-col gap-2 shrink-0">
+        <!-- 3. TASK HUB WORK ITEMS -->
+        <div v-if="workflowMode === 'task'" class="rounded-xl border border-[#333333] bg-[#1a1a1c] p-3 flex flex-col gap-2.5 shadow-sm">
+          <!-- Header -->
           <div class="flex items-center justify-between">
-            <button class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1 cursor-pointer" @click="collapsed.tasks = !collapsed.tasks">
-              <i class="codicon text-xs" :class="collapsed.tasks ? 'codicon-chevron-right' : 'codicon-chevron-down'" />
-              Task Hub Work Items
+            <button
+              class="text-[11px] font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5 cursor-pointer hover:text-white transition-colors"
+              @click="collapsed.tasks = !collapsed.tasks"
+            >
+              <i class="codicon text-xs text-zinc-400" :class="collapsed.tasks ? 'codicon-chevron-right' : 'codicon-chevron-down'" />
+              <span>Task Hub Work Items</span>
             </button>
             <div class="flex items-center gap-1.5">
               <button
-                class="p-0.5 rounded text-[10px] text-zinc-400 hover:text-white hover:bg-[#333333] transition-colors flex items-center gap-1 cursor-pointer"
+                class="p-1 rounded text-zinc-400 hover:text-white hover:bg-[#333333] transition-colors flex items-center justify-center cursor-pointer"
                 title="Refresh tasks from Task Hub"
+                :disabled="isRefreshingTasks"
                 @click="refreshAgentTasks"
               >
-                <i class="codicon codicon-refresh" :class="{ 'animate-spin': isRefreshingTasks }" />
+                <i class="codicon codicon-refresh text-xs" :class="{ 'animate-spin': isRefreshingTasks }" />
               </button>
-              <span class="text-[10px] font-mono text-zinc-400">{{ filteredTasks.length }} tasks</span>
+              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#252528] text-zinc-300 border border-[#38383c]">
+                {{ filteredTasks.length }} / {{ allTasks.length }}
+              </span>
             </div>
           </div>
 
           <template v-if="!collapsed.tasks">
-          <div class="relative">
-            <input
-              v-model="taskSearch"
-              class="w-full pl-7 pr-2.5 py-1 rounded border border-[#333333] bg-[#252526] text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-[#007acc] transition-colors"
-              placeholder="Search by title, issue key..."
-              :disabled="busy"
-            />
-            <i class="codicon codicon-search absolute left-2 top-1/2 -translate-y-1/2 text-xs text-zinc-500" />
-          </div>
-
-          <div v-if="!credential && !isConnected" class="p-2.5 rounded border border-[#333333] bg-[#252526] text-[11px] text-zinc-300 flex flex-col gap-2">
-            <div class="flex items-center gap-1.5 text-amber-400 font-semibold">
-              <i class="codicon codicon-warning" />
-              <span>Task Hub Not Connected</span>
+            <!-- Search Bar -->
+            <div class="relative">
+              <input
+                v-model="taskSearch"
+                class="w-full pl-7 pr-7 py-1.5 rounded-lg border border-[#333333] bg-[#222225] text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-[#007acc] focus:bg-[#252528] transition-all"
+                placeholder="Search by title, key, epic..."
+                :disabled="busy"
+              />
+              <i class="codicon codicon-search absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-500" />
+              <button
+                v-if="taskSearch"
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-xs cursor-pointer p-0.5"
+                @click="taskSearch = ''"
+              >
+                <i class="codicon codicon-close" />
+              </button>
             </div>
-            <p class="text-[10px] text-zinc-400 leading-tight">Pair with Task Hub to synchronize tasks, active sprint, and AI context packs.</p>
-            <button
-              class="w-full py-1.5 px-2.5 rounded bg-[#0e639c] hover:bg-[#1177bb] text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-              :disabled="phase === 'pairing'"
-              @click="startPairing"
-            >
-              <i class="codicon" :class="phase === 'pairing' ? 'codicon-loading animate-spin' : 'codicon-link'" />
-              <span>{{ phase === 'pairing' ? 'Awaiting Approval...' : 'Connect Task Hub' }}</span>
-            </button>
-          </div>
-          <div v-else-if="filteredTasks.length === 0" class="p-2.5 text-center rounded border border-[#333333] bg-[#252526] text-[11px] text-zinc-400 flex flex-col gap-2">
-            <span>No tasks loaded yet.</span>
-            <button
-              class="w-full py-1 px-2 rounded bg-[#2d2d2d] hover:bg-[#383838] text-zinc-200 text-xs font-medium border border-[#3e3e42] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-              :disabled="phase === 'pairing' || isRefreshingTasks"
-              @click="refreshAgentTasks"
-            >
-              <i class="codicon codicon-refresh" :class="{ 'animate-spin': isRefreshingTasks }" />
-              <span>Refresh Tasks</span>
-            </button>
-          </div>
-          <div v-else class="max-h-28 overflow-y-auto space-y-1 pr-0.5">
-            <button
-              v-for="task in filteredTasks"
-              :key="task.id"
-              class="w-full p-2 rounded border text-left text-xs transition-all cursor-pointer flex flex-col gap-1"
-              :class="
-                task.id === taskId
-                  ? 'border-[#007acc] bg-[#0e639c]/20 text-white'
-                  : 'border-[#333333] bg-[#252526] text-zinc-300 hover:border-[#444444]'
-              "
-              @click="taskId = task.id"
-            >
-              <div class="flex items-center justify-between gap-1">
-                <div class="flex items-center gap-1.5 min-w-0">
-                  <span
-                    class="px-1 py-0.2 rounded text-[9px] font-bold font-mono uppercase border"
-                    :class="
-                      task.issue_type === 'epic'
-                        ? 'bg-purple-950/80 text-purple-300 border-purple-800'
-                        : task.issue_type === 'story'
-                        ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
-                        : task.issue_type === 'bug'
-                        ? 'bg-rose-950/80 text-rose-300 border-rose-800'
-                        : 'bg-blue-950/80 text-blue-300 border-blue-800'
-                    "
-                  >
-                    {{ task.issue_type === 'epic' ? '⚡ EPIC' : task.issue_type === 'story' ? '📖 STORY' : task.issue_type === 'bug' ? '🐞 BUG' : '☑️ TASK' }}
-                  </span>
-                  <span class="font-mono font-bold text-[11px] truncate" :class="task.id === taskId ? 'text-white' : 'text-zinc-400'">
-                    {{ task.issue_key || `#${task.id}` }}
-                  </span>
-                </div>
-                <div class="flex items-center gap-1 shrink-0">
-                  <span v-if="task.story_points" class="font-mono font-bold text-[9px] px-1 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-800/80">
-                    {{ task.story_points }} pts
-                  </span>
-                  <span class="px-1.5 py-0.2 rounded text-[9px] font-semibold uppercase bg-[#2d2d2d] text-zinc-300 border border-[#3e3e42]">
-                    {{ task.status }}
-                  </span>
-                </div>
-              </div>
-              <p class="text-xs text-zinc-200 truncate font-medium">{{ task.title }}</p>
-              <div v-if="task.epic" class="text-[10px] text-purple-300/80 truncate flex items-center gap-1">
-                <span>⚡ {{ task.epic.title || task.epic.issue_key }}</span>
-              </div>
-            </button>
-          </div>
 
-          <!-- SELECTED TASK PREVIEW -->
-          <div v-if="selectedTask" class="p-2 rounded border border-[#007acc]/40 bg-[#0e639c]/10 text-xs">
-            <div class="font-semibold text-white flex items-center justify-between gap-1">
-              <div class="flex items-center gap-1.5 min-w-0">
+            <!-- Quick Status Filter Pills -->
+            <div v-if="allTasks.length > 0" class="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar">
+              <button
+                v-for="filter in ([
+                  { id: 'all', label: 'All', count: taskStatusCounts.all },
+                  { id: 'todo', label: 'To Do', count: taskStatusCounts.todo },
+                  { id: 'in_progress', label: 'In Progress', count: taskStatusCounts.in_progress },
+                  { id: 'review', label: 'Review', count: taskStatusCounts.review },
+                  { id: 'done', label: 'Done', count: taskStatusCounts.done },
+                ] as const)"
+                :key="filter.id"
+                class="px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap transition-all cursor-pointer border flex items-center gap-1 shrink-0"
+                :class="
+                  selectedTaskStatusFilter === filter.id
+                    ? 'bg-[#0e639c] border-[#007acc] text-white font-semibold shadow-xs'
+                    : 'bg-[#222225] border-[#333333] text-zinc-400 hover:text-zinc-200 hover:border-[#444444]'
+                "
+                @click="selectedTaskStatusFilter = filter.id"
+              >
+                <span>{{ filter.label }}</span>
+                <span class="opacity-75 font-mono text-[9px]">({{ filter.count }})</span>
+              </button>
+            </div>
+
+            <!-- Unconnected Prompt -->
+            <div v-if="!credential && !isConnected" class="p-3 rounded-lg border border-amber-900/60 bg-amber-950/20 text-[11px] text-zinc-300 flex flex-col gap-2">
+              <div class="flex items-center gap-1.5 text-amber-400 font-semibold">
+                <i class="codicon codicon-warning" />
+                <span>Task Hub Not Connected</span>
+              </div>
+              <p class="text-[10px] text-zinc-400 leading-tight">Pair with Task Hub to synchronize tasks, active sprint, and AI context packs.</p>
+              <button
+                class="w-full py-1.5 px-2.5 rounded bg-[#0e639c] hover:bg-[#1177bb] text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                :disabled="phase === 'pairing'"
+                @click="startPairing"
+              >
+                <i class="codicon" :class="phase === 'pairing' ? 'codicon-loading animate-spin' : 'codicon-link'" />
+                <span>{{ phase === 'pairing' ? 'Awaiting Approval...' : 'Connect Task Hub' }}</span>
+              </button>
+            </div>
+
+            <!-- Empty State -->
+            <div v-else-if="filteredTasks.length === 0" class="p-4 text-center rounded-lg border border-[#333333] bg-[#222225] text-xs text-zinc-400 flex flex-col items-center gap-2">
+              <i class="codicon codicon-inbox text-zinc-500 text-xl" />
+              <p class="text-zinc-300 font-medium">No matching tasks found</p>
+              <p v-if="taskSearch || selectedTaskStatusFilter !== 'all'" class="text-[10px] text-zinc-500">Try clearing filters or search query</p>
+              <div class="flex items-center gap-2 mt-1">
+                <button
+                  v-if="taskSearch || selectedTaskStatusFilter !== 'all'"
+                  class="px-2.5 py-1 rounded bg-[#2d2d30] hover:bg-[#38383c] text-zinc-200 text-[11px] font-medium border border-[#3e3e42] transition-colors cursor-pointer"
+                  @click="taskSearch = ''; selectedTaskStatusFilter = 'all'"
+                >
+                  Clear Filters
+                </button>
+                <button
+                  class="px-2.5 py-1 rounded bg-[#0e639c] hover:bg-[#1177bb] text-white text-[11px] font-medium transition-colors flex items-center gap-1 cursor-pointer"
+                  :disabled="isRefreshingTasks"
+                  @click="refreshAgentTasks"
+                >
+                  <i class="codicon codicon-refresh text-xs" :class="{ 'animate-spin': isRefreshingTasks }" />
+                  <span>Refresh</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Task List Items (High Visibility, Spacious & Elegant) -->
+            <div v-else class="max-h-[380px] min-h-[140px] overflow-y-auto space-y-2 pr-1 sidebar-scrollable">
+              <button
+                v-for="task in filteredTasks"
+                :key="task.id"
+                class="w-full p-2.5 rounded-lg border text-left text-xs transition-all cursor-pointer flex flex-col gap-1.5 group relative"
+                :class="
+                  task.id === taskId
+                    ? 'border-[#007acc] bg-[#0e639c]/20 shadow-[0_0_12px_rgba(0,122,204,0.15)] ring-1 ring-[#007acc]/40'
+                    : 'border-[#2f2f32] bg-[#222225] text-zinc-300 hover:border-[#4b5563] hover:bg-[#28282c]'
+                "
+                @click="taskId = task.id"
+              >
+                <!-- Active Indicator Strip -->
+                <div
+                  v-if="task.id === taskId"
+                  class="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r bg-[#007acc]"
+                />
+
+                <!-- Top Row: Key, Type, Points, Status -->
+                <div class="flex items-center justify-between gap-1.5">
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <span
+                      class="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono uppercase border shrink-0"
+                      :class="getTaskIssueTypeInfo(task.issue_type).class"
+                    >
+                      {{ getTaskIssueTypeInfo(task.issue_type).icon }} {{ getTaskIssueTypeInfo(task.issue_type).label }}
+                    </span>
+                    <span
+                      class="font-mono font-bold text-xs truncate"
+                      :class="task.id === taskId ? 'text-sky-300' : 'text-sky-400 group-hover:text-sky-300'"
+                    >
+                      {{ task.issue_key || `#${task.id}` }}
+                    </span>
+                  </div>
+
+                  <div class="flex items-center gap-1 shrink-0">
+                    <span
+                      v-if="task.story_points"
+                      class="font-mono font-bold text-[9px] px-1.5 py-0.2 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-800/60"
+                      title="Story Points"
+                    >
+                      {{ task.story_points }} pts
+                    </span>
+                    <span
+                      class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border flex items-center gap-1"
+                      :class="[getTaskStatusBadge(task.status).bg, getTaskStatusBadge(task.status).text, getTaskStatusBadge(task.status).border]"
+                    >
+                      <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="getTaskStatusBadge(task.status).dot" />
+                      <span>{{ getTaskStatusBadge(task.status).label }}</span>
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Middle Row: Task Title -->
+                <p
+                  class="text-xs leading-snug line-clamp-2 transition-colors font-medium"
+                  :class="task.id === taskId ? 'text-white font-semibold' : 'text-zinc-100 group-hover:text-white'"
+                >
+                  {{ task.title }}
+                </p>
+
+                <!-- Bottom Row: Epic & Project Context -->
+                <div v-if="task.epic || task.project" class="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span
+                    v-if="task.epic"
+                    class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-950/50 text-purple-300 border border-purple-800/50 truncate max-w-[200px]"
+                    :title="`Epic: ${task.epic.title || task.epic.issue_key}`"
+                  >
+                    <span>⚡</span>
+                    <span class="truncate">{{ task.epic.title || task.epic.issue_key }}</span>
+                  </span>
+                  <span
+                    v-if="task.project"
+                    class="text-[9px] font-mono text-zinc-400 truncate max-w-[100px]"
+                    :title="task.project.title"
+                  >
+                    📁 {{ task.project.title }}
+                  </span>
+                </div>
+              </button>
+            </div>
+
+            <!-- Selected Task Preview Card (Crisp & High Contrast) -->
+            <div
+              v-if="selectedTask"
+              class="p-3 rounded-lg border border-[#007acc]/60 bg-[#0e639c]/15 text-xs flex flex-col gap-2 transition-all shadow-sm"
+            >
+              <div class="flex items-center justify-between gap-1.5">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span class="w-2 h-2 rounded-full bg-[#007acc] animate-pulse shrink-0" />
+                  <span class="font-mono font-bold text-xs text-sky-300 truncate">
+                    Active: {{ selectedTask.issue_key || `#${selectedTask.id}` }}
+                  </span>
+                </div>
                 <span
                   class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border"
-                  :class="
-                    selectedTask.issue_type === 'epic'
-                      ? 'bg-purple-950/80 text-purple-300 border-purple-800'
-                      : selectedTask.issue_type === 'story'
-                      ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800'
-                      : selectedTask.issue_type === 'bug'
-                      ? 'bg-rose-950/80 text-rose-300 border-rose-800'
-                      : 'bg-blue-950/80 text-blue-300 border-blue-800'
-                  "
+                  :class="[getTaskStatusBadge(selectedTask.status).bg, getTaskStatusBadge(selectedTask.status).text, getTaskStatusBadge(selectedTask.status).border]"
                 >
-                  {{ selectedTask.issue_type === 'epic' ? '⚡ EPIC' : selectedTask.issue_type === 'story' ? '📖 STORY' : selectedTask.issue_type === 'bug' ? '🐞 BUG' : '☑️ TASK' }}
+                  {{ getTaskStatusBadge(selectedTask.status).label }}
                 </span>
-                <span class="font-mono">{{ selectedTask.issue_key || `#${selectedTask.id}` }}</span>
               </div>
-              <div class="flex items-center gap-1.5 shrink-0">
-                <span v-if="selectedTask.story_points" class="font-mono text-[10px] font-bold text-indigo-300 px-1.5 py-0.2 rounded bg-indigo-950 border border-indigo-800/80">{{ selectedTask.story_points }} pts</span>
-                <span class="text-[10px] text-zinc-400">{{ selectedTask.project?.title || 'Project' }}</span>
+              <p class="text-xs font-semibold text-white leading-snug">{{ selectedTask.title }}</p>
+              <div v-if="selectedTask.epic" class="text-[10px] text-purple-300 font-medium flex items-center gap-1">
+                <span>⚡ Epic:</span>
+                <span class="truncate">{{ selectedTask.epic.title || selectedTask.epic.issue_key }}</span>
               </div>
+              <p v-if="selectedTask.acceptance_criteria" class="text-zinc-400 text-[10px] mt-0.5 line-clamp-2 italic">
+                {{ selectedTask.acceptance_criteria }}
+              </p>
             </div>
-            <p class="text-zinc-300 text-[11px] mt-1 font-medium">{{ selectedTask.title }}</p>
-            <div v-if="selectedTask.epic" class="text-[10px] text-purple-300 mt-1 flex items-center gap-1">
-              <span>Parent Epic: ⚡ {{ selectedTask.epic.title || selectedTask.epic.issue_key }}</span>
-            </div>
-            <p v-if="selectedTask.acceptance_criteria" class="text-zinc-400 text-[10px] mt-1 line-clamp-2 italic">
-              {{ selectedTask.acceptance_criteria }}
-            </p>
-          </div>
           </template>
         </div>
 
