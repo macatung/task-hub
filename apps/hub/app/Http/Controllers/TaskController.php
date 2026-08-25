@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Task;
+use App\Models\AgentRun;
 use App\Models\Project;
 use App\Models\Sprint;
 use Illuminate\Http\Request;
@@ -67,6 +68,34 @@ class TaskController extends Controller
             ->orderByRaw("CASE WHEN priority = 'urgent' THEN 1 WHEN priority = 'high' THEN 2 WHEN priority = 'medium' THEN 3 ELSE 4 END")
             ->orderBy("created_at", "desc")
             ->get();
+
+        // A handoff is a reviewable submission even when the task was already
+        // in progress when the run completed. Surface that effective state on
+        // the board without mutating the task record; Hub remains the source
+        // of truth and the handoff workflow can still update it explicitly.
+        $taskIds = $tasks->pluck('id');
+        if ($taskIds->isNotEmpty()) {
+            $latestRunIds = AgentRun::query()
+                ->whereIn('task_id', $taskIds)
+                ->selectRaw('MAX(id)')
+                ->groupBy('task_id');
+
+            $pendingReviewTaskIds = AgentRun::query()
+                ->whereIn('id', $latestRunIds)
+                ->where('status', 'needs_review')
+                ->pluck('task_id')
+                ->all();
+
+            if ($pendingReviewTaskIds) {
+                $tasks->each(function ($task) use ($pendingReviewTaskIds) {
+                    if ($task->issue_type !== 'epic'
+                        && $task->status !== 'done'
+                        && in_array($task->id, $pendingReviewTaskIds, true)) {
+                        $task->setAttribute('status', 'review');
+                    }
+                });
+            }
+        }
 
         $projects = Project::where('workspace_id', $workspace->id)
             ->select('id', 'title', 'slug', 'key', 'category', 'tags', 'color', 'description', 'github_repository', 'github_default_branch')
