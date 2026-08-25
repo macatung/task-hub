@@ -378,3 +378,171 @@
   .workspace-empty-board__hero { padding: 2rem 1.5rem; }
   .workspace-empty-board__steps li { padding: 1rem 1.25rem; }
 }
+
+/* -------------------------------------------------------------------------- */
+/* Task workspace — quiet graphite / copper visual system                     */
+/* -------------------------------------------------------------------------- */
+.tasks-page.minimal-theme {
+  --task-canvas: #f3f1ed;
+  --task-surface: #fffdfa;
+  --task-surface-muted: #ebe8e2;
+  --task-line: #d8d2c8;
+  --task-ink: #292724;
+  --task-muted: #756f67;
+  --task-accent: #a95f3e;
+  --task-accent-strong: #8f4c31;
+  --task-accent-soft: #f0dfd6;
+  --task-accent-line: #d8a58e;
+  --task-success: #667864;
+  --task-success-soft: #e3e9e1;
+  background: var(--task-canvas) !important;
+  color: var(--task-ink) !important;
+}
+
+.tasks-page.minimal-theme.dark {
+  --task-canvas: #171716;
+  --task-surface: #20201e;
+  --task-surface-muted: #272623;
+  --task-line: #3b3833;
+  --task-ink: #f1ece5;
+  --task-muted: #a69f95;
+  --task-accent: #d28a62;
+  --task-accent-strong: #e0a078;
+  --task-accent-soft: #3b2922;
+  --task-accent-line: #704633;
+  --task-success: #91a58d;
+  --task-success-soft: #273127;
+}
+
+.tasks-page.minimal-theme header,
+.tasks-page.minimal-theme aside,
+.tasks-page.minimal-theme main,
+.tasks-page.minimal-theme .bg-white,
+.tasks-page.minimal-theme [class*="bg-white/"],
+.tasks-page.minimal-theme [class*="bg-[#"],
+.tasks-page.minimal-theme [class*="bg-slate-900"],
+.tasks-page.minimal-theme [class*="bg-slate-950"] {
+  background-color: var(--task-surface) !important;
+  color: var(--task-ink);
+}
+
+.tasks-page.minimal-theme [class*="bg-slate-50"],
+.tasks-page.minimal-theme [class*="bg-slate-100"] {
+  background-color: var(--task-surface-muted) !important;
+}
+
+.tasks-page.minimal-theme [class*="border-slate-"],
+.tasks-page.minimal-theme [class*="border-white"],
+.tasks-page.minimal-theme [class*="border-[#"] {
+  border-color: var(--task-line) !important;
+}
+
+/* Collapse the rainbow of cool accent utilities into one restrained accent. */
+.tasks-page.minimal-theme [class*="text-blue-"],
+.tasks-page.minimal-theme [class*="text-indigo-"],
+.tasks-page.minimal-theme [class*="text-purple-"],
+.tasks-page.minimal-theme [class*="text-sky-"],
+.tasks-page.minimal-theme [class*="text-cyan-"] {
+  color: var(--task-accent) !important;
+}
+
+.tasks-page.minimal-theme [class*="border-blue-"],
+.tasks-page.minimal-theme [class*="border-indigo-"],
+.tasks-page.minimal-theme [class*="border-purple-"],
+.tasks-page.minimal-theme [class*="border-sky-"],
+.tasks-page.minimal-theme [class*="border-cyan-"] {
+  border-color: var(--task-accent-line) !important;
+}
+
+.tasks-page.minimal-theme [class*="bg-blue-"],
+.tasks-page.minimal-theme [class*="bg-indigo-"],
+.tasks-page.minimal-theme [class*="bg-purple-"],
+.tasks-page.minimal-theme [class*="bg-sky-"],
+.tasks-page.minimal-theme [class*="bg-cyan-"] {
+  background-color: var(--task-accent-soft) !important;
+}
+
+.tasks-page.minimal-theme .bg-blue-600,
+.tasks-page.minimal-theme .bg-blue-700,
+.tasks-page.minimal-theme .bg-indigo-600,
+.tasks-page.minimal-theme .bg-indigo-700,
+.tasks-page.minimal-theme .bg-purple-600,
+.tasks-page.minimal-theme .bg-purple-700,
+.tasks-page.minimal-theme .bg-amber-600,
+.tasks-page.minimal-theme .bg-amber-700,
+.tasks-page.minimal-theme [class*="from-emerald-600"],
+.tasks-page.minimal-theme [class*="to-teal-600"],
+.tasks-page.minimal-theme [class*="bg-gradient-to-r"] {
+  background-image: none !important;
+  background-color: var(--task-accent) !important;
+  color: #fff !important;
+}
+
+.tasks-page.minimal-theme [class*="text-amber-"],
+.tasks-page.minimal-theme [class*="border-amber-"] {
+  color: var(--task-accent) !important;
+  border-color: var(--task-accent-line) !important;
+}
+
+.tasks-page.minimal-theme [class*="bg-amber-"] {
+  background-color: var(--task-accent-soft) !important;
+}
+
+.tasks-page.minimal-theme .bg-amber-600,
+.tasks-page.minimal-theme .bg-amber-700 {
+  background-color: var(--task-accent) !important;
+  color: #fff !important;
+}
+
+.tasks-page.minimal-theme [class*="text-emerald-"],
+.tasks-page.minimal-theme [class*="text-teal-"] {
+  color: var(--task-success) !important;
+}
+
+.tasks-page.minimal-theme [class*="border-emerald-"],
+.tasks-page.minimal-theme [class*="border-teal-"] {
+  border-color: color-mix(in srgb, var(--task-success) 52%, var(--task-line)) !important;
+}
+
+.tasks-page.minimal-theme [class*="bg-emerald-"],
+.tasks-page.minimal-theme [class*="bg-teal-"] {
+  background-color: var(--task-success-soft) !important;
+}
+
+.tasks-page.minimal-theme .text-slate-950,
+.tasks-page.minimal-theme .text-slate-900,
+.tasks-page.minimal-theme .text-slate-800,
+.tasks-page.minimal-theme .text-slate-700 {
+  color: var(--task-ink) !important;
+}
+
+.tasks-page.minimal-theme .text-slate-400,
+.tasks-page.minimal-theme .text-slate-500,
+.tasks-page.minimal-theme .text-slate-600 {
+  color: var(--task-muted) !important;
+}
+
+.tasks-page.minimal-theme svg {
+  filter: grayscale(1);
+  opacity: 0.78;
+}
+
+.tasks-page.minimal-theme .animate-pulse {
+  animation: none !important;
+}
+
+.tasks-page.minimal-theme [class*="shadow-"] {
+  box-shadow: 0 1px 2px rgba(30, 25, 20, 0.08) !important;
+}
+
+.tasks-page.minimal-theme.dark [class*="shadow-"] {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28) !important;
+}
+
+.tasks-page.minimal-theme button,
+.tasks-page.minimal-theme a,
+.tasks-page.minimal-theme input,
+.tasks-page.minimal-theme select,
+.tasks-page.minimal-theme textarea {
+  border-radius: 0.65rem;
+}

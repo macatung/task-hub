@@ -2448,7 +2448,7 @@ onUnmounted(() => {
 
   <div
     :class="[
-      'tasks-page h-screen w-screen overflow-hidden font-sans flex flex-col transition-colors duration-150 select-none selection:bg-emerald-500 selection:text-slate-950',
+      'tasks-page minimal-theme h-screen w-screen overflow-hidden font-sans flex flex-col transition-colors duration-150 select-none selection:bg-amber-500 selection:text-slate-950',
       isDarkMode ? 'dark bg-[#080d1a] text-slate-100' : 'bg-[#f8fafc] text-slate-900'
     ]"
   >
@@ -2491,7 +2491,7 @@ onUnmounted(() => {
           <template v-if="activeSprint">
             <span class="text-slate-400">/</span>
             <span class="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 truncate max-w-[140px]">
-              🏃 {{ activeSprint.name }}
+              {{ activeSprint.name }}
             </span>
           </template>
         </div>
@@ -3162,9 +3162,9 @@ onUnmounted(() => {
               <h2 :class="['text-lg font-bold tracking-tight', isDarkMode ? 'text-white' : 'text-slate-950']">What needs your attention today?</h2>
             </div>
             <div class="flex flex-wrap gap-2">
-              <button @click="startMyDay" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer shadow-xs">☀️ Start my day</button>
+              <button @click="startMyDay" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer shadow-xs">Start my day</button>
               <button @click="openNextAction" :disabled="!nextActionTask" class="px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer disabled:opacity-50" :class="isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-800'">▶ Next action</button>
-              <button @click="openDailyReview" class="px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer" :class="isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-800'">🌙 End my day</button>
+              <button @click="openDailyReview" class="px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer" :class="isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-800'">End my day</button>
             </div>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -3256,7 +3256,7 @@ onUnmounted(() => {
                   isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white' : 'bg-white border-slate-300 text-slate-700 hover:text-slate-950'
                 ]"
               >
-                🔄 Clear Filter
+                Clear filter
               </button>
             </div>
           </div>
@@ -3664,7 +3664,7 @@ onUnmounted(() => {
           <div :class="['flex flex-wrap items-center justify-between gap-3 pb-3 border-b', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
             <div>
               <h2 :class="['text-base sm:text-lg font-bold font-display', isDarkMode ? 'text-white' : 'text-slate-950']">
-                📦 Sprint Planning & Backlog
+                Sprint planning & backlog
               </h2>
               <p :class="['text-xs mt-0.5 font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
                 Drag tasks into sprints to prepare the delivery stages.
@@ -4463,7 +4463,7 @@ onUnmounted(() => {
             </div>
 
             <div v-if="selectedTask.documents?.length" :class="['space-y-2 pt-4 border-t', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
-              <label :class="['font-mono text-xs font-bold uppercase', isDarkMode ? 'text-slate-300' : 'text-slate-700']">📚 Task references</label>
+              <label :class="['font-mono text-xs font-bold uppercase', isDarkMode ? 'text-slate-300' : 'text-slate-700']">Task references</label>
               <a v-for="document in selectedTask.documents" :key="document.id" :href="document.url || '#'" target="_blank" rel="noreferrer" class="block text-[11px] text-blue-600 underline">{{ document.pivot?.is_required ? 'Required · ' : '' }}{{ document.title }}</a>
             </div>
 
@@ -4569,7 +4569,7 @@ onUnmounted(() => {
     <div v-if="showSprintModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
       <div :class="['w-full max-w-md border rounded-3xl p-6 shadow-2xl space-y-4', isDarkMode ? 'bg-[#0a0f1d] border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-950']">
         <div :class="['flex items-center justify-between pb-3 border-b', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
-          <h3 class="font-bold text-sm">⚡ Create Scrum Sprint</h3>
+          <h3 class="font-bold text-sm">Create scrum sprint</h3>
           <button @click="showSprintModal = false" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
         </div>
 
@@ -4613,7 +4613,7 @@ onUnmounted(() => {
     <!-- Modal: Start Sprint -->
     <div v-if="showStartSprintModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
       <div :class="['w-full max-w-md border rounded-3xl p-6 shadow-2xl space-y-4', isDarkMode ? 'bg-[#0a0f1d] border-blue-500/50 text-white' : 'bg-white border-blue-300 text-slate-950']">
-        <h3 class="font-bold text-sm">🚀 Start Sprint: {{ targetSprintForAction?.name }}</h3>
+        <h3 class="font-bold text-sm">Start sprint: {{ targetSprintForAction?.name }}</h3>
         <p :class="['text-xs font-medium', isDarkMode ? 'text-slate-300' : 'text-slate-600']">The sprint will move to <strong>ACTIVE</strong>.</p>
         <div :class="['flex justify-end gap-2 pt-2 border-t', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
           <button @click="showStartSprintModal = false" class="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer">Cancel</button>
@@ -4638,7 +4638,7 @@ onUnmounted(() => {
     <div v-if="showCreateModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
       <div :class="['w-full max-w-lg border rounded-3xl p-6 shadow-2xl space-y-4', isDarkMode ? 'bg-[#0a0f1d] border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-950']">
         <div :class="['flex items-center justify-between pb-3 border-b', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
-          <h3 class="font-bold text-sm">✨ Create Task</h3>
+          <h3 class="font-bold text-sm">Create task</h3>
           <button @click="showCreateModal = false" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
         </div>
 
