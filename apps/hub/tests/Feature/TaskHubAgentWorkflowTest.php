@@ -7,6 +7,7 @@ use App\Models\Task;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\ProjectDocument;
+use App\Models\Workspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Crypt;
@@ -97,11 +98,13 @@ class TaskHubAgentWorkflowTest extends TestCase
         config(['app.env' => 'testing']);
         $user = User::factory()->create(['github_id' => 'github-mcp-user']);
         $user->forceFill(['github_access_token' => Crypt::encryptString('project-github-token')])->save();
+        $workspace = Workspace::create(['name' => 'MCP workspace', 'slug' => 'mcp-workspace-' . $user->id, 'owner_id' => $user->id]);
+        $workspace->members()->attach($user->id, ['role' => 'owner']);
         $project = Project::create([
             'slug' => 'mcp-project', 'title' => 'MCP Project', 'tagline' => 'MCP',
-            'description' => 'MCP project', 'type' => 'work', 'category' => 'tools',
+            'description' => 'MCP project', 'type' => 'work', 'category' => 'tools', 'workspace_id' => $workspace->id,
         ]);
-        $this->actingAs($user)->postJson('/api/projects/' . $project->id . '/github/connect', [
+        $this->actingAs($user)->withHeaders(['X-Workspace-Id' => $workspace->id])->postJson('/api/projects/' . $project->id . '/github/connect', [
             'github_repository' => 'acme/mcp', 'task_hub_mcp_token' => 'project-mcp-token',
         ])->assertOk();
         $headers = ['Authorization' => 'Bearer project-mcp-token', 'X-Task-Hub-Project' => (string) $project->id];
@@ -127,17 +130,28 @@ class TaskHubAgentWorkflowTest extends TestCase
                 'sprint_count' => 1,
             ]],
         ])->assertOk()->assertJsonPath('result.content.0.type', 'text');
+
+        $otherProject = Project::create([
+            'slug' => 'mcp-other-project', 'title' => 'Other MCP Project', 'tagline' => 'Other MCP',
+            'description' => 'Must not be readable by the first project token', 'type' => 'work', 'category' => 'tools',
+        ]);
+        $this->withHeaders(['Authorization' => 'Bearer project-mcp-token', 'X-Task-Hub-Project' => (string) $otherProject->id])
+            ->postJson('/api/tasks/mcp', ['jsonrpc' => '2.0', 'id' => 5, 'method' => 'tools/list'])
+            ->assertUnauthorized();
     }
 
     public function test_project_document_registry_is_imported_linked_and_delivered_to_agent_context(): void
     {
-        $project = Project::create(['slug' => 'knowledge-project', 'title' => 'Knowledge Project', 'tagline' => 'Knowledge', 'description' => 'Project docs', 'type' => 'work', 'category' => 'tools']);
+        $user = User::factory()->create();
+        $workspace = Workspace::create(['name' => 'Knowledge workspace', 'slug' => 'knowledge-workspace-' . $user->id, 'owner_id' => $user->id]);
+        $workspace->members()->attach($user->id, ['role' => 'owner']);
+        $project = Project::create(['slug' => 'knowledge-project', 'title' => 'Knowledge Project', 'tagline' => 'Knowledge', 'description' => 'Project docs', 'type' => 'work', 'category' => 'tools', 'workspace_id' => $workspace->id]);
         $manifest = "| type | title | path_or_url | owner | version | tags |\n| --- | --- | --- | --- | --- | --- |\n| brief | Project Brief | docs/BRIEF.md | PM | 2.0 | scope |\n| architecture | System Design | docs/ARCH.md | Tech Lead | 1.1 | api |";
-        $this->postJson('/api/projects/' . $project->id . '/documents/import-manifest', ['content' => $manifest])
+        $this->actingAs($user)->withHeaders(['X-Workspace-Id' => $workspace->id])->postJson('/api/projects/' . $project->id . '/documents/import-manifest', ['content' => $manifest])
             ->assertOk()->assertJsonPath('data.imported', 2);
         $brief = ProjectDocument::where('project_id', $project->id)->where('document_type', 'brief')->firstOrFail();
         $task = Task::create(['project_id' => $project->id, 'title' => 'Use the specification']);
-        $this->postJson('/api/tasks/' . $task->id . '/documents', ['project_document_id' => $brief->id, 'is_required' => true, 'purpose' => 'Defines scope'])
+        $this->actingAs($user)->withHeaders(['X-Workspace-Id' => $workspace->id])->postJson('/api/tasks/' . $task->id . '/documents', ['project_document_id' => $brief->id, 'is_required' => true, 'purpose' => 'Defines scope'])
             ->assertOk();
 
         $context = $this->getJson('/api/tasks/context-pack?task_id=' . $task->id)->assertOk();
@@ -146,7 +160,7 @@ class TaskHubAgentWorkflowTest extends TestCase
             ->assertJsonPath('data.document_standard.version', 'task-hub-docs-v1')
             ->assertJsonPath('data.document_standard.manifest_path', 'docs/PROJECT_DOCUMENTS.md')
             ->assertJsonPath('data.document_standard.required_core_types.1', 'prd');
-        $this->getJson('/api/projects/' . $project->id . '/documents')->assertOk()
+        $this->actingAs($user)->withHeaders(['X-Workspace-Id' => $workspace->id])->getJson('/api/projects/' . $project->id . '/documents')->assertOk()
             ->assertJsonPath('data.summary.total', 2)
             ->assertJsonPath('data.summary.standard_version', 'task-hub-docs-v1')
             ->assertJsonPath('data.summary.missing_core.0', 'prd');
@@ -154,12 +168,15 @@ class TaskHubAgentWorkflowTest extends TestCase
 
     public function test_project_release_log_keeps_each_deployment(): void
     {
-        $project = Project::create(['slug' => 'release-project', 'title' => 'Release Project', 'tagline' => 'Release', 'description' => 'Release history', 'type' => 'work', 'category' => 'tools']);
-        $this->postJson('/api/projects/' . $project->id . '/releases', [
+        $user = User::factory()->create();
+        $workspace = Workspace::create(['name' => 'Release workspace', 'slug' => 'release-workspace-' . $user->id, 'owner_id' => $user->id]);
+        $workspace->members()->attach($user->id, ['role' => 'owner']);
+        $project = Project::create(['slug' => 'release-project', 'title' => 'Release Project', 'tagline' => 'Release', 'description' => 'Release history', 'type' => 'work', 'category' => 'tools', 'workspace_id' => $workspace->id]);
+        $this->actingAs($user)->withHeaders(['X-Workspace-Id' => $workspace->id])->postJson('/api/projects/' . $project->id . '/releases', [
             'version' => 'v1.2.0', 'environment' => 'production', 'summary' => 'Knowledge layer deployed.',
             'changes' => ['Document registry', 'Desktop cockpit'], 'commit_sha' => str_repeat('a', 40), 'deployed_by' => 'release-bot',
         ])->assertCreated()->assertJsonPath('data.version', 'v1.2.0');
-        $this->getJson('/api/projects/' . $project->id . '/releases')->assertOk()
+        $this->actingAs($user)->withHeaders(['X-Workspace-Id' => $workspace->id])->getJson('/api/projects/' . $project->id . '/releases')->assertOk()
             ->assertJsonPath('data.0.environment', 'production')
             ->assertJsonPath('data.0.changes.1', 'Desktop cockpit');
     }
@@ -176,6 +193,19 @@ class TaskHubAgentWorkflowTest extends TestCase
             'commit_sha' => str_repeat('a', 40), 'blockers' => null,
         ])->assertOk()->assertJsonPath('data.status', 'needs_review');
         $this->assertDatabaseHas('verification_evidence', ['agent_run_id' => $run->id, 'command' => 'npm test', 'status' => 'passed']);
+    }
+
+    public function test_structured_handoff_allows_an_empty_changed_file_list_for_verified_runs(): void
+    {
+        $project = Project::create(['slug' => 'auto-handoff-project', 'title' => 'Auto Handoff Project', 'tagline' => 'Auto Handoff', 'description' => 'Test project', 'type' => 'work', 'category' => 'tools']);
+        $task = Task::create(['project_id' => $project->id, 'title' => 'Verify without local diff']);
+        $run = AgentRun::create(['task_id' => $task->id, 'provider' => 'codex', 'agent_session_id' => 'auto-handoff-session', 'status' => 'running']);
+
+        $this->postJson('/api/tasks/agent-runs/' . $run->id . '/handoff', [
+            'summary' => 'Verification-only handoff from Desktop.',
+            'changed_files' => [],
+            'tests' => [['command' => 'npm test', 'status' => 'passed', 'summary' => 'All tests passed.']],
+        ])->assertOk()->assertJsonPath('data.status', 'needs_review');
     }
 
     public function test_project_github_configuration_is_encrypted_and_syncs_snapshot(): void

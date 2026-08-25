@@ -13,6 +13,7 @@ use App\Models\Project;
 use App\Models\VerificationEvidence;
 use App\Services\TaskHubContextPackService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Services\WorkspaceContext;
@@ -47,7 +48,7 @@ class ApiAgentRunController extends Controller
         $after = max(0, $request->integer('after', 0));
         $afterLog = max(0, $request->integer('after_log', 0));
         $runId = $request->integer('run_id');
-        return response()->stream(function () use ($workspace, $after, $runId) {
+        return response()->stream(function () use ($workspace, $after, $afterLog, $runId) {
             $events = AgentRunEvent::query()->where('id', '>', $after)
                 ->whereHas('agentRun', fn ($q) => $q->where('workspace_id', $workspace->id))
                 ->when($runId, fn ($q) => $q->where('agent_run_id', $runId))
@@ -82,6 +83,7 @@ class ApiAgentRunController extends Controller
             'repository' => 'nullable|string|max:255',
             'branch' => 'nullable|string|max:255',
             'run_type' => 'nullable|string|max:30',
+            'metadata' => 'nullable|array',
             'instruction' => 'nullable|array',
             'context' => 'nullable|array',
             // Agent execution is local-only in the current product phase.
@@ -100,6 +102,14 @@ class ApiAgentRunController extends Controller
                     'message' => "Task #{$taskId} not found. Please refresh the task list.",
                 ], 404);
             }
+        }
+        if ($task && in_array($task->status, ['review', 'done'], true)) {
+            return response()->json([
+                'success' => false,
+                'message' => $task->status === 'review'
+                    ? 'Task is waiting for Hub review. Approve or request changes before starting another run.'
+                    : 'Task is already done. Reopen it before starting another run.',
+            ], 422);
         }
         if ($task?->hasIncompleteDependencies()) {
             return response()->json([
@@ -137,7 +147,7 @@ class ApiAgentRunController extends Controller
                 'run_type' => $validated['run_type'] ?? 'implementation',
                 'context_hash' => $context['context_hash'] ?? null,
                 'instruction_hash' => $contextService->instructionHash($instruction),
-                'metadata' => array_merge(['context' => $context], $selectedModel ? ['model' => $selectedModel] : []),
+                'metadata' => array_merge(['context' => $context], $selectedModel ? ['model' => $selectedModel] : [], $validated['metadata'] ?? []),
             ]);
             $this->recordEvent($run, 'run_created', 'queued', array_merge(['context_hash' => $run->context_hash], $selectedModel ? ['model' => $selectedModel] : []));
             return $run;
@@ -154,8 +164,17 @@ class ApiAgentRunController extends Controller
             'model' => 'nullable|string|max:120',
             'execution_mode' => 'nullable|in:auto_pilot,supervised,desktop',
             'custom_instruction' => 'nullable|string|max:10000',
+            'epic_sequence' => 'nullable|array',
         ]);
 
+        if (in_array($task->status, ['review', 'done'], true)) {
+            return response()->json([
+                'success' => false,
+                'message' => $task->status === 'review'
+                    ? 'Task is waiting for Hub review. Approve or request changes before dispatching again.'
+                    : 'Task is already done. Reopen it before dispatching again.',
+            ], 422);
+        }
         if ($task->hasIncompleteDependencies()) {
             return response()->json([
                 'success' => false,
@@ -169,6 +188,7 @@ class ApiAgentRunController extends Controller
         $model = $validated['model'] ?? 'gemini-3.7-flash';
         $mode = $validated['execution_mode'] ?? 'auto_pilot';
         $customInstruction = $validated['custom_instruction'] ?? null;
+        $epicSequence = $validated['epic_sequence'] ?? null;
 
         $context = $contextService->build($task, ['provider' => $provider, 'model' => $model]);
         $instruction = [
@@ -178,7 +198,7 @@ class ApiAgentRunController extends Controller
 
         $workspace = $task->project?->workspace ?? ($runner->workspace ?? \App\Models\Workspace::first());
 
-        $run = DB::transaction(function () use ($task, $runner, $workspace, $provider, $model, $mode, $customInstruction, $context, $instruction, $contextService, $request) {
+        $run = DB::transaction(function () use ($task, $runner, $workspace, $provider, $model, $mode, $customInstruction, $epicSequence, $context, $instruction, $contextService, $request) {
             $commandId = 'cmd-' . Str::uuid();
             $run = AgentRun::create([
                 'task_id' => $task->id,
@@ -207,6 +227,7 @@ class ApiAgentRunController extends Controller
                         'name' => $runner->name,
                         'hostname' => $runner->hostname,
                     ],
+                    ...($epicSequence ? ['epic_sequence' => $epicSequence] : []),
                 ],
             ]);
 
@@ -238,6 +259,149 @@ class ApiAgentRunController extends Controller
         ], 201);
     }
 
+    /** Start an Epic safely: dispatch only the first dependency-ready child. Each
+     * subsequent child is queued only after the preceding task is approved. */
+    public function dispatchEpic(Request $request, Task $task, TaskHubContextPackService $contextService)
+    {
+        if ($task->issue_type !== 'epic') return response()->json(['success' => false, 'message' => 'Only an Epic can run as a sequence.'], 422);
+        $validated = $request->validate([
+            'runner_id' => 'required|integer|exists:agent_runners,id',
+            'provider' => 'nullable|in:' . implode(',', self::PROVIDERS),
+            'model' => 'nullable|string|max:120',
+            'execution_mode' => 'nullable|in:auto_pilot,supervised,desktop',
+            'custom_instruction' => 'nullable|string|max:10000',
+        ]);
+        $children = Task::where('epic_id', $task->id)
+            ->where('status', '!=', 'done')
+            ->with('dependencies.dependsOn:id,issue_key,title,status')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+        if ($children->isEmpty()) return response()->json(['success' => false, 'message' => 'This Epic has no open child tasks to run.'], 422);
+        $next = $children->first(fn (Task $child) => $this->isEpicChildDispatchable($child));
+        if (!$next) {
+            $diagnostics = $this->epicDispatchDiagnostics($children);
+            return response()->json([
+                'success' => false,
+                'error_code' => $diagnostics['cycles'] !== [] ? 'epic_dependency_cycle' : 'epic_no_dispatchable_child',
+                'message' => $diagnostics['message'],
+                'dispatch_diagnostics' => $diagnostics,
+            ], 422);
+        }
+        $sequence = [
+            'epic_id' => $task->id,
+            'task_ids' => $children->pluck('id')->values()->all(),
+            'runner_id' => $validated['runner_id'],
+            'provider' => $validated['provider'] ?? 'antigravity',
+            'model' => $validated['model'] ?? 'gemini-3.7-flash',
+            'execution_mode' => $validated['execution_mode'] ?? 'auto_pilot',
+            'custom_instruction' => $validated['custom_instruction'] ?? null,
+        ];
+        $task->update(['status' => 'in_progress']);
+        return $this->dispatch(Request::create('/', 'POST', array_merge($validated, ['epic_sequence' => $sequence])), $next, $contextService);
+    }
+
+    /**
+     * An Epic is a scheduler, never work itself. Keep the decision and the
+     * explanation together so a cloud dispatch failure is actionable instead
+     * of looking like a desktop delivery failure.
+     */
+    private function isEpicChildDispatchable(Task $task): bool
+    {
+        return in_array($task->status, ['todo', 'backlog'], true)
+            && $this->unfinishedDependencies($task)->isEmpty();
+    }
+
+    private function unfinishedDependencies(Task $task): Collection
+    {
+        return $task->dependencies->filter(fn ($dependency) => $dependency->dependsOn?->status !== 'done')->values();
+    }
+
+    /** @return array{message:string,ready:array,blocked:array,active:array,cycles:array} */
+    private function epicDispatchDiagnostics(Collection $children): array
+    {
+        $ready = [];
+        $blocked = [];
+        $active = [];
+
+        foreach ($children as $child) {
+            $task = [
+                'id' => $child->id,
+                'issue_key' => $child->issue_key,
+                'title' => $child->title,
+                'status' => $child->status,
+            ];
+            $unfinished = $this->unfinishedDependencies($child)->map(fn ($dependency) => [
+                'id' => $dependency->dependsOn?->id,
+                'issue_key' => $dependency->dependsOn?->issue_key,
+                'title' => $dependency->dependsOn?->title,
+                'status' => $dependency->dependsOn?->status,
+            ])->values()->all();
+
+            if (in_array($child->status, ['todo', 'backlog'], true)) {
+                if ($unfinished === []) {
+                    $ready[] = $task;
+                } else {
+                    $blocked[] = [...$task, 'blocked_by' => $unfinished];
+                }
+            } else {
+                $active[] = $task;
+            }
+        }
+
+        $cycles = $this->findEpicDependencyCycles($children);
+        $message = $cycles !== []
+            ? 'This Epic cannot start because its remaining tasks contain a dependency cycle. Review the blocking tasks and remove one dependency before dispatching.'
+            : ($active !== []
+                ? 'This Epic has no task ready to dispatch. Finish, approve, or return the active/review task before starting another child.'
+                : 'This Epic has no task ready to dispatch. Every open task is waiting on an unfinished dependency.');
+
+        return compact('message', 'ready', 'blocked', 'active', 'cycles');
+    }
+
+    /** @return array<int, array<int, array{id:int,issue_key:?string,title:string}>> */
+    private function findEpicDependencyCycles(Collection $children): array
+    {
+        $childrenById = $children->keyBy('id');
+        $visiting = [];
+        $visited = [];
+        $stack = [];
+        $cycles = [];
+        $seen = [];
+
+        $visit = function (Task $task) use (&$visit, &$visiting, &$visited, &$stack, &$cycles, &$seen, $childrenById): void {
+            if (isset($visited[$task->id])) return;
+            if (isset($visiting[$task->id])) {
+                $start = array_search($task->id, $stack, true);
+                $cycleIds = array_slice($stack, $start === false ? 0 : $start);
+                $cycleIds[] = $task->id;
+                $key = implode('-', $cycleIds);
+                if (!isset($seen[$key])) {
+                    $seen[$key] = true;
+                    $cycles[] = array_map(fn ($id) => [
+                        'id' => $id,
+                        'issue_key' => $childrenById[$id]->issue_key,
+                        'title' => $childrenById[$id]->title,
+                    ], $cycleIds);
+                }
+                return;
+            }
+
+            $visiting[$task->id] = true;
+            $stack[] = $task->id;
+            foreach ($task->dependencies as $dependency) {
+                $predecessor = $dependency->dependsOn;
+                if ($predecessor && $childrenById->has($predecessor->id)) $visit($childrenById[$predecessor->id]);
+            }
+            array_pop($stack);
+            unset($visiting[$task->id]);
+            $visited[$task->id] = true;
+        };
+
+        foreach ($children as $child) $visit($child);
+        return $cycles;
+    }
+
     public function update(Request $request, AgentRun $agentRun)
     {
         $validated = $request->validate([
@@ -250,6 +414,9 @@ class ApiAgentRunController extends Controller
             'metadata' => 'nullable|array',
         ]);
         $this->applyLifecycleFields($validated);
+        if (array_key_exists('metadata', $validated)) {
+            $validated['metadata'] = array_merge($agentRun->metadata ?: [], $validated['metadata'] ?: []);
+        }
         $agentRun->update($validated);
         $this->recordEvent($agentRun, 'run_updated', $agentRun->status, $validated);
         return response()->json(['success' => true, 'data' => $agentRun->fresh()->load('evidence')]);
@@ -308,7 +475,10 @@ class ApiAgentRunController extends Controller
     {
         $validated = $request->validate([
             'summary' => 'required|string|max:10000',
-            'changed_files' => 'required|array|min:1',
+            // Verification-only runs may not have a local diff. Treat an omitted
+            // or empty changed-file list as an explicit empty list so automatic
+            // handoff still reaches Hub review.
+            'changed_files' => 'nullable|array',
             'changed_files.*' => 'string|max:500',
             'tests' => 'required|array|min:1',
             'tests.*.command' => 'required|string|max:500',
@@ -317,8 +487,15 @@ class ApiAgentRunController extends Controller
             'commit_sha' => 'nullable|string|max:80',
             'pull_request_url' => 'nullable|url|max:500',
             'blockers' => 'nullable|string|max:10000',
+            'review' => 'nullable|array',
+            'review.status' => 'nullable|string|in:idle,reviewing,changes_requested,approved,max_iterations,failed',
+            'review.reviewer_provider' => 'nullable|in:codex,claude_code,antigravity',
+            'review.reviewer_run_id' => 'nullable|integer',
+            'review.iterations' => 'nullable|integer|min:0|max:20',
+            'review.feedback' => 'nullable|string|max:10000',
             'idempotency_key' => 'nullable|uuid',
         ]);
+        $validated['changed_files'] = array_values($validated['changed_files'] ?? []);
         $idempotencyKey = $validated['idempotency_key'] ?? $request->header('Idempotency-Key');
         if ($idempotencyKey && data_get($agentRun->metadata, 'handoff.idempotency_key') === $idempotencyKey) {
             return response()->json(['success' => true, 'duplicate' => true, 'data' => $agentRun->fresh()->load(['evidence', 'events'])]);
@@ -330,6 +507,7 @@ class ApiAgentRunController extends Controller
                 'handoff' => [
                     'changed_files' => array_values($validated['changed_files']),
                     'blockers' => $validated['blockers'] ?? null,
+                    'auto_review' => $validated['review'] ?? null,
                     'idempotency_key' => $idempotencyKey,
                     'submitted_at' => now()->toIso8601String(),
                 ],
@@ -340,6 +518,12 @@ class ApiAgentRunController extends Controller
                 'pull_request_url' => $validated['pull_request_url'] ?? $agentRun->pull_request_url,
                 'metadata' => $metadata,
             ]);
+            // A submitted handoff is the Hub review boundary. Move the linked
+            // task into review so it is visible in the board and notification
+            // inbox; approval/rejection remains a human Hub action.
+            if ($agentRun->task && $agentRun->task->status !== 'done') {
+                $agentRun->task->update(['status' => 'review']);
+            }
             foreach ($validated['tests'] as $test) {
                 $agentRun->evidence()->create([
                     'task_id' => $agentRun->task_id, 'evidence_type' => 'test',
@@ -381,6 +565,22 @@ class ApiAgentRunController extends Controller
         $task->update(['status' => 'done', 'completed_at' => now()]);
         if ($latest->status !== 'verified') $latest->update(['status' => 'verified', 'finished_at' => now()]);
         $this->recordEvent($latest, 'human_approved', 'verified', ['task_id' => $task->id]);
+        $sequence = data_get($latest->metadata, 'epic_sequence');
+        if (is_array($sequence) && !empty($sequence['task_ids'])) {
+            $remaining = collect($sequence['task_ids'])->map(fn ($id) => Task::find($id))->filter(fn ($candidate) => $candidate && $candidate->status !== 'done');
+            $next = $remaining->first(fn (Task $candidate) => in_array($candidate->status, ['todo', 'backlog'], true) && !$candidate->hasIncompleteDependencies());
+            if ($next) {
+                $payload = [
+                    'runner_id' => $sequence['runner_id'], 'provider' => $sequence['provider'] ?? 'antigravity',
+                    'model' => $sequence['model'] ?? null, 'execution_mode' => $sequence['execution_mode'] ?? 'auto_pilot',
+                    'custom_instruction' => $sequence['custom_instruction'] ?? null, 'epic_sequence' => $sequence,
+                ];
+                $this->dispatch(Request::create('/', 'POST', $payload), $next, app(TaskHubContextPackService::class));
+            } else {
+                $epic = Task::find($sequence['epic_id'] ?? null);
+                if ($epic && !Task::where('epic_id', $epic->id)->where('status', '!=', 'done')->exists()) $epic->update(['status' => 'done', 'completed_at' => now()]);
+            }
+        }
         return response()->json(['success' => true, 'data' => $task->fresh()]);
     }
 
@@ -396,6 +596,19 @@ class ApiAgentRunController extends Controller
             $this->recordEvent($latest, 'human_rejected', 'waiting_input', $validated);
         }
         return response()->json(['success' => true, 'message' => 'Task returned to changes requested.', 'data' => $task->fresh()]);
+    }
+
+    public function cancel(Request $request, AgentRun $agentRun)
+    {
+        if ($request->user()) {
+            abort_unless((int) $agentRun->workspace_id === (int) app(WorkspaceContext::class)->resolve($request)->id, 404);
+        }
+        if (in_array($agentRun->status, ['verified', 'failed', 'cancelled'], true)) {
+            return response()->json(['success' => true, 'data' => $agentRun]);
+        }
+        $agentRun->update(['cancel_requested_at' => now(), 'status' => 'cancelled', 'finished_at' => now()]);
+        $this->recordEvent($agentRun, 'run_cancelled', 'cancelled', ['reason' => $request->input('reason', 'User requested cancel')]);
+        return response()->json(['success' => true, 'data' => $agentRun->fresh()]);
     }
 
     public function githubWebhook(Request $request)

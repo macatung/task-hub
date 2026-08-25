@@ -35,6 +35,11 @@ dist-ssr
 /apps/desktop/dist-electron/
 /apps/desktop/release/
 
+# Mobile app build artifacts
+/apps/mobile/node_modules/
+/apps/mobile/.expo/
+/apps/mobile/dist/
+
 # Agent artifacts & test reports
 /.agents/
 /.macatung/

@@ -8,6 +8,13 @@ export interface TimelineEvent {
   detail: string;
   tone: 'ok' | 'passed' | 'failed' | 'error' | 'warning' | 'active' | 'tool' | 'muted';
   time: string;
+  actor?: {
+    type?: string;
+    name?: string;
+    role?: string;
+    details?: string;
+  };
+  link?: string;
 }
 
 const props = defineProps<{
@@ -131,7 +138,7 @@ const copyTimelineSummary = async () => {
     @click.self="emit('close')"
   >
     <div
-      class="w-full max-w-xl bg-[#1e1e1e] border-l border-[#333333] shadow-2xl flex flex-col h-full text-zinc-200 select-none animate-slide-left"
+      class="cc-timeline-surface w-full max-w-xl bg-[#1e1e1e] border-l border-[#333333] shadow-2xl flex flex-col h-full text-zinc-200 select-none animate-slide-left"
     >
       <!-- Header -->
       <div class="h-12 px-4 border-b border-[#2d2d2d] bg-[#252526] flex items-center justify-between shrink-0">
@@ -259,9 +266,17 @@ const copyTimelineSummary = async () => {
                 <span class="text-[10px] font-mono text-zinc-400">{{ event.time }}</span>
               </div>
             </div>
+            <div v-if="event.actor?.name" class="flex items-center gap-1.5 mb-1.5 text-[10px] text-zinc-400 bg-black/30 px-2 py-0.5 rounded border border-white/5">
+              <span>👤</span>
+              <span class="font-bold text-zinc-200">{{ event.actor.name }}</span>
+              <span v-if="event.actor.role" class="text-zinc-500">· {{ event.actor.role }}</span>
+            </div>
             <p class="text-xs text-zinc-300 whitespace-pre-wrap break-words leading-relaxed">
               {{ event.detail }}
             </p>
+            <a v-if="event.link" :href="event.link" target="_blank" rel="noreferrer" class="mt-2 inline-flex text-xs font-semibold text-sky-300 hover:text-sky-200 underline underline-offset-2">
+              Open handoff in Hub ↗
+            </a>
           </div>
         </div>
       </div>

@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 class ProjectKnowledgeService
 {
     public const STANDARD_VERSION = 'task-hub-docs-v1';
-    public const CORE_TYPES = ['brief', 'prd', 'architecture', 'qa_plan', 'release_runbook'];
+    public const CORE_TYPES = ['brief', 'prd', 'functional_spec', 'architecture', 'qa_plan', 'release_runbook'];
 
     public function documentsForTask(Task $task): array
     {
@@ -52,7 +52,7 @@ class ProjectKnowledgeService
         $seen = [];
         foreach ($rows as $row) {
             $key = ['project_id' => $project->id, 'document_type' => $row['document_type'], 'title' => $row['title']];
-            ProjectDocument::updateOrCreate($key, array_merge($row, ['project_id' => $project->id, 'content_hash' => $sourceHash, 'last_verified_at' => now()]));
+            ProjectDocument::updateOrCreate($key, array_merge($row, ['project_id' => $project->id, 'workspace_id' => $project->workspace_id, 'content_hash' => $sourceHash, 'last_verified_at' => now()]));
             $seen[] = $row['document_type'] . '|' . $row['title'];
         }
         return ['imported' => count($seen), 'documents' => $this->projectState($project->fresh())];
@@ -84,7 +84,7 @@ class ProjectKnowledgeService
 
     public function manifestTemplate(): string
     {
-        return "# Task Hub Project Documents\n\n<!-- task-hub:document-registry:v1 -->\n\nThis registry is the canonical index for product, engineering, QA and release context. Keep the five core rows present; update the linked files when the repository changes. Task Hub imports this file and passes the active references into agent context.\n\n| type | title | path_or_url | owner | version | tags |\n| --- | --- | --- | --- | --- | --- |\n| brief | Project Brief | docs/PROJECT_BRIEF.md | Product | 1.0 | scope,goals |\n| prd | Product Requirements | docs/PRD.md | Product | 1.0 | requirements,acceptance |\n| architecture | Architecture | docs/ARCHITECTURE.md | Engineering | 1.0 | system,data-flow |\n| qa_plan | QA Plan | docs/QA_PLAN.md | QA | 1.0 | test,quality |\n| release_runbook | Release Runbook | docs/RELEASE_RUNBOOK.md | DevOps | 1.0 | release,operations |\n";
+        return "# Task Hub Project Documents\n\n<!-- task-hub:document-registry:v1 -->\n\nThis registry is the canonical index for product, engineering, QA and release context. Keep the core rows present; update the linked files when the repository changes. Task Hub imports this file and passes the active references into agent context.\n\n| type | title | path_or_url | owner | version | tags |\n| --- | --- | --- | --- | --- | --- |\n| brief | Project Brief | docs/PROJECT_BRIEF.md | Product | 1.0 | scope,goals |\n| prd | Product Requirements | docs/PRD.md | Product | 1.0 | requirements,acceptance |\n| functional_spec | Functional Specification | docs/FUNCTIONAL_SPECIFICATION.md | Engineering & Product | 1.0 | specifications,use-cases,traceability |\n| architecture | Architecture | docs/ARCHITECTURE.md | Engineering | 1.0 | system,data-flow |\n| qa_plan | QA Plan | docs/QA_PLAN.md | QA | 1.0 | test,quality |\n| release_runbook | Release Runbook | docs/RELEASE_RUNBOOK.md | DevOps | 1.0 | release,operations |\n";
     }
 
     public function documentContentsForTask(Task $task): array

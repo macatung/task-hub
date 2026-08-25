@@ -115,3 +115,452 @@
 .animate-squash-stretch {
   animation: squashStretch 0.45s cubic-bezier(0.28, 0.84, 0.42, 1) forwards;
 }
+
+/* Hub SaaS design language. Scoped so the product workspace can evolve without
+   changing the editorial, Theravada, and playful brand surfaces. */
+.hub-landing {
+  --hub-ink: #172033;
+  --hub-muted: #61708a;
+  --hub-line: #dce3ee;
+  --hub-canvas: #f7f9fc;
+  --hub-surface: #ffffff;
+  --hub-primary: #2563eb;
+  background: var(--hub-canvas) !important;
+  color: var(--hub-ink) !important;
+}
+
+.hub-landing .fixed.inset-0 {
+  display: none;
+}
+
+.hub-landing header,
+.hub-landing footer,
+.hub-landing .bg-slate-950,
+.hub-landing .bg-slate-900,
+.hub-landing .bg-slate-900\/30,
+.hub-landing .bg-slate-900\/40,
+.hub-landing .bg-slate-900\/60,
+.hub-landing .bg-slate-900\/80,
+.hub-landing .bg-slate-950\/50,
+.hub-landing .bg-slate-950\/80 {
+  background-color: var(--hub-surface) !important;
+}
+
+.hub-landing [class*="border-slate-"] {
+  border-color: var(--hub-line) !important;
+}
+
+.hub-landing .text-white,
+.hub-landing .text-slate-100,
+.hub-landing .text-slate-200,
+.hub-landing .text-slate-300 {
+  color: var(--hub-ink) !important;
+}
+
+.hub-landing .text-slate-400,
+.hub-landing .text-slate-500 {
+  color: var(--hub-muted) !important;
+}
+
+.hub-landing .bg-gradient-to-r,
+.hub-landing .bg-gradient-to-tr,
+.hub-landing .bg-gradient-to-br,
+.hub-landing .bg-gradient-to-b {
+  background-image: none !important;
+}
+
+.hub-landing .bg-emerald-500,
+.hub-landing .from-emerald-500,
+.hub-landing .to-teal-500 {
+  background-color: var(--hub-primary) !important;
+  color: #fff !important;
+}
+
+.hub-landing .bg-clip-text {
+  -webkit-text-fill-color: var(--hub-primary);
+  color: var(--hub-primary) !important;
+}
+
+.hub-landing .shadow-2xl,
+.hub-landing .shadow-xl,
+.hub-landing .shadow-lg {
+  box-shadow: 0 16px 36px rgba(23, 32, 51, 0.08) !important;
+}
+
+.hub-landing a:focus-visible,
+.hub-landing button:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-landing *, .tasks-page * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Workspace composition: the board stays calm while the first-run workflow
+   makes the next useful action obvious. */
+.workspace-empty-board {
+  display: grid;
+  gap: 1px;
+  min-height: min(590px, calc(100dvh - 250px));
+  overflow: hidden;
+  border: 1px solid #dbe4f0;
+  border-radius: 16px;
+  background: #dbe4f0;
+}
+
+.workspace-empty-board__hero,
+.workspace-empty-board__steps {
+  background: #ffffff;
+}
+
+.workspace-empty-board__hero {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(2rem, 6vw, 5.5rem);
+}
+
+.workspace-empty-board__icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 14px;
+  background: #e8f0ff;
+  color: #2563eb;
+}
+
+.workspace-empty-board__eyebrow {
+  margin: 1.5rem 0 0;
+  color: #2563eb;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workspace-empty-board h2 {
+  max-width: 31rem;
+  margin: 0.5rem 0 0;
+  color: #172033;
+  font-size: clamp(1.5rem, 3vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+}
+
+.workspace-empty-board__hero > p:not(.workspace-empty-board__eyebrow) {
+  max-width: 34rem;
+  margin: 1rem 0 0;
+  color: #61708a;
+  font-size: 0.94rem;
+  line-height: 1.6;
+}
+
+.workspace-empty-board__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+}
+
+.workspace-empty-board button {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 9px;
+  padding: 0 1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.workspace-empty-board__primary {
+  border: 1px solid #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.workspace-empty-board__secondary {
+  border: 1px solid #cbd7e6;
+  background: #ffffff;
+  color: #26354e;
+}
+
+.workspace-empty-board__steps {
+  display: grid;
+  gap: 1px;
+  background: #dbe4f0;
+}
+
+.workspace-empty-board__steps li {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+  padding: 1.35rem 1.5rem;
+  background: #ffffff;
+}
+
+.workspace-empty-board__steps span {
+  color: #2563eb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.workspace-empty-board__steps strong,
+.workspace-empty-board__steps small {
+  display: block;
+}
+
+.workspace-empty-board__steps strong {
+  color: #172033;
+  font-size: 0.8rem;
+}
+
+.workspace-empty-board__steps small {
+  margin-top: 0.25rem;
+  color: #61708a;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.workspace-empty-board--dark {
+  border-color: #26344b;
+  background: #26344b;
+}
+
+.workspace-empty-board--dark .workspace-empty-board__hero,
+.workspace-empty-board--dark .workspace-empty-board__steps li {
+  background: #0d1524;
+}
+
+.workspace-empty-board--dark .workspace-empty-board__steps {
+  background: #26344b;
+}
+
+.workspace-empty-board--dark .workspace-empty-board__icon {
+  background: #172b55;
+  color: #93c5fd;
+}
+
+.workspace-empty-board--dark h2,
+.workspace-empty-board--dark .workspace-empty-board__steps strong {
+  color: #f4f7fb;
+}
+
+.workspace-empty-board--dark .workspace-empty-board__hero > p:not(.workspace-empty-board__eyebrow),
+.workspace-empty-board--dark .workspace-empty-board__steps small {
+  color: #9aa9bf;
+}
+
+.workspace-empty-board--dark .workspace-empty-board__secondary {
+  border-color: #3b4a63;
+  background: #111d30;
+  color: #e2e8f0;
+}
+
+@media (min-width: 900px) {
+  .workspace-empty-board {
+    grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.75fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .workspace-empty-board { min-height: auto; }
+  .workspace-empty-board__hero { padding: 2rem 1.5rem; }
+  .workspace-empty-board__steps li { padding: 1rem 1.25rem; }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Task workspace — quiet graphite / copper visual system                     */
+/* -------------------------------------------------------------------------- */
+.tasks-page.minimal-theme {
+  --task-canvas: #f5f4f1;
+  --task-surface: #ffffff;
+  --task-surface-muted: #e9e7e2;
+  --task-line: #b8b2a8;
+  --task-ink: #211f1c;
+  --task-muted: #57524b;
+  --task-accent: #984d2e;
+  --task-accent-strong: #7f3e25;
+  --task-accent-soft: #f0ddd3;
+  --task-accent-line: #a86c51;
+  --task-success: #4f634c;
+  --task-success-soft: #e1e8df;
+  background: var(--task-canvas) !important;
+  color: var(--task-ink) !important;
+}
+
+.tasks-page.minimal-theme.dark {
+  --task-canvas: #151514;
+  --task-surface: #1f1f1d;
+  --task-surface-muted: #282724;
+  --task-line: #514c45;
+  --task-ink: #f7f3ed;
+  --task-muted: #c2bbb1;
+  --task-accent: #e09a70;
+  --task-accent-strong: #efad85;
+  --task-accent-soft: #4a2e22;
+  --task-accent-line: #966044;
+  --task-success: #a9bea4;
+  --task-success-soft: #2b382b;
+}
+
+.tasks-page.minimal-theme header,
+.tasks-page.minimal-theme aside,
+.tasks-page.minimal-theme main,
+.tasks-page.minimal-theme .bg-white,
+.tasks-page.minimal-theme [class*="bg-white/"],
+.tasks-page.minimal-theme [class*="bg-[#"],
+.tasks-page.minimal-theme [class*="bg-slate-900"],
+.tasks-page.minimal-theme [class*="bg-slate-950"] {
+  background-color: var(--task-surface) !important;
+  color: var(--task-ink);
+}
+
+.tasks-page.minimal-theme [class*="bg-slate-50"],
+.tasks-page.minimal-theme [class*="bg-slate-100"] {
+  background-color: var(--task-surface-muted) !important;
+}
+
+.tasks-page.minimal-theme [class*="border-slate-"],
+.tasks-page.minimal-theme [class*="border-white"],
+.tasks-page.minimal-theme [class*="border-[#"] {
+  border-color: var(--task-line) !important;
+}
+
+/* Collapse the rainbow of cool accent utilities into one restrained accent. */
+.tasks-page.minimal-theme [class*="text-blue-"],
+.tasks-page.minimal-theme [class*="text-indigo-"],
+.tasks-page.minimal-theme [class*="text-purple-"],
+.tasks-page.minimal-theme [class*="text-sky-"],
+.tasks-page.minimal-theme [class*="text-cyan-"] {
+  color: var(--task-accent) !important;
+}
+
+.tasks-page.minimal-theme [class*="border-blue-"],
+.tasks-page.minimal-theme [class*="border-indigo-"],
+.tasks-page.minimal-theme [class*="border-purple-"],
+.tasks-page.minimal-theme [class*="border-sky-"],
+.tasks-page.minimal-theme [class*="border-cyan-"] {
+  border-color: var(--task-accent-line) !important;
+}
+
+.tasks-page.minimal-theme [class*="bg-blue-"],
+.tasks-page.minimal-theme [class*="bg-indigo-"],
+.tasks-page.minimal-theme [class*="bg-purple-"],
+.tasks-page.minimal-theme [class*="bg-sky-"],
+.tasks-page.minimal-theme [class*="bg-cyan-"] {
+  background-color: var(--task-accent-soft) !important;
+}
+
+.tasks-page.minimal-theme .bg-blue-600,
+.tasks-page.minimal-theme .bg-blue-700,
+.tasks-page.minimal-theme .bg-indigo-600,
+.tasks-page.minimal-theme .bg-indigo-700,
+.tasks-page.minimal-theme .bg-purple-600,
+.tasks-page.minimal-theme .bg-purple-700,
+.tasks-page.minimal-theme .bg-amber-600,
+.tasks-page.minimal-theme .bg-amber-700,
+.tasks-page.minimal-theme [class*="from-emerald-600"],
+.tasks-page.minimal-theme [class*="to-teal-600"],
+.tasks-page.minimal-theme [class*="bg-gradient-to-r"] {
+  background-image: none !important;
+  background-color: var(--task-accent) !important;
+  color: #fff !important;
+}
+
+.tasks-page.minimal-theme [class*="text-amber-"],
+.tasks-page.minimal-theme [class*="border-amber-"] {
+  color: var(--task-accent) !important;
+  border-color: var(--task-accent-line) !important;
+}
+
+.tasks-page.minimal-theme [class*="bg-amber-"] {
+  background-color: var(--task-accent-soft) !important;
+}
+
+.tasks-page.minimal-theme .bg-amber-600,
+.tasks-page.minimal-theme .bg-amber-700 {
+  background-color: var(--task-accent) !important;
+  color: #fff !important;
+}
+
+.tasks-page.minimal-theme [class*="text-emerald-"],
+.tasks-page.minimal-theme [class*="text-teal-"] {
+  color: var(--task-success) !important;
+}
+
+.tasks-page.minimal-theme [class*="border-emerald-"],
+.tasks-page.minimal-theme [class*="border-teal-"] {
+  border-color: color-mix(in srgb, var(--task-success) 52%, var(--task-line)) !important;
+}
+
+.tasks-page.minimal-theme [class*="bg-emerald-"],
+.tasks-page.minimal-theme [class*="bg-teal-"] {
+  background-color: var(--task-success-soft) !important;
+}
+
+.tasks-page.minimal-theme .text-slate-950,
+.tasks-page.minimal-theme .text-slate-900,
+.tasks-page.minimal-theme .text-slate-800,
+.tasks-page.minimal-theme .text-slate-700 {
+  color: var(--task-ink) !important;
+}
+
+.tasks-page.minimal-theme .text-slate-400,
+.tasks-page.minimal-theme .text-slate-500,
+.tasks-page.minimal-theme .text-slate-600 {
+  color: var(--task-muted) !important;
+}
+
+.tasks-page.minimal-theme input::placeholder,
+.tasks-page.minimal-theme textarea::placeholder {
+  color: var(--task-muted) !important;
+  opacity: 1 !important;
+}
+
+.tasks-page.minimal-theme svg {
+  filter: grayscale(1);
+  opacity: 0.92;
+}
+
+.tasks-page.minimal-theme .bg-sky-400,
+.tasks-page.minimal-theme .bg-amber-400,
+.tasks-page.minimal-theme .bg-purple-400,
+.tasks-page.minimal-theme .bg-indigo-400 {
+  background-color: var(--task-accent) !important;
+}
+
+.tasks-page.minimal-theme .bg-emerald-400,
+.tasks-page.minimal-theme .bg-emerald-500 {
+  background-color: var(--task-success) !important;
+}
+
+.tasks-page.minimal-theme .animate-pulse {
+  animation: none !important;
+}
+
+.tasks-page.minimal-theme [class*="shadow-"] {
+  box-shadow: 0 1px 2px rgba(30, 25, 20, 0.08) !important;
+}
+
+.tasks-page.minimal-theme.dark [class*="shadow-"] {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28) !important;
+}
+
+.tasks-page.minimal-theme button,
+.tasks-page.minimal-theme a,
+.tasks-page.minimal-theme input,
+.tasks-page.minimal-theme select,
+.tasks-page.minimal-theme textarea {
+  border-radius: 0.65rem;
+}

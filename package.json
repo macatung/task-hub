@@ -4,12 +4,16 @@
   "version": "1.0.0",
   "license": "Apache-2.0",
   "author": "Ma Cà Tưng <macatung.dev>",
-  "workspaces": ["apps/desktop", "apps/hub", "apps/runner"],
+  "workspaces": ["apps/desktop", "apps/hub", "apps/mobile", "apps/runner"],
   "scripts": {
     "build": "npm --workspace apps/hub run build && npm --workspace apps/desktop run build:vue",
     "hub:build": "npm --workspace apps/hub run build",
     "desktop:build": "npm --workspace apps/desktop run build:vue",
     "desktop:typecheck": "npm --workspace apps/desktop exec vue-tsc --noEmit",
+    "mobile:start": "npm --workspace apps/mobile run start",
+    "mobile:dev": "npm --workspace apps/mobile run dev",
+    "mobile:typecheck": "npm --workspace apps/mobile run typecheck",
+    "mobile:test": "npm --workspace apps/mobile test",
     "contracts:validate": "node packages/contracts/validate.mjs",
     "runner:test": "npm --workspace apps/runner test"
   }

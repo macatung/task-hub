@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceCredential;
 use App\Models\Task;
+use App\Models\ProjectDocument;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -64,5 +65,29 @@ class SaasTenantIsolationTest extends TestCase
         $this->actingAs($user)->withHeaders(['X-Workspace-Id' => $workspace->id])->postJson('/api/tasks', ['title' => 'Valid task', 'project_id' => $project->id])->assertCreated();
         $this->assertDatabaseHas('projects', ['id' => $project->id, 'tags' => json_encode(['saas', 'core'])]);
         $this->assertNotNull(Task::where('project_id', $project->id)->first());
+    }
+
+    public function test_project_documents_are_isolated_and_viewers_cannot_mutate_them(): void
+    {
+        [$owner, $workspace] = $this->tenant('Documents');
+        [$otherOwner, $otherWorkspace] = $this->tenant('Other documents');
+        $project = Project::create(['workspace_id' => $workspace->id, 'user_id' => $owner->id, 'slug' => 'docs-project', 'title' => 'Docs project', 'tagline' => 'Docs', 'description' => 'Tenant docs', 'category' => 'software']);
+        $otherProject = Project::create(['workspace_id' => $otherWorkspace->id, 'user_id' => $otherOwner->id, 'slug' => 'other-docs-project', 'title' => 'Other docs project', 'tagline' => 'Other', 'description' => 'Other tenant docs', 'category' => 'software']);
+        ProjectDocument::create(['project_id' => $otherProject->id, 'workspace_id' => $otherWorkspace->id, 'document_type' => 'prd', 'title' => 'Private PRD']);
+
+        $this->actingAs($owner)->withHeaders(['X-Workspace-Id' => $workspace->id])
+            ->getJson('/api/v1/projects/' . $otherProject->id . '/documents')
+            ->assertNotFound();
+
+        $viewer = User::factory()->create();
+        $workspace->members()->attach($viewer->id, ['role' => 'viewer']);
+        $this->actingAs($viewer)->withHeaders(['X-Workspace-Id' => $workspace->id])
+            ->postJson('/api/v1/projects/' . $project->id . '/documents', ['document_type' => 'prd', 'title' => 'Attempted write'])
+            ->assertForbidden();
+
+        $this->actingAs($owner)->withHeaders(['X-Workspace-Id' => $workspace->id])
+            ->postJson('/api/v1/projects/' . $project->id . '/documents', ['document_type' => 'prd', 'title' => 'Workspace PRD'])
+            ->assertCreated();
+        $this->assertDatabaseHas('project_documents', ['project_id' => $project->id, 'workspace_id' => $workspace->id, 'title' => 'Workspace PRD']);
     }
 }

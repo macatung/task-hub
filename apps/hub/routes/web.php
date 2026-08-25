@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\WorkspaceController;
 use App\Http\Controllers\Api\WorkspaceCredentialController;
 use App\Http\Controllers\Api\ApiProjectController;
 use App\Http\Controllers\Api\ApiProjectDocumentController;
+use App\Http\Controllers\Api\ApiProjectRoadmapExportController;
 use App\Http\Controllers\Api\ApiProjectReleaseController;
 use App\Http\Controllers\Api\ApiSprintController;
 use App\Http\Controllers\Api\ApiTaskController;
@@ -31,8 +32,10 @@ Route::match(['get', 'post', 'options'], '/mcp', [TaskHubMcpController::class, '
     ->name('mcp.handle')
     ->withoutMiddleware([\App\Http\Middleware\HandleInertiaRequests::class, \App\Http\Middleware\TrackVisitorAnalytics::class]);
 Route::match(['get', 'post', 'options'], '/api/mcp', [TaskHubMcpController::class, 'handle'])
+    ->middleware('legacy.api')
     ->withoutMiddleware([\App\Http\Middleware\HandleInertiaRequests::class, \App\Http\Middleware\TrackVisitorAnalytics::class]);
 Route::match(['get', 'post', 'options'], '/api/tasks/mcp', [TaskHubMcpController::class, 'handle'])
+    ->middleware('legacy.api')
     ->withoutMiddleware([\App\Http\Middleware\HandleInertiaRequests::class, \App\Http\Middleware\TrackVisitorAnalytics::class]);
 Route::match(['get', 'post', 'options'], '/api/v1/mcp', [TaskHubMcpController::class, 'handle'])
     ->withoutMiddleware([\App\Http\Middleware\HandleInertiaRequests::class, \App\Http\Middleware\TrackVisitorAnalytics::class]);
@@ -95,33 +98,37 @@ $registerApiRoutes = function () {
     Route::post('/tasks/agent-runs/{agentRun}/events', [ApiAgentRunController::class, 'event']);
     Route::post('/tasks/agent-runs/{agentRun}/evidence', [ApiAgentRunController::class, 'evidence']);
     Route::post('/tasks/agent-runs/{agentRun}/handoff', [ApiAgentRunController::class, 'handoff']);
+    Route::post('/tasks/agent-runs/{agentRun}/cancel', [ApiAgentRunController::class, 'cancel']);
     Route::get('/tasks/context-pack', [ApiAgentRunController::class, 'context']);
-    Route::post('/tasks/{task}/documents', [ApiProjectDocumentController::class, 'attach']);
-    Route::delete('/tasks/{task}/documents/{document}', [ApiProjectDocumentController::class, 'detach']);
+    Route::post('/tasks/{task}/documents', [ApiProjectDocumentController::class, 'attach'])->middleware(['auth', 'workspace']);
+    Route::delete('/tasks/{task}/documents/{document}', [ApiProjectDocumentController::class, 'detach'])->middleware(['auth', 'workspace']);
     Route::post('/tasks/{task}/dispatch', [ApiAgentRunController::class, 'dispatch']);
+    Route::post('/tasks/{task}/dispatch-sequence', [ApiAgentRunController::class, 'dispatchEpic']);
+    Route::get('/tasks/{task}/history', [ApiTaskController::class, 'history']);
     Route::patch('/tasks/{id}', [ApiTaskController::class, 'update'])->middleware('auth');
     Route::delete('/tasks/{id}', [ApiTaskController::class, 'destroy'])->middleware('auth');
 
     // Projects
     Route::get('/projects', [ApiProjectController::class, 'index'])->middleware('auth');
     Route::post('/projects', [ApiProjectController::class, 'store'])->middleware('auth');
+    Route::get('/projects/{project}/roadmap-export', ApiProjectRoadmapExportController::class)->middleware('auth');
     Route::get('/projects/github/repositories', [ApiProjectController::class, 'githubRepositories'])->middleware('auth');
     Route::post('/projects/from-github', [ApiProjectController::class, 'storeFromGithub'])->middleware('auth');
-    Route::get('/projects/{project}/github', [ApiProjectController::class, 'githubStatus']);
+    Route::get('/projects/{project}/github', [ApiProjectController::class, 'githubStatus'])->middleware(['auth', 'workspace']);
     Route::post('/projects/{project}/github/connect', [ApiProjectController::class, 'connectGithub'])->middleware('auth');
     Route::post('/projects/{project}/github/sync', [ApiProjectController::class, 'syncGithub'])->middleware('auth');
     Route::get('/projects/{project}/mcp', [ApiProjectController::class, 'getMcpInfo'])->middleware('auth');
     Route::post('/projects/{project}/mcp/token', [ApiProjectController::class, 'saveMcpToken'])->middleware('auth');
     Route::post('/projects/{project}/mcp/generate-token', [ApiProjectController::class, 'generateMcpToken'])->middleware('auth');
-    Route::get('/projects/{project}/documents', [ApiProjectDocumentController::class, 'index']);
-    Route::post('/projects/{project}/documents', [ApiProjectDocumentController::class, 'store']);
-    Route::post('/projects/{project}/documents/import-manifest', [ApiProjectDocumentController::class, 'importManifest']);
-    Route::post('/projects/{project}/documents/import-generated', [ApiProjectDocumentController::class, 'importGenerated']);
-    Route::get('/projects/{project}/documents/manifest-template', [ApiProjectDocumentController::class, 'manifestTemplate']);
-    Route::patch('/projects/documents/{document}', [ApiProjectDocumentController::class, 'update']);
-    Route::delete('/projects/documents/{document}', [ApiProjectDocumentController::class, 'destroy']);
-    Route::get('/projects/{project}/releases', [ApiProjectReleaseController::class, 'index']);
-    Route::post('/projects/{project}/releases', [ApiProjectReleaseController::class, 'store']);
+    Route::get('/projects/{project}/documents', [ApiProjectDocumentController::class, 'index'])->middleware(['auth', 'workspace']);
+    Route::post('/projects/{project}/documents', [ApiProjectDocumentController::class, 'store'])->middleware(['auth', 'workspace']);
+    Route::post('/projects/{project}/documents/import-manifest', [ApiProjectDocumentController::class, 'importManifest'])->middleware(['auth', 'workspace']);
+    Route::post('/projects/{project}/documents/import-generated', [ApiProjectDocumentController::class, 'importGenerated'])->middleware(['auth', 'workspace']);
+    Route::get('/projects/{project}/documents/manifest-template', [ApiProjectDocumentController::class, 'manifestTemplate'])->middleware(['auth', 'workspace']);
+    Route::patch('/projects/documents/{document}', [ApiProjectDocumentController::class, 'update'])->middleware(['auth', 'workspace']);
+    Route::delete('/projects/documents/{document}', [ApiProjectDocumentController::class, 'destroy'])->middleware(['auth', 'workspace']);
+    Route::get('/projects/{project}/releases', [ApiProjectReleaseController::class, 'index'])->middleware(['auth', 'workspace']);
+    Route::post('/projects/{project}/releases', [ApiProjectReleaseController::class, 'store'])->middleware(['auth', 'workspace']);
     Route::patch('/projects/{id}', [ApiProjectController::class, 'update'])->middleware('auth');
     Route::delete('/projects/{id}', [ApiProjectController::class, 'destroy'])->middleware('auth');
 
@@ -171,10 +178,13 @@ $registerApiRoutes = function () {
         Route::get('/projects', [ApiProjectController::class, 'index']);
         Route::get('/tasks', [ApiTaskController::class, 'index']);
         Route::post('/tasks', [ApiTaskController::class, 'store']);
+        Route::get('/tasks/{task}/history', [ApiTaskController::class, 'history']);
         Route::patch('/tasks/{id}', [ApiTaskController::class, 'update']);
+        Route::post('/projects/{project}/documents/import-generated', [ApiProjectDocumentController::class, 'importGenerated']);
     });
 };
 
 // Register API under both /api and /api/v1
-Route::prefix('api')->group($registerApiRoutes);
+// /api is retained only as a compatibility alias. New clients must call /api/v1.
+Route::prefix('api')->middleware('legacy.api')->group($registerApiRoutes);
 Route::prefix('api/v1')->group($registerApiRoutes);

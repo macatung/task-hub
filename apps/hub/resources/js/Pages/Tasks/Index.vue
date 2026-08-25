@@ -9,6 +9,12 @@ import ProjectReleaseLog from '@/Components/tasks/ProjectReleaseLog.vue';
 import RunnerDashboard from '@/Components/tasks/RunnerDashboard.vue';
 import RemoteDispatchModal from '@/Components/tasks/RemoteDispatchModal.vue';
 import StreambackConsole from '@/Components/tasks/StreambackConsole.vue';
+import TaskContextRail from '@/Components/tasks/TaskContextRail.vue';
+import TaskHistoryTimeline from '@/Components/tasks/TaskHistoryTimeline.vue';
+import WorkspaceEmptyBoard from '@/Components/tasks/WorkspaceEmptyBoard.vue';
+import ProjectRoadmapDashboard from '@/Components/tasks/ProjectRoadmapDashboard.vue';
+import ProjectGantt from '@/Components/tasks/ProjectGantt.vue';
+import WorkspaceBrand from '@/Components/layout/WorkspaceBrand.vue';
 import Icons from '@/Components/ui/Icons.vue';
 import StatusBadge from '@/Components/ui/StatusBadge.vue';
 import type { DesktopAgentItem } from '@/Components/tasks/ConnectedAgentsRegistry.vue';
@@ -80,6 +86,7 @@ export interface TaskItem {
   sprint?: SprintItem | null;
   epic_id: number | null;
   epic?: TaskItem | null;
+  sort_order?: number | null;
   start_date: string | null;
   due_date: string | null;
   completed_at: string | null;
@@ -93,10 +100,12 @@ export interface TaskItem {
   definition_of_done?: string | null;
   risk_level?: 'low' | 'medium' | 'high' | 'critical';
   documents?: Array<{ id: number; title: string; document_type: string; url?: string | null; repository_path?: string | null; pivot?: { is_required: boolean; purpose?: string | null } }>;
+  dependencies?: Array<{ id: number; depends_on_task_id: number; depends_on?: Pick<TaskItem, 'id' | 'issue_key' | 'title' | 'status'> | null }>;
 }
 
 export interface AgentRunItem {
   id: number;
+  task_id?: number | null;
   provider: string;
   execution_mode?: 'desktop';
   runner_id?: number | null;
@@ -110,6 +119,9 @@ export interface AgentRunItem {
   finished_at?: string | null;
   metadata?: { model?: string; [key: string]: any } | null;
   evidence?: Array<{ id: number; evidence_type: string; status: string; command?: string; summary?: string }>;
+  task?: TaskItem | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface Stats {
@@ -171,8 +183,29 @@ function tryParseSubtasks(notes: string): SubtaskItem[] {
   return [];
 }
 
-// Light / Dark Theme State (Default: Dark Mode for SaaS Experience)
-const isDarkMode = ref(true);
+const dependencySummary = (task: TaskItem) => {
+  // Prefer the reactive taskList target over the eager-loaded nested snapshot.
+  // This keeps blocker/reconsideration notes correct immediately after a
+  // prerequisite is moved backwards in the board.
+  const dependencies = (task.dependencies || [])
+    .map(dependency => ({
+      ...dependency,
+      depends_on: taskList.value.find(candidate => candidate.id === dependency.depends_on_task_id) || dependency.depends_on,
+    }));
+  const labels = dependencies.map((dependency) => dependency.depends_on?.issue_key || `#${dependency.depends_on_task_id}`);
+  const pendingLabels = dependencies
+    .filter((dependency) => !dependency.depends_on || dependency.depends_on.status !== 'done')
+    .map((dependency) => dependency.depends_on?.issue_key || `#${dependency.depends_on_task_id}`);
+  const dependents = taskList.value
+    .filter(candidate => candidate.id !== task.id)
+    .filter(candidate => (candidate.dependencies || []).some(dependency => dependency.depends_on_task_id === task.id))
+    .map(candidate => candidate.issue_key || `#${candidate.id}`);
+  return { total: dependencies.length, labels, pendingLabels, missingLabels: dependencies.filter(dependency => !dependency.depends_on).map(dependency => `#${dependency.depends_on_task_id}`), dependents };
+};
+
+// Light is the default work surface. A saved explicit preference wins after
+// hydration, so returning users never lose their chosen theme.
+const isDarkMode = ref(false);
 
 const toggleTheme = () => {
   isDarkMode.value = !isDarkMode.value;
@@ -184,10 +217,20 @@ const toggleTheme = () => {
 const isSidebarOpen = ref(true);
 const selectedProjectId = ref<string | number>(props.selectedProjectId || 'all');
 const currentView = ref<'board' | 'backlog' | 'roadmap'>('board');
+const roadmapTab = ref<'overview' | 'timeline' | 'epics'>('overview');
+const isRoadmapExporting = ref(false);
+const roadmapTabs = [
+  { id: 'overview', label: 'Overview', icon: 'BarChart3' },
+  { id: 'timeline', label: 'Timeline', icon: 'GanttChart' },
+  { id: 'epics', label: 'Epics', icon: 'Layers' },
+] as const;
+const setRoadmapTab = (tab: typeof roadmapTab.value) => { roadmapTab.value = tab; };
 const activeProjectMenuId = ref<number | null>(null);
 const isAiMenuOpen = ref(false);
 const isNotificationsOpen = ref(false);
 const readNotificationIds = ref<string[]>([]);
+const agentRunNotifications = ref<AgentRunItem[]>([]);
+let notificationPollTimer: number | null = null;
 const isDocsModalOpen = ref(false);
 const isReleasesModalOpen = ref(false);
 // Collapsed Sprints in Backlog View
@@ -523,11 +566,22 @@ const saveAiSettings = async () => {
 
 // Modals & Drawer State
 const selectedTask = ref<TaskItem | null>(null);
+const selectedDependencyIds = ref<number[]>([]);
+const dependencyCandidates = computed(() => {
+  const task = selectedTask.value;
+  if (!task?.project_id) return [];
+  return taskList.value.filter(candidate =>
+    candidate.project_id === task.project_id
+    && candidate.id !== task.id
+    && candidate.issue_type !== 'epic'
+  );
+});
 const selectedAgentRuns = ref<AgentRunItem[]>([]);
 const isAgentRunsLoading = ref(false);
 const agentRunFeedback = ref('');
 const isEditingDescription = ref(false);
 const descriptionEditContent = ref('');
+const drawerSaveError = ref('');
 const isDrawerExpanded = ref(false);
 const showCreateModal = ref(false);
 const showSprintModal = ref(false);
@@ -536,6 +590,26 @@ const showCompleteSprintModal = ref(false);
 const targetSprintForAction = ref<SprintItem | null>(null);
 const isSubmitting = ref(false);
 const newSubtaskText = ref('');
+
+type ExecutionGate = { allowed: boolean; code: 'ready' | 'blocked' | 'review' | 'done' | 'invalid'; title: string; detail: string; pendingLabels: string[] };
+const executionGateFor = (task: TaskItem | null): ExecutionGate => {
+  if (!task) return { allowed: false, code: 'invalid', title: 'Select a task first', detail: 'Choose a task from the board before starting execution.', pendingLabels: [] };
+  const currentTask = taskList.value.find(candidate => candidate.id === task.id) || task;
+  const dependencies = dependencySummary(currentTask);
+  if (currentTask.status === 'done') return { allowed: false, code: 'done', title: 'Task already completed', detail: 'Reopen this task on Hub before starting another run.', pendingLabels: [] };
+  if (currentTask.status === 'review') return { allowed: false, code: 'review', title: 'Waiting for Hub review', detail: 'Approve or request changes on Hub before starting another run.', pendingLabels: [] };
+  if (dependencies.pendingLabels.length) return { allowed: false, code: 'blocked', title: 'Blocked by prerequisites', detail: `Complete ${dependencies.pendingLabels.join(', ')} before dispatching this task.`, pendingLabels: dependencies.pendingLabels };
+  return { allowed: true, code: 'ready', title: 'Ready to run', detail: 'Execution can be dispatched to a connected agent.', pendingLabels: [] };
+};
+const selectedExecutionGate = computed(() => executionGateFor(selectedTask.value));
+const guardExecution = (task: TaskItem | null) => {
+  const gate = executionGateFor(task);
+  if (!gate.allowed) {
+    agentRunFeedback.value = `${gate.title}. ${gate.detail}`;
+    return false;
+  }
+  return true;
+};
 
 const loadAgentRuns = async (taskId: number) => {
   isAgentRunsLoading.value = true;
@@ -558,6 +632,7 @@ const selectedProviderModel = ref<Record<string, string>>({
 
 const startAgentRun = async (provider: string, model?: string) => {
   if (!selectedTask.value) return;
+  if (!guardExecution(selectedTask.value)) return;
   const targetModel = model || selectedProviderModel.value[provider] || undefined;
   try {
     const res = await axios.post('/api/tasks/agent-runs', {
@@ -579,6 +654,7 @@ const taskForRemoteDispatch = ref<TaskItem | null>(null);
 const initialRunnerForDispatch = ref<number | null>(null);
 
 const openRemoteDispatch = (task?: TaskItem | null, runnerId?: number | null) => {
+  if (!guardExecution(task || selectedTask.value)) return;
   taskForRemoteDispatch.value = task || null;
   initialRunnerForDispatch.value = runnerId || null;
   showRemoteDispatchModal.value = true;
@@ -586,8 +662,11 @@ const openRemoteDispatch = (task?: TaskItem | null, runnerId?: number | null) =>
 };
 
 const handleRunnerDashboardDispatch = (runner: DesktopAgentItem) => {
-  const targetTask = selectedTask.value || taskList.value.find(t => t.status !== 'done') || null;
-  openRemoteDispatch(targetTask, runner.id);
+  const targetTask = selectedTask.value && executionGateFor(selectedTask.value).allowed
+    ? selectedTask.value
+    : taskList.value.find(task => executionGateFor(task).allowed) || null;
+  if (targetTask) openRemoteDispatch(targetTask, runner.id);
+  else agentRunFeedback.value = 'No runnable task is available. Resolve prerequisites or finish the current Hub review first.';
 };
 
 const handleRemoteDispatched = (payload: { run: any; task: TaskItemProps }) => {
@@ -1240,8 +1319,38 @@ const activeProjectObject = computed(() => {
 
 const hasSelectedProject = computed(() => Boolean(activeProjectObject.value));
 
+const loadAgentRunNotifications = async () => {
+  try {
+    const [review, failed] = await Promise.all([
+      axios.get('/api/tasks/agent-runs', { params: { status: 'needs_review' } }),
+      axios.get('/api/tasks/agent-runs', { params: { status: 'failed' } }),
+    ]);
+    const runs = [...(review.data?.data || []), ...(failed.data?.data || [])] as AgentRunItem[];
+    const unique = new Map<number, AgentRunItem>();
+    runs.forEach(run => unique.set(run.id, run));
+    agentRunNotifications.value = [...unique.values()]
+      .sort((a, b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')))
+      .slice(0, 12);
+  } catch (error) {
+    console.debug('Agent notification refresh skipped', error);
+  }
+};
+
 const notificationItems = computed(() => {
   const items: Array<{ id: string; tone: 'warning' | 'info' | 'success'; title: string; detail: string; task?: TaskItem }> = [];
+  agentRunNotifications.value.forEach(run => {
+    const task = run.task || taskList.value.find(candidate => candidate.id === (run.task_id || 0));
+    const issue = task?.issue_key || (run.task_id ? `Task #${run.task_id}` : `Run #${run.id}`);
+    items.push({
+      id: `agent-run-${run.id}`,
+      tone: run.status === 'needs_review' ? 'success' : 'warning',
+      title: run.status === 'needs_review' ? `${issue} handoff is ready for review` : `${issue} agent run failed`,
+      detail: run.status === 'needs_review' && run.metadata?.handoff?.auto_review?.reviewer_provider
+        ? `${task?.title || run.summary || `Provider: ${run.provider}`} · independently reviewed by ${run.metadata.handoff.auto_review.reviewer_provider}`
+        : task?.title || run.summary || `Provider: ${run.provider}`,
+      task,
+    });
+  });
   activeProjectTasks.value
     .filter(task => task.status !== 'done' && (getTaskDelayStatus(task).isOverdue || getTaskDelayStatus(task).isDelayed))
     .sort((a, b) => Number(getTaskDelayStatus(b).isOverdue) - Number(getTaskDelayStatus(a).isOverdue))
@@ -1274,6 +1383,7 @@ const notificationItems = computed(() => {
 });
 
 const unreadNotificationCount = computed(() => notificationItems.value.filter(item => !readNotificationIds.value.includes(item.id)).length);
+const pendingAgentReviews = computed(() => agentRunNotifications.value.filter(run => run.status === 'needs_review'));
 
 const toggleNotifications = () => {
   isNotificationsOpen.value = !isNotificationsOpen.value;
@@ -1296,6 +1406,26 @@ const activeProjectTasks = computed(() => {
   if (selectedProjectId.value === 'all') return taskList.value.filter(t => t.issue_type !== 'epic');
   return taskList.value.filter(t => t.project_id === Number(selectedProjectId.value) && t.issue_type !== 'epic');
 });
+
+const roadmapEpics = computed(() => {
+  if (!hasSelectedProject.value) return [];
+  return taskList.value.filter(task => task.project_id === Number(selectedProjectId.value) && task.issue_type === 'epic');
+});
+
+const roadmapTasks = computed(() => {
+  if (!hasSelectedProject.value) return [];
+  return taskList.value.filter(task => task.project_id === Number(selectedProjectId.value) && task.issue_type !== 'epic');
+});
+
+const expandedRoadmapEpicIds = ref<number[]>([]);
+const epicChildren = (epicId: number) => roadmapTasks.value
+  .filter(task => task.epic_id === epicId)
+  .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id);
+const toggleRoadmapEpic = (epicId: number) => {
+  expandedRoadmapEpicIds.value = expandedRoadmapEpicIds.value.includes(epicId)
+    ? expandedRoadmapEpicIds.value.filter(id => id !== epicId)
+    : [...expandedRoadmapEpicIds.value, epicId];
+};
 
 const activeProjectCompletedCount = computed(() => {
   return activeProjectTasks.value.filter(t => t.status === 'done').length;
@@ -1422,11 +1552,30 @@ const getTaskSortScore = (task: TaskItem) => {
   return score;
 };
 
+const taskExecutionMeta = (task: TaskItem) => {
+  const summary = dependencySummary(task);
+  return {
+    blocked: summary.pendingLabels.length > 0,
+    dependents: summary.dependents,
+    reconsidered: task.status === 'done' && summary.pendingLabels.length > 0,
+    dependentReconsideration: summary.dependents.filter(issueKey => {
+      const dependent = taskList.value.find(candidate => (candidate.issue_key || `#${candidate.id}`) === issueKey);
+      return dependent && dependent.status !== 'todo';
+    }),
+  };
+};
+const dependencyAwareSort = (a: TaskItem, b: TaskItem) => {
+  const aMeta = taskExecutionMeta(a);
+  const bMeta = taskExecutionMeta(b);
+  if (aMeta.blocked !== bMeta.blocked) return Number(aMeta.blocked) - Number(bMeta.blocked);
+  return getTaskSortScore(b) - getTaskSortScore(a);
+};
+
 // Board Columns (Smart Sorted by Priority & Score)
-const todoTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'todo')].sort((a, b) => getTaskSortScore(b) - getTaskSortScore(a)));
-const inProgressTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'in_progress')].sort((a, b) => getTaskSortScore(b) - getTaskSortScore(a)));
-const reviewTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'review')].sort((a, b) => getTaskSortScore(b) - getTaskSortScore(a)));
-const doneTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'done')].sort((a, b) => getTaskSortScore(b) - getTaskSortScore(a)));
+const todoTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'todo')].sort(dependencyAwareSort));
+const inProgressTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'in_progress')].sort(dependencyAwareSort));
+const reviewTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'review')].sort(dependencyAwareSort));
+const doneTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'done')].sort(dependencyAwareSort));
 
 const webNextUpTaskId = computed(() => {
   const candidates = filteredBoardTasks.value.filter(t => ['in_progress', 'todo'].includes(t.status) && t.issue_type !== 'epic');
@@ -2039,7 +2188,9 @@ const handleQuickCreate = async (targetSprintId: number | null = null) => {
 };
 
 const openTaskDrawer = (task: TaskItem) => {
+  drawerSaveError.value = '';
   selectedTask.value = { ...task };
+  selectedDependencyIds.value = (task.dependencies || []).map(dependency => dependency.depends_on_task_id);
   selectedAgentRuns.value = [];
   loadAgentRuns(task.id);
   descriptionEditContent.value = task.description || '';
@@ -2048,11 +2199,10 @@ const openTaskDrawer = (task: TaskItem) => {
 };
 
 const closeTaskDrawer = () => {
-  if (selectedTask.value) {
-    saveTaskDrawerChanges();
-  }
   selectedTask.value = null;
+  selectedDependencyIds.value = [];
   isEditingDescription.value = false;
+  drawerSaveError.value = '';
 };
 
 const saveTaskDrawerChanges = async () => {
@@ -2070,13 +2220,15 @@ const saveTaskDrawerChanges = async () => {
 
   task.notes = JSON.stringify(task.subtasks || []);
 
+  drawerSaveError.value = '';
   const idx = taskList.value.findIndex(t => t.id === task.id);
+  const previousTask = idx !== -1 ? { ...taskList.value[idx] } : null;
   if (idx !== -1) {
     taskList.value[idx] = { ...task };
   }
 
   try {
-    await axios.patch(`/api/tasks/${task.id}`, {
+    const response = await axios.patch(`/api/tasks/${task.id}`, {
       title: task.title,
       description: task.description,
       status: task.status,
@@ -2095,9 +2247,18 @@ const saveTaskDrawerChanges = async () => {
       acceptance_criteria: task.acceptance_criteria,
       definition_of_done: task.definition_of_done,
       risk_level: task.risk_level,
+      depends_on_task_ids: selectedDependencyIds.value,
     });
-  } catch (err) {
-    console.error('Failed to sync task drawer:', err);
+    const updated = response.data?.data;
+    if (updated && idx !== -1) {
+      const hydrated = { ...taskList.value[idx], ...updated, subtasks: updated.notes ? tryParseSubtasks(updated.notes) : task.subtasks };
+      taskList.value[idx] = hydrated;
+      selectedTask.value = { ...hydrated };
+      selectedDependencyIds.value = (updated.dependencies || []).map((dependency: { depends_on_task_id: number }) => dependency.depends_on_task_id);
+    }
+  } catch (err: any) {
+    if (previousTask && idx !== -1) taskList.value[idx] = previousTask;
+    drawerSaveError.value = err.response?.data?.message || 'Unable to save this task. Your latest change was not applied.';
   }
 };
 
@@ -2157,6 +2318,51 @@ const deleteTask = async (task: TaskItem) => {
   } catch (err) {
     console.error('Delete task error:', err);
     alert('Unable to delete the task.');
+  }
+};
+
+const deleteEpicFromRoadmap = async (epic: TaskItem) => {
+  const childTasks = taskList.value.filter(task => task.epic_id === epic.id);
+  const childMessage = childTasks.length
+    ? `\n\n${childTasks.length} linked task${childTasks.length === 1 ? '' : 's'} will be kept and moved out of this Epic.`
+    : '';
+  if (!confirm(`Delete Epic "${epic.issue_key || ''} — ${epic.title}"? This cannot be undone.${childMessage}`)) return;
+
+  try {
+    await axios.delete(`/api/tasks/${epic.id}`);
+    taskList.value = taskList.value
+      .filter(task => task.id !== epic.id)
+      .map(task => task.epic_id === epic.id ? { ...task, epic_id: null, epic: null } : task);
+    if (selectedTask.value?.id === epic.id) selectedTask.value = null;
+    if (filterEpicId.value === epic.id) filterEpicId.value = 'all';
+    sound.playSuccess();
+  } catch (err) {
+    console.error('Delete Epic error:', err);
+    alert('Unable to delete the Epic. Your tasks were not changed.');
+  }
+};
+
+const exportRoadmapWorkbook = async () => {
+  if (!activeProjectObject.value || isRoadmapExporting.value) return;
+  isRoadmapExporting.value = true;
+  try {
+    const response = await axios.get(`/api/projects/${activeProjectObject.value.id}/roadmap-export`, { responseType: 'blob' });
+    const disposition = response.headers['content-disposition'] || '';
+    const filename = /filename="?([^";]+)"?/i.exec(disposition)?.[1] || `${activeProjectObject.value.slug || 'project'}-roadmap.xlsx`;
+    const url = URL.createObjectURL(new Blob([response.data], { type: response.headers['content-type'] }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    sound.playSuccess();
+  } catch (error) {
+    console.error('Roadmap Excel export failed:', error);
+    alert('Unable to create the Excel workbook. Please try again.');
+  } finally {
+    isRoadmapExporting.value = false;
   }
 };
 
@@ -2288,14 +2494,12 @@ onMounted(() => {
   }
 
   const savedTheme = localStorage.getItem('macatung_tasks_theme');
-  if (savedTheme === 'light') {
-    isDarkMode.value = false;
-  } else {
-    isDarkMode.value = true;
-  }
+  isDarkMode.value = savedTheme === 'dark';
 
   window.addEventListener('keydown', handleGlobalKey);
   window.addEventListener('click', closeAllMenus);
+  void loadAgentRunNotifications();
+  notificationPollTimer = window.setInterval(() => { void loadAgentRunNotifications(); }, 10000);
 
   // Allow the desktop mascot to deep-link into the same actions as the web
   // header without duplicating the modal implementations.
@@ -2303,20 +2507,26 @@ onMounted(() => {
   if (requestedAction === 'ai-plan') openAiGeneratorModal();
   if (requestedAction === 'email-report') openReportModal();
   if (requestedAction === 'ai-settings') openAiSettings();
+  const requestedTaskId = Number(new URLSearchParams(window.location.search).get('task_id') || new URLSearchParams(window.location.search).get('task') || 0);
+  if (requestedTaskId) {
+    const requestedTask = taskList.value.find(task => task.id === requestedTaskId);
+    if (requestedTask) openTaskDrawer(requestedTask);
+  }
 });
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleGlobalKey);
   window.removeEventListener('click', closeAllMenus);
+  if (notificationPollTimer !== null) window.clearInterval(notificationPollTimer);
 });
 </script>
 
 <template>
-  <Head title="Tasks Hub | High Contrast Linear & Jira Workspace" />
+  <Head title="Task Hub — Delivery workspace" />
 
   <div
     :class="[
-      'tasks-page h-screen w-screen overflow-hidden font-sans flex flex-col transition-colors duration-150 select-none selection:bg-emerald-500 selection:text-slate-950',
+      'tasks-page minimal-theme h-screen w-screen overflow-hidden font-sans flex flex-col transition-colors duration-150 select-none selection:bg-amber-500 selection:text-slate-950',
       isDarkMode ? 'dark bg-[#080d1a] text-slate-100' : 'bg-[#f8fafc] text-slate-900'
     ]"
   >
@@ -2339,23 +2549,10 @@ onUnmounted(() => {
           ]"
           title="Toggle project navigation"
         >
-          {{ isSidebarOpen ? '◀' : '▶' }}
+          <Icons :name="isSidebarOpen ? 'PanelLeftClose' : 'PanelLeftOpen'" :size="16" />
         </button>
 
-        <!-- Logo & Brand -->
-        <a href="/" class="flex items-center gap-2.5 group shrink-0">
-          <div class="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-cyan-500/20 border border-emerald-500/40 p-1 shadow-md shadow-emerald-500/10 group-hover:border-emerald-400 group-hover:scale-105 transition-all">
-            <img src="/brand/macatung-mascot-icon.svg" alt="Ma Cà Tưng" class="h-full w-full object-contain drop-shadow-sm" />
-          </div>
-          <div class="flex items-center gap-2">
-            <span :class="['font-bold text-base tracking-tight font-display', isDarkMode ? 'text-white' : 'text-slate-950']">
-              Task Hub
-            </span>
-            <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-mono text-[10px] font-bold">
-              AI-NATIVE
-            </span>
-          </div>
-        </a>
+        <WorkspaceBrand :dark="isDarkMode" />
 
         <!-- Dynamic Breadcrumbs -->
         <div class="hidden lg:flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800 text-xs min-w-0">
@@ -2372,7 +2569,7 @@ onUnmounted(() => {
           <template v-if="activeSprint">
             <span class="text-slate-400">/</span>
             <span class="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 truncate max-w-[140px]">
-              🏃 {{ activeSprint.name }}
+              {{ activeSprint.name }}
             </span>
           </template>
         </div>
@@ -2394,7 +2591,7 @@ onUnmounted(() => {
               : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
           ]"
         >
-          <span class="mono-icon">▦</span>
+          <Icons name="LayoutGrid" :size="15" aria-hidden="true" />
           <span>Task Board</span>
           <span :class="['px-1.5 py-0.2 rounded-full font-mono text-[10px] font-bold', currentView === 'board' ? 'bg-white/20 text-white' : (isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700')]">
             {{ filteredBoardTasks.length }}
@@ -2410,7 +2607,7 @@ onUnmounted(() => {
               : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
           ]"
         >
-          <span class="mono-icon">▤</span>
+          <Icons name="Layers" :size="15" aria-hidden="true" />
           <span>Sprint Backlog</span>
           <span :class="['px-1.5 py-0.2 rounded-full font-mono text-[10px] font-bold', currentView === 'backlog' ? 'bg-white/20 text-white' : (isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700')]">
             {{ sprintList.length }}
@@ -2426,7 +2623,7 @@ onUnmounted(() => {
               : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
           ]"
         >
-          <span class="mono-icon">⌁</span>
+          <Icons name="GitBranch" :size="15" aria-hidden="true" />
           <span>Roadmap</span>
         </button>
       </div>
@@ -2443,7 +2640,7 @@ onUnmounted(() => {
             ]"
             title="AI planning and settings"
           >
-            <span class="mono-icon">✦</span>
+            <Icons name="Sparkles" :size="15" aria-hidden="true" />
             <span class="hidden sm:inline">AI Engine</span>
             <span class="text-[10px]">▾</span>
           </button>
@@ -2489,7 +2686,7 @@ onUnmounted(() => {
           ]"
           title="Model Context Protocol (MCP) & AI Agent Integration (Antigravity 2.0, Cursor, Claude)"
         >
-          <span>🔌</span>
+          <Icons name="Plug" :size="15" aria-hidden="true" />
           <span>MCP & Agents</span>
         </button>
 
@@ -2502,7 +2699,7 @@ onUnmounted(() => {
           ]"
           title="Configure and send the weekly progress report"
         >
-          <span>✉️</span>
+          <Icons name="Mail" :size="15" aria-hidden="true" />
           <span>Reports</span>
         </button>
 
@@ -2518,7 +2715,7 @@ onUnmounted(() => {
           title="Open notifications"
           aria-label="Open notifications"
         >
-          <span>🔔</span>
+          <Icons name="Bell" :size="15" aria-hidden="true" />
           <span v-if="unreadNotificationCount" class="absolute -right-1 -top-1 min-w-4 h-4 px-1 rounded-full bg-blue-600 text-white text-[9px] leading-4 font-black border-2 border-[#070b14]">
             {{ unreadNotificationCount > 9 ? '9+' : unreadNotificationCount }}
           </span>
@@ -2535,7 +2732,7 @@ onUnmounted(() => {
           ]"
           :title="isDarkMode ? 'Switch to light theme' : 'Switch to dark theme'"
         >
-          <span>{{ isDarkMode ? '☀️' : '🌙' }}</span>
+          <Icons :name="isDarkMode ? 'Sun' : 'Moon'" :size="15" aria-hidden="true" />
         </button>
 
         <!-- Primary Action: + Create Task -->
@@ -2544,7 +2741,7 @@ onUnmounted(() => {
           class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
           title="Create a new task"
         >
-          <span class="text-sm font-black">+</span>
+          <Icons name="Plus" :size="16" aria-hidden="true" />
           <span>Create Task</span>
         </button>
 
@@ -2575,6 +2772,39 @@ onUnmounted(() => {
     </header>
 
     <RunnerDashboard :is-dark-mode="isDarkMode" @dispatch="handleRunnerDashboardDispatch" />
+
+    <!-- Keep review work visible without requiring users to discover the bell drawer. -->
+    <section
+      v-if="pendingAgentReviews.length"
+      class="mx-4 mt-3 rounded-2xl border p-3 shadow-sm"
+      :class="isDarkMode ? 'border-amber-700/70 bg-amber-950/25 text-amber-50' : 'border-amber-300 bg-amber-50 text-amber-950'"
+      aria-label="Agent review inbox"
+    >
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p class="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-amber-400">Review inbox</p>
+          <h2 class="mt-1 text-sm font-bold">{{ pendingAgentReviews.length }} agent handoff{{ pendingAgentReviews.length === 1 ? '' : 's' }} waiting for review</h2>
+          <p class="mt-1 text-xs opacity-75">Independent review evidence and requested changes are attached to each task. Open a card to approve or request changes.</p>
+        </div>
+        <button @click="isNotificationsOpen = true" class="shrink-0 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/20 cursor-pointer whitespace-nowrap">Open review inbox</button>
+      </div>
+      <div class="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        <button
+          v-for="run in pendingAgentReviews.slice(0, 6)"
+          :key="`review-card-${run.id}`"
+          @click="openNotification({ id: `agent-run-${run.id}`, task: run.task || taskList.find(candidate => candidate.id === run.task_id) })"
+          class="rounded-xl border p-3 text-left transition-colors cursor-pointer"
+          :class="isDarkMode ? 'border-amber-800/70 bg-slate-950/40 hover:border-amber-500 hover:bg-slate-900' : 'border-amber-200 bg-white hover:border-amber-400'"
+        >
+          <div class="flex items-center justify-between gap-2 text-[10px] font-mono">
+            <span class="font-bold text-amber-300">{{ run.task?.issue_key || `Task #${run.task_id || '—'}` }}</span>
+            <span class="rounded-full border border-amber-500/40 px-1.5 py-0.5 text-amber-300">Run #{{ run.id }}</span>
+          </div>
+          <p class="mt-1 truncate text-xs font-semibold">{{ run.task?.title || run.summary || 'Agent handoff' }}</p>
+          <p class="mt-1 text-[11px] opacity-70">{{ run.metadata?.handoff?.auto_review?.reviewer_provider ? `Reviewed by ${run.metadata.handoff.auto_review.reviewer_provider}` : 'Handoff evidence ready' }}</p>
+        </button>
+      </div>
+    </section>
 
     <!-- ========================================================================= -->
     <!-- 2. MAIN LAYOUT (SIDEBAR + MAIN CANVAS)                                    -->
@@ -3043,9 +3273,9 @@ onUnmounted(() => {
               <h2 :class="['text-lg font-bold tracking-tight', isDarkMode ? 'text-white' : 'text-slate-950']">What needs your attention today?</h2>
             </div>
             <div class="flex flex-wrap gap-2">
-              <button @click="startMyDay" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer shadow-xs">☀️ Start my day</button>
+              <button @click="startMyDay" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer shadow-xs">Start my day</button>
               <button @click="openNextAction" :disabled="!nextActionTask" class="px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer disabled:opacity-50" :class="isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-800'">▶ Next action</button>
-              <button @click="openDailyReview" class="px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer" :class="isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-800'">🌙 End my day</button>
+              <button @click="openDailyReview" class="px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer" :class="isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-800'">End my day</button>
             </div>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -3137,7 +3367,7 @@ onUnmounted(() => {
                   isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white' : 'bg-white border-slate-300 text-slate-700 hover:text-slate-950'
                 ]"
               >
-                🔄 Clear Filter
+                Clear filter
               </button>
             </div>
           </div>
@@ -3177,8 +3407,16 @@ onUnmounted(() => {
             </div>
           </div>
 
+          <WorkspaceEmptyBoard
+            v-if="filteredBoardTasks.length === 0"
+            :dark="isDarkMode"
+            :has-project="Boolean(activeProjectObject)"
+            @create-task="openCreateTaskModal"
+            @plan-with-ai="openAiGeneratorModal"
+          />
+
           <!-- 4 HIGH-CONTRAST KANBAN COLUMNS -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 h-full items-start">
+          <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 h-full items-start">
             <!-- 1. TO DO -->
             <div
               :class="['flex flex-col border rounded-2xl p-3.5 min-h-[480px] transition-colors', isDarkMode ? 'bg-slate-950/90 border-slate-800' : 'bg-slate-100/90 border-slate-200 shadow-inner']"
@@ -3236,9 +3474,20 @@ onUnmounted(() => {
                     </div>
                   </div>
 
-                  <h4 :class="['text-xs sm:text-sm font-semibold line-clamp-2 leading-snug', isDarkMode ? 'text-slate-100 group-hover:text-sky-300' : 'text-slate-900 group-hover:text-sky-700']">
+                  <h4 :class="['text-xs sm:text-sm font-semibold line-clamp-2 leading-snug', isDarkMode ? 'text-white' : 'text-slate-900 group-hover:text-sky-700']">
                     {{ task.title }}
                   </h4>
+
+                  <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-medium">
+                    <span class="text-slate-600 dark:text-slate-300">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
+                    <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-700 dark:text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).reconsidered" class="font-bold text-rose-700 dark:text-rose-300">· Needs review: a prerequisite moved back from done</span>
+                  </div>
+
+                  <div v-if="taskExecutionMeta(task).dependents.length" class="flex flex-wrap items-center gap-1 text-[10px] font-semibold">
+                    <span class="text-slate-500 dark:text-slate-400">Unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).dependentReconsideration.length" class="text-rose-700 dark:text-rose-300">· reconsider dependent work: {{ taskExecutionMeta(task).dependentReconsideration.join(', ') }}</span>
+                  </div>
 
                   <!-- Subtask & Due Date mini indicator -->
                   <div v-if="task.subtasks?.length || task.due_date" :class="['flex items-center justify-between text-[10px] font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600 font-semibold']">
@@ -3264,7 +3513,8 @@ onUnmounted(() => {
                     </div>
                     <button
                       @click.stop="openRemoteDispatch(task)"
-                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30 active:scale-95 shadow-xs"
+                      :disabled="!executionGateFor(task).allowed"
+                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
                       title="⚡ Dispatch to Connected Desktop Agent"
                     >
                       <Icons name="Zap" :size="11" class="text-amber-300" />
@@ -3336,9 +3586,20 @@ onUnmounted(() => {
                     </div>
                   </div>
 
-                  <h4 :class="['text-xs sm:text-sm font-semibold line-clamp-2 leading-snug', isDarkMode ? 'text-slate-100 group-hover:text-amber-300' : 'text-slate-900 group-hover:text-amber-700']">
+                  <h4 :class="['text-xs sm:text-sm font-semibold line-clamp-2 leading-snug', isDarkMode ? 'text-white' : 'text-slate-900 group-hover:text-amber-700']">
                     {{ task.title }}
                   </h4>
+
+                  <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-medium">
+                    <span class="text-slate-600 dark:text-slate-300">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
+                    <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-700 dark:text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).reconsidered" class="font-bold text-rose-700 dark:text-rose-300">· Needs review: a prerequisite moved back from done</span>
+                  </div>
+
+                  <div v-if="taskExecutionMeta(task).dependents.length" class="flex flex-wrap items-center gap-1 text-[10px] font-semibold">
+                    <span class="text-slate-500 dark:text-slate-400">Unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).dependentReconsideration.length" class="text-rose-700 dark:text-rose-300">· reconsider dependent work: {{ taskExecutionMeta(task).dependentReconsideration.join(', ') }}</span>
+                  </div>
 
                   <!-- Subtask & Due Date mini indicator -->
                   <div v-if="task.subtasks?.length || task.due_date" :class="['flex items-center justify-between text-[10px] font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600 font-semibold']">
@@ -3364,7 +3625,8 @@ onUnmounted(() => {
                     </div>
                     <button
                       @click.stop="openRemoteDispatch(task)"
-                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30 active:scale-95 shadow-xs"
+                      :disabled="!executionGateFor(task).allowed"
+                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
                       title="⚡ Re-dispatch / Run on Connected Desktop Agent"
                     >
                       <Icons name="Zap" :size="11" class="text-amber-300" />
@@ -3425,9 +3687,20 @@ onUnmounted(() => {
                     </div>
                   </div>
 
-                  <h4 :class="['text-xs sm:text-sm font-semibold line-clamp-2 leading-snug', isDarkMode ? 'text-slate-100 group-hover:text-purple-300' : 'text-slate-900 group-hover:text-purple-700']">
+                  <h4 :class="['text-xs sm:text-sm font-semibold line-clamp-2 leading-snug', isDarkMode ? 'text-white' : 'text-slate-900 group-hover:text-purple-700']">
                     {{ task.title }}
                   </h4>
+
+                  <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-medium">
+                    <span class="text-slate-600 dark:text-slate-300">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
+                    <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-700 dark:text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).reconsidered" class="font-bold text-rose-700 dark:text-rose-300">· Needs review: a prerequisite moved back from done</span>
+                  </div>
+
+                  <div v-if="taskExecutionMeta(task).dependents.length" class="flex flex-wrap items-center gap-1 text-[10px] font-semibold">
+                    <span class="text-slate-500 dark:text-slate-400">Unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).dependentReconsideration.length" class="text-rose-700 dark:text-rose-300">· reconsider dependent work: {{ taskExecutionMeta(task).dependentReconsideration.join(', ') }}</span>
+                  </div>
 
                   <!-- Subtask & Due Date mini indicator -->
                   <div v-if="task.subtasks?.length || task.due_date" :class="['flex items-center justify-between text-[10px] font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600 font-semibold']">
@@ -3453,7 +3726,8 @@ onUnmounted(() => {
                     </div>
                     <button
                       @click.stop="openRemoteDispatch(task)"
-                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30 active:scale-95 shadow-xs"
+                      :disabled="!executionGateFor(task).allowed"
+                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
                       title="⚡ Re-test / Dispatch to Connected Desktop Agent"
                     >
                       <Icons name="Zap" :size="11" class="text-amber-300" />
@@ -3511,6 +3785,16 @@ onUnmounted(() => {
                     {{ task.title }}
                   </h4>
 
+                  <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-medium">
+                    <span class="text-slate-600 dark:text-slate-300">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
+                    <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-700 dark:text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).reconsidered" class="font-bold text-rose-700 dark:text-rose-300">· Needs review: a prerequisite moved back from done</span>
+                  </div>
+                  <div v-if="taskExecutionMeta(task).dependents.length" class="flex flex-wrap items-center gap-1 text-[10px] font-semibold">
+                    <span class="text-slate-500 dark:text-slate-400">Unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).dependentReconsideration.length" class="text-rose-700 dark:text-rose-300">· reconsider dependent work: {{ taskExecutionMeta(task).dependentReconsideration.join(', ') }}</span>
+                  </div>
+
                   <div :class="['flex items-center justify-between pt-1.5 border-t text-[10px]', isDarkMode ? 'border-slate-800/80' : 'border-slate-100']">
                     <span :class="['px-1.5 py-0.2 rounded border font-medium', getCategoryBadge(task.category).class]">
                       {{ getCategoryBadge(task.category).label }}
@@ -3537,7 +3821,7 @@ onUnmounted(() => {
           <div :class="['flex flex-wrap items-center justify-between gap-3 pb-3 border-b', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
             <div>
               <h2 :class="['text-base sm:text-lg font-bold font-display', isDarkMode ? 'text-white' : 'text-slate-950']">
-                📦 Sprint Planning & Backlog
+                Sprint planning & backlog
               </h2>
               <p :class="['text-xs mt-0.5 font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
                 Drag tasks into sprints to prepare the delivery stages.
@@ -3667,7 +3951,8 @@ onUnmounted(() => {
                     </span>
                     <button
                       @click.stop="openRemoteDispatch(task)"
-                      class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 text-emerald-400 border-emerald-500/40 active:scale-95 shadow-xs"
+                      :disabled="!executionGateFor(task).allowed"
+                      class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 text-emerald-400 border-emerald-500/40 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
                       title="🚀 Run on Connected Desktop Agent"
                     >
                       <span>🚀</span>
@@ -3727,7 +4012,8 @@ onUnmounted(() => {
                     </span>
                     <button
                       @click.stop="openRemoteDispatch(task)"
-                      class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 text-emerald-400 border-emerald-500/40 active:scale-95 shadow-xs"
+                      :disabled="!executionGateFor(task).allowed"
+                      class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 text-emerald-400 border-emerald-500/40 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
                       title="🚀 Run on Connected Desktop Agent"
                     >
                       <span>🚀</span>
@@ -3748,31 +4034,59 @@ onUnmounted(() => {
         <!-- VIEW 3: ROADMAP & TIMELINE                                            -->
         <!-- ===================================================================== -->
         <div v-else-if="currentView === 'roadmap'" class="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6">
-          <div :class="['pb-3 border-b', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
-            <h2 :class="['text-base sm:text-lg font-bold font-display', isDarkMode ? 'text-white' : 'text-slate-950']">
-              🗺️ Roadmap & Epic Progress
-            </h2>
-            <p :class="['text-xs mt-0.5 font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
-              Track overall epic and milestone progress over time.
-            </p>
+          <div :class="['sticky top-0 z-10 -mx-4 -mt-4 border-b px-4 pt-4 pb-3 sm:-mx-6 sm:px-6', isDarkMode ? 'border-slate-800 bg-[#090d18]/95' : 'border-slate-200 bg-slate-50/95']">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div><p class="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-600 dark:text-blue-300">Delivery control</p><h2 :class="['mt-0.5 text-lg font-bold font-display', isDarkMode ? 'text-white' : 'text-slate-950']">{{ activeProjectObject?.title || 'Roadmap & project delivery' }}</h2><p :class="['mt-0.5 text-xs font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">A clear view of health, milestones and scheduled work.</p></div>
+              <button v-if="hasSelectedProject" @click="exportRoadmapWorkbook" :disabled="isRoadmapExporting" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-70"><Icons :name="isRoadmapExporting ? 'LoaderCircle' : 'FileSpreadsheet'" :size="15" :class="isRoadmapExporting ? 'animate-spin' : ''" />{{ isRoadmapExporting ? 'Creating Excel…' : 'Export Excel' }}</button>
+            </div>
+            <div v-if="hasSelectedProject" class="mt-4 flex gap-1 overflow-x-auto rounded-xl border p-1 w-max min-w-full sm:min-w-0" :class="isDarkMode ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-white'">
+              <button v-for="tab in roadmapTabs" :key="tab.id" @click="setRoadmapTab(tab.id)" :class="['inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold transition-colors', roadmapTab === tab.id ? 'bg-blue-600 text-white' : (isDarkMode ? 'text-slate-400 hover:bg-slate-800 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950')]"><Icons :name="tab.icon" :size="14" />{{ tab.label }}</button>
+            </div>
           </div>
+
+          <div v-if="!hasSelectedProject" :class="['mx-auto mt-8 max-w-xl rounded-2xl border p-8 text-center', isDarkMode ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-white']">
+            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-xl text-white">↗</div>
+            <h3 :class="['mt-4 text-base font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">Select a project to view its roadmap</h3>
+            <p :class="['mt-2 text-sm leading-6', isDarkMode ? 'text-slate-400' : 'text-slate-600']">Project health, delivery trend and the Gantt timeline are intentionally scoped to one project so the signals stay actionable.</p>
+            <div class="mt-5 flex flex-wrap justify-center gap-2">
+              <button v-for="project in projectList" :key="project.id" @click="selectedProjectId = project.id" :class="['rounded-lg border px-3 py-2 text-xs font-bold transition-colors', isDarkMode ? 'border-slate-700 text-slate-200 hover:border-blue-500 hover:bg-blue-950/40' : 'border-slate-200 text-slate-700 hover:border-blue-400 hover:bg-blue-50']">{{ project.title }}</button>
+            </div>
+          </div>
+
+          <template v-else>
+            <ProjectRoadmapDashboard v-show="roadmapTab === 'overview'" :project-name="activeProjectObject?.title || 'Project'" :tasks="roadmapTasks" :is-dark-mode="isDarkMode" />
+            <ProjectGantt v-show="roadmapTab === 'timeline'" :epics="roadmapEpics" :tasks="roadmapTasks" :is-dark-mode="isDarkMode" @open-task="openTaskDrawer" />
+
+            <section v-show="roadmapTab === 'epics'" class="space-y-3">
+              <div class="flex items-end justify-between gap-3">
+                <div><h3 :class="['text-sm font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">Epic progress</h3><p :class="['mt-0.5 text-xs', isDarkMode ? 'text-slate-400' : 'text-slate-500']">Delete an Epic without deleting its linked tasks.</p></div>
+                <span :class="['text-xs font-semibold', isDarkMode ? 'text-slate-400' : 'text-slate-500']">{{ roadmapEpics.length }} Epic{{ roadmapEpics.length === 1 ? '' : 's' }}</span>
+              </div>
 
           <div class="space-y-4">
             <div
-              v-for="epic in epicList"
+              v-for="epic in roadmapEpics"
               :key="epic.id"
               :class="['p-4 rounded-2xl border space-y-3 shadow-xs', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']"
             >
-              <div class="flex items-center justify-between">
+              <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-2.5">
-                  <span class="text-lg">⚡</span>
+                  <button
+                    type="button"
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-sm transition-colors"
+                    :class="isDarkMode ? 'border-slate-700 text-slate-300 hover:border-blue-500 hover:bg-blue-950/40' : 'border-slate-200 text-slate-600 hover:border-blue-400 hover:bg-blue-50'"
+                    :aria-label="`${expandedRoadmapEpicIds.includes(epic.id) ? 'Collapse' : 'Expand'} ${epic.title} tasks`"
+                    @click="toggleRoadmapEpic(epic.id)"
+                  >{{ expandedRoadmapEpicIds.includes(epic.id) ? '−' : '+' }}</button>
+                  <span class="text-lg">◆</span>
                   <span :class="['font-mono text-xs font-bold px-2 py-0.5 rounded border', isDarkMode ? 'bg-purple-950/80 text-purple-300 border-purple-800' : 'bg-purple-50 text-purple-800 border-purple-200']">{{ epic.issue_key }}</span>
                   <h3 :class="['text-sm sm:text-base font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">{{ epic.title }}</h3>
                 </div>
 
-                <span :class="['font-mono text-xs font-bold', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
-                  {{ epic.start_date || 'Start' }} ➔ {{ epic.due_date || 'Due date' }}
-                </span>
+                <div class="flex items-center gap-3">
+                  <span :class="['hidden font-mono text-xs font-bold sm:inline', isDarkMode ? 'text-slate-400' : 'text-slate-600']">{{ epic.start_date || 'Start' }} → {{ epic.due_date || 'Due date' }}</span>
+                  <button @click="deleteEpicFromRoadmap(epic)" :class="['rounded-lg border p-2 text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40', isDarkMode ? 'border-slate-700' : 'border-slate-200']" :aria-label="`Delete Epic ${epic.title}`" :title="`Delete ${epic.title}`"><Icons name="Trash2" :size="14" /></button>
+                </div>
               </div>
 
               <!-- Progress Bar -->
@@ -3780,7 +4094,7 @@ onUnmounted(() => {
                 <div :class="['h-3 w-full rounded-full overflow-hidden p-0.5', isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-slate-100 border border-slate-300']">
                   <div
                     class="h-full bg-gradient-to-r from-purple-600 to-blue-600 rounded-full transition-all duration-500"
-                    :style="{ width: `${epic.status === 'done' ? 100 : (epic.status === 'in_progress' ? 50 : 20)}%` }"
+                    :style="{ width: `${(() => { const children = roadmapTasks.filter(task => task.epic_id === epic.id); return children.length ? Math.round((children.filter(task => task.status === 'done').length / children.length) * 100) : (epic.status === 'done' ? 100 : (epic.status === 'in_progress' ? 50 : 0)); })()}%` }"
                   ></div>
                 </div>
                 <div :class="['flex justify-between text-xs font-mono font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
@@ -3788,12 +4102,39 @@ onUnmounted(() => {
                   <span class="font-bold">{{ epic.story_points || 0 }} Story Points</span>
                 </div>
               </div>
+
+              <div v-if="expandedRoadmapEpicIds.includes(epic.id)" class="space-y-2 border-t pt-3" :class="isDarkMode ? 'border-slate-800' : 'border-slate-200'">
+                <div class="flex items-center justify-between gap-2">
+                  <p :class="['text-xs font-bold uppercase tracking-wide', isDarkMode ? 'text-slate-400' : 'text-slate-500']">Tasks in this Epic</p>
+                  <span :class="['text-xs font-semibold', isDarkMode ? 'text-slate-400' : 'text-slate-500']">{{ epicChildren(epic.id).length }} task{{ epicChildren(epic.id).length === 1 ? '' : 's' }}</span>
+                </div>
+                <button
+                  v-for="child in epicChildren(epic.id)"
+                  :key="child.id"
+                  type="button"
+                  class="flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors"
+                  :class="isDarkMode ? 'border-slate-800 bg-slate-900/60 hover:border-blue-700 hover:bg-slate-900' : 'border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50/40'"
+                  @click="openTaskDrawer(child)"
+                >
+                  <span class="min-w-0">
+                    <span class="flex items-center gap-2">
+                      <span :class="['font-mono text-[11px] font-bold', isDarkMode ? 'text-blue-300' : 'text-blue-700']">{{ child.issue_key }}</span>
+                      <span :class="['truncate text-sm font-semibold', isDarkMode ? 'text-slate-100' : 'text-slate-800']">{{ child.title }}</span>
+                    </span>
+                    <span :class="['mt-1 block text-[11px]', isDarkMode ? 'text-slate-400' : 'text-slate-500']">{{ child.story_points || 0 }} pts · {{ child.priority }}</span>
+                  </span>
+                  <span :class="['shrink-0 rounded-full px-2 py-1 text-[10px] font-bold uppercase', child.status === 'done' ? (isDarkMode ? 'bg-emerald-950 text-emerald-300' : 'bg-emerald-50 text-emerald-700') : child.status === 'review' ? (isDarkMode ? 'bg-amber-950 text-amber-300' : 'bg-amber-50 text-amber-700') : (isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700')]">{{ child.status.replace('_', ' ') }}</span>
+                </button>
+                <p v-if="epicChildren(epic.id).length === 0" :class="['rounded-lg border border-dashed px-3 py-3 text-xs italic', isDarkMode ? 'border-slate-700 text-slate-500' : 'border-slate-300 text-slate-500']">No tasks are linked to this Epic yet.</p>
+              </div>
             </div>
 
-            <div v-if="epicList.length === 0" class="py-8 text-center text-xs text-slate-500 italic font-medium">
+            <div v-if="roadmapEpics.length === 0" class="py-8 text-center text-xs text-slate-500 italic font-medium">
               No epics yet. Create an Epic issue to show it on the roadmap.
             </div>
           </div>
+            </section>
+          </template>
         </div>
         </div>
       </main>
@@ -3884,16 +4225,13 @@ onUnmounted(() => {
       <div
         :class="[
           'task-detail-drawer w-full border-l h-full flex flex-col shadow-2xl animate-slideInRight transition-all duration-200',
-          isDrawerExpanded ? 'max-w-full' : 'max-w-4xl lg:max-w-5xl xl:max-w-6xl',
+          isDrawerExpanded ? 'max-w-[1440px]' : 'max-w-[980px]',
           isDarkMode ? 'bg-[#090d18] border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900'
         ]"
       >
         <!-- Drawer Header -->
         <div :class="['px-6 py-4.5 border-b flex flex-wrap items-center justify-between gap-3 shrink-0', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200']">
           <div class="flex items-center gap-3 min-w-0">
-            <span class="p-1.5 rounded-xl border bg-white dark:bg-slate-900 text-lg shadow-xs">
-              {{ getIssueTypeBadge(selectedTask.issue_type).icon }}
-            </span>
             <span :class="['font-mono text-sm font-bold px-3 py-1 rounded-xl shadow-xs border', isDarkMode ? 'bg-blue-950 text-blue-300 border-blue-800' : 'bg-blue-50 text-blue-800 border-blue-200']">
               {{ selectedTask.issue_key }}
             </span>
@@ -3944,10 +4282,13 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Drawer Body (Spacious 12-column layout) -->
-        <div class="flex-1 p-6 sm:p-8 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          <!-- LEFT MAIN CONTENT PANE (Col-span 8) -->
-          <div class="lg:col-span-8 space-y-6">
+        <div v-if="drawerSaveError" class="mx-5 mt-4 flex items-center justify-between gap-3 rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-200">
+          <span>{{ drawerSaveError }}</span><button class="font-bold underline" @click="drawerSaveError = ''">Dismiss</button>
+        </div>
+
+        <!-- Drawer Body: reading-first surface with secondary context below -->
+        <div class="flex-1 p-5 sm:p-8 overflow-y-auto">
+          <div class="mx-auto max-w-5xl space-y-6">
             <!-- Large Title Input -->
             <div class="space-y-1">
               <label :class="['font-mono text-[11px] font-bold uppercase tracking-wider block', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
@@ -3963,6 +4304,37 @@ onUnmounted(() => {
                 placeholder="Enter task title..."
               />
             </div>
+
+            <section :class="['rounded-2xl border p-3 shadow-sm', isDarkMode ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-white']" aria-label="Quick task edits">
+              <div class="mb-2 flex items-center justify-between"><span :class="['text-[10px] font-bold uppercase tracking-[0.14em]', isDarkMode ? 'text-slate-400' : 'text-slate-500']">Quick edit</span><span :class="['text-[11px]', isDarkMode ? 'text-slate-500' : 'text-slate-500']">Changes save automatically</span></div>
+              <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                <select v-model="selectedTask.status" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'"><option value="todo">To do</option><option value="in_progress">In progress</option><option value="review">Review</option><option value="done">Done</option></select>
+                <select v-model="selectedTask.priority" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'"><option value="urgent">Urgent</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
+                <select v-model="selectedTask.story_points" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'"><option :value="null">Points</option><option v-for="pts in [1, 2, 3, 5, 8, 13, 21]" :key="pts" :value="pts">{{ pts }} pts</option></select>
+                <input v-model="selectedTask.due_date" type="date" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'" aria-label="Due date" />
+                <select v-if="selectedTask.issue_type !== 'epic'" v-model="selectedTask.sprint_id" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'"><option :value="null">Backlog</option><option v-for="sprint in sprintList" :key="sprint.id" :value="sprint.id">{{ sprint.name }}</option></select>
+                <select v-if="selectedTask.issue_type !== 'epic'" v-model="selectedTask.epic_id" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'"><option :value="null">No Epic</option><option v-for="epic in epicList" :key="epic.id" :value="epic.id">{{ epic.issue_key }}</option></select>
+              </div>
+            </section>
+
+            <details v-if="selectedTask.issue_type !== 'epic'" :class="['rounded-2xl border p-3 shadow-sm', isDarkMode ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-white']">
+              <summary class="cursor-pointer list-none flex items-center justify-between gap-3 text-xs font-bold">
+                <span>Dependencies <span class="font-mono text-slate-400">({{ selectedDependencyIds.length }})</span></span>
+                <span class="text-[10px] font-normal text-amber-400">Human review required before changing execution order</span>
+              </summary>
+              <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
+                A selected task must be done before this task can run. Remove one circular link to unblock an Epic, then retry dispatch.
+              </p>
+              <div class="mt-3 max-h-44 space-y-1 overflow-y-auto pr-1">
+                <label v-for="candidate in dependencyCandidates" :key="candidate.id" class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-slate-800/60">
+                  <input v-model="selectedDependencyIds" :value="candidate.id" type="checkbox" class="h-3.5 w-3.5 rounded border-slate-600 text-blue-500 focus:ring-blue-500" @change="saveTaskDrawerChanges" />
+                  <span class="font-mono text-[11px] text-blue-300">{{ candidate.issue_key || `#${candidate.id}` }}</span>
+                  <span class="truncate">{{ candidate.title }}</span>
+                  <span class="ml-auto shrink-0 text-[10px] text-slate-500">{{ candidate.status }}</span>
+                </label>
+                <p v-if="dependencyCandidates.length === 0" class="px-2 py-1 text-[11px] text-slate-500">No other work item is available in this project.</p>
+              </div>
+            </details>
 
             <!-- Warning Diagnosis & Quick Actions Box -->
             <div
@@ -4142,12 +4514,17 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- RIGHT ATTRIBUTES SIDEBAR (Col-span 4) -->
-          <div :class="['lg:col-span-4 space-y-5 p-5 sm:p-6 rounded-3xl border shadow-sm', isDarkMode ? 'bg-slate-950/90 border-slate-800' : 'bg-slate-50/90 border-slate-200/90']">
-            <div class="font-mono text-xs font-bold uppercase tracking-wider text-slate-400 pb-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5">
-              <span>⚙️</span>
-              <span>ATTRIBUTES</span>
-            </div>
+          <TaskContextRail :dark="isDarkMode">
+            <details class="group" open>
+            <summary class="font-mono text-xs font-bold uppercase tracking-wider text-slate-400 pb-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-1.5 cursor-pointer list-none">
+              <span class="flex items-center gap-1.5">
+              <Icons name="Sliders" :size="14" />
+              <span>TASK CONTEXT</span>
+              </span>
+              <span class="text-[10px] transition-transform group-open:rotate-180">⌄</span>
+            </summary>
+
+            <div class="mt-5 space-y-5">
 
             <!-- Status -->
             <div class="space-y-1.5">
@@ -4277,16 +4654,27 @@ onUnmounted(() => {
             </div>
 
             <div v-if="selectedTask.documents?.length" :class="['space-y-2 pt-4 border-t', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
-              <label :class="['font-mono text-xs font-bold uppercase', isDarkMode ? 'text-slate-300' : 'text-slate-700']">📚 Task references</label>
+              <label :class="['font-mono text-xs font-bold uppercase', isDarkMode ? 'text-slate-300' : 'text-slate-700']">Task references</label>
               <a v-for="document in selectedTask.documents" :key="document.id" :href="document.url || '#'" target="_blank" rel="noreferrer" class="block text-[11px] text-blue-600 underline">{{ document.pivot?.is_required ? 'Required · ' : '' }}{{ document.title }}</a>
             </div>
 
-            <!-- Agent execution and verification -->
-            <div :class="['space-y-3 pt-4 border-t', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
-              <div class="flex items-center justify-between">
-                <label :class="['font-mono text-xs font-bold uppercase', isDarkMode ? 'text-slate-300' : 'text-slate-700']">
-                  ⚡ Remote Agent Execution & Streamback
-                </label>
+            <!-- Agent execution and verification. Keep this secondary surface
+                 collapsed and internally scrollable so it never hides task content. -->
+            <details :class="['group border-t pt-4', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
+                <div class="flex min-w-0 items-center gap-2">
+                  <label :class="['font-mono text-xs font-bold uppercase', isDarkMode ? 'text-slate-300' : 'text-slate-700']">Execution <span class="sr-only">Agent activity & evidence</span></label>
+                  <span :class="['rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap', selectedExecutionGate.allowed ? (isDarkMode ? 'border-emerald-800 bg-emerald-950/30 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700') : selectedExecutionGate.code === 'blocked' || selectedExecutionGate.code === 'review' ? (isDarkMode ? 'border-amber-800 bg-amber-950/30 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700') : (isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500')]">{{ selectedExecutionGate.title }}</span>
+                </div>
+                <span class="flex shrink-0 items-center gap-2"><span v-if="selectedAgentRuns.length" class="text-[10px] text-slate-500 font-mono">{{ selectedAgentRuns.length }} run{{ selectedAgentRuns.length === 1 ? '' : 's' }}</span><span v-if="isAgentRunsLoading" class="text-[10px] text-slate-500 font-mono">Syncing…</span><span class="text-[10px] text-slate-500 transition-transform group-open:rotate-180">⌄</span></span>
+              </summary>
+              <div class="mt-3 max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+              <div :class="['rounded-xl border p-3 text-xs', selectedExecutionGate.allowed ? (isDarkMode ? 'border-emerald-800/70 bg-emerald-950/20 text-emerald-200' : 'border-emerald-200 bg-emerald-50 text-emerald-800') : (isDarkMode ? 'border-amber-800/70 bg-amber-950/20 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-800')]">
+                <p class="font-semibold">{{ selectedExecutionGate.title }}</p>
+                <p class="mt-1 leading-5 opacity-80">{{ selectedExecutionGate.detail }}</p>
+                <div v-if="selectedExecutionGate.pendingLabels.length" class="mt-2 flex flex-wrap gap-1.5"><span v-for="label in selectedExecutionGate.pendingLabels" :key="label" class="rounded-md border border-amber-700/50 px-1.5 py-0.5 font-mono text-[10px]">{{ label }}</span></div>
+              </div>
+              <div class="hidden">
                 <span v-if="isAgentRunsLoading" class="text-[10px] text-slate-500 font-mono">Syncing…</span>
               </div>
 
@@ -4294,6 +4682,7 @@ onUnmounted(() => {
               <div class="space-y-2">
                 <button
                   @click="openRemoteDispatch(selectedTask)"
+                  :disabled="!selectedExecutionGate.allowed"
                   class="w-full py-2.5 px-4 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white shadow-md shadow-emerald-950/30 active:scale-98 border border-emerald-400/40"
                 >
                   <span class="animate-pulse">⚡</span>
@@ -4302,7 +4691,7 @@ onUnmounted(() => {
 
                 <!-- Quick local provider launcher -->
                 <div class="grid grid-cols-3 gap-1.5">
-                  <button v-for="provider in ['codex', 'claude_code', 'antigravity']" :key="`local-${provider}`" @click="startAgentRun(provider)" class="rounded-lg border px-2 py-1.5 text-[10px] font-bold cursor-pointer hover:border-blue-500 flex flex-col items-center gap-0.5" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-200' : 'border-slate-300 bg-white text-slate-800'">
+                  <button v-for="provider in ['codex', 'claude_code', 'antigravity']" :key="`local-${provider}`" @click="startAgentRun(provider)" :disabled="!selectedExecutionGate.allowed" class="rounded-lg border px-2 py-1.5 text-[10px] font-bold cursor-pointer hover:border-blue-500 disabled:cursor-not-allowed disabled:opacity-45 flex flex-col items-center gap-0.5" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-200' : 'border-slate-300 bg-white text-slate-800'">
                     <span>{{ provider === 'claude_code' ? 'Local Claude' : provider === 'antigravity' ? 'Local AGY' : 'Local Codex' }}</span>
                     <span class="text-[8px] font-mono text-slate-400 opacity-80">{{ selectedProviderModel[provider] }}</span>
                   </button>
@@ -4337,8 +4726,28 @@ onUnmounted(() => {
               <p v-if="!selectedAgentRuns.length && !isAgentRunsLoading" class="text-[11px] text-slate-500">
                 No active runs yet. Click Dispatch to Desktop Agent or choose a local CLI provider.
               </p>
+              </div>
+            </details>
+
+            <!-- E2E Transition History & Actor Audit Trail -->
+            <details open :class="['group border-t pt-4', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
+                <label :class="['font-mono text-xs font-bold uppercase', isDarkMode ? 'text-slate-300' : 'text-slate-700']">
+                  📜 Lịch sử E2E & Người xử lý (Audit Trail)
+                </label>
+                <span class="text-[10px] text-slate-500 transition-transform group-open:rotate-180">⌄</span>
+              </summary>
+              <div class="mt-3">
+                <TaskHistoryTimeline
+                  v-if="selectedTask"
+                  :task-id="selectedTask.id"
+                  :is-dark-mode="isDarkMode"
+                />
+              </div>
+            </details>
             </div>
-          </div>
+            </details>
+          </TaskContextRail>
         </div>
       </div>
     </div>
@@ -4361,7 +4770,7 @@ onUnmounted(() => {
     <div v-if="showSprintModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
       <div :class="['w-full max-w-md border rounded-3xl p-6 shadow-2xl space-y-4', isDarkMode ? 'bg-[#0a0f1d] border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-950']">
         <div :class="['flex items-center justify-between pb-3 border-b', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
-          <h3 class="font-bold text-sm">⚡ Create Scrum Sprint</h3>
+          <h3 class="font-bold text-sm">Create scrum sprint</h3>
           <button @click="showSprintModal = false" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
         </div>
 
@@ -4405,7 +4814,7 @@ onUnmounted(() => {
     <!-- Modal: Start Sprint -->
     <div v-if="showStartSprintModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
       <div :class="['w-full max-w-md border rounded-3xl p-6 shadow-2xl space-y-4', isDarkMode ? 'bg-[#0a0f1d] border-blue-500/50 text-white' : 'bg-white border-blue-300 text-slate-950']">
-        <h3 class="font-bold text-sm">🚀 Start Sprint: {{ targetSprintForAction?.name }}</h3>
+        <h3 class="font-bold text-sm">Start sprint: {{ targetSprintForAction?.name }}</h3>
         <p :class="['text-xs font-medium', isDarkMode ? 'text-slate-300' : 'text-slate-600']">The sprint will move to <strong>ACTIVE</strong>.</p>
         <div :class="['flex justify-end gap-2 pt-2 border-t', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
           <button @click="showStartSprintModal = false" class="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer">Cancel</button>
@@ -4430,7 +4839,7 @@ onUnmounted(() => {
     <div v-if="showCreateModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
       <div :class="['w-full max-w-lg border rounded-3xl p-6 shadow-2xl space-y-4', isDarkMode ? 'bg-[#0a0f1d] border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-950']">
         <div :class="['flex items-center justify-between pb-3 border-b', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
-          <h3 class="font-bold text-sm">✨ Create Task</h3>
+          <h3 class="font-bold text-sm">Create task</h3>
           <button @click="showCreateModal = false" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
         </div>
 

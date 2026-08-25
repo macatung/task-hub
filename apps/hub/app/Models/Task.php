@@ -121,7 +121,10 @@ class Task extends Model
     public function hasIncompleteDependencies(): bool
     {
         return $this->dependencies()
-            ->whereHas('dependsOn', fn ($query) => $query->where('status', '!=', 'done'))
+            ->where(function ($query) {
+                $query->whereDoesntHave('dependsOn')
+                    ->orWhereHas('dependsOn', fn ($dependency) => $dependency->where('status', '!=', 'done'));
+            })
             ->exists();
     }
 

@@ -9,6 +9,13 @@ export interface ProjectItem {
   color?: string | null;
 }
 
+export interface TaskDependencyTarget {
+  id: number;
+  issue_key?: string | null;
+  title: string;
+  status: 'todo' | 'in_progress' | 'review' | 'done';
+}
+
 export interface DesktopCredential {
   taskHubUrl: string;
   token: string;
@@ -42,6 +49,11 @@ export interface TaskItem {
   acceptance_criteria?: string | null;
   definition_of_done?: string | null;
   risk_level?: 'low' | 'medium' | 'high' | 'critical';
+  dependencies?: Array<{
+    id: number;
+    depends_on_task_id: number;
+    depends_on?: TaskDependencyTarget | null;
+  }>;
   notes?: string | null;
 }
 
@@ -61,6 +73,16 @@ export interface DailyReviewData {
   incompleted_tasks: TaskItem[];
   wisdom_quote: string;
 }
+
+/** Keep completed tasks visible when a prerequisite regresses so desktop can
+ * surface the required human reconsideration instead of hiding the warning. */
+const needsDependencyReview = (task: TaskItem, allTasks: TaskItem[]) => {
+  if (task.status !== 'done') return false;
+  return (task.dependencies || []).some(dependency => {
+    const target = allTasks.find(candidate => candidate.id === dependency.depends_on_task_id) || dependency.depends_on;
+    return target?.status !== 'done';
+  });
+};
 
 declare global { interface Window { desktopApi?: any; } }
 const DEFAULT_TASK_HUB_URL = (import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev';
@@ -188,20 +210,8 @@ export function useTaskSync() {
       const electronCred = await window.desktopApi?.taskHub?.getCredential?.();
       if (electronCred?.token) {
         credential.value = electronCred;
-        try { localStorage.setItem('task_hub_credential', JSON.stringify(electronCred)); } catch {}
         void syncHeartbeatService(electronCred);
         return credential.value;
-      }
-    } catch {}
-    try {
-      const saved = localStorage.getItem('task_hub_credential');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed?.token) {
-          credential.value = parsed;
-          void syncHeartbeatService(parsed);
-          return credential.value;
-        }
       }
     } catch {}
     credential.value = null;
@@ -213,9 +223,6 @@ export function useTaskSync() {
     try {
       await window.desktopApi?.taskHub?.saveCredential?.(next);
     } catch {}
-    try {
-      localStorage.setItem('task_hub_credential', JSON.stringify(next));
-    } catch {}
     credential.value = next;
     connectionError.value = '';
     void syncHeartbeatService(next);
@@ -224,16 +231,25 @@ export function useTaskSync() {
   };
 
   const fetchProjects = async () => {
-    if (!credential.value) return;
-    try { const response = await fetch(projectsUrl(), { headers: authHeaders() }); const json = await response.json(); if (response.ok && json.success) projects.value = json.data || []; } catch { projects.value = []; }
+    if (!credential.value) return false;
+    try {
+      const response = await fetch(projectsUrl(), { headers: authHeaders() });
+      const json = await response.json();
+      if (!response.ok || !json.success) throw new Error(json?.message || `Task Hub returned HTTP ${response.status}.`);
+      projects.value = json.data || [];
+      connectionError.value = '';
+      isOnline.value = true;
+      return true;
+    } catch (e) {
+      isOnline.value = false;
+      connectionError.value = e instanceof Error ? e.message : 'Unable to load Task Hub projects.';
+      return false;
+    }
   };
 
   const clearCredential = async () => {
     try {
       await window.desktopApi?.taskHub?.clearCredential?.();
-    } catch {}
-    try {
-      localStorage.removeItem('task_hub_credential');
     } catch {}
     credential.value = null;
     void syncHeartbeatService(null);
@@ -268,17 +284,30 @@ export function useTaskSync() {
   };
 
   const fetchAgentTasks = async () => {
-    if (!credential.value) return;
+    if (!credential.value) return false;
     try {
-      const statuses = ['todo', 'in_progress', 'review'];
-      const responses = await Promise.all(statuses.map(status => fetch(`${apiUrl()}?status=${status}&project_id=${encodeURIComponent(credential.value!.projectId)}`, { headers: authHeaders() })));
-      const payloads = await Promise.all(responses.map(response => response.ok ? response.json() : null));
-      const unique = new Map<number, TaskItem>();
-      payloads.forEach(payload => (payload?.data || []).forEach((task: TaskItem) => unique.set(task.id, task)));
-      agentTasks.value = Array.from(unique.values());
+      // Fetch the complete selected-project backlog once.  The old three
+      // status requests were brittle with scoped desktop credentials and
+      // could leave the queue empty although the project had work items.
+      const response = await fetch(`${apiUrl()}?project_id=${encodeURIComponent(credential.value.projectId)}`, { headers: authHeaders() });
+      const payload = response.ok ? await response.json() : null;
+      if (!payload?.success || !Array.isArray(payload.data)) throw new Error('Task Hub did not return a project backlog.');
+      tasks.value = payload.data;
+      // Keep Epics in the local queue so the desktop can launch a supervised
+      // dependency-aware sequence. Completed items normally stay hidden, but
+      // a completed task with a regressed prerequisite remains visible for
+      // human reconsideration.
+      agentTasks.value = payload.data.filter((task: TaskItem) => task.status !== 'done' || needsDependencyReview(task, payload.data));
+      saveLocalCache();
+      isOnline.value = true;
+      connectionError.value = '';
+      return true;
     } catch (e) {
       console.warn('Cannot load agent tasks:', e);
-      agentTasks.value = tasks.value.filter(task => task.status !== 'done');
+      agentTasks.value = tasks.value.filter(task => task.status !== 'done' || needsDependencyReview(task, tasks.value));
+      isOnline.value = false;
+      connectionError.value = e instanceof Error ? e.message : 'Unable to load the Task Hub backlog.';
+      return false;
     }
   };
 
@@ -327,20 +356,46 @@ export function useTaskSync() {
     return newTask;
   };
 
-  // Toggle complete
-  const toggleTaskComplete = async (task: TaskItem) => {
-    const newStatus = task.status === 'done' ? 'todo' : 'done';
+  const updateTaskStatus = async (task: TaskItem, newStatus: TaskItem['status']) => {
+    const previousStatus = task.status;
+    const previousCompletedAt = task.completed_at;
     task.status = newStatus;
     task.completed_at = newStatus === 'done' ? new Date().toISOString() : null;
     saveLocalCache();
 
     try {
-      if (!credential.value) return;
-      await fetch(`${apiUrl()}/${task.id}`, {
+      if (!credential.value) throw new Error('Connect Task Hub before changing task status.');
+      const response = await fetch(`${apiUrl()}/${task.id}`, {
         method: 'PATCH',
         headers: authHeaders(),
         body: JSON.stringify({ status: newStatus }),
       });
+      const json = await response.json().catch(() => null);
+      if (!response.ok || json?.success === false) throw new Error(json?.message || `Task Hub returned HTTP ${response.status}.`);
+      const updated = json?.data as TaskItem | undefined;
+      if (updated) {
+        const replace = (items: TaskItem[]) => {
+          const index = items.findIndex(candidate => candidate.id === task.id);
+          if (index !== -1) items[index] = { ...items[index], ...updated };
+        };
+        replace(tasks.value);
+        replace(agentTasks.value);
+        saveLocalCache();
+        return updated;
+      }
+      return task;
+    } catch (e) {
+      task.status = previousStatus;
+      task.completed_at = previousCompletedAt;
+      saveLocalCache();
+      throw e;
+    }
+  };
+
+  // Toggle complete
+  const toggleTaskComplete = async (task: TaskItem) => {
+    try {
+      await updateTaskStatus(task, task.status === 'done' ? 'todo' : 'done');
     } catch (e) {
       console.warn('Failed to sync status update:', e);
     }
@@ -383,6 +438,7 @@ export function useTaskSync() {
     fetchProjects,
     fetchAgentTasks,
     createTask,
+    updateTaskStatus,
     toggleTaskComplete,
     incrementPomodoro,
   };

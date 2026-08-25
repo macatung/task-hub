@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
 use App\Services\GithubProjectIntegrationService;
 use App\Services\WorkspaceContext;
+use App\Services\WorkspaceProjectAccess;
 
 class ApiProjectController extends Controller
 {
@@ -153,13 +154,15 @@ class ApiProjectController extends Controller
         ]);
     }
 
-    public function githubStatus(Project $project, GithubProjectIntegrationService $integration)
+    public function githubStatus(Request $request, Project $project, GithubProjectIntegrationService $integration, WorkspaceProjectAccess $access)
     {
+        $access->authorize($request, $project);
         return response()->json(['success' => true, 'data' => $integration->status($project)]);
     }
 
-    public function connectGithub(Request $request, Project $project, GithubProjectIntegrationService $integration)
+    public function connectGithub(Request $request, Project $project, GithubProjectIntegrationService $integration, WorkspaceProjectAccess $access)
     {
+        $access->authorize($request, $project, ['owner', 'admin']);
         if ($project->user_id && $project->user_id !== $request->user()->id) {
             return response()->json(['success' => false, 'message' => 'This project belongs to another GitHub account.'], 403);
         }
@@ -181,9 +184,10 @@ class ApiProjectController extends Controller
         return response()->json(['success' => true, 'message' => 'Project integration settings saved.', 'data' => $integration->status($project)]);
     }
 
-    public function syncGithub(Project $project, GithubProjectIntegrationService $integration)
+    public function syncGithub(Request $request, Project $project, GithubProjectIntegrationService $integration, WorkspaceProjectAccess $access)
     {
-        if ($project->user_id && $project->user_id !== request()->user()->id) {
+        $access->authorize($request, $project, ['owner', 'admin', 'developer']);
+        if ($project->user_id && $project->user_id !== $request->user()->id) {
             return response()->json(['success' => false, 'message' => 'You do not have permission to sync this project.'], 403);
         }
         try {
@@ -194,8 +198,9 @@ class ApiProjectController extends Controller
         }
     }
 
-    public function getMcpInfo(Project $project, GithubProjectIntegrationService $integration)
+    public function getMcpInfo(Request $request, Project $project, GithubProjectIntegrationService $integration, WorkspaceProjectAccess $access)
     {
+        $access->authorize($request, $project, ['owner', 'admin']);
         $hasToken = !empty($project->task_hub_mcp_token);
         $token = $hasToken ? $integration->secret($project->task_hub_mcp_token) : null;
         $maskedToken = $token ? (substr($token, 0, 8) . '...' . substr($token, -6)) : null;
@@ -217,6 +222,7 @@ class ApiProjectController extends Controller
                                 'serverUrl' => $mcpUrl,
                                 'headers' => [
                                     'Authorization' => 'Bearer ' . ($token ?: 'YOUR_TASK_HUB_MCP_TOKEN'),
+                                    'X-Task-Hub-Project' => (string) $project->id,
                                 ],
                             ],
                         ],
@@ -227,6 +233,7 @@ class ApiProjectController extends Controller
                                 'url' => $mcpUrl,
                                 'headers' => [
                                     'Authorization' => 'Bearer ' . ($token ?: 'YOUR_TASK_HUB_MCP_TOKEN'),
+                                    'X-Task-Hub-Project' => (string) $project->id,
                                 ],
                             ],
                         ],
@@ -237,6 +244,7 @@ class ApiProjectController extends Controller
                                 'url' => $mcpUrl,
                                 'headers' => [
                                     'Authorization' => 'Bearer ' . ($token ?: 'YOUR_TASK_HUB_MCP_TOKEN'),
+                                    'X-Task-Hub-Project' => (string) $project->id,
                                 ],
                             ],
                         ],
@@ -246,17 +254,19 @@ class ApiProjectController extends Controller
         ]);
     }
 
-    public function generateMcpToken(Project $project, GithubProjectIntegrationService $integration)
+    public function generateMcpToken(Request $request, Project $project, GithubProjectIntegrationService $integration, WorkspaceProjectAccess $access)
     {
+        $access->authorize($request, $project, ['owner', 'admin']);
         $token = 'th_mcp_' . Str::random(48);
         $project->task_hub_mcp_token = Crypt::encryptString($token);
         $project->save();
 
-        return $this->getMcpInfo($project, $integration);
+        return $this->getMcpInfo($request, $project, $integration, $access);
     }
 
-    public function saveMcpToken(Request $request, Project $project, GithubProjectIntegrationService $integration)
+    public function saveMcpToken(Request $request, Project $project, GithubProjectIntegrationService $integration, WorkspaceProjectAccess $access)
     {
+        $access->authorize($request, $project, ['owner', 'admin']);
         $validated = $request->validate([
             'token' => 'nullable|string|max:500',
             'clear' => 'nullable|boolean',
@@ -269,6 +279,6 @@ class ApiProjectController extends Controller
         }
         $project->save();
 
-        return $this->getMcpInfo($project, $integration);
+        return $this->getMcpInfo($request, $project, $integration, $access);
     }
 }
