@@ -186,7 +186,7 @@ const handoff = async (payload: any) => {
 const autoHandoffPayload = () => selectedTask.value
   ? buildAutoHandoffPayload({ output: output.value.slice(runOutputStart.value), taskTitle: selectedTask.value.title, exitCode: runExitCode.value })
   : null;
-const tryAutoSubmitHandoff = () => { if (!autoSubmitHandoff.value || runIntent.value !== 'task' || runStatus.value !== 'completed' || autoHandoffSubmitting.value || phase.value === 'Submitted for Hub review') return false; const payload = autoHandoffPayload(); if (!payload) return false; autoHandoffSubmitting.value = true; phase.value = 'Auto-submitting verified handoff'; void handoff(payload); return true; };
+const tryAutoSubmitHandoff = () => { if (!autoSubmitHandoff.value || runIntent.value !== 'task' || runStatus.value !== 'completed' || autoHandoffSubmitting.value || phase.value === 'Submitted for Hub review') return false; const payload = autoHandoffPayload(); if (!payload) return false; autoHandoffSubmitting.value = true; phase.value = 'Auto-submitting handoff'; void handoff(payload); return true; };
 const openTool = (mode: Exclude<ToolMode, null>) => {
   toolMode.value = mode;
   toolMessage.value = '';
