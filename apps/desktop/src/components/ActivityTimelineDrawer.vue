@@ -14,6 +14,7 @@ export interface TimelineEvent {
     role?: string;
     details?: string;
   };
+  link?: string;
 }
 
 const props = defineProps<{
@@ -273,6 +274,9 @@ const copyTimelineSummary = async () => {
             <p class="text-xs text-zinc-300 whitespace-pre-wrap break-words leading-relaxed">
               {{ event.detail }}
             </p>
+            <a v-if="event.link" :href="event.link" target="_blank" rel="noreferrer" class="mt-2 inline-flex text-xs font-semibold text-sky-300 hover:text-sky-200 underline underline-offset-2">
+              Open handoff in Hub ↗
+            </a>
           </div>
         </div>
       </div>

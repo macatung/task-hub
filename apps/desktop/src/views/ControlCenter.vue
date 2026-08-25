@@ -287,7 +287,7 @@ const handoff = async (payload: any) => {
     const confirmedRunId = Number(result?.data?.id || runId.value || 0);
     handoffReviewUrl.value = `${hubUrl.value.replace(/\/$/, '')}/tasks?task_id=${encodeURIComponent(String(selectedTask.value.id))}${confirmedRunId ? `&run_id=${confirmedRunId}` : ''}`;
     phase.value = 'Submitted for Hub review';
-    finishOperation('handoff', 'success', 'Bàn giao thành công!', 'Task đã chuyển sang chế độ chờ duyệt trên Hub. Mở link để review và approve/reject.');
+    finishOperation('handoff', 'success', 'Bàn giao thành công!', 'Task đã chuyển sang chế độ chờ duyệt trên Hub. Mở link để review và approve/reject.', handoffReviewUrl.value);
     await refresh();
   } catch (e: any) {
     error.value = e.message || 'Handoff submission failed.';

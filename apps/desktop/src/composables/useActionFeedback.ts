@@ -10,6 +10,7 @@ export interface ActionFeedbackItem {
   actor?: string;
   timestamp: string;
   persistent?: boolean;
+  link?: string;
 }
 
 export interface ActivityLogEntry {
@@ -24,6 +25,7 @@ export interface ActivityLogEntry {
     role?: string;
     details?: string;
   };
+  link?: string;
 }
 
 const activeFeedbacks = reactive<ActionFeedbackItem[]>([]);
@@ -39,6 +41,7 @@ export function useActionFeedback() {
     durationMs?: number;
     persistent?: boolean;
     sound?: boolean;
+    link?: string;
   }): string => {
     const id = opts.id || `feedback-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const type = opts.type || 'info';
@@ -61,6 +64,7 @@ export function useActionFeedback() {
       actor: 'User',
       timestamp,
       persistent: opts.persistent ?? (type === 'loading'),
+      link: opts.link,
     };
 
     if (existingIndex >= 0) {
@@ -85,6 +89,7 @@ export function useActionFeedback() {
         name: 'Developer (Desktop User)',
         role: 'Local Operator',
       },
+      link: opts.link,
     });
 
     // Auto dismiss non-persistent feedbacks
@@ -126,7 +131,8 @@ export function useActionFeedback() {
     id: string,
     outcome: 'success' | 'warning' | 'error' | 'info',
     titleOrMessage: string,
-    detailMessage?: string
+    detailMessage?: string,
+    link?: string
   ): void => {
     const title = detailMessage ? titleOrMessage : (outcome === 'success' ? '✓ Đã hoàn tất' : 'Thông báo');
     const message = detailMessage || titleOrMessage;
@@ -138,6 +144,7 @@ export function useActionFeedback() {
       message,
       persistent: false,
       durationMs: 3500,
+      link,
     });
   };
 
