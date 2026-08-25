@@ -86,7 +86,7 @@ function executionPolicyArgs(provider: AgentProvider, policy: AgentExecutionPoli
 // "unexpected argument" failure when starting a run.
 function codexApprovalArgs(policy: AgentExecutionPolicy): string[] {
   if (policy === 'full_access') return [];
-  return ['--ask-for-approval', policy === 'restricted' ? 'untrusted' : 'on-request'];
+  return ['--ask-for-approval', 'on-request'];
 }
 
 type CodexDiagnostic = {
@@ -419,8 +419,53 @@ async function checkLocalRouter(includeModels = false) {
     return { ok: false, endpoint: LOCAL_ROUTER_ENDPOINT, models: [], error: error?.message || '9Router is not available on 127.0.0.1:20128.' };
   }
 }
+function getCandidateBinDirs(): string[] {
+  if (process.platform !== 'win32') {
+    return ['/usr/local/bin', '/usr/bin', '/bin', '/opt/homebrew/bin', '/usr/local/git/bin'];
+  }
+  const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+  const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+  const userProfile = process.env.USERPROFILE || os.homedir();
+  const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
+  const programFilesX86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+  const programData = process.env.ProgramData || 'C:\\ProgramData';
+
+  return [
+    path.join(appData, 'npm'),
+    path.join(localAppData, 'agy', 'bin'),
+    path.join(localAppData, 'Programs', 'Antigravity', 'bin'),
+    path.join(localAppData, 'Programs', 'Git', 'cmd'),
+    path.join(localAppData, 'Programs', 'Git', 'bin'),
+    path.join(localAppData, 'pnpm'),
+    path.join(localAppData, 'Microsoft', 'WinGet', 'Links'),
+    path.join(localAppData, 'Microsoft', 'WindowsApps'),
+    path.join(userProfile, '.antigravity', 'antigravity', 'bin'),
+    path.join(userProfile, '.gemini', 'antigravity', 'bin'),
+    path.join(userProfile, '.codex', 'bin'),
+    path.join(userProfile, '.claude', 'bin'),
+    path.join(userProfile, 'scoop', 'shims'),
+    path.join(userProfile, 'scoop', 'apps', 'git', 'current', 'cmd'),
+    path.join('C:\\scoop', 'shims'),
+    path.join(programData, 'chocolatey', 'bin'),
+    path.join(programFiles, 'Git', 'cmd'),
+    path.join(programFiles, 'Git', 'bin'),
+    path.join(programFilesX86, 'Git', 'cmd'),
+    path.join(programFilesX86, 'Git', 'bin'),
+    path.join(programFiles, 'nodejs'),
+    path.join(programFilesX86, 'nodejs'),
+    path.join(programFiles, 'Antigravity'),
+    path.join(programFiles, 'ComposerSetup', 'bin'),
+    path.join(programData, 'ComposerSetup', 'bin'),
+    path.join(appData, 'Composer', 'vendor', 'bin'),
+  ].filter((value, index, values) => value && values.indexOf(value) === index);
+}
+
 function nativeAgentEnvironment() {
   const env = { ...process.env } as Record<string, string>;
+  // The Start-menu Electron process frequently misses user-level npm and AGY
+  // directories even though PowerShell can resolve the same CLIs.
+  const runtimeBins = getCandidateBinDirs();
+  env.PATH = [...runtimeBins, env.PATH || ''].join(path.delimiter);
   const config = loadLocalRouterConfig();
   for (const key of ['OPENAI_BASE_URL', 'ANTHROPIC_BASE_URL']) {
     if (env[key]?.includes('127.0.0.1:20128')) delete env[key];
@@ -452,17 +497,215 @@ function resolveCli(command: string) {
   // Desktop apps launched from the Start menu do not always inherit the same
   // PATH as a developer PowerShell session. AGY is installed per-user in this
   // location, so resolve it explicitly before falling back to `where`.
-  if (command === 'agy' && process.platform === 'win32') {
+  if (process.platform === 'win32') {
     const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
-    const bundledAgy = path.join(localAppData, 'agy', 'bin', 'agy.exe');
-    if (fs.existsSync(bundledAgy)) return bundledAgy;
+    const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+    const userProfile = process.env.USERPROFILE || os.homedir();
+    const programFiles = process.env.ProgramFiles || 'C:\\Program Files';
+    const programFilesX86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+    const programData = process.env.ProgramData || 'C:\\ProgramData';
+
+    const explicit = process.env[`TASK_HUB_${command.toUpperCase()}_PATH`] ||
+      process.env[`${command.toUpperCase()}_PATH`] ||
+      (command === 'agy' ? process.env.ANTIGRAVITY_PATH : undefined);
+
+    const candidates = [
+      explicit,
+      command === 'agy' ? path.join(localAppData, 'agy', 'bin', 'agy.exe') : undefined,
+      command === 'agy' ? path.join(localAppData, 'agy', 'bin', 'agy.cmd') : undefined,
+      command === 'agy' ? path.join(localAppData, 'Programs', 'Antigravity', 'bin', 'agy.exe') : undefined,
+      command === 'agy' ? path.join(userProfile, '.antigravity', 'antigravity', 'bin', 'agy.exe') : undefined,
+      command === 'agy' ? path.join(userProfile, '.gemini', 'antigravity', 'bin', 'agy.exe') : undefined,
+      command === 'agy' ? path.join(programFiles, 'Antigravity', 'agy.exe') : undefined,
+      command === 'agy' ? path.join(programFiles, 'Antigravity', 'Antigravity.exe') : undefined,
+      command === 'agy' ? path.join(localAppData, 'Microsoft', 'WinGet', 'Links', 'agy.exe') : undefined,
+      command === 'agy' ? path.join(userProfile, 'scoop', 'shims', 'agy.exe') : undefined,
+
+      // The npm launcher is a .cmd file. Electron's spawn() rejects that
+      // launcher with EINVAL on some Windows builds, so use Codex's native
+      // optional-dependency binary when it is available.
+      command === 'codex' ? path.join(appData, 'npm', 'node_modules', '@openai', 'codex', 'node_modules', '@openai', 'codex-win32-x64', 'vendor', 'x86_64-pc-windows-msvc', 'bin', 'codex.exe') : undefined,
+      command === 'codex' ? path.join(appData, 'npm', 'codex.cmd') : undefined,
+      command === 'codex' ? path.join(appData, 'npm', 'codex.ps1') : undefined,
+      command === 'codex' ? path.join(localAppData, 'pnpm', 'codex.cmd') : undefined,
+      command === 'codex' ? path.join(localAppData, 'pnpm', 'codex.exe') : undefined,
+      command === 'codex' ? path.join(userProfile, '.codex', 'bin', 'codex.exe') : undefined,
+      command === 'codex' ? path.join(userProfile, 'scoop', 'shims', 'codex.exe') : undefined,
+      command === 'codex' ? path.join(userProfile, 'scoop', 'shims', 'codex.cmd') : undefined,
+      command === 'codex' ? path.join(programData, 'chocolatey', 'bin', 'codex.exe') : undefined,
+
+      command === 'claude' ? path.join(appData, 'npm', 'claude.cmd') : undefined,
+      command === 'claude' ? path.join(appData, 'npm', 'claude.ps1') : undefined,
+      command === 'claude' ? path.join(localAppData, 'pnpm', 'claude.cmd') : undefined,
+      command === 'claude' ? path.join(localAppData, 'pnpm', 'claude.exe') : undefined,
+      command === 'claude' ? path.join(userProfile, '.claude', 'bin', 'claude.exe') : undefined,
+      command === 'claude' ? path.join(userProfile, 'scoop', 'shims', 'claude.exe') : undefined,
+      command === 'claude' ? path.join(userProfile, 'scoop', 'shims', 'claude.cmd') : undefined,
+      command === 'claude' ? path.join(programData, 'chocolatey', 'bin', 'claude.exe') : undefined,
+
+      command === 'git' ? path.join(programFiles, 'Git', 'cmd', 'git.exe') : undefined,
+      command === 'git' ? path.join(programFiles, 'Git', 'bin', 'git.exe') : undefined,
+      command === 'git' ? path.join(programFilesX86, 'Git', 'cmd', 'git.exe') : undefined,
+      command === 'git' ? path.join(programFilesX86, 'Git', 'bin', 'git.exe') : undefined,
+      command === 'git' ? path.join(localAppData, 'Programs', 'Git', 'cmd', 'git.exe') : undefined,
+      command === 'git' ? path.join(localAppData, 'Programs', 'Git', 'bin', 'git.exe') : undefined,
+      command === 'git' ? path.join(userProfile, 'scoop', 'shims', 'git.exe') : undefined,
+      command === 'git' ? path.join(userProfile, 'scoop', 'apps', 'git', 'current', 'cmd', 'git.exe') : undefined,
+      command === 'git' ? path.join('C:\\scoop', 'shims', 'git.exe') : undefined,
+      command === 'git' ? path.join(programData, 'chocolatey', 'bin', 'git.exe') : undefined,
+
+      command === 'npm' ? path.join(appData, 'npm', 'npm.cmd') : undefined,
+      command === 'npm' ? path.join(process.env.ProgramFiles || 'C:\\Program Files', 'nodejs', 'npm.cmd') : undefined,
+      command === 'npm' ? path.join(programFilesX86, 'nodejs', 'npm.cmd') : undefined,
+      command === 'npm' ? path.join(userProfile, 'scoop', 'shims', 'npm.cmd') : undefined,
+      command === 'npm' ? path.join(userProfile, 'scoop', 'shims', 'npm.exe') : undefined,
+      command === 'npm' ? path.join(programData, 'chocolatey', 'bin', 'npm.cmd') : undefined,
+
+      command === 'pnpm' ? path.join(localAppData, 'pnpm', 'pnpm.cmd') : undefined,
+      command === 'pnpm' ? path.join(localAppData, 'pnpm', 'pnpm.exe') : undefined,
+      command === 'pnpm' ? path.join(appData, 'npm', 'pnpm.cmd') : undefined,
+      command === 'pnpm' ? path.join(programFiles, 'nodejs', 'pnpm.cmd') : undefined,
+      command === 'pnpm' ? path.join(userProfile, 'scoop', 'shims', 'pnpm.exe') : undefined,
+      command === 'pnpm' ? path.join(userProfile, 'scoop', 'shims', 'pnpm.cmd') : undefined,
+      command === 'pnpm' ? path.join(programData, 'chocolatey', 'bin', 'pnpm.exe') : undefined,
+
+      command === 'yarn' ? path.join(appData, 'npm', 'yarn.cmd') : undefined,
+      command === 'yarn' ? path.join(localAppData, 'pnpm', 'yarn.cmd') : undefined,
+      command === 'yarn' ? path.join(programFiles, 'nodejs', 'yarn.cmd') : undefined,
+      command === 'yarn' ? path.join(programFilesX86, 'Yarn', 'bin', 'yarn.cmd') : undefined,
+      command === 'yarn' ? path.join(userProfile, 'scoop', 'shims', 'yarn.cmd') : undefined,
+      command === 'yarn' ? path.join(userProfile, 'scoop', 'shims', 'yarn.exe') : undefined,
+      command === 'yarn' ? path.join(programData, 'chocolatey', 'bin', 'yarn.cmd') : undefined,
+
+      command === 'composer' ? path.join(programData, 'ComposerSetup', 'bin', 'composer.bat') : undefined,
+      command === 'composer' ? path.join(programData, 'ComposerSetup', 'bin', 'composer.phar') : undefined,
+      command === 'composer' ? path.join(appData, 'Composer', 'vendor', 'bin', 'composer.bat') : undefined,
+      command === 'composer' ? path.join(programFiles, 'ComposerSetup', 'bin', 'composer.bat') : undefined,
+      command === 'composer' ? path.join(userProfile, 'scoop', 'shims', 'composer.bat') : undefined,
+      command === 'composer' ? path.join(userProfile, 'scoop', 'shims', 'composer.exe') : undefined,
+      command === 'composer' ? path.join(programData, 'chocolatey', 'bin', 'composer.bat') : undefined,
+    ];
+
+    for (const binDir of getCandidateBinDirs()) {
+      for (const ext of ['.exe', '.cmd', '.bat', '']) {
+        candidates.push(path.join(binDir, `${command}${ext}`));
+      }
+    }
+
+    const discovered = candidates.filter(Boolean).find((candidate) => {
+      try {
+        return fs.existsSync(candidate as string) && fs.statSync(candidate as string).isFile();
+      } catch {
+        return false;
+      }
+    });
+    if (discovered) return discovered as string;
   }
   try {
-    const result = execFileSync(process.platform === 'win32' ? 'where.exe' : 'which', [command], { encoding: 'utf8' });
-    return result.split(/\r?\n/).map((value) => value.trim()).find(Boolean) || command;
+    const result = execFileSync(process.platform === 'win32' ? 'where.exe' : 'which', [command], { encoding: 'utf8', env: nativeAgentEnvironment() });
+    const candidates = result.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+    // Windows Store's bundled Codex binary can appear in shell discovery but
+    // is not spawnable by a separate Electron app (Access is denied). Use the
+    // independently installed npm CLI instead, which is what bootstrap owns.
+    return candidates.find((candidate) => !(command === 'codex' && /\\WindowsApps\\OpenAI\.Codex_/i.test(candidate))) || null;
   } catch {
     return null;
   }
+}
+
+type AgentRuntime = {
+  provider: AgentProvider;
+  label: string;
+  command: string;
+  executable: string | null;
+  status: 'ready' | 'missing' | 'installing' | 'failed';
+  message: string;
+};
+
+let runtimeInstallInFlight: Promise<AgentRuntime[]> | null = null;
+
+async function agentRuntimeStatus(): Promise<AgentRuntime[]> {
+  const definitions: Array<{ provider: AgentProvider; label: string; command: string }> = [
+    { provider: 'codex', label: 'Codex CLI', command: 'codex' },
+    { provider: 'claude_code', label: 'Claude Code CLI', command: 'claude' },
+    { provider: 'antigravity', label: 'Antigravity CLI', command: 'agy' },
+  ];
+  const results: AgentRuntime[] = [];
+  for (const { provider, label, command } of definitions) {
+    const executable = resolveCli(command);
+    if (!executable) {
+      results.push({ provider, label, command, executable: null, status: 'missing', message: `${label} is not installed.` });
+      continue;
+    }
+    const health = await verifyCliExecutable(executable, 2500);
+    if (health.ok) {
+      results.push({ provider, label, command, executable, status: 'ready', message: `Ready: ${executable} (${health.message})` });
+    } else {
+      results.push({ provider, label, command, executable, status: 'missing', message: `Binary error at ${executable}: ${health.message}` });
+    }
+  }
+  return results;
+}
+
+function runInstaller(command: string, args: string[]): Promise<{ ok: boolean; message: string }> {
+  return new Promise((resolve) => {
+    const executable = resolveCli(command) || command;
+    let output = '';
+    let settled = false;
+    const finish = (ok: boolean, message: string) => { if (!settled) { settled = true; resolve({ ok, message }); } };
+    try {
+      const child = spawn(executable, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(executable), env: nativeAgentEnvironment() });
+      const timeout = setTimeout(() => { child.kill(); finish(false, 'Installer timed out after 5 minutes.'); }, 300_000);
+      child.stdout?.on('data', chunk => { output += String(chunk); });
+      child.stderr?.on('data', chunk => { output += String(chunk); });
+      child.on('error', error => { clearTimeout(timeout); finish(false, error.message); });
+      child.on('close', code => { clearTimeout(timeout); finish(code === 0, code === 0 ? 'Installation completed.' : (output.trim().slice(-500) || `Installer exited with code ${code}.`)); });
+    } catch (error: any) { finish(false, error?.message || 'Unable to start installer.'); }
+  });
+}
+
+function verifyCliExecutable(executable: string, timeoutMs = 2500): Promise<{ ok: boolean; message: string }> {
+  return new Promise((resolve) => {
+    let output = '';
+    let settled = false;
+    const finish = (ok: boolean, message: string) => { if (!settled) { settled = true; resolve({ ok, message }); } };
+    try {
+      const child = spawn(executable, ['--version'], {
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        shell: process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(executable),
+        env: nativeAgentEnvironment(),
+      });
+      const timeout = setTimeout(() => {
+        try { child.kill(); } catch { /* ignore */ }
+        finish(false, `CLI version check timed out after ${timeoutMs}ms.`);
+      }, timeoutMs);
+      child.stdout?.on('data', chunk => { output += String(chunk); });
+      child.stderr?.on('data', chunk => { output += String(chunk); });
+      child.once('error', error => { clearTimeout(timeout); finish(false, error.message); });
+      child.once('close', code => {
+        clearTimeout(timeout);
+        finish(code === 0, code === 0 ? (output.trim().split(/\r?\n/)[0] || 'CLI version check passed.') : (output.trim().slice(-400) || `CLI exited with code ${code}.`));
+      });
+    } catch (error: any) { finish(false, error?.message || 'Unable to execute CLI version check.'); }
+  });
+}
+
+async function bootstrapAgentRuntimes(): Promise<AgentRuntime[]> {
+  if (runtimeInstallInFlight) return runtimeInstallInFlight;
+  runtimeInstallInFlight = (async () => {
+    const currentRuntimes = await agentRuntimeStatus();
+    for (const runtime of currentRuntimes) {
+      if (runtime.status === 'ready') continue;
+      const result = runtime.provider === 'antigravity'
+        ? await runInstaller('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', 'irm https://antigravity.google/cli/install.ps1 | iex'])
+        : await runInstaller('npm', ['install', '--global', '--include=optional', runtime.provider === 'codex' ? '@openai/codex' : '@anthropic-ai/claude-code']);
+      if (!result.ok) console.warn(`Could not install ${runtime.label}: ${result.message}`);
+    }
+    const finalRuntimes = await agentRuntimeStatus();
+    return finalRuntimes.map(runtime => runtime.status === 'missing' ? { ...runtime, status: 'failed', message: `${runtime.message} Run Fix environment to retry installation.` } : runtime);
+  })();
+  try { return await runtimeInstallInFlight; } finally { runtimeInstallInFlight = null; }
 }
 
 async function taskHubRequest(taskHubUrl: string, pathName: string, options: RequestInit = {}) {
@@ -517,7 +760,8 @@ function setUpdateState(next: { status: UpdateStatus; version?: string; percent?
 }
 
 function git(cwd: string, args: string[]): string {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', windowsHide: true }).trim();
+  const gitBin = resolveCli('git') || 'git';
+  return execFileSync(gitBin, args, { cwd, encoding: 'utf8', windowsHide: true, env: nativeAgentEnvironment() }).trim();
 }
 
 function safeIssueKey(value: string): string {
@@ -555,7 +799,8 @@ export type DiscoveredModel = {
 
 const BASE_PRESET_MODELS: Record<AgentProvider, DiscoveredModel[]> = {
   antigravity: [
-    { id: 'gemini-3.7-flash-high', name: 'Gemini 3.7 Flash (High)', badges: ['High', 'Fast'], description: 'Latest generation model, optimized for speed and agentic reasoning', source: 'preset' },
+    { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', badges: ['Flagship', 'Fast'], description: 'Latest generation model, optimized for speed and agentic reasoning', source: 'preset' },
+    { id: 'gemini-3.7-pro', name: 'Gemini 3.7 Pro', badges: ['High', 'Reasoning'], description: 'Deep reasoning and multimodal intelligence for complex architecture', source: 'preset' },
     { id: 'gemini-3.5-flash-medium', name: 'Gemini 3.5 Flash (Medium)', badges: ['Medium', 'Fast'], description: 'Fast response for standard coding tasks', source: 'preset' },
     { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', badges: ['Low'], description: 'Standard model for lightweight tasks', source: 'preset' },
     { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', badges: ['Thinking'], description: 'Extended reasoning and deep source code architecture analysis', source: 'preset' },
@@ -568,16 +813,18 @@ const BASE_PRESET_MODELS: Record<AgentProvider, DiscoveredModel[]> = {
     { id: 'default', name: 'IDE / CLI Default', badges: ['Default'], description: 'Default Antigravity configuration', source: 'preset' },
   ],
   claude_code: [
-    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', badges: ['High', 'Recommended'], description: 'Top optimization for coding, architecture & hybrid reasoning', source: 'preset' },
+    { id: 'claude-3-7-sonnet', name: 'Claude 3.7 Sonnet', badges: ['High', 'Recommended', 'Flagship'], description: 'Top optimization for coding, architecture & hybrid reasoning', source: 'preset' },
     { id: 'claude-3-7-sonnet-thinking', name: 'Claude 3.7 (Thinking)', badges: ['High', 'Thinking'], description: 'Enables extended thinking for complex refactoring', source: 'preset' },
+    { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', badges: ['Balanced', 'Fast'], description: 'Stable industry-standard coding model', source: 'preset' },
+    { id: 'claude-3-5-haiku', name: 'Claude 3.5 Haiku', badges: ['Super Fast'], description: 'Super fast speed for small tasks and light refactoring', source: 'preset' },
+    { id: 'claude-3-opus', name: 'Claude 3 Opus', badges: ['Deep Analysis'], description: 'Large system analysis & complex problems', source: 'preset' },
     { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', badges: ['Next-Gen', 'Thinking'], description: 'Next-gen Sonnet model optimized for agentic workflows', source: 'preset' },
     { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', badges: ['Deep Analysis', 'Thinking'], description: 'Large system analysis & complex logic structures', source: 'preset' },
-    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (v2)', badges: ['Balanced', 'Fast'], description: 'Stable industry-standard coding model', source: 'preset' },
-    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', badges: ['Super Fast'], description: 'Super fast speed for small tasks and light refactoring', source: 'preset' },
-    { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', badges: ['Deep Analysis'], description: 'Large system analysis & complex problems', source: 'preset' },
     { id: 'default', name: 'CLI Default', badges: ['Default'], description: 'Default Claude Code CLI configuration', source: 'preset' },
   ],
   codex: [
+    { id: 'gpt-5', name: 'GPT-5 (Flagship)', badges: ['High', 'Flagship'], description: 'Foundational flagship model of the GPT-5 generation', source: 'preset' },
+    { id: 'gpt-5-mini', name: 'GPT-5 mini', badges: ['Ultra Fast'], description: 'Compact, highly responsive model for fast edits and scripting', source: 'preset' },
     { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', badges: ['High', 'Flagship'], description: 'Flagship GPT-5.6 model for reasoning, research & agentic coding', source: 'preset' },
     { id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra', badges: ['Medium', 'Fast'], description: 'Balanced intelligence and speed for production workloads', source: 'preset' },
     { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', badges: ['Low', 'Ultra Fast'], description: 'Lightweight model optimized for speed and cost efficiency at scale', source: 'preset' },
@@ -585,11 +832,10 @@ const BASE_PRESET_MODELS: Record<AgentProvider, DiscoveredModel[]> = {
     { id: 'o3-pro', name: 'o3-pro', badges: ['High', 'Deep Reasoning'], description: 'Deep extended reasoning for challenging architecture & algorithmic problems', source: 'preset' },
     { id: 'o3', name: 'o3', badges: ['High', 'Reasoning'], description: 'Powerful multi-step reasoning model from the o-series', source: 'preset' },
     { id: 'o3-mini', name: 'o3-mini', badges: ['Fast Reasoning', 'High'], description: 'High-level logical reasoning with rapid response times', source: 'preset' },
-    { id: 'gpt-5', name: 'GPT-5 (Foundational)', badges: ['High', 'Foundational'], description: 'Foundational model of the GPT-5 generation', source: 'preset' },
+    { id: 'gpt-4.5-preview', name: 'GPT-4.5 Preview', badges: ['High Quality', 'Large Context'], description: 'Deep context comprehension and complex architecture understanding', source: 'preset' },
     { id: 'gpt-4.1', name: 'GPT-4.1', badges: ['Balanced', 'Fast'], description: 'High-performance version optimized for daily coding tasks', source: 'preset' },
     { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', badges: ['Ultra Fast'], description: 'Ultra-lightweight model with high execution speed', source: 'preset' },
     { id: 'o1', name: 'o1', badges: ['Deep Reasoning'], description: 'Step-by-step reasoning for complex problem solving', source: 'preset' },
-    { id: 'gpt-4.5-preview', name: 'GPT-4.5 Preview', badges: ['High Quality', 'Large Context'], description: 'Deep context comprehension and complex architecture understanding', source: 'preset' },
     { id: 'gpt-4o', name: 'GPT-4o', badges: ['Omni', 'Fast'], description: 'Balanced execution speed and output quality', source: 'preset' },
     { id: 'gpt-4o-mini', name: 'GPT-4o mini', badges: ['Ultra Fast'], description: 'Compact model with high execution speed', source: 'preset' },
     { id: 'gpt-oss-120b', name: 'GPT-OSS 120B (Medium)', badges: ['Open Weights', 'Medium'], description: '120B-parameter open-weights model', source: 'preset' },
@@ -805,8 +1051,12 @@ function resolveAntigravityModelId(requested?: string): string | undefined {
   // selections working even if model discovery cannot run temporarily.
   const legacyAliases: Record<string, string> = {
     'gemini-3.7-flash': 'gemini-3.7-flash-high',
+    'gemini-3.7-flash-high': 'gemini-3.7-flash-high',
+    'gemini-3.7-pro': 'gemini-3.7-pro',
     'gemini-3.6-flash': 'gemini-3.6-flash-medium',
     'gemini-3.5-flash': 'gemini-3.5-flash-medium',
+    'gemini-3.5-flash-medium': 'gemini-3.5-flash-medium',
+    'gemini-3.1-pro': 'gemini-3.1-pro',
   };
   // Do not wait for `agy models` for old selections: recent AGY builds may
   // fetch the inventory from the network before printing it.
@@ -817,7 +1067,8 @@ function resolveAntigravityModelId(requested?: string): string | undefined {
   const family = requested.replace(/-(?:high|medium|low)$/i, '');
   return models.find((model) => model.id === `${family}-high`)?.id
     || models.find((model) => model.id.startsWith(`${family}-`))?.id
-    || undefined;
+    || legacyAliases[requested]
+    || requested;
 }
 
 async function getAvailableModels(provider?: AgentProvider, options?: { forceRefresh?: boolean; taskHubUrl?: string }) {
@@ -865,7 +1116,7 @@ async function getAvailableModels(provider?: AgentProvider, options?: { forceRef
       cached.data[p].forEach((m) => {
         // Do not surface pre-AGY-2 generic IDs. They are kept only as an
         // execution-time compatibility alias above.
-        if (p === 'antigravity' && ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash'].includes(m.id)) return;
+        if (p === 'antigravity' && ['gemini-3.6-flash', 'gemini-3.5-flash'].includes(m.id)) return;
         const existing = map.get(m.id);
         map.set(m.id, {
           id: m.id,
@@ -1113,10 +1364,167 @@ type EnvironmentCheck = {
   fixHint?: string;
 };
 
+const ENV_TEMPLATE_CANDIDATES = [
+  '.env.example',
+  '.env.template',
+  '.env.defaults',
+  '.env.dist',
+  '.env.sample',
+  '.env.local.example',
+];
+
+function findEnvTemplate(rootPath: string): string | null {
+  for (const templateName of ENV_TEMPLATE_CANDIDATES) {
+    const candidatePath = path.join(rootPath, templateName);
+    if (fs.existsSync(candidatePath) && fs.statSync(candidatePath).isFile()) {
+      return candidatePath;
+    }
+  }
+  return null;
+}
+
+function generateDefaultEnvContent(): string {
+  return [
+    '# Task Companion Auto-Generated Environment Configuration',
+    'APP_ENV=local',
+    'APP_DEBUG=true',
+    'PORT=3000',
+    'NODE_ENV=development',
+    '',
+  ].join('\n');
+}
+
+function scanGitLocks(rootPath: string): string[] {
+  const locks: string[] = [];
+  try {
+    let gitDir = path.join(rootPath, '.git');
+    if (fs.existsSync(gitDir)) {
+      const stat = fs.statSync(gitDir);
+      if (stat.isFile()) {
+        const content = fs.readFileSync(gitDir, 'utf8').trim();
+        const match = content.match(/^gitdir:\s*(.+)$/i);
+        if (match && match[1]) {
+          gitDir = path.resolve(rootPath, match[1].trim());
+        }
+      }
+    }
+
+    if (!fs.existsSync(gitDir) || !fs.statSync(gitDir).isDirectory()) {
+      return locks;
+    }
+
+    const directLocks = ['index.lock', 'HEAD.lock', 'config.lock', 'packed-refs.lock', 'shallow.lock'];
+    for (const file of directLocks) {
+      const fullPath = path.join(gitDir, file);
+      if (fs.existsSync(fullPath)) locks.push(fullPath);
+    }
+
+    const refsDir = path.join(gitDir, 'refs');
+    if (fs.existsSync(refsDir)) {
+      const scanDir = (dir: string) => {
+        try {
+          const entries = fs.readdirSync(dir, { withFileTypes: true });
+          for (const entry of entries) {
+            const entryPath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+              scanDir(entryPath);
+            } else if (entry.name.endsWith('.lock')) {
+              locks.push(entryPath);
+            }
+          }
+        } catch { /* ignore */ }
+      };
+      scanDir(refsDir);
+    }
+
+    const worktreesDir = path.join(gitDir, 'worktrees');
+    if (fs.existsSync(worktreesDir) && fs.statSync(worktreesDir).isDirectory()) {
+      try {
+        const wtEntries = fs.readdirSync(worktreesDir, { withFileTypes: true });
+        for (const wt of wtEntries) {
+          if (wt.isDirectory()) {
+            const wtPath = path.join(worktreesDir, wt.name);
+            const wtLockFiles = ['.git.lock', 'index.lock', 'HEAD.lock', 'locked', 'gitdir.lock'];
+            for (const lf of wtLockFiles) {
+              const fullPath = path.join(wtPath, lf);
+              if (fs.existsSync(fullPath)) locks.push(fullPath);
+            }
+          }
+        }
+      } catch { /* ignore */ }
+    }
+  } catch {
+    // ignore
+  }
+  return locks;
+}
+
+function pruneGitLocks(rootPath: string): { scanned: string[]; removed: string[]; errors: string[] } {
+  const scanned = scanGitLocks(rootPath);
+  const removed: string[] = [];
+  const errors: string[] = [];
+
+  for (const lockPath of scanned) {
+    try {
+      if (process.platform === 'win32') {
+        try { fs.chmodSync(lockPath, 0o666); } catch { /* ignore */ }
+      }
+      fs.rmSync(lockPath, { force: true });
+      removed.push(lockPath);
+    } catch (err: any) {
+      errors.push(`${lockPath}: ${err?.message || err}`);
+    }
+  }
+
+  try {
+    git(rootPath, ['worktree', 'prune', '--verbose']);
+  } catch { /* ignore */ }
+
+  return { scanned, removed, errors };
+}
+
+function probeDirectoryWritability(dirPath: string): { writable: boolean; error?: string } {
+  const probeFile = path.join(dirPath, `.task-hub-write-test-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+  try {
+    fs.writeFileSync(probeFile, 'ok', 'utf8');
+    fs.readFileSync(probeFile, 'utf8');
+    fs.unlinkSync(probeFile);
+    return { writable: true };
+  } catch (err: any) {
+    try {
+      if (fs.existsSync(probeFile)) fs.unlinkSync(probeFile);
+    } catch { /* ignore */ }
+    return { writable: false, error: err?.message || String(err) };
+  }
+}
+
+function fixDirectoryPermissions(dirPath: string): { fixed: boolean; message: string } {
+  try {
+    fs.chmodSync(dirPath, 0o777);
+  } catch { /* ignore */ }
+
+  if (process.platform === 'win32') {
+    try {
+      execFileSync('attrib', ['-r', `${dirPath}\\*`, '/s', '/d'], {
+        windowsHide: true,
+        stdio: 'ignore',
+        timeout: 10000,
+      });
+    } catch { /* ignore */ }
+  }
+
+  const retest = probeDirectoryWritability(dirPath);
+  if (retest.writable) {
+    return { fixed: true, message: 'Restored write permissions and stripped read-only attributes.' };
+  }
+  return { fixed: false, message: retest.error || 'Directory remains unwritable after permission reset.' };
+}
+
 async function preflightAgent(provider: AgentProvider, cwd: string) {
   const checks: EnvironmentCheck[] = [];
   const cli = provider === 'antigravity' ? (resolveCli('agy') || findAntigravityExecutable()) : resolveCli(AGENT_COMMANDS[provider].command);
-  checks.push({ id: 'provider', status: cli ? 'passed' : 'failed', message: cli ? `${provider} is ready.` : `${provider} not found. Please install the CLI or configure executable path.`, fixable: false, fixHint: 'Install or authenticate with provider CLI, then retry.' });
+  const cliCheck = cli ? await verifyCliExecutable(cli, 2500) : { ok: false, message: `${provider} CLI not found. Use Fix environment to install it, then authenticate and retry.` };
+  checks.push({ id: 'provider', status: cliCheck.ok ? 'passed' : 'failed', message: cliCheck.ok ? `${provider} is ready · ${cliCheck.message}` : `${provider} CLI is not runnable: ${cliCheck.message}`, fixable: !cliCheck.ok, fixHint: 'Fix environment installs the official provider CLI and verifies it can start.' });
   const routerConfig = loadLocalRouterConfig();
   if (provider === 'antigravity') {
     checks.push({ id: 'router', status: 'passed', message: 'Antigravity is native-only; 9Router, MITM and hosts changes are not used.' });
@@ -1129,24 +1537,71 @@ async function preflightAgent(provider: AgentProvider, cwd: string) {
     const root = git(cwd, ['rev-parse', '--show-toplevel']);
     const dirty = git(cwd, ['status', '--porcelain']);
     checks.push({ id: 'repository', status: 'passed', message: `Git repository: ${root}` });
+
+    const permProbe = probeDirectoryWritability(root);
+    if (!permProbe.writable) {
+      checks.push({
+        id: 'directory_permissions',
+        status: 'failed',
+        message: `Workspace directory is not writable (${permProbe.error || 'Access denied'}).`,
+        fixable: true,
+        fixHint: 'Auto-fix will reset read-only attributes and grant write permissions.',
+      });
+    } else {
+      checks.push({ id: 'directory_permissions', status: 'passed', message: 'Workspace directory write permissions verified.' });
+    }
+
+    const staleLocks = scanGitLocks(root);
+    if (staleLocks.length > 0) {
+      checks.push({
+        id: 'git_locks',
+        status: 'warning',
+        message: `Found ${staleLocks.length} stale Git lock file(s): ${staleLocks.map((p) => path.basename(p)).join(', ')}.`,
+        fixable: true,
+        fixHint: 'Auto-fix will safely remove stale Git lock files and prune orphaned worktrees.',
+      });
+    } else {
+      checks.push({ id: 'git_locks', status: 'passed', message: 'No stale Git lockfiles detected.' });
+    }
+
     let remote = ''; let upstream = ''; let divergence = '';
     try { remote = git(root, ['remote', 'get-url', 'origin']); } catch { /* Local-only repository. */ }
     try { upstream = git(root, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']); } catch { /* No upstream configured. */ }
     if (upstream) { try { divergence = git(root, ['rev-list', '--left-right', '--count', `${upstream}...HEAD`]); } catch { /* Ignore unavailable comparison. */ } }
     checks.push({ id: 'remote', status: remote ? (upstream && divergence !== '0\t0' ? 'warning' : 'passed') : 'warning', message: remote ? `origin: ${remote}${upstream ? ` · ${upstream}${divergence ? ` · behind/ahead ${divergence}` : ''}` : ' · no upstream tracking branch'}` : 'Remote origin not configured; local repository is not synchronized with Task Hub/GitHub.' });
     checks.push({ id: 'working_tree', status: dirty ? 'warning' : 'passed', message: dirty ? 'Workspace has uncommitted changes; isolated worktree will branch off the current base commit.' : 'Workspace clean.' });
-    const envExample = path.join(root, '.env.example');
+
     const envFile = path.join(root, '.env');
-    if (fs.existsSync(envExample) && !fs.existsSync(envFile)) {
-      checks.push({ id: 'environment_file', status: 'warning', message: 'Missing .env file; can safely generate from .env.example.', fixable: true, fixHint: 'Auto-fix will copy .env.example to .env.' });
+    if (!fs.existsSync(envFile)) {
+      const template = findEnvTemplate(root);
+      if (template) {
+        checks.push({
+          id: 'environment_file',
+          status: 'warning',
+          message: `Missing .env file; can safely generate from ${path.basename(template)}.`,
+          fixable: true,
+          fixHint: `Auto-fix will copy ${path.basename(template)} to .env.`,
+        });
+      } else {
+        checks.push({
+          id: 'environment_file',
+          status: 'warning',
+          message: 'Missing .env file; no template found.',
+          fixable: true,
+          fixHint: 'Auto-fix will generate a standard default .env configuration file.',
+        });
+      }
+    } else {
+      checks.push({ id: 'environment_file', status: 'passed', message: '.env configuration file present.' });
     }
+
     if (fs.existsSync(path.join(root, 'package-lock.json')) && !fs.existsSync(path.join(root, 'node_modules'))) {
       checks.push({ id: 'node_dependencies', status: 'warning', message: 'Missing Node dependencies (node_modules).', fixable: true, fixHint: 'Auto-fix will run npm ci in workspace.' });
     }
     if (fs.existsSync(path.join(root, 'composer.lock')) && !fs.existsSync(path.join(root, 'vendor'))) {
       checks.push({ id: 'php_dependencies', status: 'warning', message: 'Missing PHP dependencies (vendor).', fixable: true, fixHint: 'Auto-fix will run composer install.' });
     }
-    return { ok: Boolean(cli) && !checks.some((check) => check.status === 'failed'), provider, capabilities: PROVIDER_CAPABILITIES[provider], repository: root, baseCommit: git(root, ['rev-parse', 'HEAD']), remote, upstream, divergence, checks };
+    return { ok: cliCheck.ok && !checks.some((check) => check.status === 'failed'), provider, capabilities: PROVIDER_CAPABILITIES[provider], repository: root, baseCommit: git(root, ['rev-parse', 'HEAD']), remote, upstream, divergence, checks };
   } catch {
     checks.push({ id: 'repository', status: 'failed', message: 'Workspace must be a Git repository.' });
     return { ok: false, provider, capabilities: PROVIDER_CAPABILITIES[provider], checks };
@@ -1159,19 +1614,60 @@ function quickSetupEnvironment(cwd: string, installDependencies = true) {
   const run = (id: string, command: string, args: string[], message: string) => {
     const executable = resolveCli(command);
     if (!executable) { checks.push({ id, status: 'warning', message: `${command} is not installed; skipped.` }); return; }
-    try { execFileSync(executable, args, { cwd, encoding: 'utf8', windowsHide: true, timeout: 300000, stdio: 'ignore' }); checks.push({ id, status: 'passed', message }); }
+    try {
+      // Node does not consistently execute .cmd shims directly on Windows.
+      // npm is commonly resolved as npm.cmd, so use the shell only for those
+      // trusted, locally-resolved command shims.
+      const isBatchShim = process.platform === 'win32' && /\.(cmd|bat)$/i.test(executable);
+      execFileSync(executable, args, { cwd, encoding: 'utf8', windowsHide: true, timeout: 300000, stdio: 'ignore', shell: isBatchShim, env: nativeAgentEnvironment() });
+      checks.push({ id, status: 'passed', message });
+    }
     catch { checks.push({ id, status: 'failed', message: `${command} failed to execute.` }); }
   };
   const repository = git(cwd, ['rev-parse', '--show-toplevel']);
   checks.push({ id: 'repository', status: 'passed', message: `Git repository: ${repository}` });
-  const envExample = path.join(repository, '.env.example');
+
+  // Permissions probe and healing
+  const permProbe = probeDirectoryWritability(repository);
+  if (!permProbe.writable) {
+    const permFix = fixDirectoryPermissions(repository);
+    checks.push({ id: 'directory_permissions', status: permFix.fixed ? 'passed' : 'failed', message: permFix.message });
+  } else {
+    checks.push({ id: 'directory_permissions', status: 'passed', message: 'Workspace directory write permissions verified.' });
+  }
+
+  // Stale Git locks pruning
+  const lockPrune = pruneGitLocks(repository);
+  if (lockPrune.removed.length > 0) {
+    checks.push({ id: 'git_locks', status: 'passed', message: `Cleaned up ${lockPrune.removed.length} stale Git lock file(s): ${lockPrune.removed.map((p) => path.basename(p)).join(', ')}.` });
+  } else {
+    checks.push({ id: 'git_locks', status: 'passed', message: 'No stale Git lockfiles found.' });
+  }
+
+  // Multi-template .env auto-repair
   const envFile = path.join(repository, '.env');
-  if (fs.existsSync(envExample) && !fs.existsSync(envFile)) { fs.copyFileSync(envExample, envFile); checks.push({ id: 'env', status: 'passed', message: 'Created .env from .env.example.' }); }
-  else if (fs.existsSync(envFile)) checks.push({ id: 'env', status: 'passed', message: '.env already exists; kept local values.' });
-  else checks.push({ id: 'env', status: 'warning', message: 'No .env.example found; skipped environment file setup.' });
+  if (!fs.existsSync(envFile)) {
+    const template = findEnvTemplate(repository);
+    if (template) {
+      fs.copyFileSync(template, envFile);
+      checks.push({ id: 'env', status: 'passed', message: `Created .env from ${path.basename(template)}.` });
+    } else {
+      fs.writeFileSync(envFile, generateDefaultEnvContent(), 'utf8');
+      checks.push({ id: 'env', status: 'passed', message: 'Created default .env with standard workspace configuration.' });
+    }
+  } else {
+    checks.push({ id: 'env', status: 'passed', message: '.env already exists; kept local values.' });
+  }
+
   if (installDependencies && fs.existsSync(path.join(repository, 'package-lock.json'))) {
     if (fs.existsSync(path.join(repository, 'node_modules'))) checks.push({ id: 'node_dependencies', status: 'passed', message: 'Node dependencies already present; skipping.' });
     else run('node_dependencies', 'npm', ['ci'], 'Installed Node dependencies with npm ci.');
+  } else if (installDependencies && fs.existsSync(path.join(repository, 'pnpm-lock.yaml'))) {
+    if (fs.existsSync(path.join(repository, 'node_modules'))) checks.push({ id: 'node_dependencies', status: 'passed', message: 'Node dependencies already present; skipping.' });
+    else run('node_dependencies', 'pnpm', ['install', '--frozen-lockfile'], 'Installed Node dependencies with pnpm.');
+  } else if (installDependencies && fs.existsSync(path.join(repository, 'yarn.lock'))) {
+    if (fs.existsSync(path.join(repository, 'node_modules'))) checks.push({ id: 'node_dependencies', status: 'passed', message: 'Node dependencies already present; skipping.' });
+    else run('node_dependencies', 'yarn', ['install', '--frozen-lockfile'], 'Installed Node dependencies with Yarn.');
   }
   if (installDependencies && fs.existsSync(path.join(repository, 'composer.lock'))) {
     if (fs.existsSync(path.join(repository, 'vendor'))) checks.push({ id: 'php_dependencies', status: 'passed', message: 'PHP dependencies already present; skipping.' });
@@ -1182,11 +1678,44 @@ function quickSetupEnvironment(cwd: string, installDependencies = true) {
 
 async function repairEnvironment(provider: AgentProvider, cwd: string) {
   const checks: EnvironmentCheck[] = [];
+  const runtimes = await bootstrapAgentRuntimes();
+  for (const runtime of runtimes) {
+    checks.push({
+      id: `cli_${runtime.provider}`,
+      status: runtime.status === 'ready' ? 'passed' : 'failed',
+      message: runtime.message,
+      fixable: runtime.status !== 'ready',
+      fixHint: 'Check your internet connection, Node.js installation and provider sign-in, then retry.',
+    });
+  }
   try {
+    const repository = git(cwd, ['rev-parse', '--show-toplevel']);
+    // 1. Clean stale Git locks
+    const lockResult = pruneGitLocks(repository);
+    if (lockResult.removed.length > 0) {
+      checks.push({
+        id: 'git_locks',
+        status: 'passed',
+        message: `Cleaned up ${lockResult.removed.length} stale Git lock file(s): ${lockResult.removed.map((p) => path.basename(p)).join(', ')}.`,
+      });
+    } else {
+      checks.push({ id: 'git_locks', status: 'passed', message: 'No stale Git lockfiles found.' });
+    }
+
+    // 2. Fix directory permissions
+    const permFix = fixDirectoryPermissions(repository);
+    checks.push({
+      id: 'directory_permissions',
+      status: permFix.fixed ? 'passed' : 'warning',
+      message: permFix.message,
+    });
+
+    // 3. Quick setup
     const setup = quickSetupEnvironment(cwd, true);
     checks.push(...setup.checks);
+
+    // 4. Prune worktrees
     try {
-      const repository = git(cwd, ['rev-parse', '--show-toplevel']);
       git(repository, ['worktree', 'prune']);
       checks.push({ id: 'worktree_metadata', status: 'passed', message: 'Cleaned up legacy Git worktree metadata.' });
     } catch {
@@ -1209,15 +1738,25 @@ function createAgentWorktree(repository: string, issueKey: string) {
   const key = safeIssueKey(issueKey);
   const branch = `codex/${key}`;
   const target = path.join(path.dirname(root), '.task-companion-worktrees', key);
+  let reused = false;
   if (fs.existsSync(target)) {
+    reused = true;
     disableAgentGuardrails(target);
-    return { path: target, branch, reused: true, baseCommit: git(target, ['rev-parse', 'HEAD']) };
+  } else {
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    try { git(root, ['worktree', 'add', '-b', branch, target, 'HEAD']); }
+    catch { git(root, ['worktree', 'add', target, branch]); }
+    disableAgentGuardrails(target);
   }
-  fs.mkdirSync(path.dirname(target), { recursive: true });
-  try { git(root, ['worktree', 'add', '-b', branch, target, 'HEAD']); }
-  catch { git(root, ['worktree', 'add', target, branch]); }
-  disableAgentGuardrails(target);
-  return { path: target, branch, reused: false, baseCommit: git(target, ['rev-parse', 'HEAD']) };
+  // A Git worktree never inherits node_modules/vendor from its source tree.
+  // Prepare it before the agent starts so verification does not fail merely
+  // because Vue, Vitest, or another project dependency is absent.
+  const setup = quickSetupEnvironment(target, true);
+  if (!setup.ok) {
+    const failures = setup.checks.filter((check) => check.status === 'failed').map((check) => check.message).join(' ');
+    throw new Error(`Worktree environment setup failed. ${failures || 'Use Fix environment and retry.'}`);
+  }
+  return { path: target, branch, reused, baseCommit: git(target, ['rev-parse', 'HEAD']), environmentChecks: setup.checks };
 }
 
 async function checkForUpdates(): Promise<typeof updateState> {
@@ -1506,6 +2045,18 @@ function createWindow() {
     if (win) win.minimize();
   });
 
+  ipcMain.handle('window-toggle-maximize', () => {
+    if (win) {
+      if (win.isMaximized()) {
+        win.unmaximize();
+      } else {
+        win.maximize();
+      }
+      return win.isMaximized();
+    }
+    return false;
+  });
+
   ipcMain.on('window-set-always-on-top', (_event, alwaysOnTop: boolean) => {
     if (win) win.setAlwaysOnTop(alwaysOnTop);
   });
@@ -1616,6 +2167,8 @@ function createWindow() {
   ipcMain.handle('agent-router-check', (_event, { includeModels = false }: { includeModels?: boolean }) => checkLocalRouter(includeModels));
   ipcMain.handle('agent-router-open-dashboard', async () => shell.openExternal('http://127.0.0.1:20128/dashboard'));
   ipcMain.handle('agent-codex-diagnostics', async () => codexDiagnostics());
+  ipcMain.handle('agent-runtime-status', async () => agentRuntimeStatus());
+  ipcMain.handle('agent-bootstrap-runtimes', async () => bootstrapAgentRuntimes());
   ipcMain.handle('agent-preflight', async (_event, { provider, cwd }: { provider: AgentProvider; cwd: string }) => preflightAgent(provider, cwd));
   ipcMain.handle('agent-quick-setup', (_event, { cwd, installDependencies }: { cwd: string; installDependencies?: boolean }) => quickSetupEnvironment(cwd, installDependencies !== false));
   ipcMain.handle('agent-repair-environment', async (_event, { provider, cwd }: { provider: AgentProvider; cwd: string }) => repairEnvironment(provider, cwd));
@@ -2156,6 +2709,16 @@ function formatAgyEvent(event: any): string {
           safeSend(win, 'agent-output', { sessionId, stream: 'stderr', text });
         });
 
+        child.once('error', (error) => {
+          const text = `Unable to launch Antigravity CLI: ${error.message}`;
+          session.output = `${session.output}\n${text}`.slice(-250000);
+          appendWorkspaceAgentLog(session.cwd, sessionId, 'stderr', text);
+          safeSend(win, 'agent-output', { sessionId, stream: 'stderr', text });
+          persistSessionUpdate({ sessionId, status: 'failed', exitCode: 1, output: session.output, events: session.events });
+          agentProcesses.delete(sessionId);
+          safeSend(win, 'agent-exit', { sessionId, code: 1, signal: 'SPAWN_ERROR' });
+        });
+
         child.on('close', (code, signal) => {
           appendWorkspaceAgentLog(session.cwd, sessionId, 'session_finished', { code, signal: String(signal || ''), eventCount: session.events?.length || 0 });
           persistSessionUpdate({
@@ -2165,6 +2728,7 @@ function formatAgyEvent(event: any): string {
             output: session.output,
             events: session.events
           });
+          agentProcesses.delete(sessionId);
           safeSend(win, 'agent-exit', { sessionId, code, signal: String(signal || '') });
         });
 
@@ -2300,6 +2864,16 @@ function formatAgyEvent(event: any): string {
         }
       });
 
+      child.once('error', (error) => {
+        const text = `Unable to launch Codex CLI: ${error.message}`;
+        session.output = `${session.output}\n${text}`.slice(-250000);
+        appendWorkspaceAgentLog(session.cwd, sessionId, 'stderr', text);
+        safeSend(win, 'agent-output', { sessionId, stream: 'stderr', text });
+        persistSessionUpdate({ sessionId, status: 'failed', exitCode: 1, output: session.output, events: session.events });
+        agentProcesses.delete(sessionId);
+        safeSend(win, 'agent-exit', { sessionId, code: 1, signal: 'SPAWN_ERROR' });
+      });
+
       child.on('close', (code, signal) => {
         appendWorkspaceAgentLog(session.cwd, sessionId, 'session_finished', { code, signal: String(signal || ''), eventCount: session.events?.length || 0 });
         persistSessionUpdate({
@@ -2309,6 +2883,7 @@ function formatAgyEvent(event: any): string {
           output: session.output,
           events: session.events
         });
+        agentProcesses.delete(sessionId);
         safeSend(win, 'agent-exit', { sessionId, code, signal: String(signal || '') });
       });
 
@@ -2460,10 +3035,11 @@ function formatAgyEvent(event: any): string {
         resumeArgs.push('-m', session.model);
       }
       resumeArgs.push(input.trim());
+      const resumeEnvironment = environmentForAgent('codex');
       const resumeChild = spawn(command, resumeArgs, {
         cwd: session.cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: { ...process.env, FORCE_COLOR: '0', PYTHONUNBUFFERED: '1' }
+        env: { ...resumeEnvironment.env, FORCE_COLOR: '0', PYTHONUNBUFFERED: '1' }
       });
       session.process = resumeChild as any;
       persistSessionUpdate({ sessionId, status: 'running', executionPolicy: session.executionPolicy || 'restricted' });
@@ -2473,6 +3049,15 @@ function formatAgyEvent(event: any): string {
         stream: 'user',
         text: `\n> User: ${input.trim()}\n`,
         event: { type: 'user_message', text: input.trim() }
+      });
+
+      resumeChild.once('error', (error) => {
+        const text = `Unable to resume Codex CLI: ${error.message}`;
+        session.output = `${session.output}\n${text}`.slice(-250000);
+        safeSend(win, 'agent-output', { sessionId, stream: 'stderr', text });
+        persistSessionUpdate({ sessionId, status: 'failed', exitCode: 1, output: session.output, events: session.events });
+        agentProcesses.delete(sessionId);
+        safeSend(win, 'agent-exit', { sessionId, code: 1, signal: 'SPAWN_ERROR' });
       });
 
       let buffer = '';
@@ -2523,6 +3108,7 @@ function formatAgyEvent(event: any): string {
           output: session.output,
           events: session.events
         });
+        agentProcesses.delete(sessionId);
         safeSend(win, 'agent-exit', { sessionId, code, signal: String(signal || '') });
       });
       return;
@@ -2573,6 +3159,15 @@ function formatAgyEvent(event: any): string {
         }
       });
 
+      resumeChild.once('error', (error) => {
+        const text = `Unable to resume Antigravity CLI: ${error.message}`;
+        session.output = `${session.output}\n${text}`.slice(-250000);
+        safeSend(win, 'agent-output', { sessionId, stream: 'stderr', text });
+        persistSessionUpdate({ sessionId, status: 'failed', exitCode: 1, output: session.output, events: session.events });
+        agentProcesses.delete(sessionId);
+        safeSend(win, 'agent-exit', { sessionId, code: 1, signal: 'SPAWN_ERROR' });
+      });
+
       resumeChild.stderr.on('data', (chunk: Buffer) => {
         const text = chunk.toString('utf8');
         session.output = `${session.output}\n${text}`.slice(-250000);
@@ -2587,6 +3182,7 @@ function formatAgyEvent(event: any): string {
           output: session.output,
           events: session.events
         });
+        agentProcesses.delete(sessionId);
         safeSend(win, 'agent-exit', { sessionId, code, signal: String(signal || '') });
       });
       return;
@@ -2664,7 +3260,19 @@ function createTray() {
   });
 }
 
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Electron:Main] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[Electron:Main] Uncaught Exception:', error);
+});
+
 app.whenReady().then(() => {
+  // First-run bootstrap is intentionally non-blocking: the desktop shell opens
+  // immediately while missing provider CLIs are installed from their official
+  // installers in the background. The Settings repair action can retry later.
+  void bootstrapAgentRuntimes().catch((error) => console.warn('Agent CLI bootstrap failed:', error));
   // Warm the local AGY model inventory before the Agent Workspace is opened.
   // This migrates stale saved selections away from generic model IDs that the
   // current agy CLI no longer accepts.

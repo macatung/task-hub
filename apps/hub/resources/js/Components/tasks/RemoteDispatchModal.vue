@@ -4,6 +4,7 @@ import axios from 'axios';
 import { sound } from '@/audio/soundEffects';
 import Icons from '@/Components/ui/Icons.vue';
 import StatusBadge from '@/Components/ui/StatusBadge.vue';
+import { useUpgradeModal } from '@/composables/useUpgradeModal';
 import type { DesktopAgentItem } from './ConnectedAgentsRegistry.vue';
 
 export interface TaskItemProps {
@@ -160,9 +161,15 @@ const dispatchTask = async () => {
       dispatchDiagnostics.value = res.data?.dispatch_diagnostics || null;
     }
   } catch (err: any) {
-    const response = err.response?.data;
-    errorMessage.value = response?.message || err.message || 'Unable to dispatch task to desktop runner.';
-    dispatchDiagnostics.value = response?.dispatch_diagnostics || null;
+    const { handleQuotaError } = useUpgradeModal();
+    const quotaHandled = handleQuotaError(err);
+    if (!quotaHandled) {
+      const response = err.response?.data;
+      errorMessage.value = response?.message || err.message || 'Unable to dispatch task to desktop runner.';
+      dispatchDiagnostics.value = response?.dispatch_diagnostics || null;
+    } else {
+      emit('close');
+    }
   } finally {
     isDispatching.value = false;
   }

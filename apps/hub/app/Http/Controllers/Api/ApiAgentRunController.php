@@ -12,6 +12,8 @@ use App\Models\Task;
 use App\Models\Project;
 use App\Models\VerificationEvidence;
 use App\Services\TaskHubContextPackService;
+use App\Services\WorkspaceQuotaService;
+use App\Exceptions\PlanQuotaExceededException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -197,6 +199,14 @@ class ApiAgentRunController extends Controller
         ];
 
         $workspace = $task->project?->workspace ?? ($runner->workspace ?? \App\Models\Workspace::first());
+
+        if ($workspace) {
+            try {
+                app(WorkspaceQuotaService::class)->assertCanDispatchTask($workspace);
+            } catch (PlanQuotaExceededException $e) {
+                return $e->render($request);
+            }
+        }
 
         $run = DB::transaction(function () use ($task, $runner, $workspace, $provider, $model, $mode, $customInstruction, $epicSequence, $context, $instruction, $contextService, $request) {
             $commandId = 'cmd-' . Str::uuid();

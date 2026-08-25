@@ -29,6 +29,54 @@ html, body, #app { width: 100%; height: 100%; margin: 0; }
   color: var(--cc-ink);
   font-family: "Segoe UI Variable", "Inter", Arial, sans-serif;
 }
+.cc-titlebar {
+  min-height: 4rem;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto auto;
+  align-items: center;
+  background: var(--cc-surface);
+}
+.cc-titlebar__identity { display: flex; min-width: 0; align-items: center; gap: .75rem; padding: .75rem 1.25rem; }
+.cc-connection-state { display: inline-flex; max-width: 8.5rem; flex: none; align-items: center; gap: .4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 999px; padding: .3rem .55rem; font-size: .6875rem; font-weight: 600; }
+.cc-titlebar__actions { display: flex; align-items: center; gap: .5rem; padding: .5rem .75rem; font-size: .75rem; }
+.cc-overflow-menu { position: relative; }
+.cc-overflow-menu summary { display: flex; align-items: center; gap: .25rem; list-style: none; cursor: pointer; }
+.cc-overflow-menu summary::-webkit-details-marker { display: none; }
+.cc-overflow-menu__panel { position: absolute; right: 0; top: calc(100% + .45rem); z-index: 70; min-width: 11rem; overflow: hidden; border: 1px solid var(--cc-line); border-radius: .5rem; background: var(--cc-surface); box-shadow: 0 12px 30px rgb(0 0 0 / .35); }
+.cc-overflow-menu__panel button { display: block; width: 100%; padding: .6rem .75rem; color: var(--cc-ink); text-align: left; font-size: .75rem; }
+.cc-overflow-menu__panel button:hover { background: var(--cc-surface-muted); }
+.cc-window-controls { display: flex; align-self: stretch; }
+.cc-window-controls button { display: grid; width: 2.9rem; place-items: center; color: var(--cc-muted); transition: background-color .15s, color .15s; }
+.cc-window-controls button:hover { background: var(--cc-surface-muted); color: var(--cc-ink); }
+.cc-window-controls .cc-window-controls__close:hover { background: #9d3b36; color: white; }
+.cc-statusbar { display: flex; min-height: 1.9rem; flex: none; align-items: center; gap: .55rem; overflow: hidden; border-top: 1px solid var(--cc-line-soft); padding: 0 .75rem; background: var(--cc-surface-muted); color: var(--cc-muted); font-size: .6875rem; }
+.cc-statusbar__item { display: inline-flex; min-width: 0; flex: none; align-items: center; gap: .35rem; white-space: nowrap; }
+.cc-statusbar__item--success, .cc-statusbar__item--completed { color: var(--cc-success); }
+.cc-statusbar__item--running { color: var(--cc-accent-strong); }
+.cc-statusbar__item--failed { color: var(--cc-danger); }
+.cc-statusbar__divider { width: 1px; height: .9rem; flex: none; background: var(--cc-line); }
+.cc-statusbar__location, .cc-statusbar__phase { overflow: hidden; text-overflow: ellipsis; }
+.cc-statusbar__location { flex: 1 1 14rem; }
+.cc-statusbar__phase { flex: 1 1 15rem; }
+.cc-statusbar__version { flex: none; margin-left: auto; color: #aaa096; white-space: nowrap; }
+.cc-task-status { display: inline-flex; align-items: center; border: 1px solid transparent; border-radius: .3rem; padding: .15rem .4rem; font-size: .625rem; font-weight: 700; line-height: 1rem; text-transform: none; white-space: nowrap; }
+.cc-task-status--todo { border-color: #58616e; background: #29303a; color: #d6dbe3; }
+.cc-task-status--in_progress { border-color: #2c7193; background: #122d3d; color: #7dd3fc; }
+.cc-task-status--review { border-color: #8b6736; background: #392a15; color: #f8c76b; }
+.cc-task-status--done { border-color: #4d7652; background: #1d3320; color: #a9d5ab; }
+.cc-run-status { display: inline-flex; align-items: center; gap: .5rem; font-weight: 600; }
+.cc-run-status--idle { color: #aab4c2; }
+.cc-run-status--running { color: #7dd3fc; }
+.cc-run-status--completed { color: #a9d5ab; }
+.cc-run-status--failed { color: #f7aaa5; }
+.cc-run-status--cancelled { color: #f8c76b; }
+.cc-statusbar__item--idle { color: #aab4c2; }
+.cc-statusbar__item--cancelled { color: #f8c76b; }
+@media (max-width: 1050px) {
+  .cc-titlebar { grid-template-columns: minmax(220px, 1fr) auto auto; }
+  .cc-titlebar__actions { gap: .35rem; }
+  .cc-connection-state { display: none; }
+}
 .cc-button, .cc-primary, .cc-danger, .cc-select, .cc-input { -webkit-app-region: no-drag; border-radius: .375rem; font-size: .75rem; line-height: 1rem; transition: background-color .15s, border-color .15s; }
 .cc-button, .cc-primary, .cc-danger { white-space: nowrap; min-width: max-content; }
 .cc-toolbar { overflow-x: auto; white-space: nowrap; padding-bottom: 1px; }

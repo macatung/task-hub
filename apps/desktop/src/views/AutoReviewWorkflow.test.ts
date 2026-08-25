@@ -6,7 +6,7 @@ import runWorkspaceSource from '../components/control-center/RunWorkspace.vue?ra
 describe('automatic independent review workflow', () => {
   it('exposes a local reviewer setting with a bounded iteration limit', () => {
     expect(settingsSource).toContain('Automatic independent review loop');
-    expect(settingsSource).toContain('Reviewer provider');
+    expect(settingsSource).toContain('Reviewer session provider');
     expect(settingsSource).toContain('Max review rounds');
     expect(controlCenterSource).toContain('task-hub-auto-review-enabled');
     expect(controlCenterSource).toContain('autoReviewMaxIterations');
@@ -22,6 +22,9 @@ describe('automatic independent review workflow', () => {
     expect(controlCenterSource).toContain('Automatic review loop cancelled by user.');
     expect(controlCenterSource).toContain('complete_agent_handoff');
     expect(runWorkspaceSource).toContain('Independent review');
+    expect(controlCenterSource).not.toContain('reviewerProvider.value !== provider.value');
+    expect(controlCenterSource).toContain('separate independent reviewer session');
+    expect(runWorkspaceSource).toContain('it never bypasses dependencies');
   });
 
   it('keeps final Hub approval human-controlled', () => {

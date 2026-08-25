@@ -35,11 +35,17 @@ class WorkspaceController extends Controller
         return response()->json(['success' => true, 'data' => $workspace]);
     }
 
-    public function addMember(Request $request, Workspace $workspace, WorkspaceContext $context)
+    public function addMember(Request $request, Workspace $workspace, WorkspaceContext $context, \App\Services\WorkspaceQuotaService $quotaService)
     {
         $request->headers->set('X-Workspace-Id', (string) $workspace->id);
         $context->authorizeRole($request, ['owner', 'admin']);
         $data = $request->validate(['user_id' => 'required|exists:users,id', 'role' => 'required|in:admin,developer,viewer']);
+        
+        $alreadyMember = $workspace->members()->where('users.id', $data['user_id'])->exists();
+        if (!$alreadyMember) {
+            $quotaService->assertCanAddMember($workspace);
+        }
+
         $workspace->members()->syncWithoutDetaching([$data['user_id'] => ['role' => $data['role']]]);
         return response()->json(['success' => true]);
     }

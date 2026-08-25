@@ -86,6 +86,39 @@ const needsDependencyReview = (task: TaskItem, allTasks: TaskItem[]) => {
 
 declare global { interface Window { desktopApi?: any; } }
 const DEFAULT_TASK_HUB_URL = (import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev';
+let unsubQuotaListener: (() => void) | undefined;
+
+export function formatQuotaTelemetry(quota: any): any {
+  if (!quota) return undefined;
+  return {
+    plan: quota.plan || 'Google AI Ultra',
+    gemini: {
+      used_tokens: quota.gemini?.usedTokens || 0,
+      limit: quota.gemini?.totalLimitTokens || 2000000,
+      weekly_percent: quota.gemini?.weeklyRemainingPercent ?? 100,
+      five_hour_percent: quota.gemini?.fiveHourRemainingPercent ?? 100,
+      weekly_reset_in: quota.gemini?.weeklyResetIn,
+      five_hour_reset_in: quota.gemini?.fiveHourResetIn,
+    },
+    claude_gpt: {
+      used_tokens: quota.claudeGpt?.usedTokens || 0,
+      limit: quota.claudeGpt?.totalLimitTokens || 1000000,
+      weekly_percent: quota.claudeGpt?.weeklyRemainingPercent ?? 100,
+      five_hour_percent: quota.claudeGpt?.fiveHourRemainingPercent ?? 100,
+      weekly_reset_in: quota.claudeGpt?.weeklyResetIn,
+      five_hour_reset_in: quota.claudeGpt?.fiveHourResetIn,
+    },
+    codex: {
+      used_tokens: quota.codex?.usedTokens || 0,
+      limit: quota.codex?.totalLimitTokens || 1000000,
+      weekly_percent: quota.codex?.weeklyRemainingPercent ?? 100,
+      five_hour_percent: quota.codex?.fiveHourRemainingPercent ?? 100,
+      weekly_reset_in: quota.codex?.weeklyResetIn,
+      five_hour_reset_in: quota.codex?.fiveHourResetIn,
+    },
+  };
+}
+
 export function useTaskSync() {
   const tasks = ref<TaskItem[]>([]);
   const agentTasks = ref<TaskItem[]>([]);
@@ -154,27 +187,7 @@ export function useTaskSync() {
         if (window.desktopApi?.agent?.getQuotaUsage) {
           const quota = await window.desktopApi.agent.getQuotaUsage();
           if (quota) {
-            quotaMetrics = {
-              plan: quota.plan || 'Google AI Ultra',
-              gemini: {
-                used_tokens: quota.gemini?.usedTokens || 0,
-                limit: 2000000,
-                weekly_percent: quota.gemini?.weeklyRemainingPercent ?? 100,
-                five_hour_percent: quota.gemini?.fiveHourRemainingPercent ?? 100,
-              },
-              claude_gpt: {
-                used_tokens: quota.claudeGpt?.usedTokens || 0,
-                limit: 1000000,
-                weekly_percent: quota.claudeGpt?.weeklyRemainingPercent ?? 100,
-                five_hour_percent: quota.claudeGpt?.fiveHourRemainingPercent ?? 100,
-              },
-              codex: {
-                used_tokens: quota.codex?.usedTokens || 0,
-                limit: 1000000,
-                weekly_percent: quota.codex?.weeklyRemainingPercent ?? 100,
-                five_hour_percent: quota.codex?.fiveHourRemainingPercent ?? 100,
-              },
-            };
+            quotaMetrics = formatQuotaTelemetry(quota);
           }
         }
       } catch {}
@@ -194,12 +207,27 @@ export function useTaskSync() {
       });
       defaultHeartbeatService.start();
 
+      // Continuous live quota listener
+      if (window.desktopApi?.agent?.onQuotaUpdated) {
+        unsubQuotaListener?.();
+        unsubQuotaListener = window.desktopApi.agent.onQuotaUpdated((quota: any) => {
+          if (quota) {
+            const formatted = formatQuotaTelemetry(quota);
+            if (formatted) {
+              defaultHeartbeatService.setQuotaMetrics(formatted);
+            }
+          }
+        });
+      }
+
       defaultRemoteDispatchService.setOptions({
         baseUrl: cred.taskHubUrl,
         token: cred.token,
         heartbeatService: defaultHeartbeatService,
       });
     } else {
+      unsubQuotaListener?.();
+      unsubQuotaListener = undefined;
       defaultHeartbeatService.stop();
     }
   };

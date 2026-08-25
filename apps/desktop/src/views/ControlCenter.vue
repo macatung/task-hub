@@ -12,6 +12,8 @@ import { useContextPackCache } from '../composables/useContextPackCache';
 import { parseDiscoveryPlan, serializeDiscoveryPlanContract } from '../utils/discoveryPlan';
 import { buildAutoHandoffPayload } from '../utils/autoHandoff';
 import { InteractiveRunReporter } from '../services/interactiveRunReporter';
+import type { SafetyInterceptEvent } from '../utils/safetyGuardrails';
+import { DEFAULT_PROVIDER_MODELS } from '../constants/models';
 type ToolMode = 'requirement' | 'docs' | null;
 type RunStatus = 'idle' | 'running' | 'completed' | 'failed' | 'cancelled';
 type ExecutionPolicy = 'restricted' | 'workspace_write' | 'full_access';
@@ -31,7 +33,7 @@ const {
   clearTimeline,
 } = useActionFeedback();
 const interactiveReporter = new InteractiveRunReporter();
-const selectedTask = ref<TaskItem | null>(null); const provider = ref<Provider>('codex'); const executionPolicy = ref<ExecutionPolicy>('workspace_write'); const workspace = ref(''); const worktree = ref(''); const phase = ref('Ready'); const output = ref(''); const sessionId = ref<string | null>(null); const runId = ref<number | null>(null); const implementationRunId = ref<number | null>(null); const reviewerRunId = ref<number | null>(null); const activeAgentRole = ref<AgentRole>('implementation'); const runStatus = ref<RunStatus>('idle'); const runExitCode = ref<number | null>(null); const syncing = ref(false); const lastSynced = ref<string | null>(null); const error = ref(''); const approvalRequest = ref<ApprovalRequest | null>(null); const pendingLaunch = ref<PendingLaunch | null>(null); const runIntent = ref<RunIntent>('task'); const diagnostics = ref<any>(null); const diagnosticsLoading = ref(false); const runOutputStart = ref(0); const implementationOutputStart = ref(0); const reviewOutputStart = ref(0); const autoHandoffSubmitting = ref(false); const handoffReviewUrl = ref('');
+const selectedTask = ref<TaskItem | null>(null); const provider = ref<Provider>('codex'); const selectedModel = ref<string>(DEFAULT_PROVIDER_MODELS.codex || 'gpt-5'); const executionPolicy = ref<ExecutionPolicy>('workspace_write'); const workspace = ref(''); const worktree = ref(''); const phase = ref('Ready'); const output = ref(''); const sessionId = ref<string | null>(null); const runId = ref<number | null>(null); const implementationRunId = ref<number | null>(null); const reviewerRunId = ref<number | null>(null); const activeAgentRole = ref<AgentRole>('implementation'); const runStatus = ref<RunStatus>('idle'); const runExitCode = ref<number | null>(null); const syncing = ref(false); const lastSynced = ref<string | null>(null); const error = ref(''); const approvalRequest = ref<ApprovalRequest | null>(null); const activeSafetyAlert = ref<SafetyInterceptEvent | null>(null); const pendingLaunch = ref<PendingLaunch | null>(null); const runIntent = ref<RunIntent>('task'); const diagnostics = ref<any>(null); const diagnosticsLoading = ref(false); const runOutputStart = ref(0); const implementationOutputStart = ref(0); const reviewOutputStart = ref(0); const autoHandoffSubmitting = ref(false); const handoffReviewUrl = ref('');
 const toolMode = ref<ToolMode>(null); const toolProjectId = ref<number | null>(null); const requirement = ref(''); const requirementPlan = ref(''); const docsReady = ref(false); const toolMessage = ref(''); const toolBusy = ref(false); const showTimelineDrawer = ref(false);
 type EpicSequence = { epic: TaskItem; tasks: TaskItem[]; completedIds: number[]; activeChildId: number | null; waitingForApproval: boolean; autoContinue: boolean };
 const epicSequence = ref<EpicSequence | null>(null);
@@ -46,6 +48,13 @@ const autoReviewStatus = ref<AutoReviewStatus>('idle');
 const autoReviewFeedback = ref('');
 const autoReviewSummary = ref('');
 const settingsOpen = ref(false); const router = ref<{ enabled: boolean; endpoint: string; hasApiKey: boolean } | null>(null); const routerMessage = ref(''); const routerSaving = ref(false); const updater = ref<{ status: string; version?: string; percent?: number; message?: string }>({ status: 'idle' });
+type AgentRuntime = { provider: Provider; label: string; command: string; executable: string | null; status: 'ready' | 'missing' | 'installing' | 'failed'; message: string };
+const agentRuntimes = ref<AgentRuntime[]>([]);
+const runtimeRepairing = ref(false);
+const isMaximized = ref(false);
+const minimize = () => window.desktopApi?.minimize?.();
+const maximize = async () => { isMaximized.value = Boolean(await window.desktopApi?.toggleMaximize?.()); };
+const appVersion = ref('Task Hub Desktop');
 const running = computed(() => runStatus.value === 'running'); const hubUrl = computed(() => sync.credential.value?.taskHubUrl || 'https://task-hub.macatung.dev');
 const openHub = () => window.desktopApi?.openExternal?.(`${hubUrl.value}/tasks`); const close = () => window.desktopApi?.close?.();
 const updateAutoSubmitHandoff = (enabled: boolean) => { autoSubmitHandoff.value = enabled; localStorage.setItem('task-hub-auto-submit-handoff', String(enabled)); if (enabled) queueMicrotask(() => { void tryAutoSubmitHandoff(); }); };
@@ -70,6 +79,7 @@ const openRouterDashboard = () => window.desktopApi?.agent?.openLocalRouterDashb
 const checkAppUpdate = async () => { updater.value = await window.desktopApi?.updater?.check?.() || { status: 'error', message: 'Desktop updater is unavailable.' }; };
 const installAppUpdate = async () => { updater.value = await window.desktopApi?.updater?.install?.() || updater.value; };
 const isSandboxFailure = (value: string) => /codex-windows-sandbox-setup|sandbox startup failure|workspace sandbox.*(?:fail|cannot|missing|error)|helper executable.*(?:fail|cannot|missing)|(?:sandbox|codex).*(?:access denied|could not start|failed to launch)/i.test(value);
+const isEnvironmentLaunchFailure = (value: string) => /SPAWN_ERROR|Unable to launch|executable not found|ENOENT/i.test(value);
 const runDiagnostics = async () => { if (provider.value !== 'codex') return; diagnosticsLoading.value = true; try { diagnostics.value = await window.desktopApi.agent.codexDiagnostics(); } catch (e: any) { diagnostics.value = { ok: false, summary: 'Could not run Codex diagnostics.', details: [e?.message || 'Unknown error.'] }; } finally { diagnosticsLoading.value = false; } };
 const requestHumanApproval = async (reason = error.value || 'The local agent needs an approval to continue.') => {
   if (!pendingLaunch.value && selectedTask.value) {
@@ -124,6 +134,23 @@ const approveRetry = async (policy: 'workspace_write' | 'full_access') => {
   }
 };
 const dismissApproval = () => { approvalRequest.value = null; phase.value = 'Approval declined — run remains stopped'; output.value += '\nHuman approval declined. No retry was started.\n'; };
+const approveSafetyAlert = (eventId?: string) => {
+  if (activeSafetyAlert.value) {
+    notify({ type: 'info', title: 'Quy trình an toàn', message: `Đã phê duyệt: ${activeSafetyAlert.value.command || 'Thao tác'}` });
+    activeSafetyAlert.value = null;
+    if (phase.value === 'waiting_input') {
+      phase.value = 'running';
+      runStatus.value = 'running';
+    }
+  }
+};
+const rejectSafetyAlert = (eventId?: string) => {
+  if (activeSafetyAlert.value) {
+    notify({ type: 'warning', title: 'Quy trình an toàn', message: 'Đã từ chối lệnh nguy hiểm. Dừng phiên chạy.' });
+    activeSafetyAlert.value = null;
+    cancel();
+  }
+};
 const mcp = async (name: string, args: Record<string, unknown>) => {
   const cred = sync.credential.value;
   if (!cred) throw new Error('Connect Task Hub before starting an agent.');
@@ -220,6 +247,7 @@ const prepareWorktree = async (suffix: string) => {
   const preflight = await window.desktopApi.agent.preflight(provider.value, workspace.value);
   if (!preflight?.ok) throw new Error('Local agent preflight failed.');
   const result = await window.desktopApi.agent.createWorktree(preflight.repository, suffix);
+  if (!result?.path) throw new Error('Worktree environment setup failed.');
   worktree.value = result.path;
   finishOperation('prepare-worktree', 'success', 'Worktree sẵn sàng', `Nhánh: ${result.path.split(/[\\/]/).pop()}`);
   return { preflight, result };
@@ -239,7 +267,7 @@ const startLocal = async (prompt: string, kind: 'task' | 'docs' = 'task', policy
   runExitCode.value = null;
   notify({ type: 'loading', id: 'start-local', title: 'Agent đang thực thi', message: `Chạy ${launchProvider.toUpperCase()} trong worktree cô lập…`, persistent: true });
   try {
-    const result = await window.desktopApi.agent.startInteractive(launchProvider, worktree.value, prompt, kind, undefined, policy);
+    const result = await window.desktopApi.agent.startInteractive(launchProvider, worktree.value, prompt, kind, selectedModel.value || undefined, policy);
     sessionId.value = result.sessionId;
     if (result.mode === 'external') output.value += 'External agent session opened. Return here when the work is complete.\n';
   } catch (e) {
@@ -418,7 +446,6 @@ const autoReviewCanRun = computed(() => Boolean(
   autoReviewEnabled.value
   && selectedTask.value
   && ['task', 'epic'].includes(runIntent.value)
-  && reviewerProvider.value !== provider.value
   && reviewerProvider.value !== 'antigravity'
 ));
 const reviewerLabel = (value: Provider) => value === 'claude_code' ? 'Claude Code' : value === 'antigravity' ? 'Antigravity' : 'Codex';
@@ -456,8 +483,17 @@ const startAutoReview = async (implementationOutput: string, implementationInten
   error.value = '';
   phase.value = `Independent review ${autoReviewIteration.value}/${autoReviewMaxIterations.value}`;
   toolMessage.value = `${reviewerLabel(reviewerProvider.value)} is reviewing the implementation in read-only mode…`;
+  const reviewerPreflight = await window.desktopApi.agent.preflight(reviewerProvider.value, worktree.value);
+  if (!reviewerPreflight?.ok) {
+    autoReviewStatus.value = 'failed';
+    const detail = reviewerPreflight?.details?.find((line: string) => /\b(error|enoent|invalid|not found|failed)\b/i.test(line)) || reviewerPreflight?.summary || 'preflight verification failed.';
+    autoReviewFeedback.value = `Independent reviewer cannot start: ${detail}`;
+    toolMessage.value = `Independent reviewer cannot start: ${detail}`;
+    phase.value = 'Independent review failed';
+    return false;
+  }
   const diff = await readWorktreeDiff();
-  const reviewerPrompt = `You are the independent reviewer for Task Hub task ${selectedTask.value.issue_key || selectedTask.value.title}. Review the implementation currently present in this isolated worktree. Do not edit files, commit, push, deploy, or create Hub records. Inspect the task brief, acceptance criteria, tests, and git diff. Run safe read-only verification when useful.
+  const reviewerPrompt = `You are a separate independent reviewer session for Task Hub task ${selectedTask.value.issue_key || selectedTask.value.title}. Review the implementation currently present in this isolated worktree. Do not edit files, commit, push, deploy, or create Hub records. Inspect the task brief, acceptance criteria, tests, and git diff. Run safe read-only verification when useful.
 
 Implementation agent output:
 ${implementationOutput.slice(-12000)}
@@ -831,6 +867,14 @@ const handleAgentExit = async (event: any) => {
   }
 
   if (runStatus.value === 'failed') {
+    if (isEnvironmentLaunchFailure(output.value.slice(runOutputStart.value))) {
+      phase.value = 'Environment needs repair';
+      error.value = 'Agent executable could not start. This is not a sandbox approval issue. Repair environment in settings.';
+      toolMessage.value = 'The agent runtime environment requires repair.';
+      finishOperation('start-local', 'error', 'Môi trường cần sửa chữa', error.value);
+      if (trackedRunId) void updateRunFor(trackedRunId, 'failed', error.value);
+      return;
+    }
     phase.value = 'Run failed';
     error.value = `Agent process ended with exit code ${exitCode ?? 'unknown'}. Review the execution details below.`;
     toolMessage.value = 'The agent did not complete successfully.';
@@ -886,11 +930,41 @@ const handleAgentExit = async (event: any) => {
 watch([autoSubmitHandoff, runStatus], () => { void tryAutoSubmitHandoff(); });
 watch(provider, (next) => {
   if (reviewerProvider.value === next) reviewerProvider.value = next === 'codex' ? 'claude_code' : 'codex';
+  selectedModel.value = DEFAULT_PROVIDER_MODELS[next] || 'default';
 });
+const refreshAgentRuntimes = async () => {
+  try {
+    const statuses = await window.desktopApi?.agent?.runtimeStatus?.();
+    if (statuses && Array.isArray(statuses)) {
+      agentRuntimes.value = statuses;
+    }
+  } catch {
+    // ignore
+  }
+};
+const repairAgentRuntimes = async () => {
+  runtimeRepairing.value = true;
+  try {
+    const res = await window.desktopApi?.agent?.bootstrapRuntimes?.();
+    if (res && Array.isArray(res)) {
+      agentRuntimes.value = res;
+    } else {
+      await refreshAgentRuntimes();
+    }
+    notify({ type: 'info', title: 'Môi trường Agent', message: 'Đã hoàn tất kiểm tra và sửa chữa môi trường CLI.' });
+  } catch (e: any) {
+    notify({ type: 'warning', title: 'Lỗi sửa chữa môi trường', message: e?.message || 'Không thể tự động sửa chữa môi trường.' });
+  } finally {
+    runtimeRepairing.value = false;
+  }
+};
 onMounted(async () => {
+  const version = await window.desktopApi?.getAppVersion?.();
+  if (version) appVersion.value = `v${version}`;
   const saved = await window.desktopApi?.agent?.listWorkspaces?.();
   if (saved?.[0]) workspace.value = saved[0];
   await loadRouterSettings();
+  await refreshAgentRuntimes();
   updater.value = await window.desktopApi?.updater?.getState?.() || updater.value;
   unsubUpdater = window.desktopApi?.updater?.onState?.((state: any) => { updater.value = state; });
   unsubOutput = window.desktopApi?.agent?.onOutput?.((event: any) => {
@@ -919,6 +993,7 @@ onUnmounted(() => { interactiveReporter.reset(); unsubOutput?.(); unsubExit?.();
       :online="sync.isOnline.value"
       :syncing="syncing"
       :last-synced="lastSynced"
+      :is-maximized="isMaximized"
       @sync="refresh"
       @connect="connect"
       @disconnect="() => { sync.clearCredential(); notify({ type: 'warning', title: 'Đã ngắt kết nối', message: 'Đã xóa thông tin xác thực Task Hub.' }); }"
@@ -927,6 +1002,8 @@ onUnmounted(() => { interactiveReporter.reset(); unsubOutput?.(); unsubExit?.();
       @docs="openTool('docs')"
       @timeline="showTimelineDrawer = true"
       @open-hub="openHub"
+      @minimize="minimize"
+      @maximize="maximize"
       @close="close"
     />
     <SettingsPanel
@@ -939,19 +1016,22 @@ onUnmounted(() => { interactiveReporter.reset(); unsubOutput?.(); unsubExit?.();
       :updater="updater"
       :router="router"
       :router-message="routerMessage"
-       :saving="routerSaving"
-       :auto-submit-handoff="autoSubmitHandoff"
-       :auto-continue-epic="autoContinueEpic"
-       :auto-review-enabled="autoReviewEnabled"
-       :reviewer-provider="reviewerProvider"
-       :auto-review-max-iterations="autoReviewMaxIterations"
-       @close="settingsOpen = false"
+      :saving="routerSaving"
+      :agent-runtimes="agentRuntimes"
+      :runtime-repairing="runtimeRepairing"
+      :auto-submit-handoff="autoSubmitHandoff"
+      :auto-continue-epic="autoContinueEpic"
+      :auto-review-enabled="autoReviewEnabled"
+      :reviewer-provider="reviewerProvider"
+      :auto-review-max-iterations="autoReviewMaxIterations"
+      @close="settingsOpen = false"
       @choose-workspace="chooseWorkspace"
-       @update-execution-policy="(policy: ExecutionPolicy) => { executionPolicy = policy; notify({ type: 'info', title: 'Quyền thực thi', message: `Đã đổi thành: ${policy}` }); }"
-       @update-auto-submit-handoff="updateAutoSubmitHandoff"
-       @update-auto-continue-epic="updateAutoContinueEpic"
-       @update-auto-review="updateAutoReview"
+      @update-execution-policy="(policy: ExecutionPolicy) => { executionPolicy = policy; notify({ type: 'info', title: 'Quyền thực thi', message: `Đã đổi thành: ${policy}` }); }"
+      @update-auto-submit-handoff="updateAutoSubmitHandoff"
+      @update-auto-continue-epic="updateAutoContinueEpic"
+      @update-auto-review="updateAutoReview"
       @run-diagnostics="runDiagnostics"
+      @repair-runtimes="repairAgentRuntimes"
       @check-app-update="checkAppUpdate"
       @install-app-update="installAppUpdate"
       @save-router="saveRouterSettings"
@@ -991,6 +1071,7 @@ onUnmounted(() => { interactiveReporter.reset(); unsubOutput?.(); unsubExit?.();
       />
       <RunWorkspace
         v-model:provider="provider"
+        v-model:model="selectedModel"
         v-model:execution-policy="executionPolicy"
         :task="selectedTask"
         :tasks="sync.agentTasks.value"
@@ -1000,32 +1081,45 @@ onUnmounted(() => { interactiveReporter.reset(); unsubOutput?.(); unsubExit?.();
         :running="running"
         :run-status="runStatus"
         :exit-code="runExitCode"
-         :error="error"
-         :approval-request="approvalRequest"
-         :epic-child-count="selectedTask?.issue_type === 'epic' ? sync.agentTasks.value.filter(task => task.epic_id === selectedTask?.id && task.issue_type !== 'epic').length : 0"
-         :epic-completed-count="epicSequence?.completedIds.length || 0"
-         :epic-auto-continue="epicSequence?.autoContinue ?? autoContinueEpic"
-         :epic-sequence-running="Boolean(epicSequence)"
-         :diagnostics-loading="diagnosticsLoading"
-         :handoff-review-url="handoffReviewUrl"
-         :auto-review-status="autoReviewStatus"
-         :auto-review-iteration="autoReviewIteration"
-         :auto-review-max-iterations="autoReviewMaxIterations"
-         :auto-review-feedback="autoReviewFeedback"
-         :reviewer-provider="reviewerProvider"
+        :error="error"
+        :approval-request="approvalRequest"
+        :safety-alert="activeSafetyAlert"
+        :epic-child-count="selectedTask?.issue_type === 'epic' ? sync.agentTasks.value.filter(task => task.epic_id === selectedTask?.id && task.issue_type !== 'epic').length : 0"
+        :epic-completed-count="epicSequence?.completedIds.length || 0"
+        :epic-auto-continue="epicSequence?.autoContinue ?? autoContinueEpic"
+        :epic-sequence-running="Boolean(epicSequence)"
+        :diagnostics-loading="diagnosticsLoading"
+        :handoff-review-url="handoffReviewUrl"
+        :auto-review-status="autoReviewStatus"
+        :auto-review-iteration="autoReviewIteration"
+        :auto-review-max-iterations="autoReviewMaxIterations"
+        :auto-review-feedback="autoReviewFeedback"
+        :reviewer-provider="reviewerProvider"
         @choose-workspace="chooseWorkspace"
         @launch="launch"
         @cancel="cancel"
         @send="send"
         @handoff="handoff"
-         @request-approval="requestHumanApproval"
+        @request-approval="requestHumanApproval"
         @reopen-todo="reopenEpicAsTodo"
         @approve-retry="approveRetry"
         @dismiss-approval="dismissApproval"
+        @approve-safety-alert="approveSafetyAlert"
+        @reject-safety-alert="rejectSafetyAlert"
         @open-hub="openHub"
         @timeline="showTimelineDrawer = true"
       />
     </div>
+    <StatusFooter
+      :online="sync.isOnline.value"
+      :connected="Boolean(sync.credential.value)"
+      :provider="provider"
+      :workspace="workspace"
+      :worktree="worktree"
+      :phase="phase"
+      :run-status="runStatus"
+      :app-version="appVersion"
+    />
     <ActivityTimelineDrawer
       :show="showTimelineDrawer"
       :timeline="activityTimeline"

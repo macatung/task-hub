@@ -36,7 +36,7 @@ export interface ExperienceItem {
   role: string;
   company: string;
   location: string;
-  type: 'Full-time' | 'Contract' | 'Open Source' | 'Venture';
+  type: 'Full-time' | 'Contract' | 'Open Source' | 'Venture' | 'Education & Awards';
   summary: string;
   achievements: string[];
   technologies: string[];

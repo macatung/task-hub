@@ -42,7 +42,7 @@ dist-ssr
 
 # Agent artifacts & test reports
 /.agents/
-/.macatung/
+**/.macatung/
 /tests/reports/
 ORIGINAL_REQUEST.md
 PROJECT.md

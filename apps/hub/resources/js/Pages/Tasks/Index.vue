@@ -17,6 +17,8 @@ import ProjectGantt from '@/Components/tasks/ProjectGantt.vue';
 import WorkspaceBrand from '@/Components/layout/WorkspaceBrand.vue';
 import Icons from '@/Components/ui/Icons.vue';
 import StatusBadge from '@/Components/ui/StatusBadge.vue';
+import UpgradeModal from '@/Components/billing/UpgradeModal.vue';
+import { useUpgradeModal } from '@/composables/useUpgradeModal';
 import type { DesktopAgentItem } from '@/Components/tasks/ConnectedAgentsRegistry.vue';
 import { sound } from '@/audio/soundEffects';
 
@@ -158,6 +160,8 @@ const props = defineProps<{
   stats: Stats;
   selectedDate: string;
   selectedProjectId?: string | number;
+  workspaces?: { id: number; name: string; slug: string; plan?: string }[];
+  currentWorkspaceId?: number | null;
   auth?: { user?: { id: number; name: string; email: string; github_login?: string; github_avatar_url?: string } | null };
 }>();
 
@@ -226,6 +230,7 @@ const roadmapTabs = [
 ] as const;
 const setRoadmapTab = (tab: typeof roadmapTab.value) => { roadmapTab.value = tab; };
 const activeProjectMenuId = ref<number | null>(null);
+const isWorkspaceMenuOpen = ref(false);
 const isAiMenuOpen = ref(false);
 const isNotificationsOpen = ref(false);
 const readNotificationIds = ref<string[]>([]);
@@ -2041,9 +2046,15 @@ const handleSaveProject = async () => {
     }
   } catch (err: any) {
     console.error('Save project error:', err);
-    const message = err.response?.data?.message || 'Unable to save the project. Please try again.';
-    projectGithubFeedback.value = message;
-    alert(message);
+    const { handleQuotaError } = useUpgradeModal();
+    const quotaHandled = handleQuotaError(err);
+    if (!quotaHandled) {
+      const message = err.response?.data?.message || 'Unable to save the project. Please try again.';
+      projectGithubFeedback.value = message;
+      alert(message);
+    } else {
+      showProjectModal.value = false;
+    }
   } finally {
     isProjectSubmitting.value = false;
   }
@@ -2485,6 +2496,7 @@ const handleGlobalKey = (e: KeyboardEvent) => {
 const closeAllMenus = () => {
   activeProjectMenuId.value = null;
   isAiMenuOpen.value = false;
+  isWorkspaceMenuOpen.value = false;
 };
 
 onMounted(() => {
@@ -2734,6 +2746,71 @@ onUnmounted(() => {
         >
           <Icons :name="isDarkMode ? 'Sun' : 'Moon'" :size="15" aria-hidden="true" />
         </button>
+
+        <!-- Workspace & Billing Navigation -->
+        <div class="relative">
+          <button
+            @click.stop="isWorkspaceMenuOpen = !isWorkspaceMenuOpen"
+            :class="[
+              'px-2.5 sm:px-3 py-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer',
+              isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-emerald-400' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-emerald-700'
+            ]"
+            title="Workspace settings and billing"
+          >
+            <Icons name="Zap" :size="14" class="text-emerald-400" />
+            <span class="hidden sm:inline">Billing</span>
+            <span class="text-[10px]">▾</span>
+          </button>
+
+          <!-- Workspace / Billing Menu -->
+          <div
+            v-if="isWorkspaceMenuOpen"
+            :class="[
+              'absolute right-0 mt-2 w-56 rounded-2xl border p-2 shadow-2xl z-50',
+              isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-800'
+            ]"
+          >
+            <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Workspace Management</div>
+            <a
+              :href="`/workspaces/${props.currentWorkspaceId || 'default'}/billing`"
+              :class="[
+                'flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-bold transition-colors',
+                isDarkMode ? 'hover:bg-slate-800 text-emerald-400' : 'hover:bg-slate-100 text-emerald-600'
+              ]"
+            >
+              <Icons name="Zap" :size="14" />
+              <span>Billing & Quota</span>
+            </a>
+            <a
+              href="/pricing"
+              :class="[
+                'flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold transition-colors',
+                isDarkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
+              ]"
+            >
+              <Icons name="ExternalLink" :size="14" />
+              <span>Public Pricing Matrix</span>
+            </a>
+            <template v-if="props.workspaces && props.workspaces.length > 1">
+              <div class="my-1 border-t border-slate-800/80"></div>
+              <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Switch Workspace</div>
+              <a
+                v-for="w in props.workspaces"
+                :key="w.id"
+                :href="`/workspaces/${w.id}/billing`"
+                :class="[
+                  'flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-colors',
+                  w.id === props.currentWorkspaceId
+                    ? (isDarkMode ? 'bg-emerald-950/60 text-emerald-300' : 'bg-emerald-50 text-emerald-800')
+                    : (isDarkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-700')
+                ]"
+              >
+                <span class="truncate">{{ w.name }}</span>
+                <span class="text-[9px] uppercase font-mono px-1 rounded bg-slate-800 text-slate-400">{{ w.plan || 'free' }}</span>
+              </a>
+            </template>
+          </div>
+        </div>
 
         <!-- Primary Action: + Create Task -->
         <button
@@ -6406,6 +6483,9 @@ onUnmounted(() => {
         />
       </div>
     </div>
+
+    <!-- Mount Global UpgradeModal Component -->
+    <UpgradeModal />
   </div>
 </template>
 

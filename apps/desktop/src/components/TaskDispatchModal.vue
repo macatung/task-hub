@@ -2,6 +2,8 @@
 import { ref } from 'vue';
 import type { DesktopCredential, ProjectItem, TaskItem } from '../composables/useTaskSync';
 import { mindfulBell } from '../audio/mindfulBellAudio';
+import PlanUpgradeModal from './PlanUpgradeModal.vue';
+import TailwindIcon from './TailwindIcon.vue';
 
 const props = defineProps<{
   tasks: TaskItem[];
@@ -20,6 +22,7 @@ const emit = defineEmits<{
 const newTaskTitle = ref('');
 const selectedPriority = ref('high');
 const selectedProjectId = ref<number | undefined>();
+const showPlanUpgradeModal = ref(false);
 
 const handleAddTask = () => {
   if (!newTaskTitle.value.trim()) return;
@@ -159,9 +162,20 @@ const openWebHub = () => {
 
     <!-- Bottom Actions & Web Hub Link -->
     <div class="pt-2 border-t border-slate-800 flex items-center justify-between text-xs">
-      <span class="text-[10px] font-mono text-slate-500">
-        Completed: <strong class="text-emerald-400">{{ tasks.filter(t => t.status === 'done').length }}/{{ tasks.length }}</strong>
-      </span>
+      <div class="flex items-center gap-2">
+        <span class="text-[10px] font-mono text-slate-500">
+          Completed: <strong class="text-emerald-400">{{ tasks.filter(t => t.status === 'done').length }}/{{ tasks.length }}</strong>
+        </span>
+        <button
+          type="button"
+          @click="showPlanUpgradeModal = true"
+          class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-950/60 border border-sky-800/80 text-sky-300 hover:bg-sky-900 transition-colors cursor-pointer flex items-center gap-1"
+          title="Upgrade Plan / Manage Concurrency"
+        >
+          <TailwindIcon name="sparkles" :size="10" />
+          <span>Plan</span>
+        </button>
+      </div>
 
       <button
         @click="openWebHub"
@@ -171,6 +185,18 @@ const openWebHub = () => {
         <span>↗</span>
       </button>
     </div>
+
+    <!-- Plan Upgrade Modal -->
+    <PlanUpgradeModal
+      :show="showPlanUpgradeModal"
+      :current-plan="credential ? 'community' : 'community'"
+      :current-limit="1"
+      :active-count="1"
+      :workspace-slug="credential?.workspaceName || credential?.workspaceId || ''"
+      :task-hub-url="credential?.taskHubUrl"
+      @close="showPlanUpgradeModal = false"
+      @upgrade="showPlanUpgradeModal = false"
+    />
   </div>
 </template>
 

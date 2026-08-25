@@ -9,6 +9,7 @@
     "dev:ide": "vite --mode=ide",
     "dev:mascot": "vite --mode=mascot",
     "postinstall": "electron-rebuild -f -w node-pty",
+    "typecheck": "vue-tsc --noEmit",
     "build": "vue-tsc --noEmit && vite build && electron-builder --win",
     "build:vue": "vite build",
     "build:win": "npm run build",

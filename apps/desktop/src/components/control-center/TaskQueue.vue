@@ -46,6 +46,7 @@ const visibleTasks = computed(() => props.tasks
   }));
 const childCount = (epicId: number) => props.tasks.filter(task => task.epic_id === epicId && task.issue_type !== 'epic').length;
 const tone = (value: string) => ({ todo: 'bg-slate-100 text-slate-600', in_progress: 'bg-blue-50 text-blue-700', review: 'bg-amber-50 text-amber-700', urgent: 'bg-rose-50 text-rose-700', high: 'bg-orange-50 text-orange-700' }[value] || 'bg-slate-100 text-slate-600');
+const statusLabel = (status: string) => ({ todo: 'To do', in_progress: 'In progress', review: 'In review', done: 'Done' }[status] || status.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase()));
 </script>
 <template>
   <aside class="flex min-h-0 flex-col border-r border-slate-200 bg-slate-50/70">
@@ -74,7 +75,7 @@ const tone = (value: string) => ({ todo: 'bg-slate-100 text-slate-600', in_progr
           <div class="flex min-w-0 items-center gap-1.5">
             <span class="truncate text-xs font-medium text-slate-900">{{ task.issue_key || `#${task.id}` }}</span>
           </div>
-          <span class="rounded px-1.5 py-0.5 text-[10px] font-medium" :class="tone(task.status)">{{ task.status.replace('_', ' ') }}</span>
+          <span class="cc-task-status" :class="`cc-task-status--${task.status}`">{{ statusLabel(task.status) }}</span>
         </div>
         <p class="line-clamp-2 text-sm text-slate-700">{{ task.title }}</p>
         <p v-if="task.issue_type === 'epic'" class="mt-1 text-[11px] font-semibold text-violet-700">Epic sequence · {{ childCount(task.id) }} task{{ childCount(task.id) === 1 ? '' : 's' }}</p>

@@ -26,10 +26,18 @@ class ApiProjectController extends Controller
     {
         $validated = $request->validate(['repository' => ['required', 'regex:/^[^\/\s]+\/[^\/\s]+$/', 'max:255'], 'color' => 'nullable|string|max:50']);
         try {
-            $validated['workspace_id'] = app(WorkspaceContext::class)->resolve($request)->id;
+            $workspace = app(WorkspaceContext::class)->resolve($request);
+            if ($workspace) {
+                app(\App\Services\WorkspaceQuotaService::class)->assertCanCreateProject($workspace);
+                $validated['workspace_id'] = $workspace->id;
+            }
             $project = $integration->createFromRepository($request->user(), $validated);
             return response()->json(['success' => true, 'message' => 'Project created from the GitHub repository.', 'data' => $project->loadCount('tasks')], 201);
-        } catch (\Throwable $e) { return response()->json(['success' => false, 'message' => $e->getMessage()], 422); }
+        } catch (\App\Exceptions\PlanQuotaExceededException $e) {
+            return $e->render($request);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
     }
 
     public function index(Request $request)
@@ -91,7 +99,13 @@ class ApiProjectController extends Controller
         $validated['tagline'] = $validated['tagline'] ?? (!empty($validated['description']) ? Str::limit($validated['description'], 100) : $validated['title']);
         $validated['category'] = $validated['category'] ?? 'software';
         $validated['color'] = $validated['color'] ?? '#00f5a0';
-        if ($request->user()) $validated['workspace_id'] = app(WorkspaceContext::class)->resolve($request)->id;
+        if ($request->user()) {
+            $workspace = app(WorkspaceContext::class)->resolve($request);
+            if ($workspace) {
+                app(\App\Services\WorkspaceQuotaService::class)->assertCanCreateProject($workspace);
+                $validated['workspace_id'] = $workspace->id;
+            }
+        }
 
         $project = Project::create($validated);
         $project->tasks_count = 0;

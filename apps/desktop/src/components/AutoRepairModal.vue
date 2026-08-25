@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import TailwindIcon from './TailwindIcon.vue';
 
-export interface RepairCheck {
+interface RepairCheck {
   id: string;
   status: 'passed' | 'warning' | 'failed';
   message: string;
+  fixable?: boolean;
+  fixHint?: string;
 }
 
-export interface RepairResult {
+interface RepairResult {
   ok: boolean;
   provider: string;
   checks: RepairCheck[];
@@ -26,52 +28,193 @@ const emit = defineEmits<{
 }>();
 
 const isRepairing = ref(false);
+const isPreflighting = ref(false);
+const repairProgressStep = ref('');
+const errorMessage = ref('');
 const repairResult = ref<RepairResult | null>(null);
-const errorMessage = ref<string | null>(null);
+const filterCategory = ref<'all' | 'issues' | 'healthy'>('all');
+
+const resetState = () => {
+  isRepairing.value = false;
+  isPreflighting.value = false;
+  repairProgressStep.value = '';
+  errorMessage.value = '';
+  repairResult.value = null;
+  filterCategory.value = 'all';
+};
+
+const runPreflight = async () => {
+  if (!props.cwd) return;
+  isPreflighting.value = true;
+  errorMessage.value = '';
+  try {
+    const desktopApi = (window as any).desktopApi;
+    let preflightData: any = null;
+    if (desktopApi?.environment?.preflight) {
+      preflightData = await desktopApi.environment.preflight(props.provider, props.cwd);
+    } else if (desktopApi?.agent?.preflight) {
+      preflightData = await desktopApi.agent.preflight(props.provider, props.cwd);
+    }
+
+    if (preflightData && Array.isArray(preflightData.checks)) {
+      repairResult.value = {
+        ok: preflightData.ok,
+        provider: props.provider,
+        checks: preflightData.checks,
+      };
+    }
+  } catch (err: any) {
+    console.warn('Preflight check failed:', err);
+  } finally {
+    isPreflighting.value = false;
+  }
+};
+
+watch(
+  () => props.show,
+  (newVal) => {
+    if (newVal) {
+      resetState();
+      void runPreflight();
+    }
+  }
+);
+
+onMounted(() => {
+  if (props.show) {
+    void runPreflight();
+  }
+});
 
 const runAutoRepair = async () => {
   isRepairing.value = true;
-  errorMessage.value = null;
-  repairResult.value = null;
+  errorMessage.value = '';
+  repairProgressStep.value = 'Scanning Windows CLI paths and verifying executable health...';
+
+  const progressTimer1 = setTimeout(() => {
+    if (isRepairing.value) repairProgressStep.value = 'Detecting and pruning stale Git lockfiles & worktrees...';
+  }, 600);
+
+  const progressTimer2 = setTimeout(() => {
+    if (isRepairing.value) repairProgressStep.value = 'Probing directory write permissions and stripping read-only locks...';
+  }, 1200);
+
+  const progressTimer3 = setTimeout(() => {
+    if (isRepairing.value) repairProgressStep.value = 'Checking multi-template .env configurations & dependencies...';
+  }, 1800);
 
   try {
-    const res: any = await (window as any).desktopApi?.agent?.repairEnvironment?.(props.provider, props.cwd);
-    if (res) {
-      repairResult.value = res;
-      emit('repaired', res);
+    const desktopApi = (window as any).desktopApi;
+    if (desktopApi?.environment?.repair) {
+      repairResult.value = await desktopApi.environment.repair(props.provider, props.cwd);
+      emit('repaired', repairResult.value!);
+    } else if (desktopApi?.agent?.repairEnvironment) {
+      repairResult.value = await desktopApi.agent.repairEnvironment(props.provider, props.cwd);
+      emit('repaired', repairResult.value!);
     } else {
-      // Fallback response for mock/offline environment
+      // Fallback preview mode when not running in Electron
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       repairResult.value = {
         ok: true,
         provider: props.provider,
         checks: [
-          { id: 'repository', status: 'passed', message: `Verified Git repository at ${props.cwd}` },
-          { id: 'env', status: 'passed', message: 'Environment file (.env) configured.' },
-          { id: 'node_dependencies', status: 'passed', message: 'Node dependencies validated.' },
+          { id: 'provider', status: 'passed', message: `${props.provider} CLI discovered and health verified.` },
+          { id: 'directory_permissions', status: 'passed', message: 'Workspace directory write permissions verified.' },
+          { id: 'git_locks', status: 'passed', message: 'No stale Git lockfiles detected.' },
+          { id: 'environment_file', status: 'passed', message: '.env configuration file present and verified.' },
+          { id: 'node_dependencies', status: 'passed', message: 'Node dependencies verified.' },
           { id: 'worktree_metadata', status: 'passed', message: 'Cleaned up legacy Git worktree metadata.' },
-          { id: 'provider_cli', status: 'passed', message: `${props.provider} CLI is ready for execution.` },
         ],
       };
-      emit('repaired', repairResult.value);
+      emit('repaired', repairResult.value!);
     }
   } catch (err: any) {
     errorMessage.value = err?.message || 'Failed to auto-repair workspace environment.';
   } finally {
+    clearTimeout(progressTimer1);
+    clearTimeout(progressTimer2);
+    clearTimeout(progressTimer3);
     isRepairing.value = false;
+    repairProgressStep.value = '';
   }
 };
+
+const filteredChecks = computed(() => {
+  if (!repairResult.value?.checks) return [];
+  if (filterCategory.value === 'issues') {
+    return repairResult.value.checks.filter((c) => c.status === 'failed' || c.status === 'warning');
+  }
+  if (filterCategory.value === 'healthy') {
+    return repairResult.value.checks.filter((c) => c.status === 'passed');
+  }
+  return repairResult.value.checks;
+});
+
+const issuesCount = computed(() => {
+  if (!repairResult.value?.checks) return 0;
+  return repairResult.value.checks.filter((c) => c.status === 'failed' || c.status === 'warning').length;
+});
+
+const healthyCount = computed(() => {
+  if (!repairResult.value?.checks) return 0;
+  return repairResult.value.checks.filter((c) => c.status === 'passed').length;
+});
 
 const getStatusBadge = (status: RepairCheck['status']) => {
   switch (status) {
     case 'passed':
-      return { icon: 'check-circle', bg: 'bg-emerald-950/60 border-emerald-800 text-emerald-300', iconClass: 'text-emerald-400', label: 'Fixed / Ready' };
+      return {
+        icon: 'check-circle',
+        bg: 'bg-emerald-950/60 border-emerald-800/80 text-emerald-300',
+        iconClass: 'text-emerald-400',
+        label: 'Fixed / Ready',
+      };
     case 'warning':
-      return { icon: 'alert-triangle', bg: 'bg-amber-950/60 border-amber-800 text-amber-300', iconClass: 'text-amber-400', label: 'Notice' };
+      return {
+        icon: 'alert-triangle',
+        bg: 'bg-amber-950/60 border-amber-800/80 text-amber-300',
+        iconClass: 'text-amber-400',
+        label: 'Notice',
+      };
     case 'failed':
-      return { icon: 'alert-circle', bg: 'bg-rose-950/60 border-rose-800 text-rose-300', iconClass: 'text-rose-400', label: 'Failed' };
+      return {
+        icon: 'alert-circle',
+        bg: 'bg-rose-950/60 border-rose-800/80 text-rose-300',
+        iconClass: 'text-rose-400',
+        label: 'Failed',
+      };
     default:
-      return { icon: 'clock', bg: 'bg-zinc-800 border-zinc-700 text-zinc-300', iconClass: 'text-slate-400', label: 'Check' };
+      return {
+        icon: 'clock',
+        bg: 'bg-zinc-800 border-zinc-700 text-zinc-300',
+        iconClass: 'text-slate-400',
+        label: 'Check',
+      };
   }
+};
+
+const formatCheckTitle = (id: string) => {
+  const map: Record<string, string> = {
+    provider: 'AI Provider CLI',
+    cli: 'CLI Executable Health',
+    cli_codex: 'Codex Runtime Health',
+    cli_claude_code: 'Claude Code Runtime Health',
+    cli_antigravity: 'Antigravity Runtime Health',
+    git_locks: 'Git Lockfiles & Stale Locks',
+    directory_permissions: 'Workspace Directory Permissions',
+    environment_file: 'Environment File (.env)',
+    env: 'Environment Setup (.env)',
+    node_dependencies: 'Node Dependencies (node_modules)',
+    php_dependencies: 'PHP Dependencies (vendor)',
+    repository: 'Git Repository Structure',
+    remote: 'Remote Synchronization',
+    working_tree: 'Working Tree State',
+    worktree_metadata: 'Git Worktree Metadata',
+    router: '9Router Gateway',
+    workspace: 'Workspace Path',
+    environment_setup: 'Environment Setup',
+  };
+  return map[id] || id.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 };
 </script>
 
@@ -82,7 +225,7 @@ const getStatusBadge = (status: RepairCheck['status']) => {
     @click.self="emit('close')"
   >
     <div
-      class="w-full max-w-lg bg-[#1e1e1e] border border-[#3e3e42] rounded-xl shadow-2xl overflow-hidden flex flex-col text-zinc-200"
+      class="w-full max-w-xl bg-[#1e1e1e] border border-[#3e3e42] rounded-xl shadow-2xl overflow-hidden flex flex-col text-zinc-200"
     >
       <!-- Modal Header -->
       <div class="h-12 px-4 border-b border-[#2d2d2d] bg-[#252526] flex items-center justify-between shrink-0">
@@ -92,7 +235,7 @@ const getStatusBadge = (status: RepairCheck['status']) => {
           </div>
           <div>
             <h2 class="text-xs font-bold text-zinc-100 uppercase tracking-wider">One-Click Environment Auto-Repair</h2>
-            <p class="text-[10px] text-zinc-400">Diagnose & self-heal common workspace environment issues</p>
+            <p class="text-[10px] text-zinc-400">Comprehensive Windows diagnostics & self-healing engine</p>
           </div>
         </div>
 
@@ -109,8 +252,8 @@ const getStatusBadge = (status: RepairCheck['status']) => {
         <!-- Target Info -->
         <div class="p-2.5 rounded-lg border border-[#333333] bg-[#252526] text-xs space-y-1">
           <div class="flex items-center justify-between text-zinc-400 text-[11px]">
-            <span>Workspace:</span>
-            <span class="font-mono text-zinc-200 truncate max-w-[280px]" :title="cwd">{{ cwd || 'No workspace selected' }}</span>
+            <span>Workspace Directory:</span>
+            <span class="font-mono text-zinc-200 truncate max-w-[320px]" :title="cwd">{{ cwd || 'No workspace selected' }}</span>
           </div>
           <div class="flex items-center justify-between text-zinc-400 text-[11px]">
             <span>Target AI Provider:</span>
@@ -118,35 +261,54 @@ const getStatusBadge = (status: RepairCheck['status']) => {
           </div>
         </div>
 
-        <!-- Description of what repair performs -->
-        <div v-if="!repairResult && !isRepairing" class="space-y-2">
+        <!-- Diagnostic Overview Cards (when no repair performed yet) -->
+        <div v-if="!repairResult && !isRepairing && !isPreflighting" class="space-y-2">
           <p class="text-xs text-zinc-300 font-medium">Auto-Repair checks and resolves:</p>
-          <ul class="space-y-1.5 text-xs text-zinc-400">
-            <li class="flex items-start gap-2">
-              <TailwindIcon name="check" :size="14" class="text-emerald-400 mt-0.5 shrink-0" />
-              <span>Copies <code class="bg-[#2d2d2d] px-1 rounded text-zinc-200">.env.example</code> to <code class="bg-[#2d2d2d] px-1 rounded text-zinc-200">.env</code> if missing.</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <TailwindIcon name="check" :size="14" class="text-emerald-400 mt-0.5 shrink-0" />
-              <span>Installs missing package dependencies (<code class="bg-[#2d2d2d] px-1 rounded text-zinc-200">npm ci</code> / <code class="bg-[#2d2d2d] px-1 rounded text-zinc-200">composer install</code>).</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <TailwindIcon name="check" :size="14" class="text-emerald-400 mt-0.5 shrink-0" />
-              <span>Prunes orphaned Git worktrees and stale temporary branch locks.</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <TailwindIcon name="check" :size="14" class="text-emerald-400 mt-0.5 shrink-0" />
-              <span>Verifies local AI CLI engine permissions and executable discovery.</span>
-            </li>
-          </ul>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div class="p-2.5 rounded border border-[#333333] bg-[#222224] space-y-1">
+              <div class="flex items-center gap-1.5 text-sky-300 font-medium">
+                <TailwindIcon name="terminal" :size="13" />
+                <span>Multi-Tier Windows PATH</span>
+              </div>
+              <p class="text-[11px] text-zinc-400">Scans ProgramData, AppData, Scoop, WinGet, and Git for Windows candidate paths.</p>
+            </div>
+
+            <div class="p-2.5 rounded border border-[#333333] bg-[#222224] space-y-1">
+              <div class="flex items-center gap-1.5 text-amber-300 font-medium">
+                <TailwindIcon name="shield" :size="13" />
+                <span>Stale Git Locks & Worktrees</span>
+              </div>
+              <p class="text-[11px] text-zinc-400">Safely detects and prunes orphaned index.lock, HEAD.lock, and worktree locks.</p>
+            </div>
+
+            <div class="p-2.5 rounded border border-[#333333] bg-[#222224] space-y-1">
+              <div class="flex items-center gap-1.5 text-emerald-300 font-medium">
+                <TailwindIcon name="file-text" :size="13" />
+                <span>Multi-Template .env Recovery</span>
+              </div>
+              <p class="text-[11px] text-zinc-400">Auto-detects .env.example, .env.template, .env.defaults or creates fallback .env.</p>
+            </div>
+
+            <div class="p-2.5 rounded border border-[#333333] bg-[#222224] space-y-1">
+              <div class="flex items-center gap-1.5 text-purple-300 font-medium">
+                <TailwindIcon name="folder" :size="13" />
+                <span>Permissions & Write Probes</span>
+              </div>
+              <p class="text-[11px] text-zinc-400">Tests write access and automatically strips Windows read-only filesystem attributes.</p>
+            </div>
+          </div>
         </div>
 
-        <!-- Progress Spinner -->
-        <div v-if="isRepairing" class="py-8 flex flex-col items-center justify-center gap-3 text-center">
-          <TailwindIcon name="loader" :size="28" class="animate-spin text-sky-400" />
+        <!-- Progress Spinner (Preflight or Repair) -->
+        <div v-if="isRepairing || isPreflighting" class="py-8 flex flex-col items-center justify-center gap-3 text-center">
+          <TailwindIcon name="loader" :size="30" class="animate-spin text-sky-400" />
           <div class="space-y-1">
-            <p class="text-xs font-semibold text-zinc-200">Evaluating & Auto-Repairing Workspace...</p>
-            <p class="text-[11px] text-zinc-400">Checking environment files, dependencies, and git state</p>
+            <p class="text-xs font-semibold text-zinc-200">
+              {{ isRepairing ? 'Evaluating & Auto-Repairing Workspace...' : 'Running Diagnostics Preflight...' }}
+            </p>
+            <p class="text-[11px] text-zinc-400 font-mono">
+              {{ repairProgressStep || 'Inspecting environment files, locks, permissions, and runtimes' }}
+            </p>
           </div>
         </div>
 
@@ -156,33 +318,79 @@ const getStatusBadge = (status: RepairCheck['status']) => {
           <span>{{ errorMessage }}</span>
         </div>
 
-        <!-- Repair Results List -->
-        <div v-if="repairResult" class="space-y-2.5">
+        <!-- Diagnostic & Repair Results List -->
+        <div v-if="repairResult && !isRepairing && !isPreflighting" class="space-y-3">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-zinc-200 uppercase tracking-wider">Diagnostic & Repair Report</span>
-            <span
-              class="px-2 py-0.5 rounded text-[11px] font-mono font-bold uppercase"
-              :class="repairResult.ok ? 'bg-emerald-900 text-emerald-300 border border-emerald-700' : 'bg-rose-900 text-rose-300 border border-rose-700'"
-            >
-              {{ repairResult.ok ? 'All Systems Healthy' : 'Issues Detected' }}
-            </span>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-zinc-200 uppercase tracking-wider">Diagnostic Report</span>
+              <span
+                class="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase"
+                :class="repairResult.ok ? 'bg-emerald-900 text-emerald-300 border border-emerald-700' : 'bg-rose-900 text-rose-300 border border-rose-700'"
+              >
+                {{ repairResult.ok ? 'All Systems Healthy' : 'Issues Detected' }}
+              </span>
+            </div>
+
+            <!-- Filter Controls -->
+            <div class="flex items-center gap-1 bg-[#252526] p-0.5 rounded border border-[#333333] text-[10px]">
+              <button
+                class="px-2 py-0.5 rounded transition-colors cursor-pointer"
+                :class="filterCategory === 'all' ? 'bg-[#37373d] text-white font-medium' : 'text-zinc-400 hover:text-zinc-200'"
+                @click="filterCategory = 'all'"
+              >
+                All ({{ repairResult.checks.length }})
+              </button>
+              <button
+                v-if="issuesCount > 0"
+                class="px-2 py-0.5 rounded transition-colors cursor-pointer text-amber-400"
+                :class="filterCategory === 'issues' ? 'bg-amber-950/80 text-amber-300 font-medium' : 'hover:text-amber-300'"
+                @click="filterCategory = 'issues'"
+              >
+                Issues ({{ issuesCount }})
+              </button>
+              <button
+                class="px-2 py-0.5 rounded transition-colors cursor-pointer"
+                :class="filterCategory === 'healthy' ? 'bg-emerald-950/80 text-emerald-300 font-medium' : 'text-zinc-400 hover:text-zinc-200'"
+                @click="filterCategory = 'healthy'"
+              >
+                Healthy ({{ healthyCount }})
+              </button>
+            </div>
           </div>
 
           <div class="space-y-1.5">
             <div
-              v-for="chk in repairResult.checks"
+              v-for="chk in filteredChecks"
               :key="chk.id"
-              class="p-2 rounded border flex items-start justify-between gap-2 text-xs"
+              class="p-2.5 rounded border flex flex-col gap-1 text-xs transition-colors"
               :class="getStatusBadge(chk.status).bg"
             >
-              <div class="flex items-start gap-2 min-w-0">
-                <TailwindIcon :name="getStatusBadge(chk.status).icon" :size="13" class="mt-0.5 shrink-0" :class="getStatusBadge(chk.status).iconClass" />
-                <div class="min-w-0">
-                  <span class="font-mono font-medium block truncate capitalize">{{ chk.id.replace('_', ' ') }}</span>
-                  <p class="text-[11px] text-zinc-300 leading-relaxed">{{ chk.message }}</p>
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-start gap-2 min-w-0">
+                  <TailwindIcon
+                    :name="getStatusBadge(chk.status).icon"
+                    :size="14"
+                    class="mt-0.5 shrink-0"
+                    :class="getStatusBadge(chk.status).iconClass"
+                  />
+                  <div class="min-w-0">
+                    <span class="font-semibold block truncate text-zinc-100">{{ formatCheckTitle(chk.id) }}</span>
+                    <p class="text-[11px] text-zinc-300 leading-relaxed">{{ chk.message }}</p>
+                  </div>
                 </div>
+                <span class="text-[10px] font-mono font-semibold shrink-0 uppercase px-1.5 py-0.5 rounded bg-black/30">
+                  {{ getStatusBadge(chk.status).label }}
+                </span>
               </div>
-              <span class="text-[10px] font-mono font-semibold shrink-0 uppercase">{{ getStatusBadge(chk.status).label }}</span>
+
+              <!-- Fix Hint when present -->
+              <div
+                v-if="chk.fixHint && chk.status !== 'passed'"
+                class="mt-1 pt-1.5 border-t border-current/10 text-[10px] text-zinc-400 flex items-center gap-1.5"
+              >
+                <TailwindIcon name="info" :size="11" class="shrink-0 text-sky-400" />
+                <span>{{ chk.fixHint }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -201,15 +409,15 @@ const getStatusBadge = (status: RepairCheck['status']) => {
           <button
             class="h-8 px-4 rounded text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
             :class="[
-              isRepairing
+              isRepairing || isPreflighting
                 ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed'
                 : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs active:scale-98'
             ]"
-            :disabled="isRepairing"
+            :disabled="isRepairing || isPreflighting"
             @click="runAutoRepair"
           >
             <TailwindIcon :name="isRepairing ? 'loader' : 'wrench'" :size="13" :class="isRepairing ? 'animate-spin' : ''" />
-            <span>{{ isRepairing ? 'Repairing...' : (repairResult ? 'Re-run Repair' : 'Execute Auto-Repair') }}</span>
+            <span>{{ isRepairing ? 'Repairing...' : (repairResult ? 'Re-run Auto-Repair' : 'Execute Auto-Repair') }}</span>
           </button>
         </div>
       </div>

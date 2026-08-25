@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import { usePage, Head } from '@inertiajs/vue3';
 
 interface UserAuth {
@@ -25,6 +25,7 @@ defineProps<{
 const page = usePage<PageProps>();
 const user = computed(() => page.props.auth?.user ?? null);
 const flash = computed(() => page.props.flash ?? {});
+const mobileMenuOpen = ref(false);
 </script>
 
 <template>
@@ -56,6 +57,7 @@ const flash = computed(() => page.props.flash ?? {});
           <a href="#features" class="hover:text-white transition-colors">Features</a>
           <a href="#agent-workflow" class="hover:text-white transition-colors">Agent Workflow</a>
           <a href="#mcp" class="hover:text-white transition-colors">MCP Protocol</a>
+          <a href="/pricing" class="hover:text-emerald-400 font-semibold transition-colors">Pricing</a>
           <a href="#architecture" class="hover:text-white transition-colors">Architecture</a>
         </nav>
 
@@ -76,7 +78,7 @@ const flash = computed(() => page.props.flash ?? {});
           <template v-if="user">
             <a
               href="/tasks"
-              class="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-emerald-500/25 hover:from-emerald-400 hover:to-teal-400 transition-all cursor-pointer"
+              class="hidden sm:flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-emerald-500/25 hover:from-emerald-400 hover:to-teal-400 transition-all cursor-pointer"
             >
               <span>Enter Workspace</span>
               <span>→</span>
@@ -85,8 +87,45 @@ const flash = computed(() => page.props.flash ?? {});
           <template v-else>
             <a
               href="/auth/github"
-              class="flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-emerald-500/25 hover:bg-emerald-400 active:scale-95 transition-all cursor-pointer"
+              class="hidden sm:flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-emerald-500/25 hover:bg-emerald-400 active:scale-95 transition-all cursor-pointer"
             >
+              <svg class="h-4 w-4 fill-current" viewBox="0 0 24 24">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+              </svg>
+              <span>Sign in with GitHub</span>
+            </a>
+          </template>
+
+          <!-- Mobile Hamburger Toggle Button -->
+          <button
+            type="button"
+            @click="mobileMenuOpen = !mobileMenuOpen"
+            class="flex md:hidden items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 hover:text-white"
+            aria-label="Toggle Navigation Menu"
+          >
+            <svg v-if="!mobileMenuOpen" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            <svg v-else class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Mobile Nav Drawer -->
+      <div v-if="mobileMenuOpen" class="md:hidden border-t border-slate-800 bg-slate-950 px-6 py-4 space-y-3">
+        <a href="#features" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">Features</a>
+        <a href="#agent-workflow" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">Agent Workflow</a>
+        <a href="#mcp" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">MCP Protocol</a>
+        <a href="/pricing" @click="mobileMenuOpen = false" class="block text-sm text-emerald-400 font-bold">Pricing & Plans</a>
+        <a href="#architecture" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">Architecture</a>
+        <div class="pt-3 border-t border-slate-800 flex flex-col gap-2">
+          <template v-if="user">
+            <a href="/tasks" class="rounded-xl bg-emerald-500 px-4 py-2 text-center text-xs font-bold text-slate-950">Enter Workspace</a>
+          </template>
+          <template v-else>
+            <a href="/auth/github" class="rounded-xl bg-emerald-500 px-4 py-2 text-center text-xs font-bold text-slate-950 flex items-center justify-center gap-2">
               <svg class="h-4 w-4 fill-current" viewBox="0 0 24 24">
                 <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
               </svg>
@@ -135,6 +174,13 @@ const flash = computed(() => page.props.flash ?? {});
             <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
           </svg>
           <span>Start Free with GitHub</span>
+        </a>
+        <a
+          href="/pricing"
+          class="flex items-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-6 py-4 text-sm font-semibold text-emerald-300 hover:border-emerald-400 hover:bg-emerald-500/20 transition-all"
+        >
+          <span>View Pricing & Plans</span>
+          <span>→</span>
         </a>
         <a
           href="/tasks"
@@ -406,11 +452,17 @@ const flash = computed(() => page.props.flash ?? {});
 
     <!-- FOOTER -->
     <footer class="border-t border-slate-800/80 bg-slate-950 px-6 py-12 text-xs text-slate-500">
-      <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
+      <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-6">
         <div class="flex items-center gap-2.5">
           <img src="/brand/macatung-mascot-icon.svg" alt="Ma Cà Tưng" class="h-6 w-6 rounded-lg object-contain" />
           <span class="font-bold text-slate-300">Task Hub</span>
           <span>· Open Source & Supervised AI Workspace</span>
+        </div>
+        <div class="flex items-center gap-6 text-slate-400">
+          <a href="/pricing" class="hover:text-emerald-400 transition-colors font-medium">Pricing</a>
+          <a href="#features" class="hover:text-white transition-colors">Features</a>
+          <a href="#agent-workflow" class="hover:text-white transition-colors">Workflow</a>
+          <a href="https://github.com/macatung/task-hub" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">GitHub</a>
         </div>
         <p>© 2026 Macatung Dev. Released under the MIT License.</p>
       </div>

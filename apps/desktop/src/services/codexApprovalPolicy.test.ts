@@ -6,7 +6,9 @@ describe('Codex approval policy bridge', () => {
   it('uses explicit least-privilege sandbox flags before a human escalation', () => {
     expect(main).toContain("return ['--sandbox', 'workspace-write']");
     expect(main).toContain("return ['--sandbox', 'read-only']");
-    expect(main).toContain("return ['--ask-for-approval', policy === 'restricted' ? 'untrusted' : 'on-request']");
+    // Codex CLI no longer accepts `untrusted`; sandbox selection above keeps
+    // restricted runs read-only while approval uses a supported CLI value.
+    expect(main).toContain("return ['--ask-for-approval', 'on-request'];");
     expect(main).toContain("return ['--dangerously-bypass-approvals-and-sandbox']");
   });
 

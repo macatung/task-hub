@@ -6,26 +6,24 @@
  * and receives pending remote dispatch and cancellation commands.
  */
 
+export interface ProviderQuotaDetail {
+  used_tokens?: number;
+  limit?: number;
+  weekly_percent?: number;
+  five_hour_percent?: number;
+  requests_used?: number;
+  requests_limit?: number;
+  tokens_remaining?: number;
+  weekly_reset_in?: string;
+  five_hour_reset_in?: string;
+  [key: string]: any;
+}
+
 export interface DesktopQuotaMetrics {
   plan?: string;
-  gemini?: {
-    used_tokens?: number;
-    limit?: number;
-    weekly_percent?: number;
-    five_hour_percent?: number;
-  };
-  claude_gpt?: {
-    used_tokens?: number;
-    limit?: number;
-    weekly_percent?: number;
-    five_hour_percent?: number;
-  };
-  codex?: {
-    used_tokens?: number;
-    limit?: number;
-    weekly_percent?: number;
-    five_hour_percent?: number;
-  };
+  gemini?: ProviderQuotaDetail;
+  claude_gpt?: ProviderQuotaDetail;
+  codex?: ProviderQuotaDetail;
   [key: string]: any;
 }
 
@@ -125,6 +123,22 @@ export class DesktopHeartbeatService {
 
   public setTelemetryOverrides(overrides: Partial<DesktopTelemetry>) {
     this.telemetryOverrides = { ...this.telemetryOverrides, ...overrides };
+  }
+
+  public setActiveModel(model: string) {
+    this.setTelemetryOverrides({ active_model: model });
+  }
+
+  public setQuotaMetrics(quotaMetrics: DesktopQuotaMetrics) {
+    this.setTelemetryOverrides({ quota_metrics: quotaMetrics });
+  }
+
+  public setActiveRunIds(runIds: number[]) {
+    this.activeRunIds = new Set(runIds);
+    this.setTelemetryOverrides({
+      active_run_ids: runIds,
+      status: runIds.length > 0 ? 'busy' : 'idle',
+    });
   }
 
   public addActiveRunId(runId: number) {

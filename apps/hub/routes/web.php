@@ -3,6 +3,9 @@
 use App\Http\Controllers\Api\ApiAgentRunController;
 use App\Http\Controllers\Api\ApiCapabilityController;
 use App\Http\Controllers\Api\ApiAgentRunnerController;
+use App\Http\Controllers\Api\ApiPlanController;
+use App\Http\Controllers\Api\ApiSubscriptionController;
+use App\Http\Controllers\Api\ApiInvoiceController;
 use App\Http\Controllers\Api\WorkspaceController;
 use App\Http\Controllers\Api\WorkspaceCredentialController;
 use App\Http\Controllers\Api\ApiProjectController;
@@ -14,13 +17,17 @@ use App\Http\Controllers\Api\ApiTaskController;
 use App\Http\Controllers\Api\TaskHubMcpController;
 use App\Http\Controllers\DesktopPairingController;
 use App\Http\Controllers\GithubAuthController;
+use App\Http\Controllers\PricingController;
 use App\Http\Controllers\TaskController;
+use App\Http\Controllers\WorkspaceBillingController;
 use Illuminate\Support\Facades\Route;
 
 // Hub SaaS Web Views
 Route::get('/', [TaskController::class, 'landing'])->name('hub.landing');
+Route::get('/pricing', [PricingController::class, 'index'])->name('pricing');
 Route::get('/tasks', [TaskController::class, 'index'])->name('tasks.index');
 Route::get('/workspace', [TaskController::class, 'index'])->name('tasks.workspace');
+Route::get('/workspaces/{workspace}/billing', [WorkspaceBillingController::class, 'show'])->name('workspaces.billing');
 
 // GitHub OAuth identity and authorization
 Route::get('/auth/github', [GithubAuthController::class, 'redirect'])->name('auth.github');
@@ -47,6 +54,9 @@ Route::post('/desktop/pairing/{pairingId}/deny', [DesktopPairingController::clas
 
 // Common API registration closure
 $registerApiRoutes = function () {
+    // Plans & Public Pricing
+    Route::get('/plans', [ApiPlanController::class, 'index']);
+
     // Capabilities
     Route::get('/capabilities', [ApiCapabilityController::class, 'show']);
     Route::get('/workspaces', [WorkspaceController::class, 'index'])->middleware('auth');
@@ -158,6 +168,11 @@ $registerApiRoutes = function () {
     // Canonical SaaS tenant-scoped API. Legacy unscoped routes remain for desktop compatibility,
     // while authenticated requests are filtered by WorkspaceContext in their controllers.
     Route::prefix('workspaces/{workspace}')->middleware(['auth', 'workspace'])->group(function () {
+        Route::get('/subscription', [ApiSubscriptionController::class, 'show']);
+        Route::post('/subscription', [ApiSubscriptionController::class, 'update']);
+        Route::post('/subscription/cancel', [ApiSubscriptionController::class, 'cancel']);
+        Route::get('/invoices', [ApiInvoiceController::class, 'index']);
+        Route::get('/quota', [ApiSubscriptionController::class, 'quota']);
         Route::get('/projects', [ApiProjectController::class, 'index']);
         Route::post('/projects', [ApiProjectController::class, 'store']);
         Route::get('/tasks', [ApiTaskController::class, 'index']);

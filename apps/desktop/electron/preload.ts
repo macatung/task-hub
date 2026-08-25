@@ -18,6 +18,8 @@ function safeClone<T>(value: T): T {
 contextBridge.exposeInMainWorld('desktopApi', {
   close: () => ipcRenderer.send('window-close'),
   minimize: () => ipcRenderer.send('window-minimize'),
+  toggleMaximize: () => ipcRenderer.invoke('window-toggle-maximize'),
+  maximize: () => ipcRenderer.invoke('window-toggle-maximize'),
   setAlwaysOnTop: (alwaysOnTop: boolean) => ipcRenderer.send('window-set-always-on-top', safeClone(alwaysOnTop)),
   moveWindow: (dx: number, dy: number) => ipcRenderer.send('window-move-by', safeClone({ dx, dy })),
   resizeWindow: (width: number, height: number) => ipcRenderer.send('window-resize', safeClone({ width, height })),
@@ -57,6 +59,11 @@ contextBridge.exposeInMainWorld('desktopApi', {
     importGeneratedDocuments: (taskHubUrl: string, token: string, projectId: string, payload: { manifest: string; documents: Array<{ path: string; content: string }> }) => ipcRenderer.invoke('taskhub-documents-import-generated', safeClone({ taskHubUrl, token, projectId, payload })),
     getCapabilities: (taskHubUrl: string) => ipcRenderer.invoke('taskhub-capabilities', safeClone(taskHubUrl)),
   },
+  environment: {
+    repair: (provider: 'codex' | 'claude_code' | 'antigravity', cwd: string) => ipcRenderer.invoke('agent-repair-environment', safeClone({ provider, cwd })),
+    preflight: (provider: 'codex' | 'claude_code' | 'antigravity', cwd: string) => ipcRenderer.invoke('agent-preflight', safeClone({ provider, cwd })),
+    quickSetup: (cwd: string, installDependencies = true) => ipcRenderer.invoke('agent-quick-setup', safeClone({ cwd, installDependencies })),
+  },
   agent: {
     getLocalRouter: () => ipcRenderer.invoke('agent-router-get'),
     saveLocalRouter: (config: { enabled: boolean; apiKey?: string }) => ipcRenderer.invoke('agent-router-save', safeClone(config)),
@@ -64,6 +71,8 @@ contextBridge.exposeInMainWorld('desktopApi', {
     checkLocalRouter: (includeModels = false) => ipcRenderer.invoke('agent-router-check', safeClone({ includeModels })),
     openLocalRouterDashboard: () => ipcRenderer.invoke('agent-router-open-dashboard'),
     codexDiagnostics: () => ipcRenderer.invoke('agent-codex-diagnostics'),
+    runtimeStatus: () => ipcRenderer.invoke('agent-runtime-status'),
+    bootstrapRuntimes: () => ipcRenderer.invoke('agent-bootstrap-runtimes'),
     pickWorkspace: () => ipcRenderer.invoke('agent-pick-workspace'),
     listWorkspaces: () => ipcRenderer.invoke('agent-list-workspaces'),
     saveWorkspace: (cwd: string) => ipcRenderer.invoke('agent-save-workspace', safeClone(cwd)),

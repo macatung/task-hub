@@ -8,6 +8,7 @@ use App\Http\Middleware\TrackVisitorAnalytics;
 use App\Http\Middleware\AdminAuthMiddleware;
 use App\Http\Middleware\ResolveWorkspace;
 use App\Http\Middleware\AuthenticateDesktopProject;
+use App\Http\Middleware\EnsureWorkspacePlanLimits;
 use App\Http\Middleware\LegacyApiDeprecation;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -38,6 +39,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'workspace' => ResolveWorkspace::class,
             'desktop.project' => AuthenticateDesktopProject::class,
             'legacy.api' => LegacyApiDeprecation::class,
+            'plan.limits' => EnsureWorkspacePlanLimits::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

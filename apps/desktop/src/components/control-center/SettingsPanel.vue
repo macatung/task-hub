@@ -13,6 +13,8 @@ const props = defineProps<{
   router: { enabled: boolean; endpoint: string; hasApiKey: boolean } | null;
   routerMessage: string;
   saving: boolean;
+  agentRuntimes: Array<{ provider: 'codex' | 'claude_code' | 'antigravity'; label: string; executable: string | null; status: 'ready' | 'missing' | 'installing' | 'failed'; message: string }>;
+  runtimeRepairing: boolean;
   autoSubmitHandoff: boolean;
   autoContinueEpic: boolean;
   autoReviewEnabled: boolean;
@@ -25,6 +27,7 @@ const emit = defineEmits<{
   chooseWorkspace: [];
   updateExecutionPolicy: [value: 'restricted' | 'workspace_write' | 'full_access'];
   runDiagnostics: [];
+  repairRuntimes: [];
   checkAppUpdate: [];
   installAppUpdate: [];
   saveRouter: [payload: { enabled: boolean; apiKey: string }];
@@ -131,9 +134,9 @@ const saveAutoReview = () => emit('updateAutoReview', { enabled: reviewEnabled.v
               <input class="mt-0.5" type="checkbox" v-model="reviewEnabled" @change="saveAutoReview">
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2"><b class="text-xs text-white">Automatic independent review loop</b><span class="rounded-full bg-[#5c3a1f] px-2 py-0.5 text-[10px] font-semibold text-[#f5c99e]">{{ reviewEnabled ? 'Enabled' : 'Disabled' }}</span></div>
-                <p class="mt-1 text-xs leading-5 text-[#d4bda8]">After the implementation agent finishes, a different local agent reviews the diff. Requested changes are sent back automatically until the review passes or the limit is reached. Hub still requires human approval; nothing is auto-merged.</p>
+                <p class="mt-1 text-xs leading-5 text-[#d4bda8]">After the implementation agent finishes, Task Hub starts a separate reviewer session for the diff. You may use the same provider as implementation; it still runs as an isolated read-only review session. Requested changes are sent back automatically until the review passes or the limit is reached. Hub still requires human approval; nothing is auto-merged.</p>
                 <div class="mt-3 grid grid-cols-2 gap-2">
-                  <label class="text-[11px] font-medium text-[#ead7c6]">Reviewer provider<select v-model="reviewProvider" class="cc-select mt-1" @change="saveAutoReview"><option value="codex">Codex</option><option value="claude_code">Claude Code</option><option value="antigravity">Antigravity (manual)</option></select></label>
+                  <label class="text-[11px] font-medium text-[#ead7c6]">Reviewer session provider<select v-model="reviewProvider" class="cc-select mt-1" @change="saveAutoReview"><option value="codex">Codex</option><option value="claude_code">Claude Code</option><option value="antigravity">Antigravity (manual)</option></select></label>
                   <label class="text-[11px] font-medium text-[#ead7c6]">Max review rounds<select v-model.number="reviewMaxIterations" class="cc-select mt-1" @change="saveAutoReview"><option :value="1">1 round</option><option :value="2">2 rounds</option><option :value="3">3 rounds</option><option :value="4">4 rounds</option><option :value="5">5 rounds</option></select></label>
                 </div>
                 <p v-if="reviewProvider === 'antigravity'" class="mt-2 text-[11px] text-amber-200">Antigravity opens an external session and cannot be parsed for an automatic loop. Choose Codex or Claude Code for unattended review.</p>
@@ -149,6 +152,20 @@ const saveAutoReview = () => emit('updateAutoReview', { enabled: reviewEnabled.v
               <p :class="diagnostics.ok ? 'text-emerald-300' : 'text-amber-300'">{{ diagnostics.summary }}{{ diagnostics.version ? ` · ${diagnostics.version}` : '' }}</p>
               <ul v-if="diagnostics.details?.length" class="mt-2 list-disc space-y-1 pl-4 text-[#a8b5c7]"><li v-for="detail in diagnostics.details" :key="detail">{{ detail }}</li></ul>
             </div>
+          </div>
+        </section>
+
+        <section class="border-t border-[#263244] pt-6">
+          <div class="flex items-start justify-between gap-4">
+            <div><h3 class="text-sm font-semibold text-white">Agent CLI environment</h3><p class="mt-1 text-xs leading-5 text-[#8b9bb0]">Task Hub installs missing Codex, Claude Code and Antigravity CLIs automatically after installation. Sign-in remains controlled by each provider.</p></div>
+            <button class="cc-primary shrink-0" :disabled="runtimeRepairing" @click="emit('repairRuntimes')">{{ runtimeRepairing ? 'Fixing…' : 'Fix environment' }}</button>
+          </div>
+          <div class="mt-3 space-y-2">
+            <div v-for="runtime in agentRuntimes" :key="runtime.provider" class="flex items-start justify-between gap-3 rounded-md border border-[#263244] bg-black/20 px-3 py-2 text-xs">
+              <div class="min-w-0"><p class="font-medium text-white">{{ runtime.label }}</p><p class="mt-1 truncate text-[11px] text-[#8b9bb0]" :title="runtime.message">{{ runtime.message }}</p></div>
+              <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" :class="runtime.status === 'ready' ? 'bg-emerald-950/60 text-emerald-300' : runtime.status === 'installing' ? 'bg-amber-950/60 text-amber-300' : 'bg-rose-950/60 text-rose-300'">{{ runtime.status === 'ready' ? 'Ready' : runtime.status === 'installing' ? 'Installing' : 'Needs fix' }}</span>
+            </div>
+            <p v-if="!agentRuntimes.length" class="rounded-md border border-[#263244] bg-black/20 px-3 py-2 text-xs text-[#8b9bb0]">Checking local CLI availability…</p>
           </div>
         </section>
 

@@ -10,6 +10,7 @@ import MarkdownView from './MarkdownView.vue';
 import PomodoroTimer from './PomodoroTimer.vue';
 import ActivityTimelineDrawer from './ActivityTimelineDrawer.vue';
 import AutoRepairModal from './AutoRepairModal.vue';
+import PlanUpgradeModal from './PlanUpgradeModal.vue';
 import DangerousCommandBanner from './DangerousCommandBanner.vue';
 import TailwindIcon from './TailwindIcon.vue';
 import StatusBadge from './StatusBadge.vue';
@@ -60,9 +61,9 @@ type ModelOption = {
 
 const PROVIDER_MODELS: Record<Provider, ModelOption[]> = {
   antigravity: [
-    { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', badges: ['High', 'Fast'], description: 'Latest generation model, optimized for speed and agentic reasoning' },
-    { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', badges: ['Medium', 'Fast'], description: 'Balanced high speed and reasoning capabilities' },
-    { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', badges: ['Medium', 'Fast'], description: 'Fast response for standard coding tasks' },
+    { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', badges: ['Flagship', 'Fast'], description: 'Latest generation model, optimized for speed and agentic reasoning' },
+    { id: 'gemini-3.7-pro', name: 'Gemini 3.7 Pro', badges: ['High', 'Reasoning'], description: 'Deep reasoning and multimodal intelligence for complex architecture' },
+    { id: 'gemini-3.5-flash-medium', name: 'Gemini 3.5 Flash (Medium)', badges: ['Medium', 'Fast'], description: 'Fast response for standard coding tasks' },
     { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', badges: ['Low'], description: 'Standard model for lightweight tasks' },
     { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', badges: ['Thinking'], description: 'Extended reasoning and deep source code architecture analysis' },
     { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', badges: ['Thinking'], description: 'Premier analysis model for complex problems' },
@@ -74,16 +75,19 @@ const PROVIDER_MODELS: Record<Provider, ModelOption[]> = {
     { id: 'default', name: 'IDE / CLI Default', badges: ['Default'], description: 'Default Antigravity configuration' },
   ],
   claude_code: [
-    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', badges: ['High', 'Recommended'], description: 'Top optimization for coding, architecture & hybrid reasoning' },
+    { id: 'claude-3-7-sonnet', name: 'Claude 3.7 Sonnet', badges: ['High', 'Recommended', 'Flagship'], description: 'Top optimization for coding, architecture & hybrid reasoning' },
     { id: 'claude-3-7-sonnet-thinking', name: 'Claude 3.7 (Thinking)', badges: ['High', 'Thinking'], description: 'Enables extended thinking for complex refactoring' },
+    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet (20250219)', badges: ['High', 'Snapshot'], description: 'Claude 3.7 Sonnet pinned release' },
+    { id: 'claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', badges: ['Balanced', 'Fast'], description: 'Stable industry-standard coding model' },
+    { id: 'claude-3-5-haiku', name: 'Claude 3.5 Haiku', badges: ['Super Fast'], description: 'Super fast speed for small tasks and light refactoring' },
+    { id: 'claude-3-opus', name: 'Claude 3 Opus', badges: ['Deep Analysis'], description: 'Large system analysis & complex problems' },
     { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', badges: ['Next-Gen', 'Thinking'], description: 'Next-gen Sonnet model optimized for agentic workflows' },
     { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', badges: ['Deep Analysis', 'Thinking'], description: 'Large system analysis & complex logic structures' },
-    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (v2)', badges: ['Balanced', 'Fast'], description: 'Stable industry-standard coding model' },
-    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', badges: ['Super Fast'], description: 'Super fast speed for small tasks and light refactoring' },
-    { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', badges: ['Deep Analysis'], description: 'Large system analysis & complex problems' },
     { id: 'default', name: 'CLI Default', badges: ['Default'], description: 'Default Claude Code CLI configuration' },
   ],
   codex: [
+    { id: 'gpt-5', name: 'GPT-5 (Flagship)', badges: ['High', 'Flagship'], description: 'Foundational flagship model of the GPT-5 generation' },
+    { id: 'gpt-5-mini', name: 'GPT-5 mini', badges: ['Ultra Fast'], description: 'Compact, highly responsive model for fast edits and scripting' },
     { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', badges: ['High', 'Flagship'], description: 'Flagship GPT-5.6 model for reasoning, research & agentic coding' },
     { id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra', badges: ['Medium', 'Fast'], description: 'Balanced intelligence and speed for production workloads' },
     { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', badges: ['Low', 'Ultra Fast'], description: 'Lightweight model optimized for speed and cost efficiency at scale' },
@@ -91,11 +95,10 @@ const PROVIDER_MODELS: Record<Provider, ModelOption[]> = {
     { id: 'o3-pro', name: 'o3-pro', badges: ['High', 'Deep Reasoning'], description: 'Deep extended reasoning for challenging architecture & algorithmic problems' },
     { id: 'o3', name: 'o3', badges: ['High', 'Reasoning'], description: 'Powerful multi-step reasoning model from the o-series' },
     { id: 'o3-mini', name: 'o3-mini', badges: ['Fast Reasoning', 'High'], description: 'High-level logical reasoning with rapid response times' },
-    { id: 'gpt-5', name: 'GPT-5 (Foundational)', badges: ['High', 'Foundational'], description: 'Foundational model of the GPT-5 generation' },
+    { id: 'gpt-4.5-preview', name: 'GPT-4.5 Preview', badges: ['High Quality', 'Large Context'], description: 'Deep context comprehension and complex architecture understanding' },
     { id: 'gpt-4.1', name: 'GPT-4.1', badges: ['Balanced', 'Fast'], description: 'High-performance version optimized for daily coding tasks' },
     { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', badges: ['Ultra Fast'], description: 'Ultra-lightweight model with high execution speed' },
     { id: 'o1', name: 'o1', badges: ['Deep Reasoning'], description: 'Step-by-step reasoning for complex problem solving' },
-    { id: 'gpt-4.5-preview', name: 'GPT-4.5 Preview', badges: ['High Quality', 'Large Context'], description: 'Deep context comprehension and complex architecture understanding' },
     { id: 'gpt-4o', name: 'GPT-4o', badges: ['Omni', 'Fast'], description: 'Balanced execution speed and output quality' },
     { id: 'gpt-4o-mini', name: 'GPT-4o mini', badges: ['Ultra Fast'], description: 'Compact model with high execution speed' },
     { id: 'gpt-oss-120b', name: 'GPT-OSS 120B (Medium)', badges: ['Open Weights', 'Medium'], description: '120B-parameter open-weights model' },
@@ -117,11 +120,9 @@ const modelSyncTimestamp = ref<string | null>(null);
 const modelSyncSource = ref<'preset' | 'live' | 'cache'>('preset');
 
 const selectedModels = ref<Record<Provider, string>>({
-  codex: 'gpt-5.6-sol',
-  claude_code: 'claude-3-7-sonnet-20250219',
-  // Recent AGY CLI versions require an explicit reasoning tier. The generic
-  // `gemini-3.7-flash` ID is retained only as a migration alias in main.ts.
-  antigravity: 'gemini-3.7-flash-high',
+  codex: 'gpt-5',
+  claude_code: 'claude-3-7-sonnet',
+  antigravity: 'gemini-3.7-flash',
 });
 const customModelInput = ref<Record<Provider, string>>({
   codex: '',
@@ -135,8 +136,7 @@ const isCustomModel = ref<Record<Provider, boolean>>({
 });
 
 const LEGACY_AGY_MODEL_ALIASES: Record<string, string> = {
-  'gemini-3.7-flash': 'gemini-3.7-flash-high',
-  'gemini-3.6-flash': 'gemini-3.6-flash-medium',
+  'gemini-3.6-flash': 'gemini-3.5-flash-medium',
   'gemini-3.5-flash': 'gemini-3.5-flash-medium',
 };
 
@@ -1149,6 +1149,21 @@ const openModelsAndUsageModal = () => {
 const showSkillsModal = ref(false);
 const showScheduledTasksModal = ref(false);
 const showSettingsPermissionsModal = ref(false);
+
+// Plan Upgrade Modal
+const showPlanUpgradeModal = ref(false);
+const upgradeModalPlan = ref('community');
+const upgradeModalLimit = ref(1);
+const upgradeModalActiveCount = ref(1);
+const upgradeModalReason = ref('');
+
+const openPlanUpgradeModal = (plan?: string, limit?: number, active?: number, reason?: string) => {
+  if (plan) upgradeModalPlan.value = plan;
+  if (limit !== undefined) upgradeModalLimit.value = limit;
+  if (active !== undefined) upgradeModalActiveCount.value = active;
+  if (reason) upgradeModalReason.value = reason;
+  showPlanUpgradeModal.value = true;
+};
 
 export type ActivityType = 'agent' | 'workspaces' | 'explorer' | 'diff' | 'skills' | 'schedule' | 'models' | 'history' | 'settings';
 export type EditorTabType = 'terminal' | 'monaco' | 'context' | 'evidence' | 'subagents' | 'tasks' | 'artifacts';
@@ -2614,6 +2629,20 @@ const startAgent = async () => {
     phase.value = 'error';
     errorMessage.value = error.message || 'Failed to launch agent.';
     addTimeline('Agent start error', error.message, 'error');
+
+    const errStr = (error?.message || error?.error_code || error?.code || '').toString();
+    if (
+      errStr.includes('PLAN_QUOTA_EXCEEDED') ||
+      errStr.toLowerCase().includes('concurrent runner') ||
+      errStr.toLowerCase().includes('runner limit') ||
+      error?.error_code === 'PLAN_QUOTA_EXCEEDED'
+    ) {
+      upgradeModalPlan.value = error?.plan || (props.desktopCredential as any)?.plan || 'community';
+      upgradeModalLimit.value = error?.limit !== undefined ? Number(error.limit) : 1;
+      upgradeModalActiveCount.value = error?.active !== undefined ? Number(error.active) : 1;
+      upgradeModalReason.value = error?.message || 'Concurrent runner limit reached for your current plan.';
+      showPlanUpgradeModal.value = true;
+    }
   }
 };
 
@@ -6157,12 +6186,21 @@ onUnmounted(() => {
               <span class="text-sm font-semibold text-white">Your Plan: {{ quotaUsageState.plan || 'Google AI Ultra' }}</span>
               <p class="text-xs text-zinc-400">You are connected to high rate limits with sliding-window quota management.</p>
             </div>
-            <button
-              class="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white text-xs font-semibold shadow-sm shadow-sky-900/30 transition-all cursor-pointer shrink-0"
-              @click="addTimeline('Quota Refreshed', 'Manual full quota telemetry sync completed', 'ok'); refreshQuotaUsage();"
-            >
-              Sync Now
-            </button>
+            <div class="flex items-center gap-2 shrink-0">
+              <button
+                class="px-3.5 py-2 rounded-lg bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 active:from-sky-700 active:to-blue-700 text-white text-xs font-semibold shadow-sm shadow-sky-900/30 transition-all cursor-pointer flex items-center gap-1.5"
+                @click="openPlanUpgradeModal()"
+              >
+                <TailwindIcon name="sparkles" :size="13" />
+                <span>Upgrade Plan</span>
+              </button>
+              <button
+                class="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-900 text-zinc-200 text-xs font-semibold transition-all cursor-pointer"
+                @click="addTimeline('Quota Refreshed', 'Manual full quota telemetry sync completed', 'ok'); refreshQuotaUsage();"
+              >
+                Sync Now
+              </button>
+            </div>
           </div>
         </div>
 
@@ -6437,6 +6475,19 @@ onUnmounted(() => {
     <AntigravitySettingsPermissionsModal
       v-if="showSettingsPermissionsModal"
       @close="showSettingsPermissionsModal = false"
+    />
+
+    <!-- PLAN UPGRADE MODAL -->
+    <PlanUpgradeModal
+      :show="showPlanUpgradeModal"
+      :current-plan="upgradeModalPlan"
+      :current-limit="upgradeModalLimit"
+      :active-count="upgradeModalActiveCount"
+      :workspace-slug="(props.desktopCredential as any)?.workspaceSlug || (props.desktopCredential as any)?.workspaceName || ''"
+      :task-hub-url="props.desktopCredential?.taskHubUrl"
+      :reason-message="upgradeModalReason"
+      @close="showPlanUpgradeModal = false"
+      @upgrade="showPlanUpgradeModal = false"
     />
 
     <!-- REJECT FEEDBACK MODAL DIALOG -->
