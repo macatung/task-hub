@@ -31,5 +31,7 @@ describe('Control Center settings and approval escalation', () => {
     expect(settingsPanel).toContain('Check for updates');
     expect(controlCenter).toContain('checkAppUpdate');
     expect(controlCenter).toContain('autoHandoffPayload');
+    expect(controlCenter).toContain('runOutputStart');
+    expect(controlCenter).toContain('autoHandoffSubmitting');
   });
 });
