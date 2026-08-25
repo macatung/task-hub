@@ -455,7 +455,11 @@ class ApiAgentRunController extends Controller
     {
         $validated = $request->validate([
             'summary' => 'required|string|max:10000',
-            'changed_files' => 'required|array|min:1',
+            // A local agent can complete a verification-only task or commit its
+            // changes before handoff. Keep the structured field mandatory, but
+            // allow an empty list so the desktop auto-handoff is not rejected
+            // after it has independently captured passing test evidence.
+            'changed_files' => 'required|array',
             'changed_files.*' => 'string|max:500',
             'tests' => 'required|array|min:1',
             'tests.*.command' => 'required|string|max:500',

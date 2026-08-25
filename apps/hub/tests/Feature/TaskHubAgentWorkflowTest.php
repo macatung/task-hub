@@ -195,6 +195,19 @@ class TaskHubAgentWorkflowTest extends TestCase
         $this->assertDatabaseHas('verification_evidence', ['agent_run_id' => $run->id, 'command' => 'npm test', 'status' => 'passed']);
     }
 
+    public function test_structured_handoff_allows_an_empty_changed_file_list_for_verified_runs(): void
+    {
+        $project = Project::create(['slug' => 'auto-handoff-project', 'title' => 'Auto Handoff Project', 'tagline' => 'Auto Handoff', 'description' => 'Test project', 'type' => 'work', 'category' => 'tools']);
+        $task = Task::create(['project_id' => $project->id, 'title' => 'Verify without local diff']);
+        $run = AgentRun::create(['task_id' => $task->id, 'provider' => 'codex', 'agent_session_id' => 'auto-handoff-session', 'status' => 'running']);
+
+        $this->postJson('/api/tasks/agent-runs/' . $run->id . '/handoff', [
+            'summary' => 'Verification-only handoff from Desktop.',
+            'changed_files' => [],
+            'tests' => [['command' => 'npm test', 'status' => 'passed', 'summary' => 'All tests passed.']],
+        ])->assertOk()->assertJsonPath('data.status', 'needs_review');
+    }
+
     public function test_project_github_configuration_is_encrypted_and_syncs_snapshot(): void
     {
         $project = Project::create([
