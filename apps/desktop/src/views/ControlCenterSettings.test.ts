@@ -25,7 +25,7 @@ describe('Control Center settings and approval escalation', () => {
     expect(controlCenter).toContain('human review required before retrying');
     expect(controlCenter).toContain('await startLocal(pending.prompt, pending.kind, policy, pending.intent, true)');
     expect(controlCenter).toContain("phase.value = 'Sandbox blocked — approval required'");
-    expect(controlCenter).toContain("runStatus.value === 'completed' && isSandboxFailure(output.value)");
+    expect(controlCenter).toContain("runStatus.value === 'completed' && isSandboxFailure(output.value.slice(runOutputStart.value))");
     expect(settingsPanel).toContain('Workspace write');
     expect(settingsPanel).toContain('Codex diagnostics');
     expect(settingsPanel).toContain('Check for updates');

@@ -77,12 +77,12 @@ const handleAgentExit = (event: any) => {
   // turn successfully. Treat that response as a blocked run, not a completed
   // task, so the human approval flow is surfaced instead of being hidden under
   // a misleading green "Completed" status.
-  if (runStatus.value === 'completed' && isSandboxFailure(output.value)) {
+  if (runStatus.value === 'completed' && isSandboxFailure(output.value.slice(runOutputStart.value))) {
     runStatus.value = 'failed';
     phase.value = 'Sandbox blocked — approval required';
     error.value = 'Codex could not start its workspace sandbox. This task has not run; review diagnostics and approve a retry.';
     toolMessage.value = 'The local sandbox blocked this run before work could begin.';
-    if (pendingLaunch.value) void requestHumanApproval(output.value.slice(-8000));
+    if (pendingLaunch.value) void requestHumanApproval(output.value.slice(runOutputStart.value).slice(-8000));
     return;
   }
 
