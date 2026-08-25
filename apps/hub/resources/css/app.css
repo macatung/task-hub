@@ -383,35 +383,35 @@
 /* Task workspace — quiet graphite / copper visual system                     */
 /* -------------------------------------------------------------------------- */
 .tasks-page.minimal-theme {
-  --task-canvas: #f3f1ed;
-  --task-surface: #fffdfa;
-  --task-surface-muted: #ebe8e2;
-  --task-line: #d8d2c8;
-  --task-ink: #292724;
-  --task-muted: #756f67;
-  --task-accent: #a95f3e;
-  --task-accent-strong: #8f4c31;
-  --task-accent-soft: #f0dfd6;
-  --task-accent-line: #d8a58e;
-  --task-success: #667864;
-  --task-success-soft: #e3e9e1;
+  --task-canvas: #f5f4f1;
+  --task-surface: #ffffff;
+  --task-surface-muted: #e9e7e2;
+  --task-line: #b8b2a8;
+  --task-ink: #211f1c;
+  --task-muted: #57524b;
+  --task-accent: #984d2e;
+  --task-accent-strong: #7f3e25;
+  --task-accent-soft: #f0ddd3;
+  --task-accent-line: #a86c51;
+  --task-success: #4f634c;
+  --task-success-soft: #e1e8df;
   background: var(--task-canvas) !important;
   color: var(--task-ink) !important;
 }
 
 .tasks-page.minimal-theme.dark {
-  --task-canvas: #171716;
-  --task-surface: #20201e;
-  --task-surface-muted: #272623;
-  --task-line: #3b3833;
-  --task-ink: #f1ece5;
-  --task-muted: #a69f95;
-  --task-accent: #d28a62;
-  --task-accent-strong: #e0a078;
-  --task-accent-soft: #3b2922;
-  --task-accent-line: #704633;
-  --task-success: #91a58d;
-  --task-success-soft: #273127;
+  --task-canvas: #151514;
+  --task-surface: #1f1f1d;
+  --task-surface-muted: #282724;
+  --task-line: #514c45;
+  --task-ink: #f7f3ed;
+  --task-muted: #c2bbb1;
+  --task-accent: #e09a70;
+  --task-accent-strong: #efad85;
+  --task-accent-soft: #4a2e22;
+  --task-accent-line: #966044;
+  --task-success: #a9bea4;
+  --task-success-soft: #2b382b;
 }
 
 .tasks-page.minimal-theme header,
@@ -522,9 +522,27 @@
   color: var(--task-muted) !important;
 }
 
+.tasks-page.minimal-theme input::placeholder,
+.tasks-page.minimal-theme textarea::placeholder {
+  color: var(--task-muted) !important;
+  opacity: 1 !important;
+}
+
 .tasks-page.minimal-theme svg {
   filter: grayscale(1);
-  opacity: 0.78;
+  opacity: 0.92;
+}
+
+.tasks-page.minimal-theme .bg-sky-400,
+.tasks-page.minimal-theme .bg-amber-400,
+.tasks-page.minimal-theme .bg-purple-400,
+.tasks-page.minimal-theme .bg-indigo-400 {
+  background-color: var(--task-accent) !important;
+}
+
+.tasks-page.minimal-theme .bg-emerald-400,
+.tasks-page.minimal-theme .bg-emerald-500 {
+  background-color: var(--task-success) !important;
 }
 
 .tasks-page.minimal-theme .animate-pulse {
