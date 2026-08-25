@@ -48,7 +48,7 @@ class ApiAgentRunController extends Controller
         $after = max(0, $request->integer('after', 0));
         $afterLog = max(0, $request->integer('after_log', 0));
         $runId = $request->integer('run_id');
-        return response()->stream(function () use ($workspace, $after, $runId) {
+        return response()->stream(function () use ($workspace, $after, $afterLog, $runId) {
             $events = AgentRunEvent::query()->where('id', '>', $after)
                 ->whereHas('agentRun', fn ($q) => $q->where('workspace_id', $workspace->id))
                 ->when($runId, fn ($q) => $q->where('agent_run_id', $runId))
@@ -455,11 +455,10 @@ class ApiAgentRunController extends Controller
     {
         $validated = $request->validate([
             'summary' => 'required|string|max:10000',
-            // A local agent can complete a verification-only task or commit its
-            // changes before handoff. Keep the structured field mandatory, but
-            // allow an empty list so the desktop auto-handoff is not rejected
-            // after it has independently captured passing test evidence.
-            'changed_files' => 'required|array',
+            // Verification-only runs may not have a local diff. Treat an omitted
+            // or empty changed-file list as an explicit empty list so automatic
+            // handoff still reaches Hub review.
+            'changed_files' => 'nullable|array',
             'changed_files.*' => 'string|max:500',
             'tests' => 'required|array|min:1',
             'tests.*.command' => 'required|string|max:500',
@@ -470,6 +469,7 @@ class ApiAgentRunController extends Controller
             'blockers' => 'nullable|string|max:10000',
             'idempotency_key' => 'nullable|uuid',
         ]);
+        $validated['changed_files'] = array_values($validated['changed_files'] ?? []);
         $idempotencyKey = $validated['idempotency_key'] ?? $request->header('Idempotency-Key');
         if ($idempotencyKey && data_get($agentRun->metadata, 'handoff.idempotency_key') === $idempotencyKey) {
             return response()->json(['success' => true, 'duplicate' => true, 'data' => $agentRun->fresh()->load(['evidence', 'events'])]);
@@ -563,6 +563,19 @@ class ApiAgentRunController extends Controller
             $this->recordEvent($latest, 'human_rejected', 'waiting_input', $validated);
         }
         return response()->json(['success' => true, 'message' => 'Task returned to changes requested.', 'data' => $task->fresh()]);
+    }
+
+    public function cancel(Request $request, AgentRun $agentRun)
+    {
+        if ($request->user()) {
+            abort_unless((int) $agentRun->workspace_id === (int) app(WorkspaceContext::class)->resolve($request)->id, 404);
+        }
+        if (in_array($agentRun->status, ['verified', 'failed', 'cancelled'], true)) {
+            return response()->json(['success' => true, 'data' => $agentRun]);
+        }
+        $agentRun->update(['cancel_requested_at' => now(), 'status' => 'cancelled', 'finished_at' => now()]);
+        $this->recordEvent($agentRun, 'run_cancelled', 'cancelled', ['reason' => $request->input('reason', 'User requested cancel')]);
+        return response()->json(['success' => true, 'data' => $agentRun->fresh()]);
     }
 
     public function githubWebhook(Request $request)
