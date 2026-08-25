@@ -7,6 +7,7 @@ import WorkflowPanel from '../components/control-center/WorkflowPanel.vue';
 import ActivityTimelineDrawer from '../components/ActivityTimelineDrawer.vue';
 import { useTaskSync, type TaskItem } from '../composables/useTaskSync';
 import { useActionFeedback } from '../composables/useActionFeedback';
+import { useContextPackCache } from '../composables/useContextPackCache';
 import { parseDiscoveryPlan, serializeDiscoveryPlanContract } from '../utils/discoveryPlan';
 import { buildAutoHandoffPayload } from '../utils/autoHandoff';
 import { InteractiveRunReporter } from '../services/interactiveRunReporter';
@@ -17,6 +18,7 @@ type ApprovalRequest = { id: string; reason: string; requestedAt: string; recomm
 type RunIntent = 'task' | 'docs' | 'requirement';
 type PendingLaunch = { prompt: string; kind: 'task' | 'docs'; policy: ExecutionPolicy; intent: RunIntent };
 const sync = useTaskSync();
+const contextPackCache = useContextPackCache();
 const {
   notify,
   startOperation,
@@ -26,7 +28,7 @@ const {
   clearTimeline,
 } = useActionFeedback();
 const interactiveReporter = new InteractiveRunReporter();
-const selectedTask = ref<TaskItem | null>(null); const provider = ref<Provider>('codex'); const executionPolicy = ref<ExecutionPolicy>('workspace_write'); const workspace = ref(''); const worktree = ref(''); const phase = ref('Ready'); const output = ref(''); const sessionId = ref<string | null>(null); const runId = ref<number | null>(null); const runStatus = ref<RunStatus>('idle'); const runExitCode = ref<number | null>(null); const syncing = ref(false); const lastSynced = ref<string | null>(null); const error = ref(''); const approvalRequest = ref<ApprovalRequest | null>(null); const pendingLaunch = ref<PendingLaunch | null>(null); const runIntent = ref<RunIntent>('task'); const diagnostics = ref<any>(null); const diagnosticsLoading = ref(false); const runOutputStart = ref(0); const autoHandoffSubmitting = ref(false);
+const selectedTask = ref<TaskItem | null>(null); const provider = ref<Provider>('codex'); const executionPolicy = ref<ExecutionPolicy>('workspace_write'); const workspace = ref(''); const worktree = ref(''); const phase = ref('Ready'); const output = ref(''); const sessionId = ref<string | null>(null); const runId = ref<number | null>(null); const runStatus = ref<RunStatus>('idle'); const runExitCode = ref<number | null>(null); const syncing = ref(false); const lastSynced = ref<string | null>(null); const error = ref(''); const approvalRequest = ref<ApprovalRequest | null>(null); const pendingLaunch = ref<PendingLaunch | null>(null); const runIntent = ref<RunIntent>('task'); const diagnostics = ref<any>(null); const diagnosticsLoading = ref(false); const runOutputStart = ref(0); const autoHandoffSubmitting = ref(false); const handoffReviewUrl = ref('');
 const toolMode = ref<ToolMode>(null); const toolProjectId = ref<number | null>(null); const requirement = ref(''); const requirementPlan = ref(''); const docsReady = ref(false); const toolMessage = ref(''); const toolBusy = ref(false); const showTimelineDrawer = ref(false);
 const autoSubmitHandoff = ref(localStorage.getItem('task-hub-auto-submit-handoff') === 'true');
 const settingsOpen = ref(false); const router = ref<{ enabled: boolean; endpoint: string; hasApiKey: boolean } | null>(null); const routerMessage = ref(''); const routerSaving = ref(false); const updater = ref<{ status: string; version?: string; percent?: number; message?: string }>({ status: 'idle' });
@@ -41,20 +43,88 @@ const checkAppUpdate = async () => { updater.value = await window.desktopApi?.up
 const installAppUpdate = async () => { updater.value = await window.desktopApi?.updater?.install?.() || updater.value; };
 const isSandboxFailure = (value: string) => /codex-windows-sandbox-setup|sandbox startup failure|workspace sandbox.*(?:fail|cannot|missing|error)|helper executable.*(?:fail|cannot|missing)|(?:sandbox|codex).*(?:access denied|could not start|failed to launch)/i.test(value);
 const runDiagnostics = async () => { if (provider.value !== 'codex') return; diagnosticsLoading.value = true; try { diagnostics.value = await window.desktopApi.agent.codexDiagnostics(); } catch (e: any) { diagnostics.value = { ok: false, summary: 'Could not run Codex diagnostics.', details: [e?.message || 'Unknown error.'] }; } finally { diagnosticsLoading.value = false; } };
-const requestHumanApproval = async (reason = error.value || 'The local agent needs an approval to continue.') => { if (!pendingLaunch.value) return; await runDiagnostics(); const sandboxBlocked = isSandboxFailure(`${reason}\n${diagnostics.value?.summary || ''}`);
-  const alreadyFullAccess = pendingLaunch.value.policy === 'full_access';
+const requestHumanApproval = async (reason = error.value || 'The local agent needs an approval to continue.') => {
+  if (!pendingLaunch.value && selectedTask.value) {
+    pendingLaunch.value = {
+      prompt: `Execute only ${selectedTask.value.issue_key || selectedTask.value.title}. Use the supplied Task Hub context, work in this isolated worktree, run relevant tests, and finish with a concise handoff.`,
+      kind: 'task',
+      policy: executionPolicy.value,
+      intent: 'task',
+    };
+  }
+  await runDiagnostics();
+  const sandboxBlocked = isSandboxFailure(`${reason}\n${diagnostics.value?.summary || ''}`);
+  const alreadyFullAccess = pendingLaunch.value?.policy === 'full_access';
   const diagnosticDetails = [...(diagnostics.value?.details || [])];
   if (alreadyFullAccess) diagnosticDetails.unshift('This run already used full access. Approval can record a deliberate retry, but it cannot repair the missing Windows sandbox helper. Repair or restart Codex if the retry fails again.');
-  approvalRequest.value = { id: `approval-${Date.now()}`, reason, requestedAt: new Date().toLocaleString(), recommendedPolicy: sandboxBlocked || alreadyFullAccess ? 'full_access' : 'workspace_write', diagnosticSummary: alreadyFullAccess ? 'Full-access run failed — human review required before retrying.' : diagnostics.value?.summary, diagnosticDetails };
+  approvalRequest.value = {
+    id: `approval-${Date.now()}`,
+    reason,
+    requestedAt: new Date().toLocaleString(),
+    recommendedPolicy: sandboxBlocked || alreadyFullAccess ? 'full_access' : 'workspace_write',
+    diagnosticSummary: alreadyFullAccess ? 'Full-access run failed — human review required before retrying.' : (diagnostics.value?.summary || 'Human review required before retrying.'),
+    diagnosticDetails,
+  };
   phase.value = 'Awaiting human approval';
 };
-const approveRetry = async (policy: 'workspace_write' | 'full_access') => { const request = approvalRequest.value; const pending = pendingLaunch.value; if (!request || !pending) return; const warning = policy === 'full_access' ? 'Approve one full-access retry? Codex will bypass its sandbox and native approval prompts. The worktree remains isolated, but this grants the agent broader access on this machine.' : 'Approve a workspace-write retry? Codex can edit only the isolated worktree and may request another escalation.'; if (!window.confirm(warning)) return;
-  executionPolicy.value = policy; approvalRequest.value = null; error.value = ''; phase.value = `Human approved ${policy === 'full_access' ? 'full access' : 'workspace-write'} retry`; output.value += `\n✓ Human approval recorded at ${new Date().toLocaleTimeString()}: ${policy}. Continuing the same run.\n`;
-  try { if (runId.value) await updateRun('running', `Human approved retry with ${policy}.`); await startLocal(pending.prompt, pending.kind, policy, pending.intent, true); } catch (e: any) { error.value = e?.message || 'Could not start approved retry.'; void requestHumanApproval(error.value); }
+const approveRetry = async (policy: 'workspace_write' | 'full_access') => {
+  const request = approvalRequest.value;
+  let pending = pendingLaunch.value;
+  if (!pending && selectedTask.value) {
+    pending = {
+      prompt: `Execute only ${selectedTask.value.issue_key || selectedTask.value.title}. Use the supplied Task Hub context, work in this isolated worktree, run relevant tests, and finish with a concise handoff.`,
+      kind: 'task',
+      policy: executionPolicy.value,
+      intent: 'task',
+    };
+    pendingLaunch.value = pending;
+  }
+  if (!request || !pending) return;
+  const warning = policy === 'full_access' ? 'Approve one full-access retry? Codex will bypass its sandbox and native approval prompts. The worktree remains isolated, but this grants the agent broader access on this machine.' : 'Approve a workspace-write retry? Codex can edit only the isolated worktree and may request another escalation.';
+  if (!window.confirm(warning)) return;
+  executionPolicy.value = policy;
+  approvalRequest.value = null;
+  error.value = '';
+  phase.value = `Human approved ${policy === 'full_access' ? 'full access' : 'workspace-write'} retry`;
+  output.value += `\n✓ Human approval recorded at ${new Date().toLocaleTimeString()}: ${policy}. Continuing the same run.\n`;
+  try {
+    if (runId.value) await updateRun('running', `Human approved retry with ${policy}.`);
+    await startLocal(pending.prompt, pending.kind, policy, pending.intent, true);
+  } catch (e: any) {
+    error.value = e?.message || 'Could not start approved retry.';
+    void requestHumanApproval(error.value);
+  }
 };
 const dismissApproval = () => { approvalRequest.value = null; phase.value = 'Approval declined — run remains stopped'; output.value += '\nHuman approval declined. No retry was started.\n'; };
-const mcp = async (name: string, args: Record<string, unknown>) => { const cred = sync.credential.value; if (!cred) throw new Error('Connect Task Hub before starting an agent.'); const response = await window.desktopApi.taskHub.mcpCall(cred.taskHubUrl, cred.token, cred.projectId, 'tools/call', { name, arguments: args }); if (response?.error) throw new Error(response.error.message || 'Task Hub request failed.'); const text = response?.result?.content?.find((item: any) => item.type === 'text')?.text; return text ? JSON.parse(text) : response?.result; };
-const refresh = async () => { syncing.value = true; error.value = ''; try { await sync.loadCredential(); const [, backlogLoaded] = await Promise.all([sync.fetchProjects(), sync.fetchAgentTasks()]); lastSynced.value = new Date().toLocaleTimeString(); if (!backlogLoaded) error.value = sync.connectionError.value || 'Could not load the Task Hub backlog. Your cached queue may be stale.'; } catch (e: any) { error.value = e.message || 'Sync failed.'; } finally { syncing.value = false; } };
+const mcp = async (name: string, args: Record<string, unknown>) => {
+  const cred = sync.credential.value;
+  if (!cred) throw new Error('Connect Task Hub before starting an agent.');
+  let rawArgs: Record<string, unknown> = {};
+  try { rawArgs = JSON.parse(JSON.stringify(args)); } catch { rawArgs = { ...args }; }
+  const response = await window.desktopApi.taskHub.mcpCall(cred.taskHubUrl, cred.token, String(cred.projectId), 'tools/call', { name, arguments: rawArgs });
+  if (response?.error) throw new Error(response.error.message || 'Task Hub request failed.');
+  const text = response?.result?.content?.find((item: any) => item.type === 'text')?.text;
+  return text ? JSON.parse(text) : response?.result;
+};
+const refresh = async () => {
+  syncing.value = true;
+  error.value = '';
+  try {
+    await sync.loadCredential();
+    const [, backlogLoaded] = await Promise.all([sync.fetchProjects(), sync.fetchAgentTasks()]);
+    lastSynced.value = new Date().toLocaleTimeString();
+    if (!backlogLoaded) {
+      error.value = sync.connectionError.value || 'Could not load the Task Hub backlog. Your cached queue may be stale.';
+    } else if (sync.agentTasks.value.length) {
+      // Auto background prefetch context packs for active workspace tasks
+      void contextPackCache.prefetchQueue(sync.agentTasks.value, mcp);
+    }
+  } catch (e: any) {
+    error.value = e.message || 'Sync failed.';
+  } finally {
+    syncing.value = false;
+  }
+};
 const chooseWorkspace = async () => {
   notify({ type: 'info', title: 'Chọn thư mục dự án', message: 'Đang mở hộp thoại chọn thư mục làm việc…' });
   const next = await window.desktopApi?.agent?.pickWorkspace?.();
@@ -62,6 +132,9 @@ const chooseWorkspace = async () => {
     workspace.value = next;
     await window.desktopApi.agent.saveWorkspace(next);
     notify({ type: 'success', title: 'Đã chọn thư mục dự án', message: `Thư mục: ${next}` });
+    if (sync.agentTasks.value.length) {
+      void contextPackCache.prefetchQueue(sync.agentTasks.value, mcp);
+    }
   }
 };
 const connect = async () => {
@@ -127,18 +200,57 @@ const startLocal = async (prompt: string, kind: 'task' | 'docs' = 'task', policy
 const launch = async () => {
   try {
     error.value = '';
+    handoffReviewUrl.value = '';
     approvalRequest.value = null;
     if (!selectedTask.value) throw new Error('Select a task first.');
+    pendingLaunch.value = {
+      prompt: `Execute only ${selectedTask.value.issue_key || selectedTask.value.title}. Use the supplied Task Hub context, work in this isolated worktree, run relevant tests, and finish with a concise handoff.`,
+      kind: 'task',
+      policy: executionPolicy.value,
+      intent: 'task',
+    };
     startOperation('agent-run', 'Đã ghi nhận lệnh chạy', `Khởi chạy ${selectedTask.value.issue_key || `#${selectedTask.value.id}`} với ${provider.value.toUpperCase()}…`);
     const { preflight } = await prepareWorktree(selectedTask.value.issue_key || `task-${selectedTask.value.id}`);
-    updateOperation('agent-run', 'Tải context pack từ Task Hub…');
-    const context = await mcp('get_context_pack', { task_id: selectedTask.value.id });
-    const started = await mcp('start_agent_run', { task_id: selectedTask.value.id, provider: provider.value, agent_session_id: `${provider.value}-${Date.now()}`, repository: preflight.repository, branch: worktree.value, context: context?.data || context, instruction: { execution_policy: executionPolicy.value, approval_mode: executionPolicy.value === 'full_access' ? 'bypass' : 'request_human_approval' } });
+    
+    const taskUpdatedAt = (selectedTask.value as any).updated_at;
+    let context = contextPackCache.get(selectedTask.value.id)?.data;
+    if (context && contextPackCache.isFresh(selectedTask.value.id, taskUpdatedAt)) {
+      updateOperation('agent-run', 'Nạp Context Pack cục bộ đã đồng bộ sẵn…');
+      // Fire background silent revalidation for next execution
+      void contextPackCache.prefetch(selectedTask.value.id, mcp, taskUpdatedAt, true);
+    } else {
+      updateOperation('agent-run', 'Tải context pack từ Task Hub…');
+      const res = await mcp('get_context_pack', { task_id: selectedTask.value.id });
+      context = res?.data || res;
+      if (context) contextPackCache.set(selectedTask.value.id, context, taskUpdatedAt);
+    }
+
+    let plainContext: any = {};
+    try { plainContext = JSON.parse(JSON.stringify(context?.data || context || {})); } catch { plainContext = context || {}; }
+
+    const started = await mcp('start_agent_run', {
+      task_id: selectedTask.value.id,
+      provider: provider.value,
+      agent_session_id: `${provider.value}-${Date.now()}`,
+      repository: preflight.repository,
+      branch: worktree.value,
+      context: plainContext,
+      instruction: {
+        execution_policy: executionPolicy.value,
+        approval_mode: executionPolicy.value === 'full_access' ? 'bypass' : 'request_human_approval',
+      },
+    });
     runId.value = started?.data?.id || started?.id || null;
-    await window.desktopApi.agent.configureMcp({ cwd: worktree.value, provider: provider.value, taskHubUrl: hubUrl.value, projectId: String(selectedTask.value.project_id || sync.credential.value?.projectId), token: sync.credential.value!.token });
+    await window.desktopApi.agent.configureMcp({
+      cwd: worktree.value,
+      provider: provider.value,
+      taskHubUrl: hubUrl.value,
+      projectId: String(selectedTask.value.project_id || sync.credential.value?.projectId),
+      token: sync.credential.value!.token,
+    });
     if (runId.value) { interactiveReporter.start(runId.value); await updateRun('running'); }
     finishOperation('agent-run', 'success', 'Khởi chạy thành công', 'Agent đang streaming mã nguồn và log.');
-    await startLocal(`Execute only ${selectedTask.value.issue_key || selectedTask.value.title}. Use the supplied Task Hub context, work in this isolated worktree, run relevant tests, and finish with a concise handoff.\n\n${JSON.stringify(context?.data || context, null, 2)}`, 'task', executionPolicy.value);
+    await startLocal(`Execute only ${selectedTask.value.issue_key || selectedTask.value.title}. Use the supplied Task Hub context, work in this isolated worktree, run relevant tests, and finish with a concise handoff.\n\n${JSON.stringify(plainContext, null, 2)}`, 'task', executionPolicy.value);
   } catch (e: any) {
     interactiveReporter.finish('failed', { error: e?.message || String(e) });
     if (runId.value) void updateRun('failed', e?.message || 'Could not launch local agent.');
@@ -146,7 +258,7 @@ const launch = async () => {
     phase.value = 'Run failed';
     error.value = e.message || 'Could not launch agent.';
     finishOperation('agent-run', 'error', 'Lỗi khởi chạy', error.value);
-    if (pendingLaunch.value) void requestHumanApproval(error.value);
+    void requestHumanApproval(error.value);
   }
 };
 const updateRun = async (status: string, summary?: string) => { if (runId.value) await mcp('update_agent_run', { run_id: runId.value, status, summary }); };
@@ -170,9 +282,12 @@ const handoff = async (payload: any) => {
   try {
     if (!selectedTask.value) return;
     startOperation('handoff', 'Đang gửi bàn giao', 'Đồng bộ kết quả kiểm thử và PR lên Task Hub…');
-    await mcp('complete_agent_handoff', { run_id: runId.value || undefined, task_id: selectedTask.value.id, summary: payload.summary || 'Local agent completed work.', changed_files: String(payload.changedFiles || '').split('\n').map((x: string) => x.trim()).filter(Boolean), tests: [{ command: payload.tests || 'Verification', status: payload.testStatus, summary: payload.testSummary || 'Completed' }], commit_sha: payload.commitSha || undefined, pull_request_url: payload.pullRequestUrl || undefined, blockers: payload.blockers || undefined });
+    const result = await mcp('complete_agent_handoff', { run_id: runId.value || undefined, task_id: selectedTask.value.id, summary: payload.summary || 'Local agent completed work.', changed_files: String(payload.changedFiles || '').split('\n').map((x: string) => x.trim()).filter(Boolean), tests: [{ command: payload.tests || 'Verification', status: payload.testStatus, summary: payload.testSummary || 'Completed' }], commit_sha: payload.commitSha || undefined, pull_request_url: payload.pullRequestUrl || undefined, blockers: payload.blockers || undefined });
+    if (result?.success === false) throw new Error(result.message || 'Task Hub rejected the handoff.');
+    const confirmedRunId = Number(result?.data?.id || runId.value || 0);
+    handoffReviewUrl.value = `${hubUrl.value.replace(/\/$/, '')}/tasks?task_id=${encodeURIComponent(String(selectedTask.value.id))}${confirmedRunId ? `&run_id=${confirmedRunId}` : ''}`;
     phase.value = 'Submitted for Hub review';
-    finishOperation('handoff', 'success', 'Bàn giao thành công!', 'Task đã chuyển sang chế độ chờ duyệt trên Hub.');
+    finishOperation('handoff', 'success', 'Bàn giao thành công!', 'Task đã chuyển sang chế độ chờ duyệt trên Hub. Mở link để review và approve/reject.');
     await refresh();
   } catch (e: any) {
     error.value = e.message || 'Handoff submission failed.';
@@ -273,7 +388,7 @@ const runDocs = async (projectId: number) => {
     const { result } = await prepareWorktree('docs-from-repo');
     toolMessage.value = 'Scanning repository in an isolated worktree…';
     updateOperation('docs-scan', 'Agent đang phân tích mã nguồn và soạn thảo docs/…');
-    await startLocal('Scan this repository and generate/update only docs/PROJECT_DOCUMENTS.md, docs/PROJECT_BRIEF.md, docs/PRD.md, docs/ARCHITECTURE.md, docs/QA_PLAN.md and docs/RELEASE_RUNBOOK.md. Base every statement on inspected code. Do not edit application code, commit, push, deploy or create Task Hub records. Finish with a concise summary.', 'docs');
+    await startLocal('Scan this repository and generate/update only docs/PROJECT_DOCUMENTS.md, docs/PROJECT_BRIEF.md, docs/PRD.md, docs/FUNCTIONAL_SPECIFICATION.md (structured with explicit Functional vs Non-Functional requirements, per-function specifications, and embedded Mermaid diagrams), docs/ARCHITECTURE.md, docs/QA_PLAN.md and docs/RELEASE_RUNBOOK.md. Base every statement on inspected code. Do not edit application code, commit, push, deploy or create Task Hub records. Finish with a concise summary.', 'docs');
     worktree.value = result.path;
   } catch (e: any) {
     error.value = e.message || 'Documentation scan failed.';
@@ -289,6 +404,7 @@ const saveDocs = async () => {
     toolMessage.value = 'Saving documentation to the repository…';
     startOperation('save-docs', 'Đang lưu tài liệu', 'Ghi các file tài liệu vào thư mục docs/…');
     await window.desktopApi.agent.applyDocsToWorkspace(worktree.value, workspace.value);
+    contextPackCache.invalidate();
     toolMessage.value = 'Documentation saved to the repository.';
     finishOperation('save-docs', 'success', 'Đã lưu tài liệu vào repository!', 'Các file docs/ đã được cập nhật.');
   } catch (e: any) {
@@ -306,6 +422,7 @@ const syncDocs = async () => {
     startOperation('sync-docs', 'Đang đồng bộ tài liệu lên Hub', 'Đăng ký tài liệu với Task Hub API…');
     const payload = await window.desktopApi.agent.readGeneratedDocuments(worktree.value);
     await window.desktopApi.taskHub.importGeneratedDocuments(hubUrl.value, sync.credential.value!.token, toolProjectId.value, payload);
+    contextPackCache.invalidate();
     toolMessage.value = 'Documentation synced to Task Hub.';
     finishOperation('sync-docs', 'success', 'Đã đồng bộ tài liệu thành công!', 'Tài liệu đã xuất hiện trên Task Hub.');
   } catch (e: any) {
@@ -377,7 +494,36 @@ const handleAgentExit = (event: any) => {
   }
 };
 watch([autoSubmitHandoff, runStatus], () => { void tryAutoSubmitHandoff(); });
-onMounted(async () => { const saved = await window.desktopApi?.agent?.listWorkspaces?.(); if (saved?.[0]) workspace.value = saved[0]; await loadRouterSettings(); updater.value = await window.desktopApi?.updater?.getState?.() || updater.value; unsubUpdater = window.desktopApi?.updater?.onState?.((state: any) => { updater.value = state; }); unsubOutput = window.desktopApi?.agent?.onOutput?.((event: any) => { if (event.sessionId === sessionId.value) { output.value += event.text; interactiveReporter.append(event.stream, event.text); } }); unsubExit = window.desktopApi?.agent?.onExit?.((event: any) => { const matchesActive = event.sessionId === sessionId.value; const trackedRunId = runId.value; handleAgentExit(event); if (matchesActive && trackedRunId) { const status = event.code === 0 ? 'completed' : 'failed'; interactiveReporter.finish(status, { exit_code: event.code ?? null, signal: event.signal ?? null }); if (!autoHandoffSubmitting.value) void updateRun(status === 'completed' ? 'waiting_input' : 'failed', status === 'completed' ? 'Agent process completed; awaiting handoff.' : 'Agent process failed.'); } }); await refresh(); });
+onMounted(async () => {
+  const saved = await window.desktopApi?.agent?.listWorkspaces?.();
+  if (saved?.[0]) workspace.value = saved[0];
+  await loadRouterSettings();
+  updater.value = await window.desktopApi?.updater?.getState?.() || updater.value;
+  unsubUpdater = window.desktopApi?.updater?.onState?.((state: any) => { updater.value = state; });
+  unsubOutput = window.desktopApi?.agent?.onOutput?.((event: any) => {
+    if (event.sessionId && !sessionId.value && running.value) {
+      sessionId.value = event.sessionId;
+    }
+    if (event.sessionId === sessionId.value || (!sessionId.value && running.value)) {
+      output.value += event.text;
+      interactiveReporter.append(event.stream, event.text);
+    }
+  });
+  unsubExit = window.desktopApi?.agent?.onExit?.((event: any) => {
+    if (event.sessionId && !sessionId.value && running.value) {
+      sessionId.value = event.sessionId;
+    }
+    const matchesActive = event.sessionId === sessionId.value || (!sessionId.value && running.value);
+    const trackedRunId = runId.value;
+    handleAgentExit(event);
+    if (matchesActive && trackedRunId) {
+      const status = event.code === 0 ? 'completed' : 'failed';
+      interactiveReporter.finish(status, { exit_code: event.code ?? null, signal: event.signal ?? null });
+      if (!autoHandoffSubmitting.value) void updateRun(status === 'completed' ? 'waiting_input' : 'failed', status === 'completed' ? 'Agent process completed; awaiting handoff.' : 'Agent process failed.');
+    }
+  });
+  await refresh();
+});
 onUnmounted(() => { interactiveReporter.reset(); unsubOutput?.(); unsubExit?.(); unsubUpdater?.(); });
 </script>
 <template>
@@ -411,7 +557,7 @@ onUnmounted(() => { interactiveReporter.reset(); unsubOutput?.(); unsubExit?.();
       :auto-submit-handoff="autoSubmitHandoff"
       @close="settingsOpen = false"
       @choose-workspace="chooseWorkspace"
-      @update-execution-policy="policy => { executionPolicy = policy; notify({ type: 'info', title: 'Quyền thực thi', message: `Đã đổi thành: ${policy}` }); }"
+       @update-execution-policy="(policy: ExecutionPolicy) => { executionPolicy = policy; notify({ type: 'info', title: 'Quyền thực thi', message: `Đã đổi thành: ${policy}` }); }"
       @update-auto-submit-handoff="updateAutoSubmitHandoff"
       @run-diagnostics="runDiagnostics"
       @check-app-update="checkAppUpdate"
@@ -447,7 +593,7 @@ onUnmounted(() => { interactiveReporter.reset(); unsubOutput?.(); unsubExit?.();
         :projects="sync.projects.value"
         :selected-id="selectedTask?.id || null"
         :loading="sync.isLoading.value"
-        @select="task => { selectedTask = task; notify({ type: 'info', title: 'Đã chọn nhiệm vụ', message: `${task.issue_key || `#${task.id}`} — ${task.title}`, durationMs: 2500 }); }"
+         @select="task => { selectedTask = task; handoffReviewUrl = ''; void contextPackCache.prefetch(task.id, mcp, (task as any).updated_at); notify({ type: 'info', title: 'Đã chọn nhiệm vụ', message: `${task.issue_key || `#${task.id}`} — ${task.title}`, durationMs: 2500 }); }"
         @requirement="openTool('requirement')"
         @open-hub="openHub"
       />
@@ -463,7 +609,8 @@ onUnmounted(() => { interactiveReporter.reset(); unsubOutput?.(); unsubExit?.();
         :exit-code="runExitCode"
         :error="error"
         :approval-request="approvalRequest"
-        :diagnostics-loading="diagnosticsLoading"
+         :diagnostics-loading="diagnosticsLoading"
+         :handoff-review-url="handoffReviewUrl"
         @choose-workspace="chooseWorkspace"
         @launch="launch"
         @cancel="cancel"

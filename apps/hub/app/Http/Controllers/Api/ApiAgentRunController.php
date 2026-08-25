@@ -491,6 +491,12 @@ class ApiAgentRunController extends Controller
                 'pull_request_url' => $validated['pull_request_url'] ?? $agentRun->pull_request_url,
                 'metadata' => $metadata,
             ]);
+            // A submitted handoff is the Hub review boundary. Move the linked
+            // task into review so it is visible in the board and notification
+            // inbox; approval/rejection remains a human Hub action.
+            if ($agentRun->task && $agentRun->task->status !== 'done') {
+                $agentRun->task->update(['status' => 'review']);
+            }
             foreach ($validated['tests'] as $test) {
                 $agentRun->evidence()->create([
                     'task_id' => $agentRun->task_id, 'evidence_type' => 'test',

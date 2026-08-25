@@ -10,6 +10,7 @@ import RunnerDashboard from '@/Components/tasks/RunnerDashboard.vue';
 import RemoteDispatchModal from '@/Components/tasks/RemoteDispatchModal.vue';
 import StreambackConsole from '@/Components/tasks/StreambackConsole.vue';
 import TaskContextRail from '@/Components/tasks/TaskContextRail.vue';
+import TaskHistoryTimeline from '@/Components/tasks/TaskHistoryTimeline.vue';
 import WorkspaceEmptyBoard from '@/Components/tasks/WorkspaceEmptyBoard.vue';
 import ProjectRoadmapDashboard from '@/Components/tasks/ProjectRoadmapDashboard.vue';
 import ProjectGantt from '@/Components/tasks/ProjectGantt.vue';
@@ -103,6 +104,7 @@ export interface TaskItem {
 
 export interface AgentRunItem {
   id: number;
+  task_id?: number | null;
   provider: string;
   execution_mode?: 'desktop';
   runner_id?: number | null;
@@ -116,6 +118,9 @@ export interface AgentRunItem {
   finished_at?: string | null;
   metadata?: { model?: string; [key: string]: any } | null;
   evidence?: Array<{ id: number; evidence_type: string; status: string; command?: string; summary?: string }>;
+  task?: TaskItem | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface Stats {
@@ -203,6 +208,8 @@ const activeProjectMenuId = ref<number | null>(null);
 const isAiMenuOpen = ref(false);
 const isNotificationsOpen = ref(false);
 const readNotificationIds = ref<string[]>([]);
+const agentRunNotifications = ref<AgentRunItem[]>([]);
+let notificationPollTimer: number | null = null;
 const isDocsModalOpen = ref(false);
 const isReleasesModalOpen = ref(false);
 // Collapsed Sprints in Backlog View
@@ -1266,8 +1273,36 @@ const activeProjectObject = computed(() => {
 
 const hasSelectedProject = computed(() => Boolean(activeProjectObject.value));
 
+const loadAgentRunNotifications = async () => {
+  try {
+    const [review, failed] = await Promise.all([
+      axios.get('/api/tasks/agent-runs', { params: { status: 'needs_review' } }),
+      axios.get('/api/tasks/agent-runs', { params: { status: 'failed' } }),
+    ]);
+    const runs = [...(review.data?.data || []), ...(failed.data?.data || [])] as AgentRunItem[];
+    const unique = new Map<number, AgentRunItem>();
+    runs.forEach(run => unique.set(run.id, run));
+    agentRunNotifications.value = [...unique.values()]
+      .sort((a, b) => String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || '')))
+      .slice(0, 12);
+  } catch (error) {
+    console.debug('Agent notification refresh skipped', error);
+  }
+};
+
 const notificationItems = computed(() => {
   const items: Array<{ id: string; tone: 'warning' | 'info' | 'success'; title: string; detail: string; task?: TaskItem }> = [];
+  agentRunNotifications.value.forEach(run => {
+    const task = run.task || taskList.value.find(candidate => candidate.id === (run.task_id || 0));
+    const issue = task?.issue_key || (run.task_id ? `Task #${run.task_id}` : `Run #${run.id}`);
+    items.push({
+      id: `agent-run-${run.id}`,
+      tone: run.status === 'needs_review' ? 'success' : 'warning',
+      title: run.status === 'needs_review' ? `${issue} handoff is ready for review` : `${issue} agent run failed`,
+      detail: task?.title || run.summary || `Provider: ${run.provider}`,
+      task,
+    });
+  });
   activeProjectTasks.value
     .filter(task => task.status !== 'done' && (getTaskDelayStatus(task).isOverdue || getTaskDelayStatus(task).isDelayed))
     .sort((a, b) => Number(getTaskDelayStatus(b).isOverdue) - Number(getTaskDelayStatus(a).isOverdue))
@@ -2385,6 +2420,8 @@ onMounted(() => {
 
   window.addEventListener('keydown', handleGlobalKey);
   window.addEventListener('click', closeAllMenus);
+  void loadAgentRunNotifications();
+  notificationPollTimer = window.setInterval(() => { void loadAgentRunNotifications(); }, 10000);
 
   // Allow the desktop mascot to deep-link into the same actions as the web
   // header without duplicating the modal implementations.
@@ -2392,11 +2429,17 @@ onMounted(() => {
   if (requestedAction === 'ai-plan') openAiGeneratorModal();
   if (requestedAction === 'email-report') openReportModal();
   if (requestedAction === 'ai-settings') openAiSettings();
+  const requestedTaskId = Number(new URLSearchParams(window.location.search).get('task_id') || new URLSearchParams(window.location.search).get('task') || 0);
+  if (requestedTaskId) {
+    const requestedTask = taskList.value.find(task => task.id === requestedTaskId);
+    if (requestedTask) openTaskDrawer(requestedTask);
+  }
 });
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleGlobalKey);
   window.removeEventListener('click', closeAllMenus);
+  if (notificationPollTimer !== null) window.clearInterval(notificationPollTimer);
 });
 </script>
 
@@ -4482,6 +4525,23 @@ onUnmounted(() => {
               <p v-if="!selectedAgentRuns.length && !isAgentRunsLoading" class="text-[11px] text-slate-500">
                 No active runs yet. Click Dispatch to Desktop Agent or choose a local CLI provider.
               </p>
+              </div>
+            </details>
+
+            <!-- E2E Transition History & Actor Audit Trail -->
+            <details open :class="['group border-t pt-4', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
+                <label :class="['font-mono text-xs font-bold uppercase', isDarkMode ? 'text-slate-300' : 'text-slate-700']">
+                  📜 Lịch sử E2E & Người xử lý (Audit Trail)
+                </label>
+                <span class="text-[10px] text-slate-500 transition-transform group-open:rotate-180">⌄</span>
+              </summary>
+              <div class="mt-3">
+                <TaskHistoryTimeline
+                  v-if="selectedTask"
+                  :task-id="selectedTask.id"
+                  :is-dark-mode="isDarkMode"
+                />
               </div>
             </details>
             </div>
