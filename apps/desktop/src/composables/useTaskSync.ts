@@ -9,6 +9,13 @@ export interface ProjectItem {
   color?: string | null;
 }
 
+export interface TaskDependencyTarget {
+  id: number;
+  issue_key?: string | null;
+  title: string;
+  status: 'todo' | 'in_progress' | 'review' | 'done';
+}
+
 export interface DesktopCredential {
   taskHubUrl: string;
   token: string;
@@ -42,6 +49,11 @@ export interface TaskItem {
   acceptance_criteria?: string | null;
   definition_of_done?: string | null;
   risk_level?: 'low' | 'medium' | 'high' | 'critical';
+  dependencies?: Array<{
+    id: number;
+    depends_on_task_id: number;
+    depends_on?: TaskDependencyTarget | null;
+  }>;
   notes?: string | null;
 }
 

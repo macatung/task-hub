@@ -182,6 +182,15 @@ function tryParseSubtasks(notes: string): SubtaskItem[] {
   return [];
 }
 
+const dependencySummary = (task: TaskItem) => {
+  const dependencies = (task.dependencies || []).filter((dependency) => dependency.depends_on);
+  const labels = dependencies.map((dependency) => dependency.depends_on?.issue_key || `#${dependency.depends_on_task_id}`);
+  const pendingLabels = dependencies
+    .filter((dependency) => dependency.depends_on?.status !== 'done')
+    .map((dependency) => dependency.depends_on?.issue_key || `#${dependency.depends_on_task_id}`);
+  return { total: dependencies.length, labels, pendingLabels };
+};
+
 // Light is the default work surface. A saved explicit preference wins after
 // hydration, so returning users never lose their chosen theme.
 const isDarkMode = ref(false);
@@ -3367,6 +3376,11 @@ onUnmounted(() => {
                     {{ task.title }}
                   </h4>
 
+                  <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-medium">
+                    <span class="text-slate-600 dark:text-slate-300">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
+                    <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-700 dark:text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
+                  </div>
+
                   <!-- Subtask & Due Date mini indicator -->
                   <div v-if="task.subtasks?.length || task.due_date" :class="['flex items-center justify-between text-[10px] font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600 font-semibold']">
                     <span v-if="task.subtasks?.length" class="flex items-center gap-1.5">
@@ -3467,6 +3481,11 @@ onUnmounted(() => {
                     {{ task.title }}
                   </h4>
 
+                  <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-medium">
+                    <span class="text-slate-600 dark:text-slate-300">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
+                    <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-700 dark:text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
+                  </div>
+
                   <!-- Subtask & Due Date mini indicator -->
                   <div v-if="task.subtasks?.length || task.due_date" :class="['flex items-center justify-between text-[10px] font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600 font-semibold']">
                     <span v-if="task.subtasks?.length" class="flex items-center gap-1.5">
@@ -3555,6 +3574,11 @@ onUnmounted(() => {
                   <h4 :class="['text-xs sm:text-sm font-semibold line-clamp-2 leading-snug', isDarkMode ? 'text-slate-100 group-hover:text-purple-300' : 'text-slate-900 group-hover:text-purple-700']">
                     {{ task.title }}
                   </h4>
+
+                  <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-medium">
+                    <span class="text-slate-600 dark:text-slate-300">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
+                    <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-700 dark:text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
+                  </div>
 
                   <!-- Subtask & Due Date mini indicator -->
                   <div v-if="task.subtasks?.length || task.due_date" :class="['flex items-center justify-between text-[10px] font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600 font-semibold']">
