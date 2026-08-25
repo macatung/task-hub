@@ -15,7 +15,7 @@ type ToolMode = 'requirement' | 'docs' | null;
 type RunStatus = 'idle' | 'running' | 'completed' | 'failed' | 'cancelled';
 type ExecutionPolicy = 'restricted' | 'workspace_write' | 'full_access';
 type ApprovalRequest = { id: string; reason: string; requestedAt: string; recommendedPolicy: 'workspace_write' | 'full_access'; diagnosticSummary?: string; diagnosticDetails?: string[] };
-type RunIntent = 'task' | 'docs' | 'requirement';
+type RunIntent = 'task' | 'epic' | 'docs' | 'requirement';
 type PendingLaunch = { prompt: string; kind: 'task' | 'docs'; policy: ExecutionPolicy; intent: RunIntent };
 const sync = useTaskSync();
 const contextPackCache = useContextPackCache();
@@ -30,6 +30,9 @@ const {
 const interactiveReporter = new InteractiveRunReporter();
 const selectedTask = ref<TaskItem | null>(null); const provider = ref<Provider>('codex'); const executionPolicy = ref<ExecutionPolicy>('workspace_write'); const workspace = ref(''); const worktree = ref(''); const phase = ref('Ready'); const output = ref(''); const sessionId = ref<string | null>(null); const runId = ref<number | null>(null); const runStatus = ref<RunStatus>('idle'); const runExitCode = ref<number | null>(null); const syncing = ref(false); const lastSynced = ref<string | null>(null); const error = ref(''); const approvalRequest = ref<ApprovalRequest | null>(null); const pendingLaunch = ref<PendingLaunch | null>(null); const runIntent = ref<RunIntent>('task'); const diagnostics = ref<any>(null); const diagnosticsLoading = ref(false); const runOutputStart = ref(0); const autoHandoffSubmitting = ref(false); const handoffReviewUrl = ref('');
 const toolMode = ref<ToolMode>(null); const toolProjectId = ref<number | null>(null); const requirement = ref(''); const requirementPlan = ref(''); const docsReady = ref(false); const toolMessage = ref(''); const toolBusy = ref(false); const showTimelineDrawer = ref(false);
+type EpicSequence = { epic: TaskItem; tasks: TaskItem[]; completedIds: number[]; activeChildId: number | null; waitingForApproval: boolean };
+const epicSequence = ref<EpicSequence | null>(null);
+let epicApprovalToken = 0;
 const autoSubmitHandoff = ref(localStorage.getItem('task-hub-auto-submit-handoff') === 'true');
 const settingsOpen = ref(false); const router = ref<{ enabled: boolean; endpoint: string; hasApiKey: boolean } | null>(null); const routerMessage = ref(''); const routerSaving = ref(false); const updater = ref<{ status: string; version?: string; percent?: number; message?: string }>({ status: 'idle' });
 const running = computed(() => runStatus.value === 'running'); const hubUrl = computed(() => sync.credential.value?.taskHubUrl || 'https://task-hub.macatung.dev');
@@ -197,17 +200,96 @@ const startLocal = async (prompt: string, kind: 'task' | 'docs' = 'task', policy
     throw e;
   }
 };
+const epicTaskIsReady = (task: TaskItem, sequence: EpicSequence) => {
+  if (task.status === 'done' || sequence.completedIds.includes(task.id)) return false;
+  return !(task.dependencies || []).some(dependency => {
+    const dependencyId = dependency.depends_on_task_id;
+    return !sequence.completedIds.includes(dependencyId) && dependency.depends_on?.status !== 'done';
+  });
+};
+const nextEpicTask = (sequence: EpicSequence) => sequence.tasks.find(task => epicTaskIsReady(task, sequence)) || null;
+const stopEpicSequence = (message = 'Epic sequence stopped.') => {
+  epicApprovalToken += 1;
+  epicSequence.value = null;
+  if (message) toolMessage.value = message;
+};
+const waitForEpicApproval = async (childId: number) => {
+  const sequence = epicSequence.value;
+  if (!sequence) return;
+  const token = ++epicApprovalToken;
+  sequence.waitingForApproval = true;
+  phase.value = 'Waiting for Hub approval';
+  toolMessage.value = `Waiting for Hub approval for ${selectedTask.value?.issue_key || `#${childId}`} before continuing the Epic.`;
+  for (let attempt = 0; attempt < 720 && epicSequence.value && token === epicApprovalToken; attempt += 1) {
+    await new Promise(resolve => window.setTimeout(resolve, 2500));
+    if (!epicSequence.value || token !== epicApprovalToken) return;
+    await sync.fetchAgentTasks();
+    const current = sync.agentTasks.value.find(task => task.id === childId);
+    // Approved/done tasks disappear from the runnable queue, so the original
+    // snapshot plus the completed id is the source of truth for the sequence.
+    if (current?.status !== 'done' && current) continue;
+    sequence.completedIds = [...new Set([...sequence.completedIds, childId])];
+    sequence.waitingForApproval = false;
+    const next = nextEpicTask(sequence);
+    if (!next) {
+      const unfinished = sequence.tasks.filter(task => !sequence.completedIds.includes(task.id) && task.status !== 'done');
+      if (unfinished.length) {
+        phase.value = 'Epic blocked by task dependencies';
+        error.value = `No dependency-ready task remains. Review: ${unfinished.map(task => task.issue_key || `#${task.id}`).join(', ')}.`;
+        return;
+      }
+      phase.value = 'Epic sequence complete';
+      toolMessage.value = `All ${sequence.tasks.length} task handoffs were approved on Hub.`;
+      epicSequence.value = null;
+      return;
+    }
+    sequence.activeChildId = next.id;
+    selectedTask.value = next;
+    handoffReviewUrl.value = '';
+    output.value = '';
+    runStatus.value = 'idle';
+    phase.value = `Starting ${next.issue_key || `#${next.id}`} in Epic sequence`;
+    await launch();
+    return;
+  }
+};
+const launchEpic = async () => {
+  const epic = selectedTask.value;
+  if (!epic || epic.issue_type !== 'epic') return;
+  const tasks = sync.agentTasks.value
+    .filter(task => task.epic_id === epic.id && task.issue_type !== 'epic')
+    .sort((a, b) => a.id - b.id);
+  if (!tasks.length) {
+    error.value = 'This Epic has no runnable child tasks yet.';
+    phase.value = 'Epic has no child tasks';
+    return;
+  }
+  const sequence: EpicSequence = { epic, tasks, completedIds: tasks.filter(task => task.status === 'done').map(task => task.id), activeChildId: null, waitingForApproval: false };
+  const first = nextEpicTask(sequence);
+  if (!first) {
+    error.value = 'No dependency-ready child task is available for this Epic.';
+    phase.value = 'Epic is blocked by dependencies';
+    return;
+  }
+  epicSequence.value = sequence;
+  selectedTask.value = first;
+  sequence.activeChildId = first.id;
+  phase.value = `Starting ${first.issue_key || `#${first.id}`} in Epic sequence`;
+  await launch();
+};
 const launch = async () => {
   try {
     error.value = '';
     handoffReviewUrl.value = '';
     approvalRequest.value = null;
     if (!selectedTask.value) throw new Error('Select a task first.');
+    if (selectedTask.value.issue_type === 'epic') { await launchEpic(); return; }
+    const launchIntent: RunIntent = epicSequence.value ? 'epic' : 'task';
     pendingLaunch.value = {
       prompt: `Execute only ${selectedTask.value.issue_key || selectedTask.value.title}. Use the supplied Task Hub context, work in this isolated worktree, run relevant tests, and finish with a concise handoff.`,
       kind: 'task',
       policy: executionPolicy.value,
-      intent: 'task',
+      intent: launchIntent,
     };
     startOperation('agent-run', 'Đã ghi nhận lệnh chạy', `Khởi chạy ${selectedTask.value.issue_key || `#${selectedTask.value.id}`} với ${provider.value.toUpperCase()}…`);
     const { preflight } = await prepareWorktree(selectedTask.value.issue_key || `task-${selectedTask.value.id}`);
@@ -250,7 +332,7 @@ const launch = async () => {
     });
     if (runId.value) { interactiveReporter.start(runId.value); await updateRun('running'); }
     finishOperation('agent-run', 'success', 'Khởi chạy thành công', 'Agent đang streaming mã nguồn và log.');
-    await startLocal(`Execute only ${selectedTask.value.issue_key || selectedTask.value.title}. Use the supplied Task Hub context, work in this isolated worktree, run relevant tests, and finish with a concise handoff.\n\n${JSON.stringify(plainContext, null, 2)}`, 'task', executionPolicy.value);
+    await startLocal(`Execute only ${selectedTask.value.issue_key || selectedTask.value.title}. Use the supplied Task Hub context, work in this isolated worktree, run relevant tests, and finish with a concise handoff.${epicSequence.value ? ` This task is one step in Epic ${epicSequence.value.epic.issue_key || epicSequence.value.epic.title}; do not work on sibling tasks.` : ''}\n\n${JSON.stringify(plainContext, null, 2)}`, 'task', executionPolicy.value, launchIntent);
   } catch (e: any) {
     interactiveReporter.finish('failed', { error: e?.message || String(e) });
     if (runId.value) void updateRun('failed', e?.message || 'Could not launch local agent.');
@@ -270,6 +352,7 @@ const cancel = async () => {
   interactiveReporter.finish('cancelled', { reason: 'stopped_by_user' });
   await updateRun('cancelled', 'Stopped by user.');
   sessionId.value = null;
+  if (epicSequence.value) stopEpicSequence('Epic sequence cancelled by the user.');
   notify({ type: 'info', title: 'Đã hủy phiên chạy', message: 'Tiến trình Agent đã dừng an toàn.' });
 };
 const send = (message: string) => {
@@ -289,6 +372,9 @@ const handoff = async (payload: any) => {
     phase.value = 'Submitted for Hub review';
     finishOperation('handoff', 'success', 'Bàn giao thành công!', 'Task đã chuyển sang chế độ chờ duyệt trên Hub. Mở link để review và approve/reject.', handoffReviewUrl.value);
     await refresh();
+    if (epicSequence.value && runIntent.value === 'epic') {
+      void waitForEpicApproval(selectedTask.value.id);
+    }
   } catch (e: any) {
     error.value = e.message || 'Handoff submission failed.';
     phase.value = 'Handoff submission failed — review and retry';
@@ -301,7 +387,7 @@ const handoff = async (payload: any) => {
 const autoHandoffPayload = () => selectedTask.value
   ? buildAutoHandoffPayload({ output: output.value.slice(runOutputStart.value), taskTitle: selectedTask.value.title, exitCode: runExitCode.value })
   : null;
-const tryAutoSubmitHandoff = () => { if (!autoSubmitHandoff.value || runIntent.value !== 'task' || runStatus.value !== 'completed' || autoHandoffSubmitting.value || phase.value === 'Submitted for Hub review') return false; const payload = autoHandoffPayload(); if (!payload) return false; autoHandoffSubmitting.value = true; phase.value = 'Auto-submitting handoff'; void handoff(payload); return true; };
+const tryAutoSubmitHandoff = () => { if (!autoSubmitHandoff.value || !['task', 'epic'].includes(runIntent.value) || runStatus.value !== 'completed' || autoHandoffSubmitting.value || phase.value === 'Submitted for Hub review') return false; const payload = autoHandoffPayload(); if (!payload) return false; autoHandoffSubmitting.value = true; phase.value = 'Auto-submitting handoff'; void handoff(payload); return true; };
 const openTool = (mode: Exclude<ToolMode, null>) => {
   toolMode.value = mode;
   toolMessage.value = '';
@@ -432,6 +518,13 @@ const syncDocs = async () => {
     toolBusy.value = false;
   }
 };
+const selectTask = (task: TaskItem) => {
+  if (epicSequence.value && task.id !== epicSequence.value.epic.id && task.id !== epicSequence.value.activeChildId) stopEpicSequence('Epic sequence paused because another task was selected.');
+  selectedTask.value = task;
+  handoffReviewUrl.value = '';
+  void contextPackCache.prefetch(task.id, mcp, (task as any).updated_at);
+  notify({ type: 'info', title: 'Đã chọn nhiệm vụ', message: `${task.issue_key || `#${task.id}`} — ${task.title}`, durationMs: 2500 });
+};
 let unsubOutput: (() => void) | undefined; let unsubExit: (() => void) | undefined; let unsubUpdater: (() => void) | undefined;
 const handleAgentExit = (event: any) => {
   if (event.sessionId !== sessionId.value) return;
@@ -482,7 +575,7 @@ const handleAgentExit = (event: any) => {
     toolMessage.value = 'Review the generated docs, then save or sync them.';
     phase.value = 'Documentation ready';
     finishOperation('docs-scan', 'success', 'Tài liệu sẵn sàng!', 'Vui lòng kiểm tra và lưu hoặc đồng bộ.');
-  } else if (runIntent.value === 'task' && autoSubmitHandoff.value) {
+  } else if (['task', 'epic'].includes(runIntent.value) && autoSubmitHandoff.value) {
     if (!tryAutoSubmitHandoff()) {
       phase.value = 'Run completed — handoff needs review';
       toolMessage.value = 'Auto-submit is enabled, but this run was blocked or has no selected task. Review and submit the handoff manually.';
@@ -593,7 +686,7 @@ onUnmounted(() => { interactiveReporter.reset(); unsubOutput?.(); unsubExit?.();
         :projects="sync.projects.value"
         :selected-id="selectedTask?.id || null"
         :loading="sync.isLoading.value"
-         @select="task => { selectedTask = task; handoffReviewUrl = ''; void contextPackCache.prefetch(task.id, mcp, (task as any).updated_at); notify({ type: 'info', title: 'Đã chọn nhiệm vụ', message: `${task.issue_key || `#${task.id}`} — ${task.title}`, durationMs: 2500 }); }"
+          @select="selectTask"
         @requirement="openTool('requirement')"
         @open-hub="openHub"
       />
@@ -609,6 +702,8 @@ onUnmounted(() => { interactiveReporter.reset(); unsubOutput?.(); unsubExit?.();
         :exit-code="runExitCode"
         :error="error"
         :approval-request="approvalRequest"
+        :epic-child-count="selectedTask?.issue_type === 'epic' ? sync.agentTasks.value.filter(task => task.epic_id === selectedTask?.id && task.issue_type !== 'epic').length : 0"
+        :epic-sequence-running="Boolean(epicSequence)"
          :diagnostics-loading="diagnosticsLoading"
          :handoff-review-url="handoffReviewUrl"
         @choose-workspace="chooseWorkspace"

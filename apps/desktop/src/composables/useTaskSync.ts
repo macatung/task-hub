@@ -283,7 +283,9 @@ export function useTaskSync() {
       const payload = response.ok ? await response.json() : null;
       if (!payload?.success || !Array.isArray(payload.data)) throw new Error('Task Hub did not return a project backlog.');
       tasks.value = payload.data;
-      agentTasks.value = payload.data.filter((task: TaskItem) => task.issue_type !== 'epic' && task.status !== 'done');
+      // Keep Epics in the local queue so the desktop can launch a supervised
+      // dependency-aware sequence. Completed items remain hidden.
+      agentTasks.value = payload.data.filter((task: TaskItem) => task.status !== 'done');
       saveLocalCache();
       isOnline.value = true;
       connectionError.value = '';

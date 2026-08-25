@@ -14,8 +14,9 @@ const dependencyState = (task: TaskItem) => {
   };
 };
 const visibleTasks = computed(() => props.tasks
-  .filter(task => (project.value === 'all' || String(task.project_id) === project.value) && (status.value === 'all' || task.status === status.value) && (priority.value === 'all' || task.priority === priority.value) && task.issue_type !== 'epic')
+  .filter(task => (project.value === 'all' || String(task.project_id) === project.value) && (status.value === 'all' || task.status === status.value) && (priority.value === 'all' || task.priority === priority.value))
   .sort((a, b) => Number(dependencyState(a).pendingLabels.length > 0) - Number(dependencyState(b).pendingLabels.length > 0)));
+const childCount = (epicId: number) => props.tasks.filter(task => task.epic_id === epicId && task.issue_type !== 'epic').length;
 const tone = (value: string) => ({ todo: 'bg-slate-100 text-slate-600', in_progress: 'bg-blue-50 text-blue-700', review: 'bg-amber-50 text-amber-700', urgent: 'bg-rose-50 text-rose-700', high: 'bg-orange-50 text-orange-700' }[value] || 'bg-slate-100 text-slate-600');
 </script>
 <template>
@@ -35,7 +36,7 @@ const tone = (value: string) => ({ todo: 'bg-slate-100 text-slate-600', in_progr
     <div class="min-h-0 flex-1 overflow-y-auto p-2">
       <p v-if="loading" class="p-3 text-xs text-slate-500">Refreshing tasks…</p>
       <div v-else-if="!visibleTasks.length" class="p-3 text-xs text-slate-500">
-        <p>No runnable tasks in this workspace.</p>
+        <p>No runnable tasks or Epics in this workspace.</p>
         <p class="mt-2 leading-5">Create a backlog from a requirement or manage existing tasks in Hub.</p>
         <div class="mt-3 flex gap-2"><button class="cc-button" @click="emit('requirement')">New requirement</button><button class="cc-button" @click="emit('openHub')">Open Hub</button></div>
       </div>
@@ -46,6 +47,7 @@ const tone = (value: string) => ({ todo: 'bg-slate-100 text-slate-600', in_progr
           <span class="rounded px-1.5 py-0.5 text-[10px] font-medium" :class="tone(task.status)">{{ task.status.replace('_', ' ') }}</span>
         </div>
         <p class="line-clamp-2 text-sm text-slate-700">{{ task.title }}</p>
+        <p v-if="task.issue_type === 'epic'" class="mt-1 text-[11px] font-semibold text-violet-700">Epic sequence · {{ childCount(task.id) }} task{{ childCount(task.id) === 1 ? '' : 's' }}</p>
         <div v-if="dependencyState(task).total" class="mt-2 border-t border-slate-100 pt-2 text-[10px] leading-4">
           <p class="text-slate-500">Depends on {{ dependencyState(task).labels.join(', ') }}</p>
           <p v-if="dependencyState(task).pendingLabels.length" class="font-semibold text-amber-700">Blocked by {{ dependencyState(task).pendingLabels.join(', ') }}</p>

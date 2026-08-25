@@ -86,6 +86,7 @@ export interface TaskItem {
   sprint?: SprintItem | null;
   epic_id: number | null;
   epic?: TaskItem | null;
+  sort_order?: number | null;
   start_date: string | null;
   due_date: string | null;
   completed_at: string | null;
@@ -1376,6 +1377,16 @@ const roadmapTasks = computed(() => {
   if (!hasSelectedProject.value) return [];
   return taskList.value.filter(task => task.project_id === Number(selectedProjectId.value) && task.issue_type !== 'epic');
 });
+
+const expandedRoadmapEpicIds = ref<number[]>([]);
+const epicChildren = (epicId: number) => roadmapTasks.value
+  .filter(task => task.epic_id === epicId)
+  .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id);
+const toggleRoadmapEpic = (epicId: number) => {
+  expandedRoadmapEpicIds.value = expandedRoadmapEpicIds.value.includes(epicId)
+    ? expandedRoadmapEpicIds.value.filter(id => id !== epicId)
+    : [...expandedRoadmapEpicIds.value, epicId];
+};
 
 const activeProjectCompletedCount = computed(() => {
   return activeProjectTasks.value.filter(t => t.status === 'done').length;
@@ -3934,8 +3945,15 @@ onUnmounted(() => {
               :key="epic.id"
               :class="['p-4 rounded-2xl border space-y-3 shadow-xs', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']"
             >
-              <div class="flex items-center justify-between">
+              <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-sm transition-colors"
+                    :class="isDarkMode ? 'border-slate-700 text-slate-300 hover:border-blue-500 hover:bg-blue-950/40' : 'border-slate-200 text-slate-600 hover:border-blue-400 hover:bg-blue-50'"
+                    :aria-label="`${expandedRoadmapEpicIds.includes(epic.id) ? 'Collapse' : 'Expand'} ${epic.title} tasks`"
+                    @click="toggleRoadmapEpic(epic.id)"
+                  >{{ expandedRoadmapEpicIds.includes(epic.id) ? '−' : '+' }}</button>
                   <span class="text-lg">◆</span>
                   <span :class="['font-mono text-xs font-bold px-2 py-0.5 rounded border', isDarkMode ? 'bg-purple-950/80 text-purple-300 border-purple-800' : 'bg-purple-50 text-purple-800 border-purple-200']">{{ epic.issue_key }}</span>
                   <h3 :class="['text-sm sm:text-base font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">{{ epic.title }}</h3>
@@ -3959,6 +3977,31 @@ onUnmounted(() => {
                   <span>Status: <strong :class="['uppercase font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">{{ epic.status }}</strong></span>
                   <span class="font-bold">{{ epic.story_points || 0 }} Story Points</span>
                 </div>
+              </div>
+
+              <div v-if="expandedRoadmapEpicIds.includes(epic.id)" class="space-y-2 border-t pt-3" :class="isDarkMode ? 'border-slate-800' : 'border-slate-200'">
+                <div class="flex items-center justify-between gap-2">
+                  <p :class="['text-xs font-bold uppercase tracking-wide', isDarkMode ? 'text-slate-400' : 'text-slate-500']">Tasks in this Epic</p>
+                  <span :class="['text-xs font-semibold', isDarkMode ? 'text-slate-400' : 'text-slate-500']">{{ epicChildren(epic.id).length }} task{{ epicChildren(epic.id).length === 1 ? '' : 's' }}</span>
+                </div>
+                <button
+                  v-for="child in epicChildren(epic.id)"
+                  :key="child.id"
+                  type="button"
+                  class="flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors"
+                  :class="isDarkMode ? 'border-slate-800 bg-slate-900/60 hover:border-blue-700 hover:bg-slate-900' : 'border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50/40'"
+                  @click="openTaskDrawer(child)"
+                >
+                  <span class="min-w-0">
+                    <span class="flex items-center gap-2">
+                      <span :class="['font-mono text-[11px] font-bold', isDarkMode ? 'text-blue-300' : 'text-blue-700']">{{ child.issue_key }}</span>
+                      <span :class="['truncate text-sm font-semibold', isDarkMode ? 'text-slate-100' : 'text-slate-800']">{{ child.title }}</span>
+                    </span>
+                    <span :class="['mt-1 block text-[11px]', isDarkMode ? 'text-slate-400' : 'text-slate-500']">{{ child.story_points || 0 }} pts · {{ child.priority }}</span>
+                  </span>
+                  <span :class="['shrink-0 rounded-full px-2 py-1 text-[10px] font-bold uppercase', child.status === 'done' ? (isDarkMode ? 'bg-emerald-950 text-emerald-300' : 'bg-emerald-50 text-emerald-700') : child.status === 'review' ? (isDarkMode ? 'bg-amber-950 text-amber-300' : 'bg-amber-50 text-amber-700') : (isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700')]">{{ child.status.replace('_', ' ') }}</span>
+                </button>
+                <p v-if="epicChildren(epic.id).length === 0" :class="['rounded-lg border border-dashed px-3 py-3 text-xs italic', isDarkMode ? 'border-slate-700 text-slate-500' : 'border-slate-300 text-slate-500']">No tasks are linked to this Epic yet.</p>
               </div>
             </div>
 
