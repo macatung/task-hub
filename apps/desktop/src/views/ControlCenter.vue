@@ -29,7 +29,7 @@ const checkRouter = async () => { try { routerMessage.value = 'Testing local rou
 const openRouterDashboard = () => window.desktopApi?.agent?.openLocalRouterDashboard?.();
 const checkAppUpdate = async () => { updater.value = await window.desktopApi?.updater?.check?.() || { status: 'error', message: 'Desktop updater is unavailable.' }; };
 const installAppUpdate = async () => { updater.value = await window.desktopApi?.updater?.install?.() || updater.value; };
-const isSandboxFailure = (value: string) => /sandbox|codex-windows-sandbox-setup|workspace sandbox|helper executable|access denied/i.test(value);
+const isSandboxFailure = (value: string) => /codex-windows-sandbox-setup|sandbox startup failure|workspace sandbox.*(?:fail|cannot|missing|error)|helper executable.*(?:fail|cannot|missing)|(?:sandbox|codex).*(?:access denied|could not start|failed to launch)/i.test(value);
 const runDiagnostics = async () => { if (provider.value !== 'codex') return; diagnosticsLoading.value = true; try { diagnostics.value = await window.desktopApi.agent.codexDiagnostics(); } catch (e: any) { diagnostics.value = { ok: false, summary: 'Could not run Codex diagnostics.', details: [e?.message || 'Unknown error.'] }; } finally { diagnosticsLoading.value = false; } };
 const requestHumanApproval = async (reason = error.value || 'The local agent needs an approval to continue.') => { if (!pendingLaunch.value) return; await runDiagnostics(); const sandboxBlocked = isSandboxFailure(`${reason}\n${diagnostics.value?.summary || ''}`);
   const alreadyFullAccess = pendingLaunch.value.policy === 'full_access';
