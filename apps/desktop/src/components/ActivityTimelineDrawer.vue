@@ -138,7 +138,7 @@ const copyTimelineSummary = async () => {
     @click.self="emit('close')"
   >
     <div
-      class="w-full max-w-xl bg-[#1e1e1e] border-l border-[#333333] shadow-2xl flex flex-col h-full text-zinc-200 select-none animate-slide-left"
+      class="cc-timeline-surface w-full max-w-xl bg-[#1e1e1e] border-l border-[#333333] shadow-2xl flex flex-col h-full text-zinc-200 select-none animate-slide-left"
     >
       <!-- Header -->
       <div class="h-12 px-4 border-b border-[#2d2d2d] bg-[#252526] flex items-center justify-between shrink-0">

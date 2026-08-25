@@ -1,50 +1,139 @@
 @import "tailwindcss";
 
-/* Hub ↔ local AI control center */
+/* Hub ↔ local AI control center. Keep these tokens in lockstep with the Hub's
+   `.tasks-page.minimal-theme.dark` graphite / copper visual system. */
 html, body, #app { width: 100%; height: 100%; margin: 0; }
-.cc-shell { height: 100%; min-width: 900px; display: flex; flex-direction: column; overflow: hidden; color-scheme: dark; background: #0b1019; color: #e6edf7; font-family: "Segoe UI Variable", "Inter", Arial, sans-serif; }
+.cc-shell {
+  --cc-canvas: #151514;
+  --cc-surface: #1f1f1d;
+  --cc-surface-muted: #282724;
+  --cc-line: #514c45;
+  --cc-line-soft: #3c3934;
+  --cc-ink: #f7f3ed;
+  --cc-muted: #c2bbb1;
+  --cc-accent: #e09a70;
+  --cc-accent-strong: #efad85;
+  --cc-accent-soft: #4a2e22;
+  --cc-accent-line: #966044;
+  --cc-success: #a9bea4;
+  --cc-success-soft: #2b382b;
+  --cc-danger: #f7b5b0;
+  --cc-danger-soft: #452329;
+  height: 100%;
+  min-width: 900px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color-scheme: dark;
+  background: var(--cc-canvas);
+  color: var(--cc-ink);
+  font-family: "Segoe UI Variable", "Inter", Arial, sans-serif;
+}
 .cc-button, .cc-primary, .cc-danger, .cc-select, .cc-input { -webkit-app-region: no-drag; border-radius: .375rem; font-size: .75rem; line-height: 1rem; transition: background-color .15s, border-color .15s; }
 .cc-button, .cc-primary, .cc-danger { white-space: nowrap; min-width: max-content; }
 .cc-toolbar { overflow-x: auto; white-space: nowrap; padding-bottom: 1px; }
-.cc-button { border: 1px solid #2a3546; background: #151d2a; padding: .45rem .65rem; color: #cbd5e1; }
-.cc-button:hover { background: #202b3b; border-color: #475569; }
+.cc-button { border: 1px solid var(--cc-line); background: var(--cc-surface-muted); padding: .45rem .65rem; color: var(--cc-ink); }
+.cc-button:hover { background: #34312d; border-color: var(--cc-accent-line); }
 .cc-button:disabled, .cc-primary:disabled { cursor: not-allowed; opacity: .5; }
 .cc-shell button[data-action-pending="true"] { cursor: wait; opacity: .72; pointer-events: none; }
 .cc-shell button[data-action-pending="true"]::after { content: ' Processing…'; display: inline-block; margin-left: .35rem; font-weight: 500; }
-.cc-primary { border: 1px solid #4f8cff; background: #3976e8; padding: .45rem .7rem; color: #fff; font-weight: 600; }
-.cc-primary:hover { background: #4f8cff; }
-.cc-danger { border: 1px solid #71333c; background: #28171c; padding: .45rem .7rem; color: #fca5a5; }
-.cc-select, .cc-input { width: 100%; border: 1px solid #2a3546; background: #111924; padding: .45rem .55rem; color: #dbe5f1; outline: none; }
-.cc-select:focus, .cc-input:focus { border-color: #4f8cff; box-shadow: 0 0 0 2px rgb(79 140 255 / .16); }
+.cc-primary { border: 1px solid var(--cc-accent-line); background: var(--cc-accent); padding: .45rem .7rem; color: #211f1c; font-weight: 700; }
+.cc-primary:hover { background: var(--cc-accent-strong); border-color: var(--cc-accent-strong); }
+.cc-danger { border: 1px solid #8b4b4c; background: var(--cc-danger-soft); padding: .45rem .7rem; color: var(--cc-danger); }
+.cc-select, .cc-input { width: 100%; border: 1px solid var(--cc-line); background: var(--cc-surface); padding: .45rem .55rem; color: var(--cc-ink); outline: none; }
+.cc-select:focus, .cc-input:focus { border-color: var(--cc-accent); box-shadow: 0 0 0 2px rgb(224 154 112 / .2); }
 
 /* Dark hierarchy for the intentionally small Control Center component set. */
-.cc-shell .bg-white { background-color: #111924 !important; }
-.cc-shell .bg-slate-50, .cc-shell .bg-slate-50\/70 { background-color: #0d141f !important; }
-.cc-shell .bg-slate-950 { background-color: #070c14 !important; }
-.cc-shell .border-slate-200 { border-color: #263244 !important; }
-.cc-shell .border-slate-100 { border-color: #202c3c !important; }
-.cc-shell .border-slate-800 { border-color: #1c293a !important; }
-.cc-shell .text-slate-950, .cc-shell .text-slate-900, .cc-shell .text-slate-800 { color: #f1f5f9 !important; }
-.cc-shell .text-slate-700 { color: #cbd5e1 !important; }
-.cc-shell .text-slate-600 { color: #a8b5c7 !important; }
-.cc-shell .text-slate-500 { color: #8b9bb0 !important; }
-.cc-shell .text-slate-400 { color: #71839a !important; }
-.cc-shell .bg-slate-100 { background-color: #202c3c !important; }
-.cc-shell .bg-emerald-50 { background-color: #10271f !important; }
-.cc-shell .text-emerald-700 { color: #6ee7b7 !important; }
-.cc-shell .bg-blue-50 { background-color: #142743 !important; }
-.cc-shell .text-blue-700 { color: #93c5fd !important; }
-.cc-shell .bg-amber-50, .cc-shell .bg-orange-50 { background-color: #302317 !important; }
-.cc-shell .text-amber-700, .cc-shell .text-orange-700 { color: #fcd34d !important; }
-.cc-shell .bg-rose-50 { background-color: #311b24 !important; }
-.cc-shell .text-rose-700 { color: #fda4af !important; }
-.cc-shell button.hover\:bg-white:hover { background-color: #182231 !important; }
-.cc-shell .hover\:border-slate-200:hover { border-color: #3b4a60 !important; }
-.cc-shell .border-slate-900 { border-color: #4f8cff !important; }
-.cc-shell .shadow-sm { box-shadow: 0 8px 22px rgb(0 0 0 / .22) !important; }
-.cc-shell .bg-rose-50 { border-color: #71333c !important; }
-.cc-shell .border-rose-200 { border-color: #71333c !important; }
-.cc-shell .text-rose-700 { color: #fda4af !important; }
+.cc-shell .bg-white { background-color: var(--cc-surface) !important; }
+.cc-shell .bg-slate-50, .cc-shell .bg-slate-50\/70 { background-color: var(--cc-surface) !important; }
+.cc-shell .bg-slate-950 { background-color: var(--cc-canvas) !important; }
+.cc-shell .bg-slate-900 { background-color: var(--cc-surface-muted) !important; }
+.cc-shell .border-slate-200 { border-color: var(--cc-line) !important; }
+.cc-shell .border-slate-100 { border-color: var(--cc-line-soft) !important; }
+.cc-shell .border-slate-800 { border-color: var(--cc-line-soft) !important; }
+.cc-shell .text-slate-950, .cc-shell .text-slate-900, .cc-shell .text-slate-800 { color: var(--cc-ink) !important; }
+.cc-shell .text-slate-700 { color: var(--cc-ink) !important; }
+.cc-shell .text-slate-600 { color: var(--cc-muted) !important; }
+.cc-shell .text-slate-500 { color: var(--cc-muted) !important; }
+.cc-shell .text-slate-400 { color: #aaa096 !important; }
+.cc-shell .bg-slate-100, .cc-shell .bg-slate-200 { background-color: var(--cc-surface-muted) !important; }
+.cc-shell .text-slate-300 { color: #d6cec4 !important; }
+.cc-shell .bg-emerald-50 { background-color: var(--cc-success-soft) !important; }
+.cc-shell .bg-emerald-500 { background-color: var(--cc-success) !important; }
+.cc-shell .text-emerald-700 { color: var(--cc-success) !important; }
+.cc-shell .bg-blue-600, .cc-shell .bg-blue-700 { background-color: var(--cc-accent) !important; }
+.cc-shell .bg-blue-50, .cc-shell .bg-indigo-50 { background-color: var(--cc-accent-soft) !important; }
+.cc-shell .text-blue-700, .cc-shell .text-indigo-700 { color: var(--cc-accent-strong) !important; }
+.cc-shell .bg-amber-50, .cc-shell .bg-orange-50 { background-color: var(--cc-accent-soft) !important; }
+.cc-shell .text-amber-700, .cc-shell .text-orange-700 { color: var(--cc-accent-strong) !important; }
+.cc-shell .bg-rose-50 { background-color: var(--cc-danger-soft) !important; }
+.cc-shell .text-rose-700 { color: var(--cc-danger) !important; }
+.cc-shell button.hover\:bg-white:hover { background-color: #34312d !important; }
+.cc-shell .hover\:border-slate-200:hover { border-color: var(--cc-accent-line) !important; }
+.cc-shell .border-slate-900 { border-color: var(--cc-accent) !important; }
+.cc-shell .shadow-sm { box-shadow: 0 8px 22px rgb(0 0 0 / .28) !important; }
+.cc-shell .border-rose-200 { border-color: #8b4b4c !important; }
+.cc-shell .cc-timeline-surface { background-color: var(--cc-surface) !important; }
+
+/* Run, workflow, settings and timeline still contain a few intentional
+   utility hexes. Normalize those values here so every desktop surface shares
+   the same Hub palette without changing their behavior. */
+.cc-shell [class*="bg-[#0b1019]"] { background-color: var(--cc-surface) !important; }
+.cc-shell [class*="bg-[#151515]"],
+.cc-shell [class*="bg-[#070c14]"] { background-color: var(--cc-canvas) !important; }
+.cc-shell [class*="bg-[#1e1e1e]"],
+.cc-shell [class*="bg-[#222222]"],
+.cc-shell [class*="bg-[#252526]"],
+.cc-shell [class*="bg-[#2d2d2d]"],
+.cc-shell [class*="bg-[#383838]"],
+.cc-shell [class*="bg-[#3e3e42]"] { background-color: var(--cc-surface-muted) !important; }
+.cc-shell [class*="bg-[#101b2a]"],
+.cc-shell [class*="bg-[#10213a]"],
+.cc-shell [class*="bg-[#142743]"] { background-color: var(--cc-accent-soft) !important; }
+.cc-shell [class*="bg-[#10271f]"],
+.cc-shell [class*="bg-[#1e4d38]"] { background-color: var(--cc-success-soft) !important; }
+.cc-shell [class*="bg-[#171632]"],
+.cc-shell [class*="bg-[#3f3474]"] { background-color: #34252e !important; }
+.cc-shell [class*="bg-black/20"],
+.cc-shell [class*="bg-black/25"] { background-color: rgb(0 0 0 / .2) !important; }
+.cc-shell [class*="border-[#2a3546]"],
+.cc-shell [class*="border-[#263244]"],
+.cc-shell [class*="border-[#2d2d2d]"],
+.cc-shell [class*="border-[#333333]"],
+.cc-shell [class*="border-[#3e3e42]"],
+.cc-shell [class*="border-[#1c293a]"] { border-color: var(--cc-line) !important; }
+.cc-shell [class*="border-[#315887]"],
+.cc-shell [class*="border-[#2f5d9a]"],
+.cc-shell [class*="border-[#4d86e8]"] { border-color: var(--cc-accent-line) !important; }
+.cc-shell [class*="border-[#287052]"] { border-color: color-mix(in srgb, var(--cc-success) 62%, var(--cc-line)) !important; }
+.cc-shell [class*="text-[#e6edf7]"],
+.cc-shell [class*="text-[#f7f3ed]"],
+.cc-shell .text-zinc-100 { color: var(--cc-ink) !important; }
+.cc-shell [class*="text-[#a8b5c7]"],
+.cc-shell [class*="text-[#8b9bb0]"],
+.cc-shell .text-zinc-400,
+.cc-shell .text-zinc-500 { color: var(--cc-muted) !important; }
+.cc-shell [class*="text-[#cbd5e1]"],
+.cc-shell [class*="text-[#dbe5f1]"],
+.cc-shell .text-zinc-200,
+.cc-shell .text-zinc-300 { color: #e4ddd4 !important; }
+.cc-shell [class*="text-[#7db0ff]"] { color: var(--cc-accent-strong) !important; }
+.cc-shell [class*="text-[#d1fae5]"],
+.cc-shell [class*="text-[#a7f3d0]"] { color: #d4e6d1 !important; }
+.cc-shell [class*="bg-[#3976e8]"],
+.cc-shell [class*="bg-[#007acc]"] { background-color: var(--cc-accent) !important; }
+.cc-shell [class*="bg-[#16845b]"] { background-color: var(--cc-success) !important; }
+.cc-shell [class*="bg-[#3976e8]"].text-white,
+.cc-shell [class*="bg-[#16845b]"].text-white,
+.cc-shell [class*="bg-[#007acc]"].text-white,
+.cc-shell .bg-blue-600.text-white,
+.cc-shell .bg-blue-700.text-white { color: #211f1c !important; }
+.cc-shell [class*="bg-[#28171c]"] { background-color: var(--cc-danger-soft) !important; }
+.cc-shell [class*="border-[#71333c]"] { border-color: #8b4b4c !important; }
+.cc-shell [class*="text-[#fca5a5]"] { color: var(--cc-danger) !important; }
+.cc-shell .text-sky-300, .cc-shell .text-sky-400, .cc-shell .text-violet-300,
+.cc-shell .text-amber-300, .cc-shell .text-emerald-300 { color: var(--cc-accent-strong) !important; }
+.cc-shell .text-emerald-300 { color: var(--cc-success) !important; }
 
 /* Draggable Region for Frameless Windows */
 .drag-region {
