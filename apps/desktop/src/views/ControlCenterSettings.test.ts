@@ -10,6 +10,8 @@ describe('Control Center settings and approval escalation', () => {
     expect(settingsPanel).toContain('Settings & approvals');
     expect(settingsPanel).toContain('Local 9Router');
     expect(settingsPanel).toContain('Save configuration');
+    expect(settingsPanel).toContain('Auto-submit verified handoffs');
+    expect(controlCenter).toContain('task-hub-auto-submit-handoff');
   });
 
   it('creates a diagnostic-backed human approval request and retries only with an approved policy', () => {
@@ -28,5 +30,6 @@ describe('Control Center settings and approval escalation', () => {
     expect(settingsPanel).toContain('Codex diagnostics');
     expect(settingsPanel).toContain('Check for updates');
     expect(controlCenter).toContain('checkAppUpdate');
+    expect(controlCenter).toContain('autoHandoffPayload');
   });
 });
