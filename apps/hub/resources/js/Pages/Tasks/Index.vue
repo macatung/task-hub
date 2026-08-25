@@ -3475,7 +3475,7 @@ onUnmounted(() => {
                     </div>
                   </div>
 
-                  <h4 :class="['text-xs sm:text-sm font-semibold line-clamp-2 leading-snug', isDarkMode ? 'text-slate-100 group-hover:text-sky-300' : 'text-slate-900 group-hover:text-sky-700']">
+                  <h4 :class="['text-xs sm:text-sm font-semibold line-clamp-2 leading-snug', isDarkMode ? 'text-white' : 'text-slate-900 group-hover:text-sky-700']">
                     {{ task.title }}
                   </h4>
 
@@ -3585,7 +3585,7 @@ onUnmounted(() => {
                     </div>
                   </div>
 
-                  <h4 :class="['text-xs sm:text-sm font-semibold line-clamp-2 leading-snug', isDarkMode ? 'text-slate-100 group-hover:text-amber-300' : 'text-slate-900 group-hover:text-amber-700']">
+                  <h4 :class="['text-xs sm:text-sm font-semibold line-clamp-2 leading-snug', isDarkMode ? 'text-white' : 'text-slate-900 group-hover:text-amber-700']">
                     {{ task.title }}
                   </h4>
 
@@ -3684,7 +3684,7 @@ onUnmounted(() => {
                     </div>
                   </div>
 
-                  <h4 :class="['text-xs sm:text-sm font-semibold line-clamp-2 leading-snug', isDarkMode ? 'text-slate-100 group-hover:text-purple-300' : 'text-slate-900 group-hover:text-purple-700']">
+                  <h4 :class="['text-xs sm:text-sm font-semibold line-clamp-2 leading-snug', isDarkMode ? 'text-white' : 'text-slate-900 group-hover:text-purple-700']">
                     {{ task.title }}
                   </h4>
 
