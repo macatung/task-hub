@@ -29,4 +29,10 @@ describe('RunWorkspace response-first agent activity', () => {
     expect(source).toContain('Task already completed');
     expect(source).toContain('!executionBlock.value');
   });
+
+  it('offers a clear Epic-only action to return a reviewed Epic to To do', () => {
+    expect(source).toContain("'reopen-todo': []");
+    expect(source).toContain("task?.issue_type === 'epic' && task.status === 'review'");
+    expect(source).toContain('Reopen as To do');
+  });
 });

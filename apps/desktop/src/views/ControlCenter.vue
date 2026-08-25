@@ -153,6 +153,26 @@ const refresh = async () => {
     syncing.value = false;
   }
 };
+const reopenEpicAsTodo = async () => {
+  const epic = selectedTask.value;
+  if (!epic || epic.issue_type !== 'epic' || epic.status !== 'review') return;
+  if (!window.confirm(`Move ${epic.issue_key || epic.title} back to To do? This keeps the handoff history and allows the Epic sequence to be started again.`)) return;
+  startOperation('reopen-epic', 'Đưa Epic về To do', 'Đang cập nhật trạng thái trên Hub…');
+  try {
+    const updated = await sync.updateTaskStatus(epic, 'todo');
+    selectedTask.value = { ...epic, ...(updated || {}), status: 'todo', completed_at: null };
+    epicSequence.value = null;
+    runStatus.value = 'idle';
+    runIntent.value = 'task';
+    phase.value = 'Ready';
+    error.value = '';
+    await sync.fetchAgentTasks();
+    finishOperation('reopen-epic', 'success', 'Đã đưa Epic về To do', 'Bạn có thể chạy lại Epic sequence khi các task con sẵn sàng.');
+  } catch (e: any) {
+    error.value = e?.message || 'Không thể đưa Epic về To do.';
+    finishOperation('reopen-epic', 'error', 'Không thể cập nhật Epic', error.value);
+  }
+};
 const chooseWorkspace = async () => {
   notify({ type: 'info', title: 'Chọn thư mục dự án', message: 'Đang mở hộp thoại chọn thư mục làm việc…' });
   const next = await window.desktopApi?.agent?.pickWorkspace?.();
@@ -998,7 +1018,8 @@ onUnmounted(() => { interactiveReporter.reset(); unsubOutput?.(); unsubExit?.();
         @cancel="cancel"
         @send="send"
         @handoff="handoff"
-        @request-approval="requestHumanApproval"
+         @request-approval="requestHumanApproval"
+        @reopen-todo="reopenEpicAsTodo"
         @approve-retry="approveRetry"
         @dismiss-approval="dismissApproval"
         @open-hub="openHub"

@@ -38,5 +38,8 @@ describe('Control Center settings and approval escalation', () => {
     expect(controlCenter).toContain('autoHandoffSubmitting');
     expect(controlCenter).toContain('tryAutoSubmitHandoff');
     expect(controlCenter).toContain('watch([autoSubmitHandoff, runStatus]');
+    expect(controlCenter).toContain('const reopenEpicAsTodo');
+    expect(controlCenter).toContain("sync.updateTaskStatus(epic, 'todo')");
+    expect(controlCenter).toContain('@reopen-todo="reopenEpicAsTodo"');
   });
 });

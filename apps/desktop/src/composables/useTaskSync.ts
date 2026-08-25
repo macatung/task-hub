@@ -356,20 +356,46 @@ export function useTaskSync() {
     return newTask;
   };
 
-  // Toggle complete
-  const toggleTaskComplete = async (task: TaskItem) => {
-    const newStatus = task.status === 'done' ? 'todo' : 'done';
+  const updateTaskStatus = async (task: TaskItem, newStatus: TaskItem['status']) => {
+    const previousStatus = task.status;
+    const previousCompletedAt = task.completed_at;
     task.status = newStatus;
     task.completed_at = newStatus === 'done' ? new Date().toISOString() : null;
     saveLocalCache();
 
     try {
-      if (!credential.value) return;
-      await fetch(`${apiUrl()}/${task.id}`, {
+      if (!credential.value) throw new Error('Connect Task Hub before changing task status.');
+      const response = await fetch(`${apiUrl()}/${task.id}`, {
         method: 'PATCH',
         headers: authHeaders(),
         body: JSON.stringify({ status: newStatus }),
       });
+      const json = await response.json().catch(() => null);
+      if (!response.ok || json?.success === false) throw new Error(json?.message || `Task Hub returned HTTP ${response.status}.`);
+      const updated = json?.data as TaskItem | undefined;
+      if (updated) {
+        const replace = (items: TaskItem[]) => {
+          const index = items.findIndex(candidate => candidate.id === task.id);
+          if (index !== -1) items[index] = { ...items[index], ...updated };
+        };
+        replace(tasks.value);
+        replace(agentTasks.value);
+        saveLocalCache();
+        return updated;
+      }
+      return task;
+    } catch (e) {
+      task.status = previousStatus;
+      task.completed_at = previousCompletedAt;
+      saveLocalCache();
+      throw e;
+    }
+  };
+
+  // Toggle complete
+  const toggleTaskComplete = async (task: TaskItem) => {
+    try {
+      await updateTaskStatus(task, task.status === 'done' ? 'todo' : 'done');
     } catch (e) {
       console.warn('Failed to sync status update:', e);
     }
@@ -412,6 +438,7 @@ export function useTaskSync() {
     fetchProjects,
     fetchAgentTasks,
     createTask,
+    updateTaskStatus,
     toggleTaskComplete,
     incrementPomodoro,
   };
