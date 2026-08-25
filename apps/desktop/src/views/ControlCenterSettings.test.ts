@@ -33,5 +33,7 @@ describe('Control Center settings and approval escalation', () => {
     expect(controlCenter).toContain('autoHandoffPayload');
     expect(controlCenter).toContain('runOutputStart');
     expect(controlCenter).toContain('autoHandoffSubmitting');
+    expect(controlCenter).toContain('tryAutoSubmitHandoff');
+    expect(controlCenter).toContain('watch([autoSubmitHandoff, runStatus]');
   });
 });
