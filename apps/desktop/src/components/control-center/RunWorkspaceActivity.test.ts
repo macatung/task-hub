@@ -22,4 +22,11 @@ describe('RunWorkspace response-first agent activity', () => {
     expect(source).toContain('exit code:');
     expect(source).not.toContain('/error|failed|exception|🛑/i');
   });
+
+  it('does not launch work that is already in review or done', () => {
+    expect(source).toContain('const runnableStatus');
+    expect(source).toContain('Waiting for Hub review');
+    expect(source).toContain('Task already completed');
+    expect(source).toContain('!executionBlock.value');
+  });
 });

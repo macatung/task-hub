@@ -6,11 +6,22 @@
   "properties": {
     "run_id": { "type": "integer", "minimum": 1 },
     "summary": { "type": "string", "minLength": 1 },
-    "changed_files": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "changed_files": { "type": "array", "items": { "type": "string", "minLength": 1 } },
     "tests": { "type": "array", "minItems": 1 },
     "commit_sha": { "type": "string" },
     "pull_request_url": { "type": "string", "format": "uri" },
-    "blockers": { "type": "string" }
+    "blockers": { "type": "string" },
+    "review": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "enum": ["idle", "reviewing", "changes_requested", "approved", "max_iterations", "failed"] },
+        "reviewer_provider": { "type": "string", "enum": ["codex", "claude_code", "antigravity"] },
+        "reviewer_run_id": { "type": "integer", "minimum": 1 },
+        "iterations": { "type": "integer", "minimum": 0 },
+        "feedback": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
   },
   "additionalProperties": false
 }

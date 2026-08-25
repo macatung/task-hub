@@ -4,6 +4,7 @@ import ConnectionBar from '../components/control-center/ConnectionBar.vue';
 import TaskQueue from '../components/control-center/TaskQueue.vue';
 import RunWorkspace, { type Provider } from '../components/control-center/RunWorkspace.vue';
 import WorkflowPanel from '../components/control-center/WorkflowPanel.vue';
+import SettingsPanel from '../components/control-center/SettingsPanel.vue';
 import ActivityTimelineDrawer from '../components/ActivityTimelineDrawer.vue';
 import { useTaskSync, type TaskItem } from '../composables/useTaskSync';
 import { useActionFeedback } from '../composables/useActionFeedback';
@@ -17,6 +18,8 @@ type ExecutionPolicy = 'restricted' | 'workspace_write' | 'full_access';
 type ApprovalRequest = { id: string; reason: string; requestedAt: string; recommendedPolicy: 'workspace_write' | 'full_access'; diagnosticSummary?: string; diagnosticDetails?: string[] };
 type RunIntent = 'task' | 'epic' | 'docs' | 'requirement';
 type PendingLaunch = { prompt: string; kind: 'task' | 'docs'; policy: ExecutionPolicy; intent: RunIntent };
+type AgentRole = 'implementation' | 'reviewer' | 'tool';
+type AutoReviewStatus = 'idle' | 'reviewing' | 'changes_requested' | 'approved' | 'max_iterations' | 'failed';
 const sync = useTaskSync();
 const contextPackCache = useContextPackCache();
 const {
@@ -28,18 +31,38 @@ const {
   clearTimeline,
 } = useActionFeedback();
 const interactiveReporter = new InteractiveRunReporter();
-const selectedTask = ref<TaskItem | null>(null); const provider = ref<Provider>('codex'); const executionPolicy = ref<ExecutionPolicy>('workspace_write'); const workspace = ref(''); const worktree = ref(''); const phase = ref('Ready'); const output = ref(''); const sessionId = ref<string | null>(null); const runId = ref<number | null>(null); const runStatus = ref<RunStatus>('idle'); const runExitCode = ref<number | null>(null); const syncing = ref(false); const lastSynced = ref<string | null>(null); const error = ref(''); const approvalRequest = ref<ApprovalRequest | null>(null); const pendingLaunch = ref<PendingLaunch | null>(null); const runIntent = ref<RunIntent>('task'); const diagnostics = ref<any>(null); const diagnosticsLoading = ref(false); const runOutputStart = ref(0); const autoHandoffSubmitting = ref(false); const handoffReviewUrl = ref('');
+const selectedTask = ref<TaskItem | null>(null); const provider = ref<Provider>('codex'); const executionPolicy = ref<ExecutionPolicy>('workspace_write'); const workspace = ref(''); const worktree = ref(''); const phase = ref('Ready'); const output = ref(''); const sessionId = ref<string | null>(null); const runId = ref<number | null>(null); const implementationRunId = ref<number | null>(null); const reviewerRunId = ref<number | null>(null); const activeAgentRole = ref<AgentRole>('implementation'); const runStatus = ref<RunStatus>('idle'); const runExitCode = ref<number | null>(null); const syncing = ref(false); const lastSynced = ref<string | null>(null); const error = ref(''); const approvalRequest = ref<ApprovalRequest | null>(null); const pendingLaunch = ref<PendingLaunch | null>(null); const runIntent = ref<RunIntent>('task'); const diagnostics = ref<any>(null); const diagnosticsLoading = ref(false); const runOutputStart = ref(0); const implementationOutputStart = ref(0); const reviewOutputStart = ref(0); const autoHandoffSubmitting = ref(false); const handoffReviewUrl = ref('');
 const toolMode = ref<ToolMode>(null); const toolProjectId = ref<number | null>(null); const requirement = ref(''); const requirementPlan = ref(''); const docsReady = ref(false); const toolMessage = ref(''); const toolBusy = ref(false); const showTimelineDrawer = ref(false);
 type EpicSequence = { epic: TaskItem; tasks: TaskItem[]; completedIds: number[]; activeChildId: number | null; waitingForApproval: boolean; autoContinue: boolean };
 const epicSequence = ref<EpicSequence | null>(null);
 let epicApprovalToken = 0;
 const autoSubmitHandoff = ref(localStorage.getItem('task-hub-auto-submit-handoff') === 'true');
 const autoContinueEpic = ref(localStorage.getItem('task-hub-auto-continue-epic') !== 'false');
+const autoReviewEnabled = ref(localStorage.getItem('task-hub-auto-review-enabled') === 'true');
+const reviewerProvider = ref<Provider>((localStorage.getItem('task-hub-reviewer-provider') as Provider) || (provider.value === 'codex' ? 'claude_code' : 'codex'));
+const autoReviewMaxIterations = ref(Math.min(5, Math.max(1, Number(localStorage.getItem('task-hub-auto-review-max-iterations') || 3))));
+const autoReviewIteration = ref(0);
+const autoReviewStatus = ref<AutoReviewStatus>('idle');
+const autoReviewFeedback = ref('');
+const autoReviewSummary = ref('');
 const settingsOpen = ref(false); const router = ref<{ enabled: boolean; endpoint: string; hasApiKey: boolean } | null>(null); const routerMessage = ref(''); const routerSaving = ref(false); const updater = ref<{ status: string; version?: string; percent?: number; message?: string }>({ status: 'idle' });
 const running = computed(() => runStatus.value === 'running'); const hubUrl = computed(() => sync.credential.value?.taskHubUrl || 'https://task-hub.macatung.dev');
 const openHub = () => window.desktopApi?.openExternal?.(`${hubUrl.value}/tasks`); const close = () => window.desktopApi?.close?.();
 const updateAutoSubmitHandoff = (enabled: boolean) => { autoSubmitHandoff.value = enabled; localStorage.setItem('task-hub-auto-submit-handoff', String(enabled)); if (enabled) queueMicrotask(() => { void tryAutoSubmitHandoff(); }); };
 const updateAutoContinueEpic = (enabled: boolean) => { autoContinueEpic.value = enabled; localStorage.setItem('task-hub-auto-continue-epic', String(enabled)); };
+const updateAutoReview = ({ enabled, reviewer, maxIterations }: { enabled: boolean; reviewer: Provider; maxIterations: number }) => {
+  autoReviewEnabled.value = enabled;
+  reviewerProvider.value = reviewer;
+  autoReviewMaxIterations.value = Math.min(5, Math.max(1, Number(maxIterations) || 3));
+  localStorage.setItem('task-hub-auto-review-enabled', String(enabled));
+  localStorage.setItem('task-hub-reviewer-provider', reviewer);
+  localStorage.setItem('task-hub-auto-review-max-iterations', String(autoReviewMaxIterations.value));
+  if (!enabled && autoReviewStatus.value === 'reviewing') {
+    autoReviewStatus.value = 'failed';
+    autoReviewFeedback.value = 'Automatic review was disabled; finish this run with human review.';
+    phase.value = 'Auto-review paused — human review required';
+  }
+};
 const loadRouterSettings = async () => { try { router.value = await window.desktopApi?.agent?.getLocalRouter?.() || null; } catch { routerMessage.value = 'Could not read local router settings.'; } };
 const saveRouterSettings = async ({ enabled, apiKey }: { enabled: boolean; apiKey: string }) => { try { routerSaving.value = true; routerMessage.value = ''; router.value = await window.desktopApi.agent.saveLocalRouter({ enabled, apiKey: apiKey.trim() || undefined }); routerMessage.value = enabled ? 'Local router configuration saved.' : 'Local router disabled. Providers will use their native routes.'; } catch (e: any) { routerMessage.value = e?.message || 'Could not save local router configuration.'; } finally { routerSaving.value = false; } };
 const checkRouter = async () => { try { routerMessage.value = 'Testing local router…'; const result = await window.desktopApi.agent.checkLocalRouter(true); routerMessage.value = result?.ok ? `Connected. ${result.models?.length || 0} model(s) discovered.` : (result?.error || 'Local router is unavailable.'); } catch (e: any) { routerMessage.value = e?.message || 'Could not test local router.'; } };
@@ -181,18 +204,22 @@ const prepareWorktree = async (suffix: string) => {
   finishOperation('prepare-worktree', 'success', 'Worktree sẵn sàng', `Nhánh: ${result.path.split(/[\\/]/).pop()}`);
   return { preflight, result };
 };
-const startLocal = async (prompt: string, kind: 'task' | 'docs' = 'task', policy: ExecutionPolicy = 'workspace_write', intent: RunIntent = 'task', preserveOutput = false) => {
+const startLocal = async (prompt: string, kind: 'task' | 'docs' = 'task', policy: ExecutionPolicy = 'workspace_write', intent: RunIntent = 'task', preserveOutput = false, role: AgentRole = 'implementation') => {
+  const launchProvider = role === 'reviewer' ? reviewerProvider.value : provider.value;
   pendingLaunch.value = { prompt, kind, policy, intent };
+  activeAgentRole.value = role;
   runIntent.value = intent;
   if (!preserveOutput) output.value = '';
   runOutputStart.value = output.value.length;
+  if (role === 'implementation') implementationOutputStart.value = runOutputStart.value;
+  if (role === 'reviewer') reviewOutputStart.value = runOutputStart.value;
   error.value = '';
   phase.value = 'Running';
   runStatus.value = 'running';
   runExitCode.value = null;
-  notify({ type: 'loading', id: 'start-local', title: 'Agent đang thực thi', message: `Chạy ${provider.value.toUpperCase()} trong worktree cô lập…`, persistent: true });
+  notify({ type: 'loading', id: 'start-local', title: 'Agent đang thực thi', message: `Chạy ${launchProvider.toUpperCase()} trong worktree cô lập…`, persistent: true });
   try {
-    const result = await window.desktopApi.agent.startInteractive(provider.value, worktree.value, prompt, kind, undefined, policy);
+    const result = await window.desktopApi.agent.startInteractive(launchProvider, worktree.value, prompt, kind, undefined, policy);
     sessionId.value = result.sessionId;
     if (result.mode === 'external') output.value += 'External agent session opened. Return here when the work is complete.\n';
   } catch (e) {
@@ -336,6 +363,12 @@ const launch = async () => {
       },
     });
     runId.value = started?.data?.id || started?.id || null;
+    implementationRunId.value = runId.value;
+    reviewerRunId.value = null;
+    autoReviewIteration.value = 0;
+    autoReviewStatus.value = 'idle';
+    autoReviewFeedback.value = '';
+    autoReviewSummary.value = '';
     await window.desktopApi.agent.configureMcp({
       cwd: worktree.value,
       provider: provider.value,
@@ -356,7 +389,153 @@ const launch = async () => {
     void requestHumanApproval(error.value);
   }
 };
-const updateRun = async (status: string, summary?: string) => { if (runId.value) await mcp('update_agent_run', { run_id: runId.value, status, summary }); };
+const updateRunFor = async (targetRunId: number | null, status: string, summary?: string, metadata?: Record<string, unknown>) => {
+  if (!targetRunId) return;
+  await mcp('update_agent_run', { run_id: targetRunId, status, summary, ...(metadata ? { metadata } : {}) });
+};
+const updateRun = async (status: string, summary?: string) => updateRunFor(runId.value, status, summary);
+const autoReviewCanRun = computed(() => Boolean(
+  autoReviewEnabled.value
+  && selectedTask.value
+  && ['task', 'epic'].includes(runIntent.value)
+  && reviewerProvider.value !== provider.value
+  && reviewerProvider.value !== 'antigravity'
+));
+const reviewerLabel = (value: Provider) => value === 'claude_code' ? 'Claude Code' : value === 'antigravity' ? 'Antigravity' : 'Codex';
+const reviewPayloadFromOutput = (text: string) => {
+  const marker = text.match(/<TASK_HUB_REVIEW>([\s\S]*?)<\/TASK_HUB_REVIEW>/i);
+  const body = marker?.[1]?.trim() || '';
+  let parsed: any = null;
+  if (body) {
+    try { parsed = JSON.parse(body); } catch { parsed = null; }
+  }
+  const verdictText = String(parsed?.verdict || '').toLowerCase();
+  // Fail closed: an unstructured reviewer response must never auto-approve.
+  const approved = Boolean(parsed && verdictText === 'approved');
+  const feedback = String(parsed?.feedback || parsed?.summary || body || text.slice(-8000)).trim();
+  return { approved, feedback: feedback || 'Reviewer did not provide a structured explanation.', summary: String(parsed?.summary || feedback).trim(), tests: Array.isArray(parsed?.tests) ? parsed.tests : [] };
+};
+const readWorktreeDiff = async () => {
+  try {
+    const diff = await window.desktopApi?.agent?.getGitDiff?.(worktree.value);
+    if (!diff) return 'No diff metadata was available; inspect the worktree directly.';
+    const serialized = typeof diff === 'string' ? diff : JSON.stringify(diff);
+    return serialized.slice(-30000);
+  } catch (e: any) {
+    return `Diff inspection was unavailable: ${e?.message || 'unknown error'}`;
+  }
+};
+const startAutoReview = async (implementationOutput: string, implementationIntent: RunIntent = runIntent.value) => {
+  if (!selectedTask.value || !implementationRunId.value || !worktree.value) return false;
+  if (!autoReviewCanRun.value) return false;
+  if (autoReviewIteration.value >= autoReviewMaxIterations.value) return false;
+  autoReviewIteration.value += 1;
+  autoReviewStatus.value = 'reviewing';
+  autoReviewFeedback.value = '';
+  autoReviewSummary.value = '';
+  error.value = '';
+  phase.value = `Independent review ${autoReviewIteration.value}/${autoReviewMaxIterations.value}`;
+  toolMessage.value = `${reviewerLabel(reviewerProvider.value)} is reviewing the implementation in read-only mode…`;
+  const diff = await readWorktreeDiff();
+  const reviewerPrompt = `You are the independent reviewer for Task Hub task ${selectedTask.value.issue_key || selectedTask.value.title}. Review the implementation currently present in this isolated worktree. Do not edit files, commit, push, deploy, or create Hub records. Inspect the task brief, acceptance criteria, tests, and git diff. Run safe read-only verification when useful.
+
+Implementation agent output:
+${implementationOutput.slice(-12000)}
+
+Git diff snapshot:
+${diff}
+
+Return exactly one machine-readable block and a concise explanation:
+<TASK_HUB_REVIEW>{"verdict":"approved" or "changes_requested","summary":"...","feedback":"...","tests":[{"command":"...","status":"passed|failed|skipped","summary":"..."}]}</TASK_HUB_REVIEW>
+Use changes_requested for any correctness, scope, security, test, or acceptance-criteria gap. Be specific enough for another agent to fix every issue.`;
+  try {
+    const started = await mcp('start_agent_run', {
+      task_id: selectedTask.value.id,
+      provider: reviewerProvider.value,
+      agent_session_id: `${reviewerProvider.value}-review-${Date.now()}`,
+      repository: worktree.value,
+      branch: worktree.value,
+      run_type: 'review',
+      context: { task_id: selectedTask.value.id, implementation_run_id: implementationRunId.value, auto_review_iteration: autoReviewIteration.value },
+      instruction: { role: 'independent_reviewer', execution_policy: 'restricted', review_of_run_id: implementationRunId.value },
+    });
+    reviewerRunId.value = Number(started?.data?.id || started?.id || 0) || null;
+    runId.value = reviewerRunId.value;
+    activeAgentRole.value = 'reviewer';
+    runStatus.value = 'running';
+    runExitCode.value = null;
+    if (reviewerRunId.value) interactiveReporter.start(reviewerRunId.value);
+    await window.desktopApi.agent.configureMcp({ cwd: worktree.value, provider: reviewerProvider.value, taskHubUrl: hubUrl.value, projectId: String(selectedTask.value.project_id || sync.credential.value?.projectId), token: sync.credential.value!.token });
+    await updateRunFor(reviewerRunId.value, 'running', `Independent review ${autoReviewIteration.value}/${autoReviewMaxIterations.value} started.`, { auto_review: { iteration: autoReviewIteration.value, implementation_run_id: implementationRunId.value, reviewer_provider: reviewerProvider.value } });
+    // Keep the original task/epic intent while the reviewer session is active;
+    // the handoff and Epic scheduler still need to know which implementation
+    // run produced this review.
+    await startLocal(reviewerPrompt, 'task', 'restricted', implementationIntent, true, 'reviewer');
+    return true;
+  } catch (e: any) {
+    autoReviewStatus.value = 'failed';
+    autoReviewFeedback.value = e?.message || 'Could not start the independent reviewer.';
+    phase.value = 'Auto-review failed — human review required';
+    toolMessage.value = autoReviewFeedback.value;
+    if (reviewerRunId.value) void updateRunFor(reviewerRunId.value, 'failed', autoReviewFeedback.value);
+    return false;
+  }
+};
+const continueAfterReview = async (review: { approved: boolean; feedback: string; summary: string; tests: any[] }) => {
+  const currentReviewerRunId = reviewerRunId.value;
+  if (currentReviewerRunId) {
+    await updateRunFor(currentReviewerRunId, review.approved ? 'verified' : 'waiting_input', review.summary, {
+      auto_review: { verdict: review.approved ? 'approved' : 'changes_requested', feedback: review.feedback, iteration: autoReviewIteration.value, implementation_run_id: implementationRunId.value },
+    });
+    await mcp('attach_verification_evidence', { run_id: currentReviewerRunId, evidence_type: 'independent_review', status: review.approved ? 'passed' : 'failed', command: 'Task Hub independent reviewer', summary: review.feedback });
+  }
+  if (review.approved) {
+    autoReviewStatus.value = 'approved';
+    autoReviewFeedback.value = review.feedback;
+    autoReviewSummary.value = review.summary;
+    phase.value = 'Auto-review approved — preparing Hub handoff';
+    toolMessage.value = `${reviewerLabel(reviewerProvider.value)} approved the implementation. Human Hub approval is still required.`;
+    runId.value = implementationRunId.value;
+    activeAgentRole.value = 'implementation';
+    runOutputStart.value = implementationOutputStart.value;
+    runStatus.value = 'completed';
+    await updateRunFor(implementationRunId.value, 'waiting_input', 'Implementation approved by independent reviewer; handoff is ready for Hub review.', { auto_review: { status: 'approved', reviewer_run_id: currentReviewerRunId, reviewer_provider: reviewerProvider.value, iterations: autoReviewIteration.value, feedback: review.feedback } });
+    const payload = autoHandoffPayload();
+    if (payload) {
+      payload.blockers = [payload.blockers, `Independent review approved by ${reviewerLabel(reviewerProvider.value)} after ${autoReviewIteration.value} iteration(s).`].filter(Boolean).join('\n');
+      await handoff(payload);
+    }
+    return;
+  }
+  autoReviewStatus.value = 'changes_requested';
+  autoReviewFeedback.value = review.feedback;
+  autoReviewSummary.value = review.summary;
+  if (autoReviewIteration.value >= autoReviewMaxIterations.value) {
+    autoReviewStatus.value = 'max_iterations';
+    phase.value = 'Auto-review reached its limit — human review required';
+    toolMessage.value = `${reviewerLabel(reviewerProvider.value)} requested changes after ${autoReviewIteration.value} iteration(s). Review the feedback and continue manually.`;
+    runId.value = implementationRunId.value;
+    activeAgentRole.value = 'implementation';
+    runOutputStart.value = implementationOutputStart.value;
+    runStatus.value = 'completed';
+    await updateRunFor(implementationRunId.value, 'waiting_input', `Auto-review reached the ${autoReviewMaxIterations.value}-iteration limit. Human review required.`, { auto_review: { status: 'max_iterations', reviewer_run_id: currentReviewerRunId, feedback: review.feedback, iterations: autoReviewIteration.value } });
+    return;
+  }
+  if (!selectedTask.value || !implementationRunId.value) return;
+  runId.value = implementationRunId.value;
+  activeAgentRole.value = 'implementation';
+  runOutputStart.value = implementationOutputStart.value;
+  phase.value = `Implementation agent applying review changes (${autoReviewIteration.value + 1}/${autoReviewMaxIterations.value})`;
+  toolMessage.value = `Sending ${reviewerLabel(reviewerProvider.value)}'s feedback to the implementation agent…`;
+  output.value += `\n\n--- Independent review ${autoReviewIteration.value}: changes requested ---\n${review.feedback}\n`;
+  await updateRunFor(implementationRunId.value, 'running', `Applying independent review feedback from iteration ${autoReviewIteration.value}.`);
+  await startLocal(`Continue the implementation for ${selectedTask.value.issue_key || selectedTask.value.title}. A separate reviewer requested the changes below. Apply every item in the isolated worktree, run the relevant tests, and finish with a concise handoff summary. Do not work on sibling tasks.
+
+Reviewer feedback:
+${review.feedback}
+
+This is review iteration ${autoReviewIteration.value + 1} of ${autoReviewMaxIterations.value}.`, 'task', executionPolicy.value, runIntent.value, true, 'implementation');
+};
 const cancel = async () => {
   notify({ type: 'warning', title: 'Đang hủy phiên chạy', message: 'Gửi tín hiệu dừng agent…' });
   runStatus.value = 'cancelled';
@@ -364,6 +543,10 @@ const cancel = async () => {
   if (sessionId.value) await window.desktopApi.agent.stop(sessionId.value);
   interactiveReporter.finish('cancelled', { reason: 'stopped_by_user' });
   await updateRun('cancelled', 'Stopped by user.');
+  if (reviewerRunId.value && reviewerRunId.value !== runId.value) await updateRunFor(reviewerRunId.value, 'cancelled', 'Automatic review cancelled by user.');
+  if (implementationRunId.value && implementationRunId.value !== runId.value) await updateRunFor(implementationRunId.value, 'cancelled', 'Automatic review loop cancelled by user.');
+  autoReviewStatus.value = 'failed';
+  autoReviewFeedback.value = 'Automatic review loop cancelled by user.';
   sessionId.value = null;
   if (epicSequence.value) stopEpicSequence('Epic sequence cancelled by the user.');
   notify({ type: 'info', title: 'Đã hủy phiên chạy', message: 'Tiến trình Agent đã dừng an toàn.' });
@@ -380,7 +563,8 @@ const handoff = async (payload: any) => {
     const handoffTaskId = selectedTask.value.id;
     const isEpicChild = epicSequence.value && runIntent.value === 'epic';
     startOperation('handoff', 'Đang gửi bàn giao', 'Đồng bộ kết quả kiểm thử và PR lên Task Hub…');
-    const result = await mcp('complete_agent_handoff', { run_id: runId.value || undefined, task_id: handoffTaskId, summary: payload.summary || 'Local agent completed work.', changed_files: String(payload.changedFiles || '').split('\n').map((x: string) => x.trim()).filter(Boolean), tests: [{ command: payload.tests || 'Verification', status: payload.testStatus, summary: payload.testSummary || 'Completed' }], commit_sha: payload.commitSha || undefined, pull_request_url: payload.pullRequestUrl || undefined, blockers: payload.blockers || undefined });
+    const handoffRunId = implementationRunId.value || runId.value;
+    const result = await mcp('complete_agent_handoff', { run_id: handoffRunId || undefined, task_id: handoffTaskId, summary: payload.summary || 'Local agent completed work.', changed_files: String(payload.changedFiles || '').split('\n').map((x: string) => x.trim()).filter(Boolean), tests: [{ command: payload.tests || 'Verification', status: payload.testStatus, summary: payload.testSummary || 'Completed' }], commit_sha: payload.commitSha || undefined, pull_request_url: payload.pullRequestUrl || undefined, blockers: payload.blockers || undefined, review: autoReviewStatus.value !== 'idle' ? { status: autoReviewStatus.value, reviewer_provider: reviewerProvider.value, reviewer_run_id: reviewerRunId.value, iterations: autoReviewIteration.value, feedback: autoReviewFeedback.value } : undefined });
     if (result?.success === false) throw new Error(result.message || 'Task Hub rejected the handoff.');
     const confirmedRunId = Number(result?.data?.id || runId.value || 0);
     handoffReviewUrl.value = `${hubUrl.value.replace(/\/$/, '')}/tasks?task_id=${encodeURIComponent(String(handoffTaskId))}${confirmedRunId ? `&run_id=${confirmedRunId}` : ''}`;
@@ -412,7 +596,7 @@ const autoHandoffPayload = () => selectedTask.value
   : null;
 const tryAutoSubmitHandoff = () => {
   const epicAutoSubmit = runIntent.value === 'epic' && epicSequence.value?.autoContinue === true;
-  if (!(autoSubmitHandoff.value || epicAutoSubmit) || !['task', 'epic'].includes(runIntent.value) || runStatus.value !== 'completed' || autoHandoffSubmitting.value || phase.value === 'Submitted for Hub review') return false;
+  if (autoReviewStatus.value !== 'idle' || !(autoSubmitHandoff.value || epicAutoSubmit) || !['task', 'epic'].includes(runIntent.value) || runStatus.value !== 'completed' || autoHandoffSubmitting.value || phase.value === 'Submitted for Hub review') return false;
   const payload = autoHandoffPayload();
   if (!payload) return false;
   autoHandoffSubmitting.value = true;
@@ -554,17 +738,62 @@ const selectTask = (task: TaskItem) => {
   if (epicSequence.value && task.id !== epicSequence.value.epic.id && task.id !== epicSequence.value.activeChildId) stopEpicSequence('Epic sequence paused because another task was selected.');
   selectedTask.value = task;
   handoffReviewUrl.value = '';
+  implementationRunId.value = null;
+  reviewerRunId.value = null;
+  activeAgentRole.value = 'implementation';
+  autoReviewIteration.value = 0;
+  autoReviewStatus.value = 'idle';
+  autoReviewFeedback.value = '';
+  autoReviewSummary.value = '';
   void contextPackCache.prefetch(task.id, mcp, (task as any).updated_at);
   notify({ type: 'info', title: 'Đã chọn nhiệm vụ', message: `${task.issue_key || `#${task.id}`} — ${task.title}`, durationMs: 2500 });
 };
 let unsubOutput: (() => void) | undefined; let unsubExit: (() => void) | undefined; let unsubUpdater: (() => void) | undefined;
-const handleAgentExit = (event: any) => {
+const handleAgentExit = async (event: any) => {
   if (event.sessionId !== sessionId.value) return;
   const exitCode = typeof event.code === 'number' ? event.code : null;
+  const role = activeAgentRole.value;
+  const trackedRunId = runId.value;
+  const agentOutput = output.value.slice(role === 'reviewer' ? reviewOutputStart.value : runOutputStart.value);
   output.value += `\nProcess exited (${exitCode ?? 'unknown'}).`;
   sessionId.value = null;
   runExitCode.value = exitCode;
   if (runStatus.value !== 'cancelled') runStatus.value = exitCode === 0 ? 'completed' : 'failed';
+  interactiveReporter.finish(runStatus.value === 'completed' ? 'completed' : runStatus.value === 'cancelled' ? 'cancelled' : 'failed', { exit_code: exitCode });
+
+  if (role === 'reviewer') {
+    if (runStatus.value === 'cancelled') {
+      autoReviewStatus.value = 'failed';
+      autoReviewFeedback.value = 'Automatic review loop cancelled by user.';
+      phase.value = 'Auto-review cancelled — human review required';
+      toolMessage.value = 'The reviewer was stopped before it could finish. Review and submit the implementation handoff manually.';
+      if (trackedRunId) void updateRunFor(trackedRunId, 'cancelled', autoReviewFeedback.value);
+      finishOperation('auto-review', 'warning', 'Independent review cancelled', autoReviewFeedback.value);
+      return;
+    }
+    if (runStatus.value === 'failed') {
+      autoReviewStatus.value = 'failed';
+      autoReviewFeedback.value = `Reviewer process ended with exit code ${exitCode ?? 'unknown'}.`;
+      phase.value = 'Auto-review failed — human review required';
+      toolMessage.value = `${reviewerLabel(reviewerProvider.value)} could not complete its review. You can review the diff and submit a human handoff.`;
+      if (trackedRunId) void updateRunFor(trackedRunId, 'failed', autoReviewFeedback.value);
+      finishOperation('auto-review', 'error', 'Independent review failed', autoReviewFeedback.value);
+      return;
+    }
+    const review = reviewPayloadFromOutput(agentOutput);
+    try {
+      await continueAfterReview(review);
+      finishOperation('auto-review', review.approved ? 'success' : 'warning', review.approved ? 'Independent review approved' : 'Changes requested by independent reviewer', review.feedback);
+    } catch (e: any) {
+      autoReviewStatus.value = 'failed';
+      autoReviewFeedback.value = e?.message || 'The review loop could not persist its result.';
+      phase.value = 'Auto-review failed — human review required';
+      toolMessage.value = 'The reviewer finished, but Task Hub could not save the review evidence. Review and submit the handoff manually.';
+      if (trackedRunId) void updateRunFor(trackedRunId, 'failed', autoReviewFeedback.value);
+      finishOperation('auto-review', 'error', 'Could not save independent review', autoReviewFeedback.value);
+    }
+    return;
+  }
 
   // Codex can explain that the Windows sandbox helper failed and still end the
   // turn successfully. Treat that response as a blocked run, not a completed
@@ -576,7 +805,8 @@ const handleAgentExit = (event: any) => {
     error.value = 'Codex could not start its workspace sandbox. This task has not run; review diagnostics and approve a retry.';
     toolMessage.value = 'The local sandbox blocked this run before work could begin.';
     finishOperation('start-local', 'warning', 'Sandbox bị chặn', 'Cần cấp quyền để thử lại.');
-    if (pendingLaunch.value) void requestHumanApproval(output.value.slice(runOutputStart.value).slice(-8000));
+    if (pendingLaunch.value) void requestHumanApproval(agentOutput.slice(-8000));
+    if (trackedRunId) void updateRunFor(trackedRunId, 'failed', error.value);
     return;
   }
 
@@ -586,6 +816,7 @@ const handleAgentExit = (event: any) => {
     toolMessage.value = 'The agent did not complete successfully.';
     finishOperation('start-local', 'error', 'Agent dừng thực thi', error.value);
     if (pendingLaunch.value) void requestHumanApproval(`${error.value}\n${output.value.slice(-8000)}`);
+    if (trackedRunId) void updateRunFor(trackedRunId, 'failed', error.value);
     return;
   }
 
@@ -593,6 +824,7 @@ const handleAgentExit = (event: any) => {
     phase.value = 'Run cancelled';
     toolMessage.value = 'The agent was stopped by the user.';
     finishOperation('start-local', 'warning', 'Đã hủy phiên chạy', 'Tiến trình agent đã dừng.');
+    if (trackedRunId) void updateRunFor(trackedRunId, 'cancelled', 'Stopped by user.');
     return;
   }
 
@@ -607,6 +839,18 @@ const handleAgentExit = (event: any) => {
     toolMessage.value = 'Review the generated docs, then save or sync them.';
     phase.value = 'Documentation ready';
     finishOperation('docs-scan', 'success', 'Tài liệu sẵn sàng!', 'Vui lòng kiểm tra và lưu hoặc đồng bộ.');
+  } else if (autoReviewCanRun.value) {
+    // Reserve the review slot before awaiting the lifecycle update. Vue's
+    // auto-handoff watcher can otherwise observe `completed + idle` during the
+    // network round-trip and submit the handoff before the reviewer starts.
+    autoReviewStatus.value = 'reviewing';
+    if (trackedRunId) await updateRunFor(trackedRunId, 'waiting_input', `Implementation complete; starting independent review with ${reviewerLabel(reviewerProvider.value)}.`);
+    const started = await startAutoReview(agentOutput);
+    if (!started) {
+      phase.value = 'Run completed — human review required';
+      toolMessage.value = 'Automatic review could not start. Review and submit the handoff manually.';
+    }
+    finishOperation('start-local', 'success', 'Agent hoàn tất thực thi', started ? 'Đang chạy independent review trước khi gửi Hub.' : 'Sẵn sàng cho human review.');
   } else if (['task', 'epic'].includes(runIntent.value) && (autoSubmitHandoff.value || (runIntent.value === 'epic' && epicSequence.value?.autoContinue))) {
     if (!tryAutoSubmitHandoff()) {
       phase.value = 'Run completed — handoff needs review';
@@ -617,8 +861,12 @@ const handleAgentExit = (event: any) => {
     phase.value = 'Run completed — ready for handoff';
     finishOperation('start-local', 'success', 'Agent hoàn tất thực thi', 'Sẵn sàng gửi báo cáo bàn giao.');
   }
+  if (trackedRunId && !autoHandoffSubmitting.value && autoReviewStatus.value === 'idle') await updateRunFor(trackedRunId, 'waiting_input', 'Agent process completed; awaiting handoff.');
 };
 watch([autoSubmitHandoff, runStatus], () => { void tryAutoSubmitHandoff(); });
+watch(provider, (next) => {
+  if (reviewerProvider.value === next) reviewerProvider.value = next === 'codex' ? 'claude_code' : 'codex';
+});
 onMounted(async () => {
   const saved = await window.desktopApi?.agent?.listWorkspaces?.();
   if (saved?.[0]) workspace.value = saved[0];
@@ -638,14 +886,7 @@ onMounted(async () => {
     if (event.sessionId && !sessionId.value && running.value) {
       sessionId.value = event.sessionId;
     }
-    const matchesActive = event.sessionId === sessionId.value || (!sessionId.value && running.value);
-    const trackedRunId = runId.value;
-    handleAgentExit(event);
-    if (matchesActive && trackedRunId) {
-      const status = event.code === 0 ? 'completed' : 'failed';
-      interactiveReporter.finish(status, { exit_code: event.code ?? null, signal: event.signal ?? null });
-      if (!autoHandoffSubmitting.value) void updateRun(status === 'completed' ? 'waiting_input' : 'failed', status === 'completed' ? 'Agent process completed; awaiting handoff.' : 'Agent process failed.');
-    }
+    void handleAgentExit(event);
   });
   await refresh();
 });
@@ -681,11 +922,15 @@ onUnmounted(() => { interactiveReporter.reset(); unsubOutput?.(); unsubExit?.();
        :saving="routerSaving"
        :auto-submit-handoff="autoSubmitHandoff"
        :auto-continue-epic="autoContinueEpic"
+       :auto-review-enabled="autoReviewEnabled"
+       :reviewer-provider="reviewerProvider"
+       :auto-review-max-iterations="autoReviewMaxIterations"
        @close="settingsOpen = false"
       @choose-workspace="chooseWorkspace"
        @update-execution-policy="(policy: ExecutionPolicy) => { executionPolicy = policy; notify({ type: 'info', title: 'Quyền thực thi', message: `Đã đổi thành: ${policy}` }); }"
        @update-auto-submit-handoff="updateAutoSubmitHandoff"
        @update-auto-continue-epic="updateAutoContinueEpic"
+       @update-auto-review="updateAutoReview"
       @run-diagnostics="runDiagnostics"
       @check-app-update="checkAppUpdate"
       @install-app-update="installAppUpdate"
@@ -743,6 +988,11 @@ onUnmounted(() => { interactiveReporter.reset(); unsubOutput?.(); unsubExit?.();
          :epic-sequence-running="Boolean(epicSequence)"
          :diagnostics-loading="diagnosticsLoading"
          :handoff-review-url="handoffReviewUrl"
+         :auto-review-status="autoReviewStatus"
+         :auto-review-iteration="autoReviewIteration"
+         :auto-review-max-iterations="autoReviewMaxIterations"
+         :auto-review-feedback="autoReviewFeedback"
+         :reviewer-provider="reviewerProvider"
         @choose-workspace="chooseWorkspace"
         @launch="launch"
         @cancel="cancel"

@@ -4,12 +4,7 @@ function safeClone<T>(value: T): T {
   if (value === undefined || value === null) return value;
   if (typeof value !== 'object') return value;
   try {
-    const seen = new WeakSet();
     return JSON.parse(JSON.stringify(value, (_key, val) => {
-      if (typeof val === 'object' && val !== null) {
-        if (seen.has(val)) return undefined;
-        seen.add(val);
-      }
       if (typeof val === 'function' || typeof val === 'symbol') return undefined;
       if (typeof val === 'bigint') return val.toString();
       if (val instanceof Error) return { message: val.message, name: val.name, stack: val.stack };

@@ -83,6 +83,7 @@ class ApiAgentRunController extends Controller
             'repository' => 'nullable|string|max:255',
             'branch' => 'nullable|string|max:255',
             'run_type' => 'nullable|string|max:30',
+            'metadata' => 'nullable|array',
             'instruction' => 'nullable|array',
             'context' => 'nullable|array',
             // Agent execution is local-only in the current product phase.
@@ -101,6 +102,14 @@ class ApiAgentRunController extends Controller
                     'message' => "Task #{$taskId} not found. Please refresh the task list.",
                 ], 404);
             }
+        }
+        if ($task && in_array($task->status, ['review', 'done'], true)) {
+            return response()->json([
+                'success' => false,
+                'message' => $task->status === 'review'
+                    ? 'Task is waiting for Hub review. Approve or request changes before starting another run.'
+                    : 'Task is already done. Reopen it before starting another run.',
+            ], 422);
         }
         if ($task?->hasIncompleteDependencies()) {
             return response()->json([
@@ -138,7 +147,7 @@ class ApiAgentRunController extends Controller
                 'run_type' => $validated['run_type'] ?? 'implementation',
                 'context_hash' => $context['context_hash'] ?? null,
                 'instruction_hash' => $contextService->instructionHash($instruction),
-                'metadata' => array_merge(['context' => $context], $selectedModel ? ['model' => $selectedModel] : []),
+                'metadata' => array_merge(['context' => $context], $selectedModel ? ['model' => $selectedModel] : [], $validated['metadata'] ?? []),
             ]);
             $this->recordEvent($run, 'run_created', 'queued', array_merge(['context_hash' => $run->context_hash], $selectedModel ? ['model' => $selectedModel] : []));
             return $run;
@@ -158,6 +167,14 @@ class ApiAgentRunController extends Controller
             'epic_sequence' => 'nullable|array',
         ]);
 
+        if (in_array($task->status, ['review', 'done'], true)) {
+            return response()->json([
+                'success' => false,
+                'message' => $task->status === 'review'
+                    ? 'Task is waiting for Hub review. Approve or request changes before dispatching again.'
+                    : 'Task is already done. Reopen it before dispatching again.',
+            ], 422);
+        }
         if ($task->hasIncompleteDependencies()) {
             return response()->json([
                 'success' => false,
@@ -397,6 +414,9 @@ class ApiAgentRunController extends Controller
             'metadata' => 'nullable|array',
         ]);
         $this->applyLifecycleFields($validated);
+        if (array_key_exists('metadata', $validated)) {
+            $validated['metadata'] = array_merge($agentRun->metadata ?: [], $validated['metadata'] ?: []);
+        }
         $agentRun->update($validated);
         $this->recordEvent($agentRun, 'run_updated', $agentRun->status, $validated);
         return response()->json(['success' => true, 'data' => $agentRun->fresh()->load('evidence')]);
@@ -467,6 +487,12 @@ class ApiAgentRunController extends Controller
             'commit_sha' => 'nullable|string|max:80',
             'pull_request_url' => 'nullable|url|max:500',
             'blockers' => 'nullable|string|max:10000',
+            'review' => 'nullable|array',
+            'review.status' => 'nullable|string|in:idle,reviewing,changes_requested,approved,max_iterations,failed',
+            'review.reviewer_provider' => 'nullable|in:codex,claude_code,antigravity',
+            'review.reviewer_run_id' => 'nullable|integer',
+            'review.iterations' => 'nullable|integer|min:0|max:20',
+            'review.feedback' => 'nullable|string|max:10000',
             'idempotency_key' => 'nullable|uuid',
         ]);
         $validated['changed_files'] = array_values($validated['changed_files'] ?? []);
@@ -481,6 +507,7 @@ class ApiAgentRunController extends Controller
                 'handoff' => [
                     'changed_files' => array_values($validated['changed_files']),
                     'blockers' => $validated['blockers'] ?? null,
+                    'auto_review' => $validated['review'] ?? null,
                     'idempotency_key' => $idempotencyKey,
                     'submitted_at' => now()->toIso8601String(),
                 ],

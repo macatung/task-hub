@@ -121,13 +121,41 @@ class ApiTaskController extends Controller
             ]);
         }
         $task->load(['project', 'sprint', 'epic', 'documents', 'dependencies.dependsOn']);
-        $this->track('task_created', 'task', $task->id);
+        $user = $request->user();
+        $actor = [
+            'type' => $user ? 'user' : ($request->attributes->get('desktop_project') ? 'desktop_client' : 'system'),
+            'id' => $user?->id,
+            'name' => $user?->name ?? ($user?->email ?? ($request->attributes->get('desktop_project') ? 'Desktop Companion' : 'System')),
+            'email' => $user?->email,
+            'ip_address' => $request->ip(),
+        ];
+        $this->track('task_created', 'task', $task->id, [
+            'initial_status' => $task->status,
+            'initial_priority' => $task->priority,
+            'story_points' => $task->story_points,
+            'actor' => $actor,
+        ]);
 
         return response()->json([
             "success" => true,
             "message" => "Task created successfully",
             "data" => $task,
         ], 201);
+    }
+
+    public function history(Request $request, $id, \App\Services\TaskHistoryService $historyService)
+    {
+        $task = Task::findOrFail($id);
+        if ($request->user()) {
+            abort_unless((int) $task->workspace_id === (int) app(WorkspaceContext::class)->resolve($request)->id, 404);
+        }
+        $desktopProject = $request->attributes->get('desktop_project');
+        if ($desktopProject) {
+            abort_unless((int) $task->project_id === (int) $desktopProject->id, 403, 'Desktop credential is scoped to another project.');
+        }
+
+        $history = $historyService->getTaskHistory($task);
+        return response()->json($history);
     }
 
     public function update(Request $request, $id)
@@ -168,6 +196,9 @@ class ApiTaskController extends Controller
             ], 422);
         }
 
+        $oldStatus = $task->status;
+        $oldPriority = $task->priority;
+
         if (isset($validated["status"]) && $validated["status"] === "done" && $task->status !== "done") {
             $validated["completed_at"] = Carbon::now();
         } elseif (isset($validated["status"]) && $validated["status"] !== "done") {
@@ -197,8 +228,35 @@ class ApiTaskController extends Controller
             }
         }
         $task->load(['project', 'sprint', 'epic', 'documents', 'dependencies.dependsOn']);
+
+        $user = $request->user();
+        $actor = [
+            'type' => $user ? 'user' : ($request->attributes->get('desktop_project') ? 'desktop_client' : 'system'),
+            'id' => $user?->id,
+            'name' => $user?->name ?? ($user?->email ?? ($request->attributes->get('desktop_project') ? 'Desktop Companion' : 'System')),
+            'email' => $user?->email,
+            'ip_address' => $request->ip(),
+        ];
+
+        if (isset($validated['status']) && $oldStatus !== $task->status) {
+            $this->track('status_transition', 'task', $task->id, [
+                'from_status' => $oldStatus,
+                'to_status' => $task->status,
+                'reason' => $request->input('transition_reason') ?: null,
+                'actor' => $actor,
+            ]);
+        }
+        if (isset($validated['priority']) && $oldPriority !== $task->priority) {
+            $this->track('priority_changed', 'task', $task->id, [
+                'from_priority' => $oldPriority,
+                'to_priority' => $task->priority,
+                'actor' => $actor,
+            ]);
+        }
         if (($validated['status'] ?? null) === 'done') {
-            $this->track('task_completed', 'task', $task->id);
+            $this->track('task_completed', 'task', $task->id, [
+                'actor' => $actor,
+            ]);
         }
 
         return response()->json([
@@ -289,7 +347,7 @@ class ApiTaskController extends Controller
     public function nextAction()
     {
         $task = Task::with('project')
-            ->where('status', '!=', 'done')
+            ->whereIn('status', ['todo', 'in_progress'])
             ->where('issue_type', '!=', 'epic')
             ->whereDoesntHave('dependencies', fn ($query) => $query->whereHas('dependsOn', fn ($dependency) => $dependency->where('status', '!=', 'done')))
             ->orderByRaw("CASE WHEN status = 'in_progress' THEN 1 WHEN priority = 'urgent' THEN 2 WHEN priority = 'high' THEN 3 ELSE 4 END")

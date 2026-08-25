@@ -100,7 +100,7 @@ export function findNextUpTask(tasks: TaskLike[]): TaskLike | null {
  * Formats chronological activity timeline events into markdown.
  */
 export function formatTimelineToMarkdown(
-  events: Array<{ id: string; label: string; detail: string; tone: string; time: string }>,
+  events: Array<{ id: string; label: string; detail: string; tone: string; time: string; actor?: { name?: string; role?: string; type?: string } }>,
   activeTask?: TaskLike | null
 ): string {
   const taskHeader = activeTask
@@ -108,7 +108,10 @@ export function formatTimelineToMarkdown(
     : '';
 
   const header = `### Task Hub Activity Timeline\n${taskHeader}---\n`;
-  const items = events.map((e) => `- **[${e.time}]** \`[${e.tone.toUpperCase()}]\` **${e.label}**: ${e.detail}`).join('\n');
+  const items = events.map((e) => {
+    const actorStr = e.actor?.name ? ` *(Actor: ${e.actor.name}${e.actor.role ? ` · ${e.actor.role}` : ''})*` : '';
+    return `- **[${e.time}]** \`[${e.tone.toUpperCase()}]\` **${e.label}**${actorStr}: ${e.detail}`;
+  }).join('\n');
   return `${header}${items}\n`;
 }
 

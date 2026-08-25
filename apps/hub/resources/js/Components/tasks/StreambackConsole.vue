@@ -98,6 +98,10 @@ const handoffFiles = computed<string[]>(() => {
   const files = run?.metadata?.handoff?.changed_files;
   return Array.isArray(files) ? files.filter((file): file is string => typeof file === 'string' && file.trim().length > 0) : [];
 });
+const autoReview = computed(() => {
+  const run = runDetails.value || props.activeRun;
+  return run?.metadata?.handoff?.auto_review || run?.metadata?.auto_review || null;
+});
 
 let sseSource: EventSource | null = null;
 let pollInterval: number | null = null;
@@ -357,6 +361,26 @@ const rejectSafetyOrHandoff = async () => {
   }
 };
 
+const isCancelling = ref(false);
+const cancelActiveRun = async () => {
+  const run = runDetails.value || props.activeRun;
+  if (!run?.id) return;
+  if (!window.confirm(`Are you sure you want to cancel Agent Run #${run.id}?`)) return;
+  isCancelling.value = true;
+  try {
+    const res = await axios.post(`/api/tasks/agent-runs/${run.id}/cancel`);
+    if (res.data?.success) {
+      isActionFeedback.value = `✓ Run #${run.id} cancellation requested.`;
+      emit('refresh');
+      void loadRunDetails(run.id);
+    }
+  } catch (err: any) {
+    isActionFeedback.value = err.response?.data?.message || 'Failed to cancel run.';
+  } finally {
+    isCancelling.value = false;
+  }
+};
+
 const copyAllLogs = async () => {
   const text = logs.value.map(l => `[${l.stream || 'stdout'}] ${l.content}`).join('\n');
   try {
@@ -423,16 +447,29 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <!-- Action: Reload Streamback -->
-      <button
-        @click="activeRun?.id && loadRunDetails(activeRun.id)"
-        class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1.5"
-        :class="isDarkMode ? 'border-slate-800 bg-slate-900 text-slate-300 hover:text-white' : 'border-slate-300 bg-white text-slate-700 hover:text-slate-950'"
-        title="Refresh streamback logs"
-      >
-        <Icons name="Refresh" :size="12" />
-        <span>Sync</span>
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          v-if="['queued', 'claimed', 'preparing', 'running', 'waiting_input'].includes(activeRun?.status || '')"
+          @click="cancelActiveRun"
+          :disabled="isCancelling"
+          class="px-2.5 py-1 rounded-xl text-[10px] font-bold border border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 transition-all cursor-pointer flex items-center gap-1.5"
+          title="Cancel active agent execution"
+        >
+          <Icons name="X" :size="11" />
+          <span>{{ isCancelling ? 'Stopping…' : 'Cancel' }}</span>
+        </button>
+
+        <!-- Action: Reload Streamback -->
+        <button
+          @click="activeRun?.id && loadRunDetails(activeRun.id)"
+          class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1.5"
+          :class="isDarkMode ? 'border-slate-800 bg-slate-900 text-slate-300 hover:text-white' : 'border-slate-300 bg-white text-slate-700 hover:text-slate-950'"
+          title="Refresh streamback logs"
+        >
+          <Icons name="Refresh" :size="12" />
+          <span>Sync</span>
+        </button>
+      </div>
     </div>
 
     <!-- 1. 6-STEP AUTONOMOUS EXECUTION STEPPER -->
@@ -723,6 +760,16 @@ onBeforeUnmount(() => {
           <li v-for="file in handoffFiles" :key="file" class="py-0.5">{{ file }}</li>
         </ul>
       </details>
+
+      <div v-if="autoReview" class="rounded-xl border border-violet-700/60 bg-violet-950/20 p-3 text-xs">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="font-bold text-violet-200">Independent review loop</span>
+          <span class="rounded-full border border-violet-500/40 px-2 py-0.5 font-mono text-[10px] uppercase text-violet-300">{{ autoReview.status || 'recorded' }}</span>
+        </div>
+        <p class="mt-1 text-[11px] text-slate-300">Reviewer: {{ autoReview.reviewer_provider || 'second local agent' }} · {{ autoReview.iterations || 0 }} round(s)</p>
+        <p v-if="autoReview.feedback" class="mt-2 whitespace-pre-wrap leading-relaxed text-slate-200">{{ autoReview.feedback }}</p>
+        <p class="mt-2 text-[11px] text-violet-200/80">This is additional evidence. Final approval and merge remain a human action on Hub.</p>
+      </div>
 
       <!-- PR & Git Commit Links -->
       <div class="flex flex-wrap items-center gap-3 pt-1 text-xs">

@@ -487,12 +487,7 @@ function safeCloneMain<T>(value: T): T {
   if (value === undefined || value === null) return value;
   if (typeof value !== 'object') return value;
   try {
-    const seen = new WeakSet();
     return JSON.parse(JSON.stringify(value, (_key, val) => {
-      if (typeof val === 'object' && val !== null) {
-        if (seen.has(val)) return undefined;
-        seen.add(val);
-      }
       if (typeof val === 'function' || typeof val === 'symbol') return undefined;
       if (typeof val === 'bigint') return val.toString();
       if (val instanceof Error) return { message: val.message, name: val.name, stack: val.stack };
@@ -561,7 +556,6 @@ export type DiscoveredModel = {
 const BASE_PRESET_MODELS: Record<AgentProvider, DiscoveredModel[]> = {
   antigravity: [
     { id: 'gemini-3.7-flash-high', name: 'Gemini 3.7 Flash (High)', badges: ['High', 'Fast'], description: 'Latest generation model, optimized for speed and agentic reasoning', source: 'preset' },
-    { id: 'gemini-3.6-flash-medium', name: 'Gemini 3.6 Flash (Medium)', badges: ['Medium', 'Fast'], description: 'Balanced high speed and reasoning capabilities', source: 'preset' },
     { id: 'gemini-3.5-flash-medium', name: 'Gemini 3.5 Flash (Medium)', badges: ['Medium', 'Fast'], description: 'Fast response for standard coding tasks', source: 'preset' },
     { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', badges: ['Low'], description: 'Standard model for lightweight tasks', source: 'preset' },
     { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', badges: ['Thinking'], description: 'Extended reasoning and deep source code architecture analysis', source: 'preset' },
@@ -2263,15 +2257,23 @@ function formatAgyEvent(event: any): string {
             let formattedLine = '';
             if (event.type === 'item.completed' && event.item?.type === 'agent_message') {
               formattedLine = `\n💬 ${event.item.text}\n`;
+            } else if ((event.type === 'item.delta' || event.type === 'text_delta') && (event.delta?.text || event.text_delta || event.item?.delta?.text)) {
+              formattedLine = event.delta?.text || event.text_delta || event.item?.delta?.text || '';
             } else if (event.type === 'item.started' && event.item?.type === 'command_execution') {
               formattedLine = `\n⚡ [Executing command] $ ${event.item.command}\n`;
             } else if (event.type === 'item.completed' && event.item?.type === 'command_execution') {
               const output = summarizeCommandOutput(event.item.command || '', event.item.aggregated_output || '');
               formattedLine = `\n✓ [Command completed] exit code: ${event.item.exit_code ?? 0}${output ? `\n${output}` : ''}\n`;
+            } else if (event.type === 'item.completed' && (event.item?.type === 'thought' || event.item?.type === 'reasoning')) {
+              formattedLine = event.item?.text ? `\n💭 ${event.item.text}\n` : '';
             } else if (event.type === 'turn.completed') {
               const turnTokens = (event.usage?.input_tokens || 0) + (event.usage?.output_tokens || 0);
               if (turnTokens > 0) recordTokenUsageToQuota('codex', turnTokens);
               formattedLine = `\n✓ Turn completed · Tokens: in ${event.usage?.input_tokens || 0}, out ${event.usage?.output_tokens || 0}\n`;
+            } else if (event.type === 'error' || event.error) {
+              formattedLine = `\n❌ Error: ${event.error?.message || event.message || JSON.stringify(event.error || event)}\n`;
+            } else if (event.text || event.message) {
+              formattedLine = event.text || event.message || '';
             }
             if (formattedLine) {
               session.output = `${session.output}${formattedLine}`.slice(-250000);

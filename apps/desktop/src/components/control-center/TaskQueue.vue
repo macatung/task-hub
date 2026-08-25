@@ -7,7 +7,10 @@ const project = ref('all'); const status = ref('all'); const priority = ref('all
 const dependencyState = (task: TaskItem) => {
   const dependencies = task.dependencies || [];
   const targetFor = (dependency: NonNullable<TaskItem['dependencies']>[number]) => props.tasks.find(candidate => candidate.id === dependency.depends_on_task_id) || dependency.depends_on || null;
-  const pending = dependencies.filter(dependency => targetFor(dependency)?.status !== 'done');
+  const pending = dependencies.filter(dependency => {
+    const target = targetFor(dependency);
+    return !target || target.status !== 'done';
+  });
   const dependents = props.tasks
     .filter(candidate => candidate.id !== task.id)
     .filter(candidate => (candidate.dependencies || []).some(dependency => dependency.depends_on_task_id === task.id))
@@ -26,13 +29,14 @@ const dependencyState = (task: TaskItem) => {
     dependentReconsideration,
   };
 };
-const taskMeta = (task: TaskItem) => ({ blocked: dependencyState(task).pendingLabels.length > 0 });
+const taskMeta = (task: TaskItem) => ({ blocked: dependencyState(task).pendingLabels.length > 0, runnable: ['todo', 'in_progress'].includes(task.status) });
 const visibleTasks = computed(() => props.tasks
   .filter(task => (project.value === 'all' || String(task.project_id) === project.value) && (status.value === 'all' || task.status === status.value) && (priority.value === 'all' || task.priority === priority.value))
   .sort((a, b) => {
     if (a.issue_type === 'epic' && b.issue_type !== 'epic') return -1;
     if (b.issue_type === 'epic' && a.issue_type !== 'epic') return 1;
     const aMeta = taskMeta(a); const bMeta = taskMeta(b);
+    if (aMeta.runnable !== bMeta.runnable) return Number(bMeta.runnable) - Number(aMeta.runnable);
     if (aMeta.blocked !== bMeta.blocked) return Number(aMeta.blocked) - Number(bMeta.blocked);
     const statusRank = { in_progress: 0, review: 1, todo: 2, done: 3 };
     if (statusRank[a.status] !== statusRank[b.status]) return statusRank[a.status] - statusRank[b.status];
@@ -77,6 +81,7 @@ const tone = (value: string) => ({ todo: 'bg-slate-100 text-slate-600', in_progr
         <div v-if="dependencyState(task).total" class="mt-2 border-t border-slate-100 pt-2 text-[10px] leading-4">
           <p class="text-slate-500">Depends on {{ dependencyState(task).labels.join(', ') }}</p>
           <p v-if="dependencyState(task).pendingLabels.length" class="font-semibold text-amber-700">Blocked by {{ dependencyState(task).pendingLabels.join(', ') }}</p>
+          <p v-else-if="!['todo', 'in_progress'].includes(task.status)" class="font-semibold text-slate-500">{{ task.status === 'review' ? 'Waiting for Hub review' : 'Completed — reopen on Hub to run again' }}</p>
           <p v-if="dependencyState(task).reconsidered" class="font-semibold text-rose-700">Needs review: a prerequisite moved back from done</p>
         </div>
         <div v-if="dependencyState(task).dependents.length" class="mt-1 text-[10px] font-semibold text-slate-500">

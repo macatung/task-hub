@@ -191,17 +191,16 @@ const dependencySummary = (task: TaskItem) => {
     .map(dependency => ({
       ...dependency,
       depends_on: taskList.value.find(candidate => candidate.id === dependency.depends_on_task_id) || dependency.depends_on,
-    }))
-    .filter((dependency) => dependency.depends_on);
+    }));
   const labels = dependencies.map((dependency) => dependency.depends_on?.issue_key || `#${dependency.depends_on_task_id}`);
   const pendingLabels = dependencies
-    .filter((dependency) => dependency.depends_on?.status !== 'done')
+    .filter((dependency) => !dependency.depends_on || dependency.depends_on.status !== 'done')
     .map((dependency) => dependency.depends_on?.issue_key || `#${dependency.depends_on_task_id}`);
   const dependents = taskList.value
     .filter(candidate => candidate.id !== task.id)
     .filter(candidate => (candidate.dependencies || []).some(dependency => dependency.depends_on_task_id === task.id))
     .map(candidate => candidate.issue_key || `#${candidate.id}`);
-  return { total: dependencies.length, labels, pendingLabels, dependents };
+  return { total: dependencies.length, labels, pendingLabels, missingLabels: dependencies.filter(dependency => !dependency.depends_on).map(dependency => `#${dependency.depends_on_task_id}`), dependents };
 };
 
 // Light is the default work surface. A saved explicit preference wins after
@@ -592,6 +591,26 @@ const targetSprintForAction = ref<SprintItem | null>(null);
 const isSubmitting = ref(false);
 const newSubtaskText = ref('');
 
+type ExecutionGate = { allowed: boolean; code: 'ready' | 'blocked' | 'review' | 'done' | 'invalid'; title: string; detail: string; pendingLabels: string[] };
+const executionGateFor = (task: TaskItem | null): ExecutionGate => {
+  if (!task) return { allowed: false, code: 'invalid', title: 'Select a task first', detail: 'Choose a task from the board before starting execution.', pendingLabels: [] };
+  const currentTask = taskList.value.find(candidate => candidate.id === task.id) || task;
+  const dependencies = dependencySummary(currentTask);
+  if (currentTask.status === 'done') return { allowed: false, code: 'done', title: 'Task already completed', detail: 'Reopen this task on Hub before starting another run.', pendingLabels: [] };
+  if (currentTask.status === 'review') return { allowed: false, code: 'review', title: 'Waiting for Hub review', detail: 'Approve or request changes on Hub before starting another run.', pendingLabels: [] };
+  if (dependencies.pendingLabels.length) return { allowed: false, code: 'blocked', title: 'Blocked by prerequisites', detail: `Complete ${dependencies.pendingLabels.join(', ')} before dispatching this task.`, pendingLabels: dependencies.pendingLabels };
+  return { allowed: true, code: 'ready', title: 'Ready to run', detail: 'Execution can be dispatched to a connected agent.', pendingLabels: [] };
+};
+const selectedExecutionGate = computed(() => executionGateFor(selectedTask.value));
+const guardExecution = (task: TaskItem | null) => {
+  const gate = executionGateFor(task);
+  if (!gate.allowed) {
+    agentRunFeedback.value = `${gate.title}. ${gate.detail}`;
+    return false;
+  }
+  return true;
+};
+
 const loadAgentRuns = async (taskId: number) => {
   isAgentRunsLoading.value = true;
   agentRunFeedback.value = '';
@@ -613,6 +632,7 @@ const selectedProviderModel = ref<Record<string, string>>({
 
 const startAgentRun = async (provider: string, model?: string) => {
   if (!selectedTask.value) return;
+  if (!guardExecution(selectedTask.value)) return;
   const targetModel = model || selectedProviderModel.value[provider] || undefined;
   try {
     const res = await axios.post('/api/tasks/agent-runs', {
@@ -634,6 +654,7 @@ const taskForRemoteDispatch = ref<TaskItem | null>(null);
 const initialRunnerForDispatch = ref<number | null>(null);
 
 const openRemoteDispatch = (task?: TaskItem | null, runnerId?: number | null) => {
+  if (!guardExecution(task || selectedTask.value)) return;
   taskForRemoteDispatch.value = task || null;
   initialRunnerForDispatch.value = runnerId || null;
   showRemoteDispatchModal.value = true;
@@ -641,8 +662,11 @@ const openRemoteDispatch = (task?: TaskItem | null, runnerId?: number | null) =>
 };
 
 const handleRunnerDashboardDispatch = (runner: DesktopAgentItem) => {
-  const targetTask = selectedTask.value || taskList.value.find(t => t.status !== 'done') || null;
-  openRemoteDispatch(targetTask, runner.id);
+  const targetTask = selectedTask.value && executionGateFor(selectedTask.value).allowed
+    ? selectedTask.value
+    : taskList.value.find(task => executionGateFor(task).allowed) || null;
+  if (targetTask) openRemoteDispatch(targetTask, runner.id);
+  else agentRunFeedback.value = 'No runnable task is available. Resolve prerequisites or finish the current Hub review first.';
 };
 
 const handleRemoteDispatched = (payload: { run: any; task: TaskItemProps }) => {
@@ -1321,7 +1345,9 @@ const notificationItems = computed(() => {
       id: `agent-run-${run.id}`,
       tone: run.status === 'needs_review' ? 'success' : 'warning',
       title: run.status === 'needs_review' ? `${issue} handoff is ready for review` : `${issue} agent run failed`,
-      detail: task?.title || run.summary || `Provider: ${run.provider}`,
+      detail: run.status === 'needs_review' && run.metadata?.handoff?.auto_review?.reviewer_provider
+        ? `${task?.title || run.summary || `Provider: ${run.provider}`} · independently reviewed by ${run.metadata.handoff.auto_review.reviewer_provider}`
+        : task?.title || run.summary || `Provider: ${run.provider}`,
       task,
     });
   });
@@ -1357,6 +1383,7 @@ const notificationItems = computed(() => {
 });
 
 const unreadNotificationCount = computed(() => notificationItems.value.filter(item => !readNotificationIds.value.includes(item.id)).length);
+const pendingAgentReviews = computed(() => agentRunNotifications.value.filter(run => run.status === 'needs_review'));
 
 const toggleNotifications = () => {
   isNotificationsOpen.value = !isNotificationsOpen.value;
@@ -2746,6 +2773,39 @@ onUnmounted(() => {
 
     <RunnerDashboard :is-dark-mode="isDarkMode" @dispatch="handleRunnerDashboardDispatch" />
 
+    <!-- Keep review work visible without requiring users to discover the bell drawer. -->
+    <section
+      v-if="pendingAgentReviews.length"
+      class="mx-4 mt-3 rounded-2xl border p-3 shadow-sm"
+      :class="isDarkMode ? 'border-amber-700/70 bg-amber-950/25 text-amber-50' : 'border-amber-300 bg-amber-50 text-amber-950'"
+      aria-label="Agent review inbox"
+    >
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p class="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-amber-400">Review inbox</p>
+          <h2 class="mt-1 text-sm font-bold">{{ pendingAgentReviews.length }} agent handoff{{ pendingAgentReviews.length === 1 ? '' : 's' }} waiting for review</h2>
+          <p class="mt-1 text-xs opacity-75">Independent review evidence and requested changes are attached to each task. Open a card to approve or request changes.</p>
+        </div>
+        <button @click="isNotificationsOpen = true" class="shrink-0 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/20 cursor-pointer whitespace-nowrap">Open review inbox</button>
+      </div>
+      <div class="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        <button
+          v-for="run in pendingAgentReviews.slice(0, 6)"
+          :key="`review-card-${run.id}`"
+          @click="openNotification({ id: `agent-run-${run.id}`, task: run.task || taskList.find(candidate => candidate.id === run.task_id) })"
+          class="rounded-xl border p-3 text-left transition-colors cursor-pointer"
+          :class="isDarkMode ? 'border-amber-800/70 bg-slate-950/40 hover:border-amber-500 hover:bg-slate-900' : 'border-amber-200 bg-white hover:border-amber-400'"
+        >
+          <div class="flex items-center justify-between gap-2 text-[10px] font-mono">
+            <span class="font-bold text-amber-300">{{ run.task?.issue_key || `Task #${run.task_id || '—'}` }}</span>
+            <span class="rounded-full border border-amber-500/40 px-1.5 py-0.5 text-amber-300">Run #{{ run.id }}</span>
+          </div>
+          <p class="mt-1 truncate text-xs font-semibold">{{ run.task?.title || run.summary || 'Agent handoff' }}</p>
+          <p class="mt-1 text-[11px] opacity-70">{{ run.metadata?.handoff?.auto_review?.reviewer_provider ? `Reviewed by ${run.metadata.handoff.auto_review.reviewer_provider}` : 'Handoff evidence ready' }}</p>
+        </button>
+      </div>
+    </section>
+
     <!-- ========================================================================= -->
     <!-- 2. MAIN LAYOUT (SIDEBAR + MAIN CANVAS)                                    -->
     <!-- ========================================================================= -->
@@ -3453,7 +3513,8 @@ onUnmounted(() => {
                     </div>
                     <button
                       @click.stop="openRemoteDispatch(task)"
-                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30 active:scale-95 shadow-xs"
+                      :disabled="!executionGateFor(task).allowed"
+                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
                       title="⚡ Dispatch to Connected Desktop Agent"
                     >
                       <Icons name="Zap" :size="11" class="text-amber-300" />
@@ -3564,7 +3625,8 @@ onUnmounted(() => {
                     </div>
                     <button
                       @click.stop="openRemoteDispatch(task)"
-                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30 active:scale-95 shadow-xs"
+                      :disabled="!executionGateFor(task).allowed"
+                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
                       title="⚡ Re-dispatch / Run on Connected Desktop Agent"
                     >
                       <Icons name="Zap" :size="11" class="text-amber-300" />
@@ -3664,7 +3726,8 @@ onUnmounted(() => {
                     </div>
                     <button
                       @click.stop="openRemoteDispatch(task)"
-                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30 active:scale-95 shadow-xs"
+                      :disabled="!executionGateFor(task).allowed"
+                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
                       title="⚡ Re-test / Dispatch to Connected Desktop Agent"
                     >
                       <Icons name="Zap" :size="11" class="text-amber-300" />
@@ -3888,7 +3951,8 @@ onUnmounted(() => {
                     </span>
                     <button
                       @click.stop="openRemoteDispatch(task)"
-                      class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 text-emerald-400 border-emerald-500/40 active:scale-95 shadow-xs"
+                      :disabled="!executionGateFor(task).allowed"
+                      class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 text-emerald-400 border-emerald-500/40 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
                       title="🚀 Run on Connected Desktop Agent"
                     >
                       <span>🚀</span>
@@ -3948,7 +4012,8 @@ onUnmounted(() => {
                     </span>
                     <button
                       @click.stop="openRemoteDispatch(task)"
-                      class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 text-emerald-400 border-emerald-500/40 active:scale-95 shadow-xs"
+                      :disabled="!executionGateFor(task).allowed"
+                      class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 text-emerald-400 border-emerald-500/40 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
                       title="🚀 Run on Connected Desktop Agent"
                     >
                       <span>🚀</span>
@@ -4593,13 +4658,22 @@ onUnmounted(() => {
               <a v-for="document in selectedTask.documents" :key="document.id" :href="document.url || '#'" target="_blank" rel="noreferrer" class="block text-[11px] text-blue-600 underline">{{ document.pivot?.is_required ? 'Required · ' : '' }}{{ document.title }}</a>
             </div>
 
-            <!-- Agent execution and verification -->
+            <!-- Agent execution and verification. Keep this secondary surface
+                 collapsed and internally scrollable so it never hides task content. -->
             <details :class="['group border-t pt-4', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
               <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
-                <label :class="['font-mono text-xs font-bold uppercase', isDarkMode ? 'text-slate-300' : 'text-slate-700']">Agent activity & evidence</label>
-                <span class="flex items-center gap-2"><span v-if="isAgentRunsLoading" class="text-[10px] text-slate-500 font-mono">Syncing…</span><span class="text-[10px] text-slate-500 transition-transform group-open:rotate-180">⌄</span></span>
+                <div class="flex min-w-0 items-center gap-2">
+                  <label :class="['font-mono text-xs font-bold uppercase', isDarkMode ? 'text-slate-300' : 'text-slate-700']">Execution <span class="sr-only">Agent activity & evidence</span></label>
+                  <span :class="['rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap', selectedExecutionGate.allowed ? (isDarkMode ? 'border-emerald-800 bg-emerald-950/30 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700') : selectedExecutionGate.code === 'blocked' || selectedExecutionGate.code === 'review' ? (isDarkMode ? 'border-amber-800 bg-amber-950/30 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700') : (isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500')]">{{ selectedExecutionGate.title }}</span>
+                </div>
+                <span class="flex shrink-0 items-center gap-2"><span v-if="selectedAgentRuns.length" class="text-[10px] text-slate-500 font-mono">{{ selectedAgentRuns.length }} run{{ selectedAgentRuns.length === 1 ? '' : 's' }}</span><span v-if="isAgentRunsLoading" class="text-[10px] text-slate-500 font-mono">Syncing…</span><span class="text-[10px] text-slate-500 transition-transform group-open:rotate-180">⌄</span></span>
               </summary>
-              <div class="mt-3 space-y-3">
+              <div class="mt-3 max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+              <div :class="['rounded-xl border p-3 text-xs', selectedExecutionGate.allowed ? (isDarkMode ? 'border-emerald-800/70 bg-emerald-950/20 text-emerald-200' : 'border-emerald-200 bg-emerald-50 text-emerald-800') : (isDarkMode ? 'border-amber-800/70 bg-amber-950/20 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-800')]">
+                <p class="font-semibold">{{ selectedExecutionGate.title }}</p>
+                <p class="mt-1 leading-5 opacity-80">{{ selectedExecutionGate.detail }}</p>
+                <div v-if="selectedExecutionGate.pendingLabels.length" class="mt-2 flex flex-wrap gap-1.5"><span v-for="label in selectedExecutionGate.pendingLabels" :key="label" class="rounded-md border border-amber-700/50 px-1.5 py-0.5 font-mono text-[10px]">{{ label }}</span></div>
+              </div>
               <div class="hidden">
                 <span v-if="isAgentRunsLoading" class="text-[10px] text-slate-500 font-mono">Syncing…</span>
               </div>
@@ -4608,6 +4682,7 @@ onUnmounted(() => {
               <div class="space-y-2">
                 <button
                   @click="openRemoteDispatch(selectedTask)"
+                  :disabled="!selectedExecutionGate.allowed"
                   class="w-full py-2.5 px-4 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white shadow-md shadow-emerald-950/30 active:scale-98 border border-emerald-400/40"
                 >
                   <span class="animate-pulse">⚡</span>
@@ -4616,7 +4691,7 @@ onUnmounted(() => {
 
                 <!-- Quick local provider launcher -->
                 <div class="grid grid-cols-3 gap-1.5">
-                  <button v-for="provider in ['codex', 'claude_code', 'antigravity']" :key="`local-${provider}`" @click="startAgentRun(provider)" class="rounded-lg border px-2 py-1.5 text-[10px] font-bold cursor-pointer hover:border-blue-500 flex flex-col items-center gap-0.5" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-200' : 'border-slate-300 bg-white text-slate-800'">
+                  <button v-for="provider in ['codex', 'claude_code', 'antigravity']" :key="`local-${provider}`" @click="startAgentRun(provider)" :disabled="!selectedExecutionGate.allowed" class="rounded-lg border px-2 py-1.5 text-[10px] font-bold cursor-pointer hover:border-blue-500 disabled:cursor-not-allowed disabled:opacity-45 flex flex-col items-center gap-0.5" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-200' : 'border-slate-300 bg-white text-slate-800'">
                     <span>{{ provider === 'claude_code' ? 'Local Claude' : provider === 'antigravity' ? 'Local AGY' : 'Local Codex' }}</span>
                     <span class="text-[8px] font-mono text-slate-400 opacity-80">{{ selectedProviderModel[provider] }}</span>
                   </button>

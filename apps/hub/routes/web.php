@@ -98,11 +98,13 @@ $registerApiRoutes = function () {
     Route::post('/tasks/agent-runs/{agentRun}/events', [ApiAgentRunController::class, 'event']);
     Route::post('/tasks/agent-runs/{agentRun}/evidence', [ApiAgentRunController::class, 'evidence']);
     Route::post('/tasks/agent-runs/{agentRun}/handoff', [ApiAgentRunController::class, 'handoff']);
+    Route::post('/tasks/agent-runs/{agentRun}/cancel', [ApiAgentRunController::class, 'cancel']);
     Route::get('/tasks/context-pack', [ApiAgentRunController::class, 'context']);
     Route::post('/tasks/{task}/documents', [ApiProjectDocumentController::class, 'attach'])->middleware(['auth', 'workspace']);
     Route::delete('/tasks/{task}/documents/{document}', [ApiProjectDocumentController::class, 'detach'])->middleware(['auth', 'workspace']);
     Route::post('/tasks/{task}/dispatch', [ApiAgentRunController::class, 'dispatch']);
     Route::post('/tasks/{task}/dispatch-sequence', [ApiAgentRunController::class, 'dispatchEpic']);
+    Route::get('/tasks/{task}/history', [ApiTaskController::class, 'history']);
     Route::patch('/tasks/{id}', [ApiTaskController::class, 'update'])->middleware('auth');
     Route::delete('/tasks/{id}', [ApiTaskController::class, 'destroy'])->middleware('auth');
 
@@ -176,6 +178,7 @@ $registerApiRoutes = function () {
         Route::get('/projects', [ApiProjectController::class, 'index']);
         Route::get('/tasks', [ApiTaskController::class, 'index']);
         Route::post('/tasks', [ApiTaskController::class, 'store']);
+        Route::get('/tasks/{task}/history', [ApiTaskController::class, 'history']);
         Route::patch('/tasks/{id}', [ApiTaskController::class, 'update']);
         Route::post('/projects/{project}/documents/import-generated', [ApiProjectDocumentController::class, 'importGenerated']);
     });

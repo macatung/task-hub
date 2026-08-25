@@ -5,6 +5,7 @@ import runWorkspace from '../components/control-center/RunWorkspace.vue?raw';
 
 describe('Control Center settings and approval escalation', () => {
   it('opens an in-app settings panel instead of redirecting the Settings action to Hub', () => {
+    expect(controlCenter).toContain("import SettingsPanel from '../components/control-center/SettingsPanel.vue'");
     expect(controlCenter).toContain('@settings="settingsOpen = true"');
     expect(controlCenter).toContain('<SettingsPanel');
     expect(settingsPanel).toContain('Settings & approvals');

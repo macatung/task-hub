@@ -91,6 +91,19 @@ paths:
       responses:
         '201':
           description: AgentRun created and queued for target runner
+  /api/v1/tasks/{task_id}/history:
+    get:
+      summary: Read the full End-to-End transition and audit history for a task, including actor attribution
+      parameters:
+        - in: path
+          name: task_id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Complete chronological task transition history, actor details, and verification evidence
+        '404':
+          description: Task not found
   /api/v1/runners/register:
     post:
       summary: Register a self-hosted server agent runner

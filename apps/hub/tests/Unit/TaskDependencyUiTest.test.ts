@@ -17,4 +17,12 @@ describe('Task dependency UI', () => {
     expect(source).toContain('Needs review: a prerequisite moved back from done');
     expect(source).toContain('reconsider dependent work:');
   });
+
+  it('uses a compact execution gate instead of an always-open console block', () => {
+    expect(source).toContain('const executionGateFor');
+    expect(source).toContain('const selectedExecutionGate');
+    expect(source).toContain('max-h-[70vh]');
+    expect(source).toContain('Waiting for Hub review');
+    expect(source).toContain('Execution <span class="sr-only">Agent activity & evidence</span>');
+  });
 });

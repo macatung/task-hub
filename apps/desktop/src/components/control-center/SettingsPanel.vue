@@ -15,6 +15,9 @@ const props = defineProps<{
   saving: boolean;
   autoSubmitHandoff: boolean;
   autoContinueEpic: boolean;
+  autoReviewEnabled: boolean;
+  reviewerProvider: 'codex' | 'claude_code' | 'antigravity';
+  autoReviewMaxIterations: number;
 }>();
 
 const emit = defineEmits<{
@@ -30,6 +33,7 @@ const emit = defineEmits<{
   openHub: [];
   updateAutoSubmitHandoff: [value: boolean];
   updateAutoContinueEpic: [value: boolean];
+  updateAutoReview: [payload: { enabled: boolean; reviewer: 'codex' | 'claude_code' | 'antigravity'; maxIterations: number }];
 }>();
 
 const routerEnabled = ref(false);
@@ -41,6 +45,15 @@ watch(() => [props.open, props.router] as const, () => {
 const routerHint = computed(() => props.router?.hasApiKey
   ? 'An encrypted API key is already stored on this device.'
   : 'Enter the local 9Router API key to enable this route.');
+const reviewEnabled = ref(false);
+const reviewProvider = ref<'codex' | 'claude_code' | 'antigravity'>('claude_code');
+const reviewMaxIterations = ref(3);
+watch(() => [props.open, props.autoReviewEnabled, props.reviewerProvider, props.autoReviewMaxIterations] as const, () => {
+  reviewEnabled.value = props.autoReviewEnabled;
+  reviewProvider.value = props.reviewerProvider;
+  reviewMaxIterations.value = props.autoReviewMaxIterations;
+}, { immediate: true });
+const saveAutoReview = () => emit('updateAutoReview', { enabled: reviewEnabled.value, reviewer: reviewProvider.value, maxIterations: reviewMaxIterations.value });
 </script>
 
 <template>
@@ -113,6 +126,20 @@ const routerHint = computed(() => props.router?.hasApiKey
               <span class="mt-1 block text-xs leading-5 text-[#b7c5d8]">When enabled, an Epic starts the next dependency-ready task after the current local handoff is saved. Hub review/approval remains required; this setting never auto-approves or merges work.</span>
             </span>
           </label>
+          <section class="mt-3 rounded-lg border border-[#6b4b2a] bg-[#2a1f16] p-3">
+            <div class="flex items-start gap-3">
+              <input class="mt-0.5" type="checkbox" v-model="reviewEnabled" @change="saveAutoReview">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2"><b class="text-xs text-white">Automatic independent review loop</b><span class="rounded-full bg-[#5c3a1f] px-2 py-0.5 text-[10px] font-semibold text-[#f5c99e]">{{ reviewEnabled ? 'Enabled' : 'Disabled' }}</span></div>
+                <p class="mt-1 text-xs leading-5 text-[#d4bda8]">After the implementation agent finishes, a different local agent reviews the diff. Requested changes are sent back automatically until the review passes or the limit is reached. Hub still requires human approval; nothing is auto-merged.</p>
+                <div class="mt-3 grid grid-cols-2 gap-2">
+                  <label class="text-[11px] font-medium text-[#ead7c6]">Reviewer provider<select v-model="reviewProvider" class="cc-select mt-1" @change="saveAutoReview"><option value="codex">Codex</option><option value="claude_code">Claude Code</option><option value="antigravity">Antigravity (manual)</option></select></label>
+                  <label class="text-[11px] font-medium text-[#ead7c6]">Max review rounds<select v-model.number="reviewMaxIterations" class="cc-select mt-1" @change="saveAutoReview"><option :value="1">1 round</option><option :value="2">2 rounds</option><option :value="3">3 rounds</option><option :value="4">4 rounds</option><option :value="5">5 rounds</option></select></label>
+                </div>
+                <p v-if="reviewProvider === 'antigravity'" class="mt-2 text-[11px] text-amber-200">Antigravity opens an external session and cannot be parsed for an automatic loop. Choose Codex or Claude Code for unattended review.</p>
+              </div>
+            </div>
+          </section>
           <div class="mt-4 rounded-lg border border-[#263244] bg-black/20 p-3">
             <div class="flex items-center justify-between gap-3">
               <div><p class="text-xs font-medium text-white">Codex diagnostics</p><p class="mt-1 text-xs text-[#8b9bb0]">Checks CLI and Windows sandbox readiness on this device.</p></div>

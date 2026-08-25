@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "Task Hub",
+    "slug": "task-hub-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "taskhub",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#04070d"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "dev.macatung.taskhub.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Task Hub uses the camera to scan QR codes for device pairing and authentication.",
+        "NSFaceIDUsageDescription": "Task Hub uses Face ID to authorize agent runs, handoffs, and sensitive actions."
+      }
+    },
+    "android": {
+      "package": "dev.macatung.taskhub.mobile",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://taskhub.local"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Task Hub uses the camera to scan QR codes for device pairing and authentication."
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": "Task Hub uses Face ID to authorize agent runs, handoffs, and sensitive actions."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Task Hub uses Face ID to authorize agent runs, handoffs, and sensitive actions."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
