@@ -56,7 +56,7 @@ class TaskController extends Controller
         $date = $request->query("date", Carbon::today()->toDateString());
         $projectId = $request->query("project_id");
         
-        $query = Task::with(['project', 'sprint', 'epic', 'documents'])
+        $query = Task::with(['project', 'sprint', 'epic', 'documents', 'dependencies.dependsOn:id,issue_key,title,status'])
             ->where('workspace_id', $workspace->id);
 
         if ($projectId && $projectId !== 'all') {

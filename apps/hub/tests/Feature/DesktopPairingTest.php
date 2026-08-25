@@ -32,7 +32,10 @@ class DesktopPairingTest extends TestCase
             'category' => 'tools',
         ]);
 
-        $start = $this->postJson('/api/desktop/pairing/start', ['project_id' => $project->id])->assertCreated();
+        $start = $this->postJson('/api/desktop/pairing/start', ['project_id' => $project->id])
+            ->assertCreated()
+            ->assertHeader('Deprecation', 'true')
+            ->assertHeader('Link', '</api/v1/desktop/pairing/start>; rel="successor-version"');
         $pairingId = $start->json('pairing_id');
         $secret = $start->json('device_secret');
         $code = $start->json('code');

@@ -13,6 +13,7 @@ use App\Models\Project;
 use App\Models\VerificationEvidence;
 use App\Services\TaskHubContextPackService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Services\WorkspaceContext;
@@ -154,6 +155,7 @@ class ApiAgentRunController extends Controller
             'model' => 'nullable|string|max:120',
             'execution_mode' => 'nullable|in:auto_pilot,supervised,desktop',
             'custom_instruction' => 'nullable|string|max:10000',
+            'epic_sequence' => 'nullable|array',
         ]);
 
         if ($task->hasIncompleteDependencies()) {
@@ -169,6 +171,7 @@ class ApiAgentRunController extends Controller
         $model = $validated['model'] ?? 'gemini-3.7-flash';
         $mode = $validated['execution_mode'] ?? 'auto_pilot';
         $customInstruction = $validated['custom_instruction'] ?? null;
+        $epicSequence = $validated['epic_sequence'] ?? null;
 
         $context = $contextService->build($task, ['provider' => $provider, 'model' => $model]);
         $instruction = [
@@ -178,7 +181,7 @@ class ApiAgentRunController extends Controller
 
         $workspace = $task->project?->workspace ?? ($runner->workspace ?? \App\Models\Workspace::first());
 
-        $run = DB::transaction(function () use ($task, $runner, $workspace, $provider, $model, $mode, $customInstruction, $context, $instruction, $contextService, $request) {
+        $run = DB::transaction(function () use ($task, $runner, $workspace, $provider, $model, $mode, $customInstruction, $epicSequence, $context, $instruction, $contextService, $request) {
             $commandId = 'cmd-' . Str::uuid();
             $run = AgentRun::create([
                 'task_id' => $task->id,
@@ -207,6 +210,7 @@ class ApiAgentRunController extends Controller
                         'name' => $runner->name,
                         'hostname' => $runner->hostname,
                     ],
+                    ...($epicSequence ? ['epic_sequence' => $epicSequence] : []),
                 ],
             ]);
 
@@ -236,6 +240,149 @@ class ApiAgentRunController extends Controller
             ],
             'data' => $run->load('task.project'),
         ], 201);
+    }
+
+    /** Start an Epic safely: dispatch only the first dependency-ready child. Each
+     * subsequent child is queued only after the preceding task is approved. */
+    public function dispatchEpic(Request $request, Task $task, TaskHubContextPackService $contextService)
+    {
+        if ($task->issue_type !== 'epic') return response()->json(['success' => false, 'message' => 'Only an Epic can run as a sequence.'], 422);
+        $validated = $request->validate([
+            'runner_id' => 'required|integer|exists:agent_runners,id',
+            'provider' => 'nullable|in:' . implode(',', self::PROVIDERS),
+            'model' => 'nullable|string|max:120',
+            'execution_mode' => 'nullable|in:auto_pilot,supervised,desktop',
+            'custom_instruction' => 'nullable|string|max:10000',
+        ]);
+        $children = Task::where('epic_id', $task->id)
+            ->where('status', '!=', 'done')
+            ->with('dependencies.dependsOn:id,issue_key,title,status')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+        if ($children->isEmpty()) return response()->json(['success' => false, 'message' => 'This Epic has no open child tasks to run.'], 422);
+        $next = $children->first(fn (Task $child) => $this->isEpicChildDispatchable($child));
+        if (!$next) {
+            $diagnostics = $this->epicDispatchDiagnostics($children);
+            return response()->json([
+                'success' => false,
+                'error_code' => $diagnostics['cycles'] !== [] ? 'epic_dependency_cycle' : 'epic_no_dispatchable_child',
+                'message' => $diagnostics['message'],
+                'dispatch_diagnostics' => $diagnostics,
+            ], 422);
+        }
+        $sequence = [
+            'epic_id' => $task->id,
+            'task_ids' => $children->pluck('id')->values()->all(),
+            'runner_id' => $validated['runner_id'],
+            'provider' => $validated['provider'] ?? 'antigravity',
+            'model' => $validated['model'] ?? 'gemini-3.7-flash',
+            'execution_mode' => $validated['execution_mode'] ?? 'auto_pilot',
+            'custom_instruction' => $validated['custom_instruction'] ?? null,
+        ];
+        $task->update(['status' => 'in_progress']);
+        return $this->dispatch(Request::create('/', 'POST', array_merge($validated, ['epic_sequence' => $sequence])), $next, $contextService);
+    }
+
+    /**
+     * An Epic is a scheduler, never work itself. Keep the decision and the
+     * explanation together so a cloud dispatch failure is actionable instead
+     * of looking like a desktop delivery failure.
+     */
+    private function isEpicChildDispatchable(Task $task): bool
+    {
+        return in_array($task->status, ['todo', 'backlog'], true)
+            && $this->unfinishedDependencies($task)->isEmpty();
+    }
+
+    private function unfinishedDependencies(Task $task): Collection
+    {
+        return $task->dependencies->filter(fn ($dependency) => $dependency->dependsOn?->status !== 'done')->values();
+    }
+
+    /** @return array{message:string,ready:array,blocked:array,active:array,cycles:array} */
+    private function epicDispatchDiagnostics(Collection $children): array
+    {
+        $ready = [];
+        $blocked = [];
+        $active = [];
+
+        foreach ($children as $child) {
+            $task = [
+                'id' => $child->id,
+                'issue_key' => $child->issue_key,
+                'title' => $child->title,
+                'status' => $child->status,
+            ];
+            $unfinished = $this->unfinishedDependencies($child)->map(fn ($dependency) => [
+                'id' => $dependency->dependsOn?->id,
+                'issue_key' => $dependency->dependsOn?->issue_key,
+                'title' => $dependency->dependsOn?->title,
+                'status' => $dependency->dependsOn?->status,
+            ])->values()->all();
+
+            if (in_array($child->status, ['todo', 'backlog'], true)) {
+                if ($unfinished === []) {
+                    $ready[] = $task;
+                } else {
+                    $blocked[] = [...$task, 'blocked_by' => $unfinished];
+                }
+            } else {
+                $active[] = $task;
+            }
+        }
+
+        $cycles = $this->findEpicDependencyCycles($children);
+        $message = $cycles !== []
+            ? 'This Epic cannot start because its remaining tasks contain a dependency cycle. Review the blocking tasks and remove one dependency before dispatching.'
+            : ($active !== []
+                ? 'This Epic has no task ready to dispatch. Finish, approve, or return the active/review task before starting another child.'
+                : 'This Epic has no task ready to dispatch. Every open task is waiting on an unfinished dependency.');
+
+        return compact('message', 'ready', 'blocked', 'active', 'cycles');
+    }
+
+    /** @return array<int, array<int, array{id:int,issue_key:?string,title:string}>> */
+    private function findEpicDependencyCycles(Collection $children): array
+    {
+        $childrenById = $children->keyBy('id');
+        $visiting = [];
+        $visited = [];
+        $stack = [];
+        $cycles = [];
+        $seen = [];
+
+        $visit = function (Task $task) use (&$visit, &$visiting, &$visited, &$stack, &$cycles, &$seen, $childrenById): void {
+            if (isset($visited[$task->id])) return;
+            if (isset($visiting[$task->id])) {
+                $start = array_search($task->id, $stack, true);
+                $cycleIds = array_slice($stack, $start === false ? 0 : $start);
+                $cycleIds[] = $task->id;
+                $key = implode('-', $cycleIds);
+                if (!isset($seen[$key])) {
+                    $seen[$key] = true;
+                    $cycles[] = array_map(fn ($id) => [
+                        'id' => $id,
+                        'issue_key' => $childrenById[$id]->issue_key,
+                        'title' => $childrenById[$id]->title,
+                    ], $cycleIds);
+                }
+                return;
+            }
+
+            $visiting[$task->id] = true;
+            $stack[] = $task->id;
+            foreach ($task->dependencies as $dependency) {
+                $predecessor = $dependency->dependsOn;
+                if ($predecessor && $childrenById->has($predecessor->id)) $visit($childrenById[$predecessor->id]);
+            }
+            array_pop($stack);
+            unset($visiting[$task->id]);
+            $visited[$task->id] = true;
+        };
+
+        foreach ($children as $child) $visit($child);
+        return $cycles;
     }
 
     public function update(Request $request, AgentRun $agentRun)
@@ -381,6 +528,22 @@ class ApiAgentRunController extends Controller
         $task->update(['status' => 'done', 'completed_at' => now()]);
         if ($latest->status !== 'verified') $latest->update(['status' => 'verified', 'finished_at' => now()]);
         $this->recordEvent($latest, 'human_approved', 'verified', ['task_id' => $task->id]);
+        $sequence = data_get($latest->metadata, 'epic_sequence');
+        if (is_array($sequence) && !empty($sequence['task_ids'])) {
+            $remaining = collect($sequence['task_ids'])->map(fn ($id) => Task::find($id))->filter(fn ($candidate) => $candidate && $candidate->status !== 'done');
+            $next = $remaining->first(fn (Task $candidate) => in_array($candidate->status, ['todo', 'backlog'], true) && !$candidate->hasIncompleteDependencies());
+            if ($next) {
+                $payload = [
+                    'runner_id' => $sequence['runner_id'], 'provider' => $sequence['provider'] ?? 'antigravity',
+                    'model' => $sequence['model'] ?? null, 'execution_mode' => $sequence['execution_mode'] ?? 'auto_pilot',
+                    'custom_instruction' => $sequence['custom_instruction'] ?? null, 'epic_sequence' => $sequence,
+                ];
+                $this->dispatch(Request::create('/', 'POST', $payload), $next, app(TaskHubContextPackService::class));
+            } else {
+                $epic = Task::find($sequence['epic_id'] ?? null);
+                if ($epic && !Task::where('epic_id', $epic->id)->where('status', '!=', 'done')->exists()) $epic->update(['status' => 'done', 'completed_at' => now()]);
+            }
+        }
         return response()->json(['success' => true, 'data' => $task->fresh()]);
     }
 

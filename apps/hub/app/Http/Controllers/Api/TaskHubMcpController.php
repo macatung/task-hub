@@ -495,6 +495,11 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
             });
 
             if ($matchedProject) {
+                // A project token is a principal for exactly one project. Do
+                // not let a caller pair it with a different header, task, or
+                // run inferred from the MCP arguments.
+                if (!$headerProjectId || !ctype_digit((string) $headerProjectId) || (int) $matchedProject->id !== (int) $headerProjectId) return false;
+                if ($project && (int) $project->id !== (int) $matchedProject->id) return false;
                 $workspaceId = $request->header('X-Task-Hub-Workspace');
                 if ($workspaceId && (int) $matchedProject->workspace_id !== (int) $workspaceId) return false;
                 return true;

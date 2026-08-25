@@ -5,23 +5,27 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Models\ProjectRelease;
+use App\Services\WorkspaceProjectAccess;
 use Illuminate\Http\Request;
 
 class ApiProjectReleaseController extends Controller
 {
-    public function index(Project $project)
+    public function index(Request $request, Project $project, WorkspaceProjectAccess $access)
     {
+        $access->authorize($request, $project);
         return response()->json(['success' => true, 'data' => $project->releases()->latest('deployed_at')->latest()->limit(50)->get()]);
     }
 
-    public function store(Request $request, Project $project)
+    public function store(Request $request, Project $project, WorkspaceProjectAccess $access)
     {
-        $release = $project->releases()->create($this->validated($request) + ['deployed_at' => $request->input('deployed_at', now())]);
+        $access->authorize($request, $project, ['owner', 'admin', 'developer']);
+        $release = $project->releases()->create($this->validated($request) + ['workspace_id' => $project->workspace_id, 'deployed_at' => $request->input('deployed_at', now())]);
         return response()->json(['success' => true, 'data' => $release], 201);
     }
 
-    public function update(Request $request, ProjectRelease $release)
+    public function update(Request $request, ProjectRelease $release, WorkspaceProjectAccess $access)
     {
+        $access->authorize($request, $release->project, ['owner', 'admin', 'developer']);
         $release->update($this->validated($request, true));
         return response()->json(['success' => true, 'data' => $release->fresh()]);
     }

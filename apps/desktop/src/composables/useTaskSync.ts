@@ -188,20 +188,8 @@ export function useTaskSync() {
       const electronCred = await window.desktopApi?.taskHub?.getCredential?.();
       if (electronCred?.token) {
         credential.value = electronCred;
-        try { localStorage.setItem('task_hub_credential', JSON.stringify(electronCred)); } catch {}
         void syncHeartbeatService(electronCred);
         return credential.value;
-      }
-    } catch {}
-    try {
-      const saved = localStorage.getItem('task_hub_credential');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed?.token) {
-          credential.value = parsed;
-          void syncHeartbeatService(parsed);
-          return credential.value;
-        }
       }
     } catch {}
     credential.value = null;
@@ -213,9 +201,6 @@ export function useTaskSync() {
     try {
       await window.desktopApi?.taskHub?.saveCredential?.(next);
     } catch {}
-    try {
-      localStorage.setItem('task_hub_credential', JSON.stringify(next));
-    } catch {}
     credential.value = next;
     connectionError.value = '';
     void syncHeartbeatService(next);
@@ -224,16 +209,25 @@ export function useTaskSync() {
   };
 
   const fetchProjects = async () => {
-    if (!credential.value) return;
-    try { const response = await fetch(projectsUrl(), { headers: authHeaders() }); const json = await response.json(); if (response.ok && json.success) projects.value = json.data || []; } catch { projects.value = []; }
+    if (!credential.value) return false;
+    try {
+      const response = await fetch(projectsUrl(), { headers: authHeaders() });
+      const json = await response.json();
+      if (!response.ok || !json.success) throw new Error(json?.message || `Task Hub returned HTTP ${response.status}.`);
+      projects.value = json.data || [];
+      connectionError.value = '';
+      isOnline.value = true;
+      return true;
+    } catch (e) {
+      isOnline.value = false;
+      connectionError.value = e instanceof Error ? e.message : 'Unable to load Task Hub projects.';
+      return false;
+    }
   };
 
   const clearCredential = async () => {
     try {
       await window.desktopApi?.taskHub?.clearCredential?.();
-    } catch {}
-    try {
-      localStorage.removeItem('task_hub_credential');
     } catch {}
     credential.value = null;
     void syncHeartbeatService(null);
@@ -268,17 +262,26 @@ export function useTaskSync() {
   };
 
   const fetchAgentTasks = async () => {
-    if (!credential.value) return;
+    if (!credential.value) return false;
     try {
-      const statuses = ['todo', 'in_progress', 'review'];
-      const responses = await Promise.all(statuses.map(status => fetch(`${apiUrl()}?status=${status}&project_id=${encodeURIComponent(credential.value!.projectId)}`, { headers: authHeaders() })));
-      const payloads = await Promise.all(responses.map(response => response.ok ? response.json() : null));
-      const unique = new Map<number, TaskItem>();
-      payloads.forEach(payload => (payload?.data || []).forEach((task: TaskItem) => unique.set(task.id, task)));
-      agentTasks.value = Array.from(unique.values());
+      // Fetch the complete selected-project backlog once.  The old three
+      // status requests were brittle with scoped desktop credentials and
+      // could leave the queue empty although the project had work items.
+      const response = await fetch(`${apiUrl()}?project_id=${encodeURIComponent(credential.value.projectId)}`, { headers: authHeaders() });
+      const payload = response.ok ? await response.json() : null;
+      if (!payload?.success || !Array.isArray(payload.data)) throw new Error('Task Hub did not return a project backlog.');
+      tasks.value = payload.data;
+      agentTasks.value = payload.data.filter((task: TaskItem) => task.issue_type !== 'epic' && task.status !== 'done');
+      saveLocalCache();
+      isOnline.value = true;
+      connectionError.value = '';
+      return true;
     } catch (e) {
       console.warn('Cannot load agent tasks:', e);
       agentTasks.value = tasks.value.filter(task => task.status !== 'done');
+      isOnline.value = false;
+      connectionError.value = e instanceof Error ? e.message : 'Unable to load the Task Hub backlog.';
+      return false;
     }
   };
 

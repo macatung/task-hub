@@ -73,7 +73,7 @@ const displayConfig = computed<StatusConfig>(() => {
         return {
           label: props.label || 'Urgent',
           icon: 'Flame',
-          badgeClass: 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-600/80 shadow-[0_0_12px_rgba(244,63,94,0.3)]',
+          badgeClass: 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-600/80',
           iconClass: 'text-rose-600 dark:text-rose-400',
           dotColor: 'bg-rose-500',
           isPulsing: true,
@@ -82,7 +82,7 @@ const displayConfig = computed<StatusConfig>(() => {
         return {
           label: props.label || 'High',
           icon: 'ChevronsUp',
-          badgeClass: 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-600/70 shadow-[0_0_8px_rgba(245,158,11,0.2)]',
+          badgeClass: 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-600/70',
           iconClass: 'text-amber-600 dark:text-amber-400',
           dotColor: 'bg-amber-500',
         };
@@ -113,21 +113,21 @@ const displayConfig = computed<StatusConfig>(() => {
         return {
           label: props.label || 'Story',
           icon: 'BookOpen',
-          badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-700/80 shadow-[0_0_8px_rgba(16,185,129,0.15)]',
+          badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-700/80',
           iconClass: 'text-emerald-600 dark:text-emerald-400',
         };
       case 'bug':
         return {
           label: props.label || 'Bug',
           icon: 'Bug',
-          badgeClass: 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-700/80 shadow-[0_0_8px_rgba(244,63,94,0.2)]',
+          badgeClass: 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-700/80',
           iconClass: 'text-rose-600 dark:text-rose-400',
         };
       case 'epic':
         return {
           label: props.label || 'Epic',
           icon: 'Zap',
-          badgeClass: 'bg-purple-50 text-purple-700 border-purple-300 dark:bg-purple-950/80 dark:text-purple-300 dark:border-purple-700/80 shadow-[0_0_8px_rgba(168,85,247,0.2)]',
+          badgeClass: 'bg-purple-50 text-purple-700 border-purple-300 dark:bg-purple-950/80 dark:text-purple-300 dark:border-purple-700/80',
           iconClass: 'text-purple-600 dark:text-purple-400',
         };
       case 'task':

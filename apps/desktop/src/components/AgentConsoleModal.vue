@@ -178,6 +178,15 @@ const pendingInitialRequest = ref('');
 const pendingUserEchoes = ref<string[]>([]);
 const showAdvancedTools = ref(false);
 const showAgentSettings = ref(false);
+const localRouter = ref<{ enabled: boolean; endpoint: string; hasApiKey: boolean }>({ enabled: false, endpoint: 'http://127.0.0.1:20128/v1', hasApiKey: false });
+const localRouterKey = ref('');
+const localRouterStatus = ref('');
+const localRouterBusy = ref(false);
+const loadLocalRouter = async () => { localRouter.value = await (window as any).desktopApi?.agent?.getLocalRouter?.() || localRouter.value; };
+const saveLocalRouter = async () => { localRouterBusy.value = true; try { localRouter.value = await (window as any).desktopApi?.agent?.saveLocalRouter?.({ enabled: localRouter.value.enabled, apiKey: localRouterKey.value || undefined }) || localRouter.value; localRouterKey.value = ''; const check = await (window as any).desktopApi?.agent?.checkLocalRouter?.(localRouter.value.enabled); localRouterStatus.value = check?.ok ? `Local router ready${check.models?.length ? ` · ${check.models.length} models` : ''}.` : (check?.error || '9Router is unavailable.'); } catch (error: any) { localRouterStatus.value = error?.message || 'Could not save local router settings.'; } finally { localRouterBusy.value = false; } };
+const checkLocalRouter = async () => { localRouterBusy.value = true; try { const check = await (window as any).desktopApi?.agent?.checkLocalRouter?.(localRouter.value.enabled); localRouterStatus.value = check?.ok ? `Local router ready${check.models?.length ? ` · ${check.models.length} models` : ''}.` : (check?.error || '9Router is unavailable.'); } finally { localRouterBusy.value = false; } };
+const clearLocalRouter = async () => { localRouter.value = await (window as any).desktopApi?.agent?.clearLocalRouter?.() || localRouter.value; localRouterKey.value = ''; localRouterStatus.value = 'Local routing disabled and key removed.'; };
+const openLocalRouterDashboard = () => (window as any).desktopApi?.agent?.openLocalRouterDashboard?.();
 const showActivityTimeline = ref(false);
 const showProcessDrawer = ref(false);
 const showAutoRepairModal = ref(false);
@@ -234,21 +243,6 @@ const ensureCredential = async (): Promise<boolean> => {
       };
       if (electronCred.taskHubUrl) taskHubUrl.value = electronCred.taskHubUrl;
       return true;
-    }
-  } catch {}
-  try {
-    const raw = localStorage.getItem('task_hub_credential');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed?.token) {
-        credential.value = {
-          token: parsed.token,
-          projectId: String(parsed.projectId),
-          taskHubUrl: parsed.taskHubUrl,
-        };
-        if (parsed.taskHubUrl) taskHubUrl.value = parsed.taskHubUrl;
-        return true;
-      }
     }
   } catch {}
   return false;
@@ -2274,7 +2268,6 @@ const startPairing = async () => {
           };
           credential.value = { token: status.mcp_token, projectId: String(status.project_id), taskHubUrl: taskHubUrl.value };
           try { await window.desktopApi?.taskHub?.saveCredential?.(credData); } catch {}
-          try { localStorage.setItem('task_hub_credential', JSON.stringify(credData)); } catch {}
           addTimeline('Pairing', 'MCP authenticated successfully.', 'ok');
           await refreshAgentTasks();
           if (selectedTask.value) {
@@ -3034,6 +3027,7 @@ const openSessionLog = async () => {
 
 onMounted(async () => {
   await ensureCredential();
+  await loadLocalRouter();
   loadCachedTasks();
   void refreshAgentTasks();
   // Restore persisted state before checking the available model inventory.
@@ -5945,6 +5939,7 @@ onUnmounted(() => {
         </header>
         <div class="space-y-5">
           <div><label class="mb-2 block text-[10px] font-bold uppercase tracking-wider text-slate-500">Provider</label><div class="grid grid-cols-3 gap-2"><button v-for="p in ([{ id: 'codex', name: 'Codex' }, { id: 'claude_code', name: 'Claude' }, { id: 'antigravity', name: 'AGY' }] as const)" :key="p.id" class="rounded-lg border px-2 py-2 text-xs font-medium cursor-pointer" :class="provider === p.id ? 'border-cyan-500 bg-cyan-950/50 text-cyan-100' : 'border-slate-700 bg-slate-900 text-slate-400 hover:text-white'" :disabled="busy || phase === 'running'" @click="provider = p.id">{{ p.name }}</button></div></div>
+          <div class="rounded-xl border border-slate-700 bg-slate-900/70 p-3 space-y-3"><div class="flex items-start justify-between gap-3"><div><p class="text-xs font-semibold text-slate-100">9Router <span class="text-slate-500">· Local only</span></p><p class="mt-1 text-[10px] leading-relaxed text-slate-400">Session-only route for Codex and Claude Code at {{ localRouter.endpoint }}. The router key never reaches Task Hub.</p></div><span class="rounded-full px-2 py-1 text-[9px] font-bold" :class="localRouter.enabled ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-800 text-slate-400'">{{ localRouter.enabled ? 'ON' : 'OFF' }}</span></div><label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer"><input v-model="localRouter.enabled" type="checkbox"> Enable local routing</label><input v-model="localRouterKey" type="password" autocomplete="off" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100 outline-none focus:border-cyan-500" :placeholder="localRouter.hasApiKey ? 'Key stored securely (enter to replace)' : '9Router local API key'" /><div class="flex flex-wrap gap-2"><button class="rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-300 hover:text-white" :disabled="localRouterBusy" @click="saveLocalRouter">Save & check</button><button class="rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-300 hover:text-white" :disabled="localRouterBusy" @click="checkLocalRouter">Check</button><button class="rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-300 hover:text-white" @click="openLocalRouterDashboard">Dashboard</button><button v-if="localRouter.hasApiKey" class="rounded border border-rose-900 px-2 py-1 text-[10px] text-rose-300 hover:text-rose-100" @click="clearLocalRouter">Remove</button></div><p v-if="localRouterStatus" class="text-[10px] text-slate-400">{{ localRouterStatus }}</p><p class="text-[9px] leading-relaxed text-slate-500">Antigravity is native-only. This Desktop app never configures cloud endpoints, MITM, proxy pools, OAuth/cookies or hosts files.</p></div>
           <div class="space-y-2"><div class="flex items-center justify-between"><label class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Model</label><div class="flex gap-1"><button class="rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-300 hover:text-white cursor-pointer" :disabled="isSyncingModels || phase === 'running'" @click="syncAvailableModels(true)"><i class="codicon codicon-refresh" :class="isSyncingModels ? 'animate-spin' : ''" /> Sync</button><button class="rounded border border-slate-700 px-2 py-1 text-[10px] text-slate-300 hover:text-white cursor-pointer" @click="toggleCustomModelMode">{{ isCustomModel[provider] ? 'List' : 'Custom' }}</button></div></div><input v-if="isCustomModel[provider]" :value="customModelInput[provider]" @input="setCustomModel(($event.target as HTMLInputElement).value)" class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-mono text-slate-100 outline-none focus:border-cyan-500" placeholder="Enter model ID" /><select v-else :value="activeModel" class="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 outline-none focus:border-cyan-500" @change="selectModel(($event.target as HTMLSelectElement).value)"><option v-for="model in filteredProviderModels" :key="model.id" :value="model.id">{{ model.name }} · {{ model.id }}</option></select></div>
           <button class="flex w-full items-center justify-between rounded-lg border border-slate-700 bg-slate-900 p-3 text-left hover:border-slate-600 cursor-pointer" @click="openModelsAndUsageModal"><span><span class="block text-xs font-semibold text-slate-100">Quota & usage</span><span class="mt-0.5 block text-[10px] text-slate-400">5h {{ activeQuotaGroup.fiveHourRemainingPercent }}% · Weekly {{ activeQuotaGroup.weeklyRemainingPercent }}%</span></span><i class="codicon codicon-dashboard text-slate-400" /></button>
           <button class="w-full rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 hover:bg-slate-900 cursor-pointer" @click="showAdvancedTools = !showAdvancedTools">{{ showAdvancedTools ? 'Hide Advanced IDE Tools' : 'Open Advanced IDE Tools' }}</button>

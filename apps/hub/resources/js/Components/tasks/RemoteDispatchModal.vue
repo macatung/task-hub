@@ -40,6 +40,12 @@ const isFetchingRunners = ref(false);
 const isDispatching = ref(false);
 const errorMessage = ref('');
 const successMessage = ref('');
+type EpicDispatchDiagnostics = {
+  blocked?: Array<TaskItemProps & { blocked_by: Array<Pick<TaskItemProps, 'id' | 'issue_key' | 'title' | 'status'>> }>;
+  active?: TaskItemProps[];
+  cycles?: Array<Array<Pick<TaskItemProps, 'id' | 'issue_key' | 'title'>>>;
+};
+const dispatchDiagnostics = ref<EpicDispatchDiagnostics | null>(null);
 
 const selectedTaskId = ref<number | null>(null);
 const selectedRunnerId = ref<number | null>(null);
@@ -128,9 +134,11 @@ const dispatchTask = async () => {
   isDispatching.value = true;
   errorMessage.value = '';
   successMessage.value = '';
+  dispatchDiagnostics.value = null;
 
   try {
-    const res = await axios.post(`/api/v1/tasks/${taskToDispatch.id}/dispatch`, {
+    const isEpicSequence = taskToDispatch.issue_type === 'epic';
+    const res = await axios.post(`/api/v1/tasks/${taskToDispatch.id}/${isEpicSequence ? 'dispatch-sequence' : 'dispatch'}`, {
       runner_id: selectedRunnerId.value,
       provider: selectedProvider.value,
       model: selectedModel.value,
@@ -140,16 +148,21 @@ const dispatchTask = async () => {
 
     if (res.data?.success) {
       sound.playSuccess();
-      successMessage.value = `✓ Successfully dispatched #${taskToDispatch.issue_key || taskToDispatch.id} to ${res.data.target_runner?.name || 'Desktop Agent'}!`;
+      successMessage.value = isEpicSequence
+        ? `✓ Started Epic sequence at #${res.data.data?.task?.issue_key || taskToDispatch.issue_key || taskToDispatch.id}. The next task will queue after approval.`
+        : `✓ Successfully dispatched #${taskToDispatch.issue_key || taskToDispatch.id} to ${res.data.target_runner?.name || 'Desktop Agent'}!`;
       setTimeout(() => {
         emit('dispatched', { run: res.data.data || res.data, task: taskToDispatch });
         emit('close');
       }, 500);
     } else {
       errorMessage.value = res.data?.message || 'Dispatch failed.';
+      dispatchDiagnostics.value = res.data?.dispatch_diagnostics || null;
     }
   } catch (err: any) {
-    errorMessage.value = err.response?.data?.message || err.message || 'Unable to dispatch task to desktop runner.';
+    const response = err.response?.data;
+    errorMessage.value = response?.message || err.message || 'Unable to dispatch task to desktop runner.';
+    dispatchDiagnostics.value = response?.dispatch_diagnostics || null;
   } finally {
     isDispatching.value = false;
   }
@@ -159,6 +172,7 @@ watch(() => props.show, (newVal) => {
   if (newVal) {
     errorMessage.value = '';
     successMessage.value = '';
+    dispatchDiagnostics.value = null;
     if (props.task) {
       selectedTaskId.value = props.task.id;
     }
@@ -248,6 +262,7 @@ onMounted(() => {
           <p v-if="activeTask.description" class="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">
             {{ activeTask.description }}
           </p>
+          <p v-if="activeTask.issue_type === 'epic'" class="text-[11px] leading-relaxed text-emerald-400">Epic sequence: dispatches one dependency-ready child at a time. The following task is queued after the current task is approved.</p>
         </div>
 
         <!-- Task Selector (If no initial task was passed) -->
@@ -470,9 +485,38 @@ onMounted(() => {
         </div>
 
         <!-- Error & Success Messages -->
-        <div v-if="errorMessage" class="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-400 text-xs flex items-center gap-2">
-          <Icons name="AlertCircle" :size="14" class="shrink-0" />
-          <span>{{ errorMessage }}</span>
+        <div v-if="errorMessage" class="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs space-y-2">
+          <div class="flex items-start gap-2">
+            <Icons name="AlertCircle" :size="14" class="shrink-0 mt-0.5" />
+            <span>{{ errorMessage }}</span>
+          </div>
+          <div v-if="dispatchDiagnostics" class="ml-5 space-y-2 text-[11px] leading-relaxed">
+            <p v-if="dispatchDiagnostics.cycles?.length" class="text-amber-300">
+              Human action required: this is a dependency cycle. Open the listed tasks in the board and remove one circular dependency before dispatching.
+            </p>
+            <ul v-if="dispatchDiagnostics.cycles?.length" class="space-y-1 text-rose-200">
+              <li v-for="(cycle, index) in dispatchDiagnostics.cycles" :key="`cycle-${index}`">
+                Cycle: {{ cycle.map(task => task.issue_key || `#${task.id}`).join(' → ') }}
+              </li>
+            </ul>
+            <p v-else-if="dispatchDiagnostics.active?.length" class="text-amber-300">
+              Human action required: finish, approve, or request changes on the active task before the Epic can continue.
+            </p>
+            <p v-else class="text-amber-300">
+              Human action required: complete a prerequisite or correct the dependency links shown below, then retry dispatch.
+            </p>
+            <ul v-if="dispatchDiagnostics.blocked?.length" class="space-y-1 text-rose-200">
+              <li v-for="task in dispatchDiagnostics.blocked.slice(0, 4)" :key="task.id">
+                <strong>{{ task.issue_key || `#${task.id}` }}</strong> waits for
+                {{ task.blocked_by.map(dependency => `${dependency.issue_key || `#${dependency.id}`} (${dependency.status})`).join(', ') }}
+              </li>
+            </ul>
+            <ul v-if="dispatchDiagnostics.active?.length" class="space-y-1 text-rose-200">
+              <li v-for="task in dispatchDiagnostics.active.slice(0, 4)" :key="task.id">
+                <strong>{{ task.issue_key || `#${task.id}` }}</strong> is {{ task.status }}
+              </li>
+            </ul>
+          </div>
         </div>
         <div v-if="successMessage" class="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-xs flex items-center gap-2">
           <Icons name="CheckCircle" :size="14" class="shrink-0" />
@@ -507,7 +551,7 @@ onMounted(() => {
         >
           <Icons :name="isDispatching ? 'Refresh' : 'Zap'" :size="14" :class="[isDispatching ? 'animate-spin' : 'text-amber-300']" />
           <span>
-            {{ isDispatching ? 'Dispatching (< 2s)...' : `Dispatch to Desktop (${executionMode === 'auto_pilot' ? 'Auto-Pilot' : 'Supervised'})` }}
+            {{ isDispatching ? 'Dispatching (< 2s)...' : activeTask?.issue_type === 'epic' ? `Run Epic step by step (${executionMode === 'auto_pilot' ? 'Auto-Pilot' : 'Supervised'})` : `Dispatch to Desktop (${executionMode === 'auto_pilot' ? 'Auto-Pilot' : 'Supervised'})` }}
           </span>
         </button>
       </div>

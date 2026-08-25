@@ -8,35 +8,41 @@ use App\Models\ProjectDocument;
 use App\Models\Task;
 use App\Services\GithubProjectIntegrationService;
 use App\Services\ProjectKnowledgeService;
+use App\Services\WorkspaceProjectAccess;
 use Illuminate\Http\Request;
 
 class ApiProjectDocumentController extends Controller
 {
-    public function index(Project $project, ProjectKnowledgeService $knowledge)
+    public function index(Request $request, Project $project, ProjectKnowledgeService $knowledge, WorkspaceProjectAccess $access)
     {
+        $access->authorize($request, $project);
         return response()->json(['success' => true, 'data' => $knowledge->projectState($project)]);
     }
 
-    public function store(Request $request, Project $project)
+    public function store(Request $request, Project $project, WorkspaceProjectAccess $access)
     {
-        $document = $project->documents()->create($this->validated($request));
+        $access->authorize($request, $project, ['owner', 'admin', 'developer']);
+        $document = $project->documents()->create($this->validated($request) + ['workspace_id' => $project->workspace_id]);
         return response()->json(['success' => true, 'data' => $document], 201);
     }
 
-    public function update(Request $request, ProjectDocument $document)
+    public function update(Request $request, ProjectDocument $document, WorkspaceProjectAccess $access)
     {
+        $access->authorize($request, $document->project, ['owner', 'admin', 'developer']);
         $document->update($this->validated($request, true));
         return response()->json(['success' => true, 'data' => $document->fresh()]);
     }
 
-    public function destroy(ProjectDocument $document)
+    public function destroy(Request $request, ProjectDocument $document, WorkspaceProjectAccess $access)
     {
+        $access->authorize($request, $document->project, ['owner', 'admin', 'developer']);
         $document->delete();
         return response()->json(['success' => true]);
     }
 
-    public function attach(Request $request, Task $task)
+    public function attach(Request $request, Task $task, WorkspaceProjectAccess $access)
     {
+        $access->authorize($request, $task->project, ['owner', 'admin', 'developer']);
         $data = $request->validate(['project_document_id' => 'required|exists:project_documents,id', 'is_required' => 'nullable|boolean', 'purpose' => 'nullable|string|max:500']);
         $document = ProjectDocument::findOrFail($data['project_document_id']);
         abort_unless($task->project_id === $document->project_id, 422, 'Document must belong to the task project.');
@@ -44,8 +50,9 @@ class ApiProjectDocumentController extends Controller
         return response()->json(['success' => true, 'data' => $task->fresh()->load('documents')]);
     }
 
-    public function detach(Task $task, ProjectDocument $document)
+    public function detach(Request $request, Task $task, ProjectDocument $document, WorkspaceProjectAccess $access)
     {
+        $access->authorize($request, $task->project, ['owner', 'admin', 'developer']);
         $task->documents()->detach($document->id);
         return response()->json(['success' => true]);
     }
@@ -55,8 +62,9 @@ class ApiProjectDocumentController extends Controller
         return response($knowledge->manifestTemplate(), 200, ['Content-Type' => 'text/markdown; charset=UTF-8']);
     }
 
-    public function importManifest(Request $request, Project $project, ProjectKnowledgeService $knowledge, GithubProjectIntegrationService $github)
+    public function importManifest(Request $request, Project $project, ProjectKnowledgeService $knowledge, GithubProjectIntegrationService $github, WorkspaceProjectAccess $access)
     {
+        $access->authorize($request, $project, ['owner', 'admin', 'developer']);
         $data = $request->validate(['content' => 'nullable|string|max:100000', 'path' => 'nullable|string|max:500']);
         $content = $data['content'] ?? null;
         if ($content === null) {
@@ -67,8 +75,9 @@ class ApiProjectDocumentController extends Controller
         return response()->json(['success' => true, 'data' => $knowledge->importManifest($project, $content)]);
     }
 
-    public function importGenerated(Request $request, Project $project, ProjectKnowledgeService $knowledge)
+    public function importGenerated(Request $request, Project $project, ProjectKnowledgeService $knowledge, WorkspaceProjectAccess $access)
     {
+        $access->authorize($request, $project, ['owner', 'admin', 'developer']);
         $data = $request->validate([
             'manifest' => 'required|string|max:100000',
             'documents' => 'required|array|max:10',

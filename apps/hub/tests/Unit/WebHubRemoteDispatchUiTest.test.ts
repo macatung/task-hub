@@ -87,10 +87,23 @@ describe('Milestone 4: Web Hub Remote Dispatch UI & Live Streamback Integration'
     });
 
     it('dispatches task to /api/v1/tasks/{task_id}/dispatch with sub-2s response', () => {
-      expect(dispatchModalVueSrc).toContain('axios.post(`/api/v1/tasks/${taskToDispatch.id}/dispatch`');
+      expect(dispatchModalVueSrc).toContain("axios.post(`/api/v1/tasks/${taskToDispatch.id}/${isEpicSequence ? 'dispatch-sequence' : 'dispatch'}`");
       expect(dispatchModalVueSrc).toContain('runner_id: selectedRunnerId.value');
       expect(dispatchModalVueSrc).toContain('execution_mode: executionMode.value');
       expect(dispatchModalVueSrc).toContain("emit('dispatched'");
+    });
+
+    it('shows the exact dependency blockers returned by an Epic dispatch instead of a generic cloud error', () => {
+      expect(dispatchModalVueSrc).toContain('dispatchDiagnostics');
+      expect(dispatchModalVueSrc).toContain('dispatch_diagnostics');
+      expect(dispatchModalVueSrc).toContain('Human action required');
+      expect(dispatchModalVueSrc).toContain('blocked_by');
+    });
+
+    it('lets a human review and correct dependency links from the task drawer before retrying', () => {
+      expect(tasksIndexVueSrc).toContain('selectedDependencyIds');
+      expect(tasksIndexVueSrc).toContain('depends_on_task_ids: selectedDependencyIds.value');
+      expect(tasksIndexVueSrc).toContain('Human review required before changing execution order');
     });
   });
 

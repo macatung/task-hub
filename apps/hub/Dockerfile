@@ -41,6 +41,7 @@ FROM php:8.2-fpm-alpine AS runner
 RUN apk add --no-cache \
     nginx \
     supervisor \
+    netcat-openbsd \
     sqlite \
     postgresql-client \
     curl
@@ -64,7 +65,9 @@ COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 COPY docker/php.ini /usr/local/etc/php/conf.d/custom.ini
 COPY docker/supervisord.conf /etc/supervisord.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
+COPY docker/start-nginx.sh /usr/local/bin/start-nginx.sh
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh /usr/local/bin/start-nginx.sh \
+    && chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/start-nginx.sh
 
 # Set up storage and cache permissions
 RUN mkdir -p /var/www/html/storage/framework/cache/data \

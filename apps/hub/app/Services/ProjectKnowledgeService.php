@@ -52,7 +52,7 @@ class ProjectKnowledgeService
         $seen = [];
         foreach ($rows as $row) {
             $key = ['project_id' => $project->id, 'document_type' => $row['document_type'], 'title' => $row['title']];
-            ProjectDocument::updateOrCreate($key, array_merge($row, ['project_id' => $project->id, 'content_hash' => $sourceHash, 'last_verified_at' => now()]));
+            ProjectDocument::updateOrCreate($key, array_merge($row, ['project_id' => $project->id, 'workspace_id' => $project->workspace_id, 'content_hash' => $sourceHash, 'last_verified_at' => now()]));
             $seen[] = $row['document_type'] . '|' . $row['title'];
         }
         return ['imported' => count($seen), 'documents' => $this->projectState($project->fresh())];

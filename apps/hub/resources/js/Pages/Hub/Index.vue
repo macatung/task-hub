@@ -30,7 +30,7 @@ const flash = computed(() => page.props.flash ?? {});
 <template>
   <Head title="Task Hub — AI-Native Task Engine for Engineering Teams" />
 
-  <div class="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-slate-950 overflow-x-hidden">
+  <div class="hub-landing min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-slate-950 overflow-x-hidden">
     <!-- Ambient Background Glows -->
     <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
       <div class="absolute -top-40 left-1/2 -translate-x-1/2 h-[500px] w-[900px] rounded-full bg-gradient-to-tr from-emerald-600/20 via-teal-500/15 to-blue-600/10 blur-[130px]" />

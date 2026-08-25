@@ -32,6 +32,8 @@ process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 type AgentProvider = 'codex' | 'claude_code' | 'antigravity';
+type AgentRoute = 'native' | '9router';
+type LocalRouterConfig = { enabled: boolean; endpoint: 'http://127.0.0.1:20128/v1'; apiKey: string };
 type AgentSession = {
   process?: IPty | ReturnType<typeof spawn>;
   provider: AgentProvider;
@@ -42,6 +44,8 @@ type AgentSession = {
   output: string;
   threadId?: string;
   events?: Array<any>;
+  route?: AgentRoute;
+  executionPolicy?: AgentExecutionPolicy;
 };
 const agentProcesses = new Map<string, AgentSession>();
 type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error';
@@ -49,19 +53,84 @@ let updateState: { status: UpdateStatus; version?: string; percent?: number; mes
 let updateTimer: NodeJS.Timeout | undefined;
 let quotaSyncTimer: NodeJS.Timeout | undefined;
 
+/**
+ * Policies intentionally map to the provider CLI rather than being a vague
+ * UI-only setting.  A local run starts with the least permissions that can
+ * edit an isolated worktree.  Escalation to full access is only possible
+ * after the renderer records a human approval.
+ */
+type AgentExecutionPolicy = 'restricted' | 'workspace_write' | 'full_access';
 const AGENT_COMMANDS: Record<Exclude<AgentProvider, 'antigravity'>, { command: string; args: string[]; capabilities: string[] }> = {
-  codex: { command: 'codex', args: ['--dangerously-bypass-approvals-and-sandbox', '--no-alt-screen'], capabilities: ['interactive', 'stream', 'resume', 'full_access', 'handoff'] },
-  claude_code: { command: 'claude', args: ['--dangerously-skip-permissions'], capabilities: ['interactive', 'stream', 'resume', 'full_access', 'handoff'] },
+  codex: { command: 'codex', args: ['--no-alt-screen'], capabilities: ['interactive', 'stream', 'resume', 'handoff'] },
+  claude_code: { command: 'claude', args: [], capabilities: ['interactive', 'stream', 'resume', 'handoff'] },
 };
 const PROVIDER_CAPABILITIES: Record<AgentProvider, string[]> = {
   codex: AGENT_COMMANDS.codex.capabilities,
   claude_code: AGENT_COMMANDS.claude_code.capabilities,
   antigravity: ['external_session', 'handoff'],
 };
+function executionPolicyArgs(provider: AgentProvider, policy: AgentExecutionPolicy): string[] {
+  if (provider === 'codex') {
+    if (policy === 'full_access') return ['--dangerously-bypass-approvals-and-sandbox'];
+    // `restricted` is retained for saved sessions from earlier releases.
+    if (policy === 'restricted') return ['--sandbox', 'read-only'];
+    return ['--sandbox', 'workspace-write'];
+  }
+  if (policy !== 'full_access') return [];
+  if (provider === 'claude_code' || provider === 'antigravity') return ['--dangerously-skip-permissions'];
+  return [];
+}
+
+// `--ask-for-approval` is a Codex global option, so it must precede the
+// `exec` subcommand. Keeping this separate prevents an otherwise opaque
+// "unexpected argument" failure when starting a run.
+function codexApprovalArgs(policy: AgentExecutionPolicy): string[] {
+  if (policy === 'full_access') return [];
+  return ['--ask-for-approval', policy === 'restricted' ? 'untrusted' : 'on-request'];
+}
+
+type CodexDiagnostic = {
+  ok: boolean;
+  provider: 'codex';
+  cli?: string;
+  version?: string;
+  sandbox: 'ready' | 'needs_setup' | 'unavailable' | 'unknown';
+  summary: string;
+  details: string[];
+};
+
+function codexDiagnostics(): CodexDiagnostic {
+  const cli = resolveCli('codex');
+  if (!cli) return { ok: false, provider: 'codex', sandbox: 'unavailable', summary: 'Codex CLI was not found.', details: ['Install Codex CLI, then run diagnostics again.'] };
+  try {
+    const version = execFileSync(cli, ['--version'], { encoding: 'utf8', windowsHide: true, timeout: 10_000 }).trim();
+    let rawText = '';
+    try {
+      rawText = execFileSync(cli, ['doctor', '--json'], { encoding: 'utf8', windowsHide: true, timeout: 25_000, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+    } catch (error: any) {
+      rawText = `${error?.stdout?.toString?.() || ''}\n${error?.stderr?.toString?.() || ''}`.trim();
+    }
+    let raw: unknown;
+    try { raw = rawText ? JSON.parse(rawText) : undefined; } catch { raw = undefined; }
+    const searchable = `${rawText}\n${JSON.stringify(raw || '')}`.toLowerCase();
+    const needsSetup = /sandbox.*(setup|helper|missing|fail)|codex-windows-sandbox-setup|logon rights/.test(searchable);
+    const unavailable = /sandbox.*(unavailable|not supported)|could not find.*sandbox/.test(searchable);
+    const sandbox = needsSetup ? 'needs_setup' : unavailable ? 'unavailable' : rawText ? 'ready' : 'unknown';
+    const details = needsSetup
+      ? ['Windows sandbox setup needs attention. Ask an administrator to complete setup, or approve one isolated full-access retry.']
+      : unavailable
+        ? ['The Codex sandbox is unavailable on this machine. Use a supported sandbox configuration or approve a controlled retry.']
+        : ['Codex CLI diagnostics completed.'];
+    return { ok: !needsSetup && !unavailable, provider: 'codex', cli, version, sandbox, summary: needsSetup ? 'Windows sandbox setup is incomplete.' : unavailable ? 'Codex sandbox is unavailable.' : 'Codex diagnostics completed.', details };
+  } catch (error: any) {
+    return { ok: false, provider: 'codex', cli, sandbox: 'unknown', summary: 'Could not run Codex diagnostics.', details: [error?.message || 'Unknown diagnostic error.'] };
+  }
+}
 
 type DesktopCredential = { taskHubUrl: string; token: string; projectId: string; projectTitle?: string };
 
 function desktopCredentialPath() { return path.join(app.getPath('userData'), 'task-hub-credential.bin'); }
+function localRouterConfigPath() { return path.join(app.getPath('userData'), 'task-companion', '9router-config.bin'); }
 function savedAgentWorkspacesPath() { return path.join(app.getPath('userData'), 'agent-workspaces.json'); }
 function savedSessionsPath() { return path.join(app.getPath('userData'), 'agent-saved-sessions.json'); }
 
@@ -72,6 +141,19 @@ function savedSessionsPath() { return path.join(app.getPath('userData'), 'agent-
  */
 function workspaceAgentDirectory(cwd: string) {
   return path.join(cwd, '.macatung', 'agent');
+}
+function stageAgentPrompt(cwd: string, sessionId: string, prompt?: string) {
+  const text = prompt?.trim() || 'Analyze repository and start execution.';
+  // Windows has a small process-command-line limit. Context packs can be far
+  // larger, so hand them to the local CLI through a workspace file instead of
+  // passing the whole payload as a spawn argument.
+  const directory = path.join(workspaceAgentDirectory(cwd), 'prompts');
+  fs.mkdirSync(directory, { recursive: true });
+  const promptFile = path.join(directory, `${sessionId}.md`);
+  // A BOM keeps Windows PowerShell 5.x from interpreting Vietnamese UTF-8 as
+  // the current ANSI code page when the agent reads this file.
+  fs.writeFileSync(promptFile, `\uFEFF${text}`, 'utf8');
+  return `Read and follow the complete task instructions in ${promptFile}. Do not skip any requirements in that file.`;
 }
 function workspaceSessionIndexPath(cwd: string) {
   return path.join(workspaceAgentDirectory(cwd), 'sessions.json');
@@ -105,6 +187,8 @@ function writeWorkspaceSessionIndex(session: PersistedSessionData) {
       model: session.model,
       kind: session.kind,
       mode: session.mode,
+      route: session.route || 'native',
+      executionPolicy: session.executionPolicy || 'restricted',
       status: session.status,
       exitCode: session.exitCode,
       startedAt: session.startedAt,
@@ -128,6 +212,8 @@ export type PersistedSessionData = {
   taskTitle?: string;
   issueKey?: string;
   mode: 'interactive' | 'external' | 'exec';
+  route?: AgentRoute;
+  executionPolicy?: AgentExecutionPolicy;
   kind: 'task' | 'docs';
   threadId?: string;
   output: string;
@@ -254,6 +340,104 @@ function loadDesktopCredential(): DesktopCredential | null {
   }
 }
 function clearDesktopCredential() { const file = desktopCredentialPath(); if (fs.existsSync(file)) fs.rmSync(file, { force: true }); return true; }
+
+const LOCAL_ROUTER_ENDPOINT = 'http://127.0.0.1:20128/v1' as const;
+function saveLocalRouterConfig(input: Partial<LocalRouterConfig>) {
+  const current = loadLocalRouterConfig();
+  const config: LocalRouterConfig = {
+    enabled: Boolean(input.enabled),
+    endpoint: LOCAL_ROUTER_ENDPOINT,
+    apiKey: typeof input.apiKey === 'string' ? input.apiKey.trim() : current.apiKey,
+  };
+  if (config.enabled && !config.apiKey) throw new Error('Enter the local 9Router API key before enabling routing.');
+  fs.mkdirSync(path.dirname(localRouterConfigPath()), { recursive: true });
+  const raw = JSON.stringify(config);
+  if (safeStorage.isEncryptionAvailable()) {
+    fs.writeFileSync(localRouterConfigPath(), safeStorage.encryptString(raw));
+  } else {
+    fs.writeFileSync(localRouterConfigPath(), Buffer.from(raw, 'utf8').toString('base64'), 'utf8');
+  }
+  return getPublicLocalRouterConfig();
+}
+function takeJsonObjects(input: string): { objects: string[]; remainder: string } {
+  const objects: string[] = []; let start = -1; let depth = 0; let inString = false; let escaped = false;
+  for (let index = 0; index < input.length; index += 1) {
+    const char = input[index];
+    if (start < 0) { if (char === '{') { start = index; depth = 1; } continue; }
+    if (inString) { if (escaped) escaped = false; else if (char === '\\') escaped = true; else if (char === '"') inString = false; continue; }
+    if (char === '"') inString = true;
+    else if (char === '{') depth += 1;
+    else if (char === '}') { depth -= 1; if (depth === 0) { objects.push(input.slice(start, index + 1)); start = -1; } }
+  }
+  return { objects, remainder: start >= 0 ? input.slice(start) : '' };
+}
+function summarizeCommandOutput(command: string, output: string) {
+  if (/\\\.macatung\\agent\\prompts\\/i.test(command)) return 'Read staged task brief.';
+  const compact = output.trim();
+  if (!compact) return '';
+  return compact.length > 1600 ? `${compact.slice(0, 1600)}\n… output truncated` : compact;
+}
+function loadLocalRouterConfig(): LocalRouterConfig {
+  const fallback: LocalRouterConfig = { enabled: false, endpoint: LOCAL_ROUTER_ENDPOINT, apiKey: '' };
+  const file = localRouterConfigPath();
+  if (!fs.existsSync(file)) return fallback;
+  try {
+    const raw = fs.readFileSync(file);
+    let value = '';
+    if (safeStorage.isEncryptionAvailable()) {
+      try { value = safeStorage.decryptString(raw); } catch { /* legacy/base64 fallback */ }
+    }
+    if (!value) value = Buffer.from(raw.toString('utf8'), 'base64').toString('utf8');
+    const data = JSON.parse(value);
+    return { enabled: Boolean(data?.enabled), endpoint: LOCAL_ROUTER_ENDPOINT, apiKey: typeof data?.apiKey === 'string' ? data.apiKey : '' };
+  } catch { return fallback; }
+}
+function getPublicLocalRouterConfig() {
+  const config = loadLocalRouterConfig();
+  return { enabled: config.enabled, endpoint: config.endpoint, hasApiKey: Boolean(config.apiKey) };
+}
+function clearLocalRouterConfig() {
+  const file = localRouterConfigPath();
+  if (fs.existsSync(file)) fs.rmSync(file, { force: true });
+  return getPublicLocalRouterConfig();
+}
+async function checkLocalRouter(includeModels = false) {
+  const config = loadLocalRouterConfig();
+  const healthUrl = 'http://127.0.0.1:20128/health';
+  try {
+    const health = await fetch(healthUrl, { signal: AbortSignal.timeout(3000) });
+    if (!health.ok) throw new Error(`Local service returned ${health.status}.`);
+    let models: DiscoveredModel[] = [];
+    if (includeModels && config.apiKey) {
+      const response = await fetch(`${LOCAL_ROUTER_ENDPOINT}/models`, { headers: { Authorization: `Bearer ${config.apiKey}` }, signal: AbortSignal.timeout(5000) });
+      if (!response.ok) throw new Error(`Model list returned ${response.status}. Check the 9Router API key.`);
+      const body: any = await response.json();
+      models = Array.isArray(body?.data) ? body.data.map((item: any) => ({ id: String(item.id), name: String(item.name || item.id), badges: ['9Router', 'Local'], description: 'Model discovered from local 9Router.', source: 'cli' as const })).filter((item: DiscoveredModel) => item.id) : [];
+    }
+    return { ok: true, endpoint: LOCAL_ROUTER_ENDPOINT, models };
+  } catch (error: any) {
+    return { ok: false, endpoint: LOCAL_ROUTER_ENDPOINT, models: [], error: error?.message || '9Router is not available on 127.0.0.1:20128.' };
+  }
+}
+function nativeAgentEnvironment() {
+  const env = { ...process.env } as Record<string, string>;
+  const config = loadLocalRouterConfig();
+  for (const key of ['OPENAI_BASE_URL', 'ANTHROPIC_BASE_URL']) {
+    if (env[key]?.includes('127.0.0.1:20128')) delete env[key];
+  }
+  if (config.apiKey && env.OPENAI_API_KEY === config.apiKey) delete env.OPENAI_API_KEY;
+  if (config.apiKey && env.ANTHROPIC_API_KEY === config.apiKey) delete env.ANTHROPIC_API_KEY;
+  return env;
+}
+function environmentForAgent(provider: AgentProvider): { env: Record<string, string>; route: AgentRoute } {
+  const env = nativeAgentEnvironment();
+  const config = loadLocalRouterConfig();
+  if (provider === 'antigravity' || !config.enabled) return { env, route: 'native' };
+  if (!config.apiKey) throw new Error('9Router is enabled but its local API key is missing.');
+  if (provider === 'codex') Object.assign(env, { OPENAI_BASE_URL: LOCAL_ROUTER_ENDPOINT, OPENAI_API_KEY: config.apiKey });
+  if (provider === 'claude_code') Object.assign(env, { ANTHROPIC_BASE_URL: LOCAL_ROUTER_ENDPOINT, ANTHROPIC_API_KEY: config.apiKey });
+  return { env, route: '9router' };
+}
 
 function findAntigravityExecutable() {
   const candidates = [
@@ -663,6 +847,7 @@ async function getAvailableModels(provider?: AgentProvider, options?: { forceRef
 
   const providers: AgentProvider[] = provider ? [provider] : ['antigravity', 'claude_code', 'codex'];
   const agyModels = providers.includes('antigravity') ? discoverAntigravityCliModels() : [];
+  const routerModels = loadLocalRouterConfig().enabled ? await checkLocalRouter(true) : null;
 
   if (agyModels.length) {
     const merged = { ...(cached?.data || BASE_PRESET_MODELS), antigravity: agyModels } as Record<AgentProvider, DiscoveredModel[]>;
@@ -709,6 +894,10 @@ async function getAvailableModels(provider?: AgentProvider, options?: { forceRef
       });
     });
 
+    if (routerModels?.ok && p !== 'antigravity') {
+      routerModels.models.forEach((model) => map.set(model.id, model));
+    }
+
     result[p] = Array.from(map.values());
   }
 
@@ -717,7 +906,7 @@ async function getAvailableModels(provider?: AgentProvider, options?: { forceRef
     provider,
     models: provider ? result[provider] : result,
     syncedAt: cached ? new Date(cached.timestamp).toISOString() : new Date().toISOString(),
-    source: cached ? (Date.now() - cached.timestamp < 60000 ? 'live' : 'cache') : 'preset',
+    source: routerModels?.ok ? 'local-9router' : (cached ? (Date.now() - cached.timestamp < 60000 ? 'live' : 'cache') : 'preset'),
   };
 }
 
@@ -930,10 +1119,17 @@ type EnvironmentCheck = {
   fixHint?: string;
 };
 
-function preflightAgent(provider: AgentProvider, cwd: string) {
+async function preflightAgent(provider: AgentProvider, cwd: string) {
   const checks: EnvironmentCheck[] = [];
   const cli = provider === 'antigravity' ? (resolveCli('agy') || findAntigravityExecutable()) : resolveCli(AGENT_COMMANDS[provider].command);
   checks.push({ id: 'provider', status: cli ? 'passed' : 'failed', message: cli ? `${provider} is ready.` : `${provider} not found. Please install the CLI or configure executable path.`, fixable: false, fixHint: 'Install or authenticate with provider CLI, then retry.' });
+  const routerConfig = loadLocalRouterConfig();
+  if (provider === 'antigravity') {
+    checks.push({ id: 'router', status: 'passed', message: 'Antigravity is native-only; 9Router, MITM and hosts changes are not used.' });
+  } else if (routerConfig.enabled) {
+    const router = await checkLocalRouter(true);
+    checks.push({ id: 'router', status: router.ok ? 'passed' : 'failed', message: router.ok ? `9Router local route ready (${router.models.length} models).` : (router.error || '9Router local check failed.') });
+  }
   if (!cwd || !fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) return { ok: false, provider, capabilities: PROVIDER_CAPABILITIES[provider], checks: [...checks, { id: 'workspace', status: 'failed' as const, message: 'Select a valid repository directory.' }] };
   try {
     const root = git(cwd, ['rev-parse', '--show-toplevel']);
@@ -956,7 +1152,7 @@ function preflightAgent(provider: AgentProvider, cwd: string) {
     if (fs.existsSync(path.join(root, 'composer.lock')) && !fs.existsSync(path.join(root, 'vendor'))) {
       checks.push({ id: 'php_dependencies', status: 'warning', message: 'Missing PHP dependencies (vendor).', fixable: true, fixHint: 'Auto-fix will run composer install.' });
     }
-    return { ok: Boolean(cli), provider, capabilities: PROVIDER_CAPABILITIES[provider], repository: root, baseCommit: git(root, ['rev-parse', 'HEAD']), remote, upstream, divergence, checks };
+    return { ok: Boolean(cli) && !checks.some((check) => check.status === 'failed'), provider, capabilities: PROVIDER_CAPABILITIES[provider], repository: root, baseCommit: git(root, ['rev-parse', 'HEAD']), remote, upstream, divergence, checks };
   } catch {
     checks.push({ id: 'repository', status: 'failed', message: 'Workspace must be a Git repository.' });
     return { ok: false, provider, capabilities: PROVIDER_CAPABILITIES[provider], checks };
@@ -990,7 +1186,7 @@ function quickSetupEnvironment(cwd: string, installDependencies = true) {
   return { ok: checks.every((check) => check.status !== 'failed'), repository, checks };
 }
 
-function repairEnvironment(provider: AgentProvider, cwd: string) {
+async function repairEnvironment(provider: AgentProvider, cwd: string) {
   const checks: EnvironmentCheck[] = [];
   try {
     const setup = quickSetupEnvironment(cwd, true);
@@ -1005,7 +1201,7 @@ function repairEnvironment(provider: AgentProvider, cwd: string) {
   } catch (error: any) {
     checks.push({ id: 'environment_setup', status: 'failed', message: error?.message || 'Failed to auto-repair workspace.' });
   }
-  const preflight = preflightAgent(provider, cwd);
+  const preflight = await preflightAgent(provider, cwd);
   return {
     ok: preflight.ok,
     provider,
@@ -1209,7 +1405,9 @@ function applyAppMode(mode: AppMode) {
 }
 
 function createWindow() {
-  currentMode = readSavedAppMode();
+  // The desktop is now a single control-center surface; legacy mascot mode is
+  // deliberately ignored even if an older installation saved it.
+  currentMode = 'ide';
   const primaryDisplay = screen.getPrimaryDisplay();
   const { x: workAreaX, y: workAreaY, width: screenWidth, height: screenHeight } = primaryDisplay.workArea;
   const appIcon = getIconImage();
@@ -1418,9 +1616,15 @@ function createWindow() {
   ipcMain.handle('updater-check', async () => {
     return checkForUpdates();
   });
-  ipcMain.handle('agent-preflight', (_event, { provider, cwd }: { provider: AgentProvider; cwd: string }) => preflightAgent(provider, cwd));
+  ipcMain.handle('agent-router-get', () => getPublicLocalRouterConfig());
+  ipcMain.handle('agent-router-save', (_event, config: { enabled: boolean; apiKey?: string }) => saveLocalRouterConfig(config));
+  ipcMain.handle('agent-router-clear', () => clearLocalRouterConfig());
+  ipcMain.handle('agent-router-check', (_event, { includeModels = false }: { includeModels?: boolean }) => checkLocalRouter(includeModels));
+  ipcMain.handle('agent-router-open-dashboard', async () => shell.openExternal('http://127.0.0.1:20128/dashboard'));
+  ipcMain.handle('agent-codex-diagnostics', async () => codexDiagnostics());
+  ipcMain.handle('agent-preflight', async (_event, { provider, cwd }: { provider: AgentProvider; cwd: string }) => preflightAgent(provider, cwd));
   ipcMain.handle('agent-quick-setup', (_event, { cwd, installDependencies }: { cwd: string; installDependencies?: boolean }) => quickSetupEnvironment(cwd, installDependencies !== false));
-  ipcMain.handle('agent-repair-environment', (_event, { provider, cwd }: { provider: AgentProvider; cwd: string }) => repairEnvironment(provider, cwd));
+  ipcMain.handle('agent-repair-environment', async (_event, { provider, cwd }: { provider: AgentProvider; cwd: string }) => repairEnvironment(provider, cwd));
   ipcMain.handle('agent-create-worktree', (_event, { repository, issueKey }: { repository: string; issueKey: string }) => createAgentWorktree(repository, issueKey));
   ipcMain.handle('agent-open-workspace', async (_event, cwd: string) => shell.openPath(cwd));
   ipcMain.handle('agent-cleanup-worktree', (_event, { repository, worktree }: { repository: string; worktree: string }) => {
@@ -1726,7 +1930,7 @@ function createWindow() {
   ipcMain.handle('taskhub-mcp-call', async (_event, { taskHubUrl, token, projectId, method, params }: { taskHubUrl: string; token: string; projectId: string; method: string; params?: Record<string, any> }) => {
     return taskHubMcpCall(taskHubUrl, token, projectId, method, params || {});
   });
-  ipcMain.handle('taskhub-documents-import-generated', async (_event, { taskHubUrl, token, projectId, payload }: { taskHubUrl: string; token: string; projectId: string; payload: Record<string, any> }) => taskHubRequest(taskHubUrl, `/api/v1/projects/${encodeURIComponent(projectId)}/documents/import-generated`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'X-Task-Hub-Project': projectId }, body: JSON.stringify(payload) }));
+  ipcMain.handle('taskhub-documents-import-generated', async (_event, { taskHubUrl, token, projectId, payload }: { taskHubUrl: string; token: string; projectId: string; payload: Record<string, any> }) => taskHubRequest(taskHubUrl, `/api/v1/desktop/projects/${encodeURIComponent(projectId)}/documents/import-generated`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'X-Task-Hub-Project': projectId }, body: JSON.stringify(payload) }));
   ipcMain.handle('taskhub-capabilities', async (_event, taskHubUrl: string) => taskHubRequest(taskHubUrl, '/api/v1/capabilities'));
 
   ipcMain.handle('agent-configure-mcp', (_event, { cwd, provider, taskHubUrl, projectId, token }: { cwd: string; provider: string; taskHubUrl: string; projectId: string | number; token: string }) => {
@@ -1742,6 +1946,16 @@ function createWindow() {
       fs.copyFileSync(configPath, `${configPath}.bak.${Date.now()}`);
     }
     config.mcpServers = config.mcpServers || {};
+    // Current Codex builds reject the Task Hub remote MCP server's lifecycle
+    // notification shape (rmcp deserialize error). Task context is already
+    // staged in the local prompt file, so keep Codex stable until the server
+    // endpoint is upgraded to that protocol revision.
+    if (provider === 'codex') {
+      delete config.mcpServers['task-hub'];
+      fs.mkdirSync(configDirectory, { recursive: true });
+      fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+      return { path: configPath, server: 'task-hub', disabled: true, reason: 'Codex receives the Task Hub context pack directly for this run.' };
+    }
     config.mcpServers['task-hub'] = {
       ...(useAntigravityFormat ? { serverUrl: `${taskHubUrl.replace(/\/$/, '')}/mcp` } : { type: 'http', url: `${taskHubUrl.replace(/\/$/, '')}/mcp` }),
       headers: {
@@ -1766,7 +1980,7 @@ function createWindow() {
     return { path: configPath, server: 'task-hub' };
   });
 
-  ipcMain.handle('agent-list-sessions', () => Array.from(agentProcesses.entries()).map(([sessionId, session]) => ({ sessionId, provider: session.provider, model: session.model, cwd: session.cwd, mode: session.mode, kind: session.kind, output: session.output.slice(-250000), threadId: session.threadId, events: session.events || [] })));
+  ipcMain.handle('agent-list-sessions', () => Array.from(agentProcesses.entries()).map(([sessionId, session]) => ({ sessionId, provider: session.provider, model: session.model, cwd: session.cwd, mode: session.mode, kind: session.kind, executionPolicy: session.executionPolicy || 'restricted', output: session.output.slice(-250000), threadId: session.threadId, events: session.events || [] })));
   ipcMain.handle('agent-save-session-state', (_event, state: Partial<PersistedSessionData> & { sessionId: string }) => {
     persistSessionUpdate(state);
     return true;
@@ -1852,18 +2066,20 @@ function formatAgyEvent(event: any): string {
   return '';
 }
 
-  const startInteractiveAgent = (_event: Electron.IpcMainInvokeEvent, { provider, cwd, prompt, kind = 'task', model }: { provider: AgentProvider; cwd: string; prompt?: string; kind?: 'task' | 'docs'; model?: string }) => {
+  const startInteractiveAgent = (_event: Electron.IpcMainInvokeEvent, { provider, cwd, prompt, kind = 'task', model, executionPolicy = 'workspace_write' }: { provider: AgentProvider; cwd: string; prompt?: string; kind?: 'task' | 'docs'; model?: string; executionPolicy?: AgentExecutionPolicy }) => {
+    const policy: AgentExecutionPolicy = executionPolicy === 'full_access' ? 'full_access' : executionPolicy === 'restricted' ? 'restricted' : 'workspace_write';
     const requestedModel = model && model !== 'default' ? String(model).trim() : undefined;
     const selectedModel = provider === 'antigravity'
       ? resolveAntigravityModelId(requestedModel)
       : requestedModel;
+    const agentEnvironment = environmentForAgent(provider);
 
     if (provider === 'antigravity') {
-      const agy = resolveCli('agy');
+        const agy = resolveCli('agy');
       if (agy) {
         const sessionId = `antigravity-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        const initialPrompt = prompt?.trim() || 'Analyze repository and start execution.';
-        const spawnArgs = ['--output-format', 'stream-json', '--dangerously-skip-permissions'];
+        const initialPrompt = stageAgentPrompt(cwd, sessionId, prompt);
+        const spawnArgs = ['--output-format', 'stream-json', ...executionPolicyArgs(provider, policy)];
         if (selectedModel) {
           spawnArgs.push('--model', selectedModel);
         }
@@ -1872,7 +2088,7 @@ function formatAgyEvent(event: any): string {
         const child = spawn(agy, spawnArgs, {
           cwd,
           stdio: ['ignore', 'pipe', 'pipe'],
-          env: { ...process.env, FORCE_COLOR: '0', PYTHONUNBUFFERED: '1' }
+          env: { ...agentEnvironment.env, FORCE_COLOR: '0', PYTHONUNBUFFERED: '1' }
         });
 
         const session: AgentSession = {
@@ -1883,7 +2099,9 @@ function formatAgyEvent(event: any): string {
           mode: 'exec',
           kind,
           output: '',
-          events: []
+          events: [],
+          route: agentEnvironment.route,
+          executionPolicy: policy
         };
         agentProcesses.set(sessionId, session);
         persistSessionUpdate({
@@ -1896,9 +2114,9 @@ function formatAgyEvent(event: any): string {
           status: 'running',
           startedAt: new Date().toISOString(),
           output: '',
-          events: []
+          events: [], route: agentEnvironment.route, executionPolicy: policy
         });
-        appendWorkspaceAgentLog(cwd, sessionId, 'session_started', { provider, model: selectedModel, kind, mode: 'exec' });
+        appendWorkspaceAgentLog(cwd, sessionId, 'session_started', { provider, model: selectedModel, kind, mode: 'exec', execution_policy: policy, route: agentEnvironment.route });
 
         let buffer = '';
         child.stdout.on('data', (chunk: Buffer) => {
@@ -1960,14 +2178,14 @@ function formatAgyEvent(event: any): string {
       }
       const executable = findAntigravityExecutable();
       if (!executable) throw new Error('Antigravity executable or agy CLI not found.');
+      const sessionId = `antigravity-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const child = spawn(executable, [cwd], { cwd, detached: true, stdio: 'ignore', windowsHide: false });
       child.unref();
       if (prompt?.trim()) {
         const modelHeader = selectedModel ? `[Model: ${selectedModel}]\n\n` : '';
-        clipboard.writeText(`${modelHeader}${prompt.trim()}`);
+        clipboard.writeText(`${modelHeader}${stageAgentPrompt(cwd, sessionId, prompt)}`);
       }
-      const sessionId = `antigravity-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      agentProcesses.set(sessionId, { provider, model: selectedModel, cwd, mode: 'external', kind, output: '' });
+      agentProcesses.set(sessionId, { provider, model: selectedModel, cwd, mode: 'external', kind, output: '', route: agentEnvironment.route, executionPolicy: policy });
       persistSessionUpdate({
         sessionId,
         provider,
@@ -1977,17 +2195,17 @@ function formatAgyEvent(event: any): string {
         kind,
         status: 'running',
         startedAt: new Date().toISOString(),
-        output: ''
+        output: '', route: agentEnvironment.route, executionPolicy: policy
       });
-      appendWorkspaceAgentLog(cwd, sessionId, 'session_started', { provider, model: selectedModel, kind, mode: 'external' });
+      appendWorkspaceAgentLog(cwd, sessionId, 'session_started', { provider, model: selectedModel, kind, mode: 'external', execution_policy: policy, route: agentEnvironment.route });
       return { mode: 'external', sessionId, provider, model: selectedModel, cwd, executable, promptCopied: Boolean(prompt?.trim()), capabilities: PROVIDER_CAPABILITIES[provider] };
     }
 
     if (provider === 'codex') {
       const sessionId = `codex-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const command = resolveCli('codex') || 'codex';
-      const initialPrompt = prompt?.trim() || 'Analyze repository and start execution.';
-      const spawnArgs = ['exec', '--dangerously-bypass-approvals-and-sandbox', '--json'];
+      const initialPrompt = stageAgentPrompt(cwd, sessionId, prompt);
+      const spawnArgs = [...codexApprovalArgs(policy), 'exec', '--json', ...executionPolicyArgs(provider, policy)];
       if (selectedModel) {
         spawnArgs.push('-m', selectedModel);
       }
@@ -1996,7 +2214,7 @@ function formatAgyEvent(event: any): string {
       const child = spawn(command, spawnArgs, {
         cwd,
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: { ...process.env, FORCE_COLOR: '0', PYTHONUNBUFFERED: '1' }
+        env: { ...agentEnvironment.env, FORCE_COLOR: '0', PYTHONUNBUFFERED: '1' }
       });
 
       const session: AgentSession = {
@@ -2007,7 +2225,9 @@ function formatAgyEvent(event: any): string {
         mode: 'exec',
         kind,
         output: '',
-        events: []
+        events: [],
+        route: agentEnvironment.route,
+        executionPolicy: policy
       };
       agentProcesses.set(sessionId, session);
       persistSessionUpdate({
@@ -2020,17 +2240,17 @@ function formatAgyEvent(event: any): string {
         status: 'running',
         startedAt: new Date().toISOString(),
         output: '',
-        events: []
+        events: [], route: agentEnvironment.route, executionPolicy: policy
       });
-      appendWorkspaceAgentLog(cwd, sessionId, 'session_started', { provider, model: selectedModel, kind, mode: 'exec' });
+      appendWorkspaceAgentLog(cwd, sessionId, 'session_started', { provider, model: selectedModel, kind, mode: 'exec', execution_policy: policy, route: agentEnvironment.route });
 
       let buffer = '';
       child.stdout.on('data', (chunk: Buffer) => {
         buffer += chunk.toString('utf8');
-        const lines = buffer.split(/\r?\n/);
-        buffer = lines.pop() || '';
+        const framed = takeJsonObjects(buffer);
+        buffer = framed.remainder;
 
-        for (const line of lines) {
+        for (const line of framed.objects) {
           if (!line.trim()) continue;
           try {
             const event = JSON.parse(line);
@@ -2046,7 +2266,8 @@ function formatAgyEvent(event: any): string {
             } else if (event.type === 'item.started' && event.item?.type === 'command_execution') {
               formattedLine = `\n⚡ [Executing command] $ ${event.item.command}\n`;
             } else if (event.type === 'item.completed' && event.item?.type === 'command_execution') {
-              formattedLine = `\n✓ [Command completed] exit code: ${event.item.exit_code ?? 0}\n${event.item.aggregated_output || ''}\n`;
+              const output = summarizeCommandOutput(event.item.command || '', event.item.aggregated_output || '');
+              formattedLine = `\n✓ [Command completed] exit code: ${event.item.exit_code ?? 0}${output ? `\n${output}` : ''}\n`;
             } else if (event.type === 'turn.completed') {
               const turnTokens = (event.usage?.input_tokens || 0) + (event.usage?.output_tokens || 0);
               if (turnTokens > 0) recordTokenUsageToQuota('codex', turnTokens);
@@ -2055,7 +2276,9 @@ function formatAgyEvent(event: any): string {
             if (formattedLine) {
               session.output = `${session.output}${formattedLine}`.slice(-250000);
             }
-            safeSend(win, 'agent-output', { sessionId, stream: 'event', event, text: formattedLine || line });
+            // Lifecycle events are persisted for diagnostics, but are not
+            // useful as raw JSON in the activity view.
+            if (formattedLine) safeSend(win, 'agent-output', { sessionId, stream: 'event', event, text: formattedLine });
           } catch {
             session.output = `${session.output}\n${line}`.slice(-250000);
             appendWorkspaceAgentLog(session.cwd, sessionId, 'stdout', line);
@@ -2096,22 +2319,20 @@ function formatAgyEvent(event: any): string {
 
     const sessionId = `${provider}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const command = resolveCli(definition.command) || definition.command;
-    const spawnArgs = [...definition.args];
+    const spawnArgs = [...definition.args, ...executionPolicyArgs(provider, policy)];
     if (selectedModel && selectedModel !== 'default') {
       spawnArgs.push('--model', selectedModel);
     }
-    if (prompt?.trim()) {
-      spawnArgs.push(prompt.trim());
-    }
+    if (prompt?.trim()) spawnArgs.push(stageAgentPrompt(cwd, sessionId, prompt));
 
     const pty = spawnPty(command, spawnArgs, {
       cwd,
       name: 'xterm-256color',
       cols: 120,
       rows: 35,
-      env: { ...process.env, FORCE_COLOR: '1', COLORTERM: 'truecolor', TERM: 'xterm-256color' } as Record<string, string>
+      env: { ...agentEnvironment.env, FORCE_COLOR: '1', COLORTERM: 'truecolor', TERM: 'xterm-256color' } as Record<string, string>
     });
-    agentProcesses.set(sessionId, { process: pty, provider, model: selectedModel, cwd, mode: 'interactive', kind, output: '' });
+    agentProcesses.set(sessionId, { process: pty, provider, model: selectedModel, cwd, mode: 'interactive', kind, output: '', route: agentEnvironment.route, executionPolicy: policy });
     persistSessionUpdate({
       sessionId,
       provider,
@@ -2121,9 +2342,9 @@ function formatAgyEvent(event: any): string {
       kind,
       status: 'running',
       startedAt: new Date().toISOString(),
-      output: ''
+      output: '', route: agentEnvironment.route, executionPolicy: policy
     });
-    appendWorkspaceAgentLog(cwd, sessionId, 'session_started', { provider, model: selectedModel, kind, mode: 'interactive' });
+    appendWorkspaceAgentLog(cwd, sessionId, 'session_started', { provider, model: selectedModel, kind, mode: 'interactive', execution_policy: policy, route: agentEnvironment.route });
     pty.onData((text) => {
       const session = agentProcesses.get(sessionId);
       if (session) {
@@ -2221,7 +2442,8 @@ function formatAgyEvent(event: any): string {
           kind: saved.kind,
           output: saved.output || '',
           threadId: saved.threadId,
-          events: saved.events || []
+          events: saved.events || [],
+          executionPolicy: saved.executionPolicy || 'restricted'
         };
         agentProcesses.set(sessionId, session);
       }
@@ -2230,7 +2452,8 @@ function formatAgyEvent(event: any): string {
 
     if (session.provider === 'codex' && session.threadId) {
       const command = resolveCli('codex') || 'codex';
-      const resumeArgs = ['exec', 'resume', session.threadId, '--dangerously-bypass-approvals-and-sandbox', '--json'];
+      const resumePolicy = session.executionPolicy || 'restricted';
+      const resumeArgs = [...codexApprovalArgs(resumePolicy), 'exec', 'resume', session.threadId, '--json', ...executionPolicyArgs('codex', resumePolicy)];
       if (session.model && session.model !== 'default') {
         resumeArgs.push('-m', session.model);
       }
@@ -2241,7 +2464,7 @@ function formatAgyEvent(event: any): string {
         env: { ...process.env, FORCE_COLOR: '0', PYTHONUNBUFFERED: '1' }
       });
       session.process = resumeChild as any;
-      persistSessionUpdate({ sessionId, status: 'running' });
+      persistSessionUpdate({ sessionId, status: 'running', executionPolicy: session.executionPolicy || 'restricted' });
 
       safeSend(win, 'agent-output', {
         sessionId,
@@ -2305,7 +2528,7 @@ function formatAgyEvent(event: any): string {
 
     if (session.provider === 'antigravity' && session.threadId) {
       const agy = resolveCli('agy') || 'agy';
-      const resumeArgs = ['--output-format', 'stream-json', '--dangerously-skip-permissions', '--conversation', session.threadId];
+      const resumeArgs = ['--output-format', 'stream-json', ...executionPolicyArgs('antigravity', session.executionPolicy || 'restricted'), '--conversation', session.threadId];
       if (session.model && session.model !== 'default') {
         resumeArgs.push('--model', session.model);
       }
@@ -2316,7 +2539,7 @@ function formatAgyEvent(event: any): string {
         env: { ...process.env, FORCE_COLOR: '0', PYTHONUNBUFFERED: '1' }
       });
       session.process = resumeChild as any;
-      persistSessionUpdate({ sessionId, status: 'running' });
+      persistSessionUpdate({ sessionId, status: 'running', executionPolicy: session.executionPolicy || 'restricted' });
 
       safeSend(win, 'agent-output', {
         sessionId,
@@ -2385,70 +2608,13 @@ function formatAgyEvent(event: any): string {
 
 function createTray() {
   tray = new Tray(getTrayImage());
-  tray.setToolTip('Task Hub — Developer Studio & Mascot Companion');
+  tray.setToolTip('Task Hub Control Center');
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Open Studio',
+      label: 'Open Control Center',
       click: () => {
-        applyAppMode('ide');
-      },
-    },
-    {
-      label: 'Toggle Mode',
-      click: () => {
-        applyAppMode(currentMode === 'ide' ? 'mascot' : 'ide');
-      },
-    },
-    { type: 'separator' },
-    {
-      label: 'Daily Dispatch',
-      click: () => {
-        if (win) {
-          if (currentMode !== 'mascot') applyAppMode('mascot');
-          win.show();
-          safeSend(win, 'tray-action', 'open-dispatch');
-        }
-      },
-    },
-    {
-      label: 'Daily Review',
-      click: () => {
-        if (win) {
-          if (currentMode !== 'mascot') applyAppMode('mascot');
-          win.show();
-          safeSend(win, 'tray-action', 'open-review');
-        }
-      },
-    },
-    {
-      label: 'Focus Pomodoro',
-      click: () => {
-        if (win) {
-          if (currentMode !== 'mascot') applyAppMode('mascot');
-          win.show();
-          safeSend(win, 'tray-action', 'open-pomodoro');
-        }
-      },
-    },
-    {
-      label: 'Rubber Duck',
-      click: () => {
-        if (win) {
-          if (currentMode !== 'mascot') applyAppMode('mascot');
-          win.show();
-          safeSend(win, 'tray-action', 'open-duck');
-        }
-      },
-    },
-    {
-      label: 'Quick Scratchpad',
-      click: () => {
-        if (win) {
-          if (currentMode !== 'mascot') applyAppMode('mascot');
-          win.show();
-          safeSend(win, 'tray-action', 'open-notes');
-        }
+        if (win) { win.show(); win.focus(); }
       },
     },
     {

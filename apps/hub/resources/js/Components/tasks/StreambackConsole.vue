@@ -93,6 +93,11 @@ const isRejecting = ref(false);
 const isActionFeedback = ref('');
 const copiedLogs = ref(false);
 const activeToolAccordion = ref<number | null>(null);
+const handoffFiles = computed<string[]>(() => {
+  const run = runDetails.value || props.activeRun;
+  const files = run?.metadata?.handoff?.changed_files;
+  return Array.isArray(files) ? files.filter((file): file is string => typeof file === 'string' && file.trim().length > 0) : [];
+});
 
 let sseSource: EventSource | null = null;
 let pollInterval: number | null = null;
@@ -712,6 +717,13 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
+      <details v-if="handoffFiles.length" class="rounded-xl border border-slate-700/70 bg-slate-950/40">
+        <summary class="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-200">Changed files ({{ handoffFiles.length }})</summary>
+        <ul class="max-h-40 overflow-auto border-t border-slate-800 px-3 py-2 font-mono text-[11px] text-slate-300">
+          <li v-for="file in handoffFiles" :key="file" class="py-0.5">{{ file }}</li>
+        </ul>
+      </details>
+
       <!-- PR & Git Commit Links -->
       <div class="flex flex-wrap items-center gap-3 pt-1 text-xs">
         <a
@@ -747,14 +759,21 @@ onBeforeUnmount(() => {
         </p>
       </div>
 
-      <button
-        @click="approveSafetyOrHandoff"
-        :disabled="isApproving"
-        class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 shadow-lg active:scale-95 shrink-0"
-      >
-        <Icons name="Check" :size="13" />
-        <span>{{ isApproving ? 'Approving...' : 'Approve & Mark Done' }}</span>
-      </button>
+      <div class="flex shrink-0 flex-wrap gap-2">
+        <button
+          @click="rejectSafetyOrHandoff"
+          :disabled="isRejecting"
+          class="px-4 py-2 rounded-xl border border-amber-500/50 bg-amber-500/10 text-amber-200 font-bold text-xs transition-all hover:bg-amber-500/20 disabled:opacity-60"
+        >{{ isRejecting ? 'Sending…' : 'Request changes' }}</button>
+        <button
+          @click="approveSafetyOrHandoff"
+          :disabled="isApproving"
+          class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 shadow-lg active:scale-95 shrink-0"
+        >
+          <Icons name="Check" :size="13" />
+          <span>{{ isApproving ? 'Approving...' : 'Approve & Mark Done' }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- Feedback Message -->
