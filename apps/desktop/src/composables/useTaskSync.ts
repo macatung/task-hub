@@ -74,6 +74,16 @@ export interface DailyReviewData {
   wisdom_quote: string;
 }
 
+/** Keep completed tasks visible when a prerequisite regresses so desktop can
+ * surface the required human reconsideration instead of hiding the warning. */
+const needsDependencyReview = (task: TaskItem, allTasks: TaskItem[]) => {
+  if (task.status !== 'done') return false;
+  return (task.dependencies || []).some(dependency => {
+    const target = allTasks.find(candidate => candidate.id === dependency.depends_on_task_id) || dependency.depends_on;
+    return target?.status !== 'done';
+  });
+};
+
 declare global { interface Window { desktopApi?: any; } }
 const DEFAULT_TASK_HUB_URL = (import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev';
 export function useTaskSync() {
@@ -284,15 +294,17 @@ export function useTaskSync() {
       if (!payload?.success || !Array.isArray(payload.data)) throw new Error('Task Hub did not return a project backlog.');
       tasks.value = payload.data;
       // Keep Epics in the local queue so the desktop can launch a supervised
-      // dependency-aware sequence. Completed items remain hidden.
-      agentTasks.value = payload.data.filter((task: TaskItem) => task.status !== 'done');
+      // dependency-aware sequence. Completed items normally stay hidden, but
+      // a completed task with a regressed prerequisite remains visible for
+      // human reconsideration.
+      agentTasks.value = payload.data.filter((task: TaskItem) => task.status !== 'done' || needsDependencyReview(task, payload.data));
       saveLocalCache();
       isOnline.value = true;
       connectionError.value = '';
       return true;
     } catch (e) {
       console.warn('Cannot load agent tasks:', e);
-      agentTasks.value = tasks.value.filter(task => task.status !== 'done');
+      agentTasks.value = tasks.value.filter(task => task.status !== 'done' || needsDependencyReview(task, tasks.value));
       isOnline.value = false;
       connectionError.value = e instanceof Error ? e.message : 'Unable to load the Task Hub backlog.';
       return false;

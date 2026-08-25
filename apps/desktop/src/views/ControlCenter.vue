@@ -728,6 +728,7 @@ onUnmounted(() => { interactiveReporter.reset(); unsubOutput?.(); unsubExit?.();
         v-model:provider="provider"
         v-model:execution-policy="executionPolicy"
         :task="selectedTask"
+        :tasks="sync.agentTasks.value"
         :phase="phase"
         :workspace="workspace"
         :output="output"

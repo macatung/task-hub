@@ -184,7 +184,15 @@ function tryParseSubtasks(notes: string): SubtaskItem[] {
 }
 
 const dependencySummary = (task: TaskItem) => {
-  const dependencies = (task.dependencies || []).filter((dependency) => dependency.depends_on);
+  // Prefer the reactive taskList target over the eager-loaded nested snapshot.
+  // This keeps blocker/reconsideration notes correct immediately after a
+  // prerequisite is moved backwards in the board.
+  const dependencies = (task.dependencies || [])
+    .map(dependency => ({
+      ...dependency,
+      depends_on: taskList.value.find(candidate => candidate.id === dependency.depends_on_task_id) || dependency.depends_on,
+    }))
+    .filter((dependency) => dependency.depends_on);
   const labels = dependencies.map((dependency) => dependency.depends_on?.issue_key || `#${dependency.depends_on_task_id}`);
   const pendingLabels = dependencies
     .filter((dependency) => dependency.depends_on?.status !== 'done')
@@ -1517,61 +1525,30 @@ const getTaskSortScore = (task: TaskItem) => {
   return score;
 };
 
-// A dependency-aware execution order gives the board a clear "what can run
-// next" signal. It is intentionally derived from the same task/dependency
-// payload used by dispatch, so the visual order cannot drift from execution.
-const executionSequence = computed(() => {
-  const tasks = activeProjectTasks.value.filter(task => task.issue_type !== 'epic');
-  const open = tasks.filter(task => task.status !== 'done');
-  const openIds = new Set(open.map(task => task.id));
-  const completedIds = new Set(tasks.filter(task => task.status === 'done').map(task => task.id));
-  const remaining = [...open];
-  const ordered: TaskItem[] = [];
-
-  while (remaining.length) {
-    const ready = remaining.filter(task => (task.dependencies || []).every(dependency => {
-      const target = dependency.depends_on || tasks.find(candidate => candidate.id === dependency.depends_on_task_id);
-      return completedIds.has(dependency.depends_on_task_id) || target?.status === 'done' || !openIds.has(dependency.depends_on_task_id);
-    }));
-    const candidates = ready.length ? ready : remaining;
-    candidates.sort((a, b) => {
-      if (ready.length === 0) return a.id - b.id;
-      if (a.status === 'in_progress' && b.status !== 'in_progress') return -1;
-      if (b.status === 'in_progress' && a.status !== 'in_progress') return 1;
-      return getTaskSortScore(b) - getTaskSortScore(a);
-    });
-    const next = candidates[0];
-    ordered.push(next);
-    completedIds.add(next.id);
-    remaining.splice(remaining.findIndex(task => task.id === next.id), 1);
-  }
-
-  return ordered;
-});
-const executionRankMap = computed(() => new Map(executionSequence.value.map((task, index) => [task.id, index + 1])));
 const taskExecutionMeta = (task: TaskItem) => {
   const summary = dependencySummary(task);
   return {
-    rank: executionRankMap.value.get(task.id) || null,
     blocked: summary.pendingLabels.length > 0,
     dependents: summary.dependents,
+    reconsidered: task.status === 'done' && summary.pendingLabels.length > 0,
+    dependentReconsideration: summary.dependents.filter(issueKey => {
+      const dependent = taskList.value.find(candidate => (candidate.issue_key || `#${candidate.id}`) === issueKey);
+      return dependent && dependent.status !== 'todo';
+    }),
   };
 };
-const executionPreview = computed(() => executionSequence.value.slice(0, 8));
-const blockedExecutionCount = computed(() => executionSequence.value.filter(task => taskExecutionMeta(task).blocked).length);
-const executionAwareSort = (a: TaskItem, b: TaskItem) => {
+const dependencyAwareSort = (a: TaskItem, b: TaskItem) => {
   const aMeta = taskExecutionMeta(a);
   const bMeta = taskExecutionMeta(b);
   if (aMeta.blocked !== bMeta.blocked) return Number(aMeta.blocked) - Number(bMeta.blocked);
-  if (aMeta.rank && bMeta.rank && aMeta.rank !== bMeta.rank) return aMeta.rank - bMeta.rank;
   return getTaskSortScore(b) - getTaskSortScore(a);
 };
 
 // Board Columns (Smart Sorted by Priority & Score)
-const todoTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'todo')].sort(executionAwareSort));
-const inProgressTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'in_progress')].sort(executionAwareSort));
-const reviewTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'review')].sort(executionAwareSort));
-const doneTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'done')].sort(executionAwareSort));
+const todoTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'todo')].sort(dependencyAwareSort));
+const inProgressTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'in_progress')].sort(dependencyAwareSort));
+const reviewTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'review')].sort(dependencyAwareSort));
+const doneTasks = computed(() => [...filteredBoardTasks.value.filter(t => t.status === 'done')].sort(dependencyAwareSort));
 
 const webNextUpTaskId = computed(() => {
   const candidates = filteredBoardTasks.value.filter(t => ['in_progress', 'todo'].includes(t.status) && t.issue_type !== 'epic');
@@ -3370,44 +3347,6 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- Dependency-aware execution strip: a compact visual order that
-               makes prerequisites and the next runnable task obvious. -->
-          <section
-            v-if="executionPreview.length"
-            :class="['mb-5 rounded-2xl border p-3.5 shadow-xs', isDarkMode ? 'bg-slate-950/80 border-slate-800' : 'bg-white border-slate-200']"
-            aria-label="Dependency-aware execution order"
-          >
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <div class="flex items-center gap-2">
-                  <h3 :class="['text-xs font-bold uppercase tracking-wide', isDarkMode ? 'text-slate-100' : 'text-slate-900']">Execution order</h3>
-                  <span :class="['rounded-full px-2 py-0.5 text-[10px] font-bold uppercase', isDarkMode ? 'bg-sky-950 text-sky-300' : 'bg-sky-50 text-sky-700']">Dependency aware</span>
-                </div>
-                <p :class="['mt-1 text-[11px]', isDarkMode ? 'text-slate-400' : 'text-slate-500']">Follow the arrows from prerequisite to next runnable task.</p>
-              </div>
-              <span v-if="blockedExecutionCount" :class="['rounded-full px-2 py-1 text-[10px] font-bold', isDarkMode ? 'bg-amber-950 text-amber-300' : 'bg-amber-50 text-amber-800']">{{ blockedExecutionCount }} blocked</span>
-            </div>
-            <div class="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
-              <template v-for="(task, index) in executionPreview" :key="task.id">
-                <button
-                  type="button"
-                  class="flex min-w-[148px] max-w-[210px] shrink-0 items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition-colors"
-                  :class="taskExecutionMeta(task).blocked ? (isDarkMode ? 'border-amber-800/80 bg-amber-950/30 hover:bg-amber-950/60' : 'border-amber-200 bg-amber-50/70 hover:bg-amber-50') : (isDarkMode ? 'border-slate-700 bg-slate-900 hover:border-sky-600' : 'border-slate-200 bg-slate-50 hover:border-sky-400')"
-                  @click="openTaskDrawer(task)"
-                >
-                  <span :class="['flex h-6 w-6 shrink-0 items-center justify-center rounded-lg font-mono text-[10px] font-bold', taskExecutionMeta(task).blocked ? (isDarkMode ? 'bg-amber-900 text-amber-200' : 'bg-amber-100 text-amber-800') : (isDarkMode ? 'bg-sky-950 text-sky-300' : 'bg-sky-100 text-sky-700')]">{{ taskExecutionMeta(task).rank }}</span>
-                  <span class="min-w-0">
-                    <span :class="['block truncate font-mono text-[10px] font-bold', isDarkMode ? 'text-sky-300' : 'text-sky-700']">{{ task.issue_key }}</span>
-                    <span :class="['block truncate text-[11px] font-semibold', isDarkMode ? 'text-slate-100' : 'text-slate-800']">{{ task.title }}</span>
-                    <span :class="['mt-0.5 block text-[9px] font-bold uppercase', taskExecutionMeta(task).blocked ? 'text-amber-600 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-300']">{{ taskExecutionMeta(task).blocked ? 'Waiting on prerequisite' : task.status === 'in_progress' ? 'Active' : 'Ready' }}</span>
-                  </span>
-                </button>
-                <span v-if="index < executionPreview.length - 1" class="shrink-0 text-lg font-bold text-slate-400" aria-hidden="true">→</span>
-              </template>
-              <span v-if="executionSequence.length > executionPreview.length" :class="['shrink-0 text-[10px] font-semibold', isDarkMode ? 'text-slate-400' : 'text-slate-500']">+{{ executionSequence.length - executionPreview.length }} more</span>
-            </div>
-          </section>
-
           <WorkspaceEmptyBoard
             v-if="filteredBoardTasks.length === 0"
             :dark="isDarkMode"
@@ -3482,11 +3421,12 @@ onUnmounted(() => {
                   <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-medium">
                     <span class="text-slate-600 dark:text-slate-300">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
                     <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-700 dark:text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).reconsidered" class="font-bold text-rose-700 dark:text-rose-300">· Needs review: a prerequisite moved back from done</span>
                   </div>
 
-                  <div v-if="taskExecutionMeta(task).rank" class="flex flex-wrap items-center gap-1 text-[10px] font-semibold">
-                    <span :class="taskExecutionMeta(task).blocked ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'">Step {{ taskExecutionMeta(task).rank }} · {{ taskExecutionMeta(task).blocked ? 'waiting' : 'ready' }}</span>
-                    <span v-if="taskExecutionMeta(task).dependents.length" class="text-slate-500 dark:text-slate-400">· unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
+                  <div v-if="taskExecutionMeta(task).dependents.length" class="flex flex-wrap items-center gap-1 text-[10px] font-semibold">
+                    <span class="text-slate-500 dark:text-slate-400">Unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).dependentReconsideration.length" class="text-rose-700 dark:text-rose-300">· reconsider dependent work: {{ taskExecutionMeta(task).dependentReconsideration.join(', ') }}</span>
                   </div>
 
                   <!-- Subtask & Due Date mini indicator -->
@@ -3592,11 +3532,12 @@ onUnmounted(() => {
                   <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-medium">
                     <span class="text-slate-600 dark:text-slate-300">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
                     <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-700 dark:text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).reconsidered" class="font-bold text-rose-700 dark:text-rose-300">· Needs review: a prerequisite moved back from done</span>
                   </div>
 
-                  <div v-if="taskExecutionMeta(task).rank" class="flex flex-wrap items-center gap-1 text-[10px] font-semibold">
-                    <span :class="taskExecutionMeta(task).blocked ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'">Step {{ taskExecutionMeta(task).rank }} · {{ taskExecutionMeta(task).blocked ? 'waiting' : 'ready' }}</span>
-                    <span v-if="taskExecutionMeta(task).dependents.length" class="text-slate-500 dark:text-slate-400">· unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
+                  <div v-if="taskExecutionMeta(task).dependents.length" class="flex flex-wrap items-center gap-1 text-[10px] font-semibold">
+                    <span class="text-slate-500 dark:text-slate-400">Unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).dependentReconsideration.length" class="text-rose-700 dark:text-rose-300">· reconsider dependent work: {{ taskExecutionMeta(task).dependentReconsideration.join(', ') }}</span>
                   </div>
 
                   <!-- Subtask & Due Date mini indicator -->
@@ -3691,11 +3632,12 @@ onUnmounted(() => {
                   <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-medium">
                     <span class="text-slate-600 dark:text-slate-300">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
                     <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-700 dark:text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).reconsidered" class="font-bold text-rose-700 dark:text-rose-300">· Needs review: a prerequisite moved back from done</span>
                   </div>
 
-                  <div v-if="taskExecutionMeta(task).rank" class="flex flex-wrap items-center gap-1 text-[10px] font-semibold">
-                    <span :class="taskExecutionMeta(task).blocked ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'">Step {{ taskExecutionMeta(task).rank }} · {{ taskExecutionMeta(task).blocked ? 'waiting' : 'ready' }}</span>
-                    <span v-if="taskExecutionMeta(task).dependents.length" class="text-slate-500 dark:text-slate-400">· unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
+                  <div v-if="taskExecutionMeta(task).dependents.length" class="flex flex-wrap items-center gap-1 text-[10px] font-semibold">
+                    <span class="text-slate-500 dark:text-slate-400">Unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).dependentReconsideration.length" class="text-rose-700 dark:text-rose-300">· reconsider dependent work: {{ taskExecutionMeta(task).dependentReconsideration.join(', ') }}</span>
                   </div>
 
                   <!-- Subtask & Due Date mini indicator -->
@@ -3779,6 +3721,16 @@ onUnmounted(() => {
                   <h4 :class="['text-xs sm:text-sm font-semibold line-clamp-2 line-through', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
                     {{ task.title }}
                   </h4>
+
+                  <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-medium">
+                    <span class="text-slate-600 dark:text-slate-300">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
+                    <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-700 dark:text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).reconsidered" class="font-bold text-rose-700 dark:text-rose-300">· Needs review: a prerequisite moved back from done</span>
+                  </div>
+                  <div v-if="taskExecutionMeta(task).dependents.length" class="flex flex-wrap items-center gap-1 text-[10px] font-semibold">
+                    <span class="text-slate-500 dark:text-slate-400">Unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).dependentReconsideration.length" class="text-rose-700 dark:text-rose-300">· reconsider dependent work: {{ taskExecutionMeta(task).dependentReconsideration.join(', ') }}</span>
+                  </div>
 
                   <div :class="['flex items-center justify-between pt-1.5 border-t text-[10px]', isDarkMode ? 'border-slate-800/80' : 'border-slate-100']">
                     <span :class="['px-1.5 py-0.2 rounded border font-medium', getCategoryBadge(task.category).class]">
