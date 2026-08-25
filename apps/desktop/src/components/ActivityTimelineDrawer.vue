@@ -8,6 +8,12 @@ export interface TimelineEvent {
   detail: string;
   tone: 'ok' | 'passed' | 'failed' | 'error' | 'warning' | 'active' | 'tool' | 'muted';
   time: string;
+  actor?: {
+    type?: string;
+    name?: string;
+    role?: string;
+    details?: string;
+  };
 }
 
 const props = defineProps<{
@@ -258,6 +264,11 @@ const copyTimelineSummary = async () => {
                 </span>
                 <span class="text-[10px] font-mono text-zinc-400">{{ event.time }}</span>
               </div>
+            </div>
+            <div v-if="event.actor?.name" class="flex items-center gap-1.5 mb-1.5 text-[10px] text-zinc-400 bg-black/30 px-2 py-0.5 rounded border border-white/5">
+              <span>👤</span>
+              <span class="font-bold text-zinc-200">{{ event.actor.name }}</span>
+              <span v-if="event.actor.role" class="text-zinc-500">· {{ event.actor.role }}</span>
             </div>
             <p class="text-xs text-zinc-300 whitespace-pre-wrap break-words leading-relaxed">
               {{ event.detail }}

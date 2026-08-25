@@ -10,7 +10,7 @@ describe('Control Center settings and approval escalation', () => {
     expect(settingsPanel).toContain('Settings & approvals');
     expect(settingsPanel).toContain('Local 9Router');
     expect(settingsPanel).toContain('Save configuration');
-    expect(settingsPanel).toContain('Auto-submit verified handoffs');
+    expect(settingsPanel).toContain('Auto-submit completed handoffs');
     expect(controlCenter).toContain('task-hub-auto-submit-handoff');
   });
 

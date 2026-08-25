@@ -100,8 +100,8 @@ const routerHint = computed(() => props.router?.hasApiKey
           <label class="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-[#2f5d9a] bg-[#10213a] p-3">
             <input class="mt-0.5" type="checkbox" :checked="autoSubmitHandoff" @change="emit('updateAutoSubmitHandoff', ($event.target as HTMLInputElement).checked)">
             <span>
-              <span class="flex items-center gap-2"><b class="text-xs text-white">Auto-submit verified handoffs</b><span class="rounded-full bg-[#1e4d38] px-2 py-0.5 text-[10px] font-semibold text-emerald-200">{{ autoSubmitHandoff ? 'Enabled' : 'Disabled' }}</span></span>
-              <span class="mt-1 block text-xs leading-5 text-[#b7c5d8]">When enabled, a successful task run is sent to Hub automatically only after current-run test evidence is detected and no blocker is present. Hub review is still required; this never auto-approves or merges work.</span>
+              <span class="flex items-center gap-2"><b class="text-xs text-white">Auto-submit completed handoffs</b><span class="rounded-full bg-[#1e4d38] px-2 py-0.5 text-[10px] font-semibold text-emerald-200">{{ autoSubmitHandoff ? 'Enabled' : 'Disabled' }}</span></span>
+              <span class="mt-1 block text-xs leading-5 text-[#b7c5d8]">When enabled, a task run that exits successfully is sent to Hub automatically. Test output is attached when available; otherwise it is marked skipped. Hub review is still required and this never auto-approves or merges work.</span>
             </span>
           </label>
           <div class="mt-4 rounded-lg border border-[#263244] bg-black/20 p-3">
