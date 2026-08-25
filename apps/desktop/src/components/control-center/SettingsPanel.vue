@@ -14,6 +14,7 @@ const props = defineProps<{
   routerMessage: string;
   saving: boolean;
   autoSubmitHandoff: boolean;
+  autoContinueEpic: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -28,6 +29,7 @@ const emit = defineEmits<{
   openRouterDashboard: [];
   openHub: [];
   updateAutoSubmitHandoff: [value: boolean];
+  updateAutoContinueEpic: [value: boolean];
 }>();
 
 const routerEnabled = ref(false);
@@ -101,7 +103,14 @@ const routerHint = computed(() => props.router?.hasApiKey
             <input class="mt-0.5" type="checkbox" :checked="autoSubmitHandoff" @change="emit('updateAutoSubmitHandoff', ($event.target as HTMLInputElement).checked)">
             <span>
               <span class="flex items-center gap-2"><b class="text-xs text-white">Auto-submit completed handoffs</b><span class="rounded-full bg-[#1e4d38] px-2 py-0.5 text-[10px] font-semibold text-emerald-200">{{ autoSubmitHandoff ? 'Enabled' : 'Disabled' }}</span></span>
-              <span class="mt-1 block text-xs leading-5 text-[#b7c5d8]">When enabled, a task run that exits successfully is sent to Hub automatically. Test output is attached when available; otherwise it is marked skipped. Hub review is still required and this never auto-approves or merges work.</span>
+              <span class="mt-1 block text-xs leading-5 text-[#b7c5d8]">When enabled, a standalone task run that exits successfully is sent to Hub automatically. Epic runs can also auto-submit each child when the Epic continuation setting below is enabled. Hub review is still required and this never auto-approves or merges work.</span>
+            </span>
+          </label>
+          <label class="mt-3 flex cursor-pointer items-start gap-3 rounded-lg border border-[#3f3a77] bg-[#171632] p-3">
+            <input class="mt-0.5" type="checkbox" :checked="autoContinueEpic" @change="emit('updateAutoContinueEpic', ($event.target as HTMLInputElement).checked)">
+            <span>
+              <span class="flex items-center gap-2"><b class="text-xs text-white">Continue Epic after each handoff</b><span class="rounded-full bg-[#3f3474] px-2 py-0.5 text-[10px] font-semibold text-violet-200">{{ autoContinueEpic ? 'Enabled' : 'Disabled' }}</span></span>
+              <span class="mt-1 block text-xs leading-5 text-[#b7c5d8]">When enabled, an Epic starts the next dependency-ready task after the current local handoff is saved. Hub review/approval remains required; this setting never auto-approves or merges work.</span>
             </span>
           </label>
           <div class="mt-4 rounded-lg border border-[#263244] bg-black/20 p-3">

@@ -11,7 +11,9 @@ describe('Control Center settings and approval escalation', () => {
     expect(settingsPanel).toContain('Local 9Router');
     expect(settingsPanel).toContain('Save configuration');
     expect(settingsPanel).toContain('Auto-submit completed handoffs');
+    expect(settingsPanel).toContain('Continue Epic after each handoff');
     expect(controlCenter).toContain('task-hub-auto-submit-handoff');
+    expect(controlCenter).toContain('task-hub-auto-continue-epic');
   });
 
   it('creates a diagnostic-backed human approval request and retries only with an approved policy', () => {
