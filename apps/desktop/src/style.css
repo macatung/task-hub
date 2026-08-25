@@ -9,6 +9,8 @@ html, body, #app { width: 100%; height: 100%; margin: 0; }
 .cc-button { border: 1px solid #2a3546; background: #151d2a; padding: .45rem .65rem; color: #cbd5e1; }
 .cc-button:hover { background: #202b3b; border-color: #475569; }
 .cc-button:disabled, .cc-primary:disabled { cursor: not-allowed; opacity: .5; }
+.cc-shell button[data-action-pending="true"] { cursor: wait; opacity: .72; pointer-events: none; }
+.cc-shell button[data-action-pending="true"]::after { content: ' Processing…'; display: inline-block; margin-left: .35rem; font-weight: 500; }
 .cc-primary { border: 1px solid #4f8cff; background: #3976e8; padding: .45rem .7rem; color: #fff; font-weight: 600; }
 .cc-primary:hover { background: #4f8cff; }
 .cc-danger { border: 1px solid #71333c; background: #28171c; padding: .45rem .7rem; color: #fca5a5; }
