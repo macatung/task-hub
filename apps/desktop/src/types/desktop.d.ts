@@ -123,6 +123,10 @@ declare global {
         onExit?: (callback: (event: { sessionId: string; code: number | null; signal: string | null }) => void) => () => void;
         onQuotaUpdated?: (callback: (quota: any) => void) => () => void;
       };
+      cao?: {
+        getStatus?: () => Promise<{ running: boolean; available: boolean; port: number; cli: string | null; embeddedBinary: string | null; source: 'embedded' | 'external' | 'offline' }>;
+        restartDaemon?: () => Promise<{ status: string; source?: string; executable?: string; message?: string }>;
+      };
     };
   }
 }

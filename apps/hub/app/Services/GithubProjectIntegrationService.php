@@ -127,8 +127,14 @@ class GithubProjectIntegrationService
         if (($input['clear_github_token'] ?? false) === true) $project->github_token = null;
         if (!empty($input['github_webhook_secret'])) $project->github_webhook_secret = Crypt::encryptString($input['github_webhook_secret']);
         if (($input['clear_github_webhook_secret'] ?? false) === true) $project->github_webhook_secret = null;
-        if (!empty($input['task_hub_mcp_token'])) $project->task_hub_mcp_token = Crypt::encryptString($input['task_hub_mcp_token']);
-        if (($input['clear_task_hub_mcp_token'] ?? false) === true) $project->task_hub_mcp_token = null;
+        if (!empty($input['task_hub_mcp_token'])) {
+            $project->task_hub_mcp_token = Crypt::encryptString($input['task_hub_mcp_token']);
+            $project->task_hub_mcp_token_hash = hash('sha256', $input['task_hub_mcp_token']);
+        }
+        if (($input['clear_task_hub_mcp_token'] ?? false) === true) {
+            $project->task_hub_mcp_token = null;
+            $project->task_hub_mcp_token_hash = null;
+        }
         $project->github_connected_at = now();
         if (Auth::check()) $project->user_id = Auth::id();
         $project->github_sync_status = 'connected';

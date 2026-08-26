@@ -138,8 +138,11 @@ class ApiProjectController extends Controller
 
         if (!empty($validated['clear_task_hub_mcp_token'])) {
             $project->task_hub_mcp_token = null;
+            $project->task_hub_mcp_token_hash = null;
         } elseif (!empty($validated['task_hub_mcp_token'])) {
-            $project->task_hub_mcp_token = Crypt::encryptString(trim($validated['task_hub_mcp_token']));
+            $token = trim($validated['task_hub_mcp_token']);
+            $project->task_hub_mcp_token = Crypt::encryptString($token);
+            $project->task_hub_mcp_token_hash = hash('sha256', $token);
         }
         unset($validated['task_hub_mcp_token'], $validated['clear_task_hub_mcp_token']);
 
@@ -216,8 +219,6 @@ class ApiProjectController extends Controller
     {
         $access->authorize($request, $project, ['owner', 'admin']);
         $hasToken = !empty($project->task_hub_mcp_token);
-        $token = $hasToken ? $integration->secret($project->task_hub_mcp_token) : null;
-        $maskedToken = $token ? (substr($token, 0, 8) . '...' . substr($token, -6)) : null;
         $mcpUrl = url('/mcp');
 
         return response()->json([
@@ -226,8 +227,9 @@ class ApiProjectController extends Controller
                 'project_id' => $project->id,
                 'project_title' => $project->title,
                 'has_token' => $hasToken,
-                'token' => $token,
-                'masked_token' => $maskedToken,
+                'token' => null,
+                'masked_token' => null,
+                'token_notice' => 'For security, existing tokens are never returned. Generate or rotate a token and copy it from the one-time response.',
                 'server_url' => $mcpUrl,
                 'configs' => [
                     'antigravity' => [
@@ -235,7 +237,7 @@ class ApiProjectController extends Controller
                             'task-hub' => [
                                 'serverUrl' => $mcpUrl,
                                 'headers' => [
-                                    'Authorization' => 'Bearer ' . ($token ?: 'YOUR_TASK_HUB_MCP_TOKEN'),
+                                    'Authorization' => 'Bearer YOUR_TASK_HUB_MCP_TOKEN',
                                     'X-Task-Hub-Project' => (string) $project->id,
                                 ],
                             ],
@@ -246,7 +248,7 @@ class ApiProjectController extends Controller
                             'task-hub' => [
                                 'url' => $mcpUrl,
                                 'headers' => [
-                                    'Authorization' => 'Bearer ' . ($token ?: 'YOUR_TASK_HUB_MCP_TOKEN'),
+                                    'Authorization' => 'Bearer YOUR_TASK_HUB_MCP_TOKEN',
                                     'X-Task-Hub-Project' => (string) $project->id,
                                 ],
                             ],
@@ -257,7 +259,7 @@ class ApiProjectController extends Controller
                             'task-hub' => [
                                 'url' => $mcpUrl,
                                 'headers' => [
-                                    'Authorization' => 'Bearer ' . ($token ?: 'YOUR_TASK_HUB_MCP_TOKEN'),
+                                    'Authorization' => 'Bearer YOUR_TASK_HUB_MCP_TOKEN',
                                     'X-Task-Hub-Project' => (string) $project->id,
                                 ],
                             ],
@@ -273,9 +275,13 @@ class ApiProjectController extends Controller
         $access->authorize($request, $project, ['owner', 'admin']);
         $token = 'th_mcp_' . Str::random(48);
         $project->task_hub_mcp_token = Crypt::encryptString($token);
+        $project->task_hub_mcp_token_hash = hash('sha256', $token);
         $project->save();
 
-        return $this->getMcpInfo($request, $project, $integration, $access);
+        $response = $this->getMcpInfo($request, $project, $integration, $access)->getData(true);
+        $response['data']['token'] = $token;
+        $response['data']['token_notice'] = 'Copy this token now. It will not be shown again.';
+        return response()->json($response);
     }
 
     public function saveMcpToken(Request $request, Project $project, GithubProjectIntegrationService $integration, WorkspaceProjectAccess $access)
@@ -288,8 +294,11 @@ class ApiProjectController extends Controller
 
         if (!empty($validated['clear'])) {
             $project->task_hub_mcp_token = null;
+            $project->task_hub_mcp_token_hash = null;
         } elseif (!empty($validated['token'])) {
-            $project->task_hub_mcp_token = Crypt::encryptString(trim($validated['token']));
+            $token = trim($validated['token']);
+            $project->task_hub_mcp_token = Crypt::encryptString($token);
+            $project->task_hub_mcp_token_hash = hash('sha256', $token);
         }
         $project->save();
 

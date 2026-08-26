@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, screen, dialog, clipboard, shell, safeStorage } from 'electron';
 import { autoUpdater } from 'electron-updater';
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
+import http from 'node:http';
 import { spawn as spawnPty, IPty } from 'node-pty';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -32,7 +33,7 @@ process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 type AgentProvider = 'codex' | 'claude_code' | 'antigravity';
-type AgentRoute = 'native' | '9router';
+type AgentRoute = 'native' | '9router' | 'cao';
 type LocalRouterConfig = { enabled: boolean; endpoint: 'http://127.0.0.1:20128/v1'; apiKey: string };
 type AgentSession = {
   process?: IPty | ReturnType<typeof spawn>;
@@ -46,8 +47,12 @@ type AgentSession = {
   events?: Array<any>;
   route?: AgentRoute;
   executionPolicy?: AgentExecutionPolicy;
+  caoSessionName?: string;
+  caoLastStatus?: string;
+  caoLastOutput?: string;
 };
 const agentProcesses = new Map<string, AgentSession>();
+const caoSessionPollers = new Map<string, NodeJS.Timeout>();
 type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error';
 let updateState: { status: UpdateStatus; version?: string; percent?: number; message?: string } = { status: 'idle' };
 let updateTimer: NodeJS.Timeout | undefined;
@@ -153,7 +158,13 @@ function stageAgentPrompt(cwd: string, sessionId: string, prompt?: string) {
   // A BOM keeps Windows PowerShell 5.x from interpreting Vietnamese UTF-8 as
   // the current ANSI code page when the agent reads this file.
   fs.writeFileSync(promptFile, `\uFEFF${text}`, 'utf8');
-  return `Read and follow the complete task instructions in ${promptFile}. Do not skip any requirements in that file.`;
+  return [
+    'Task Hub Desktop execution protocol:',
+    '1. Read and follow the complete task instructions from this exact local file:',
+    promptFile,
+    '2. Do not report the task as completed until those instructions have been read and the requested work is done.',
+    '3. If the file cannot be read, stop and respond exactly with `TASK_HUB_RUN_BLOCKED: unable to read staged task instructions` plus the reason. Do not claim success.',
+  ].join('\n');
 }
 function workspaceSessionIndexPath(cwd: string) {
   return path.join(workspaceAgentDirectory(cwd), 'sessions.json');
@@ -214,6 +225,8 @@ export type PersistedSessionData = {
   mode: 'interactive' | 'external' | 'exec';
   route?: AgentRoute;
   executionPolicy?: AgentExecutionPolicy;
+  caoSessionName?: string;
+  caoLastOutput?: string;
   kind: 'task' | 'docs';
   threadId?: string;
   output: string;
@@ -300,15 +313,10 @@ function saveDesktopCredential(credential: DesktopCredential) {
   try {
     fs.mkdirSync(path.dirname(desktopCredentialPath()), { recursive: true });
     const raw = JSON.stringify(credential);
-    if (safeStorage.isEncryptionAvailable()) {
-      try {
-        fs.writeFileSync(desktopCredentialPath(), safeStorage.encryptString(raw));
-        return true;
-      } catch (err) {
-        console.warn('safeStorage.encryptString failed, using base64 fallback:', err);
-      }
+    if (!safeStorage.isEncryptionAvailable()) {
+      throw new Error('Secure OS credential storage is unavailable. Credentials were not saved.');
     }
-    fs.writeFileSync(desktopCredentialPath(), Buffer.from(raw, 'utf8').toString('base64'), 'utf8');
+    fs.writeFileSync(desktopCredentialPath(), safeStorage.encryptString(raw));
     return true;
   } catch (error) {
     console.error('Failed to save desktop credential:', error);
@@ -318,30 +326,25 @@ function saveDesktopCredential(credential: DesktopCredential) {
 function loadDesktopCredential(): DesktopCredential | null {
   const file = desktopCredentialPath();
   if (!fs.existsSync(file)) return null;
+  if (!safeStorage.isEncryptionAvailable()) return null;
   try {
     const buffer = fs.readFileSync(file);
-    if (safeStorage.isEncryptionAvailable()) {
-      try {
-        const decrypted = safeStorage.decryptString(buffer);
-        return JSON.parse(decrypted) as DesktopCredential;
-      } catch {
-        /* fallback to base64 / plain */
-      }
-    }
-    const str = buffer.toString('utf8');
-    try {
-      return JSON.parse(Buffer.from(str, 'base64').toString('utf8')) as DesktopCredential;
-    } catch {
-      return JSON.parse(str) as DesktopCredential;
-    }
+    const decrypted = safeStorage.decryptString(buffer);
+    return JSON.parse(decrypted) as DesktopCredential;
   } catch (error) {
     console.warn('Failed to load desktop credential from file:', error);
     return null;
   }
 }
-function clearDesktopCredential() { const file = desktopCredentialPath(); if (fs.existsSync(file)) fs.rmSync(file, { force: true }); return true; }
+
+function clearDesktopCredential() {
+  const file = desktopCredentialPath();
+  if (fs.existsSync(file)) fs.rmSync(file, { force: true });
+  return true;
+}
 
 const LOCAL_ROUTER_ENDPOINT = 'http://127.0.0.1:20128/v1' as const;
+
 function saveLocalRouterConfig(input: Partial<LocalRouterConfig>) {
   const current = loadLocalRouterConfig();
   const config: LocalRouterConfig = {
@@ -359,6 +362,7 @@ function saveLocalRouterConfig(input: Partial<LocalRouterConfig>) {
   }
   return getPublicLocalRouterConfig();
 }
+
 function takeJsonObjects(input: string): { objects: string[]; remainder: string } {
   const objects: string[] = []; let start = -1; let depth = 0; let inString = false; let escaped = false;
   for (let index = 0; index < input.length; index += 1) {
@@ -371,12 +375,14 @@ function takeJsonObjects(input: string): { objects: string[]; remainder: string 
   }
   return { objects, remainder: start >= 0 ? input.slice(start) : '' };
 }
+
 function summarizeCommandOutput(command: string, output: string) {
   if (/\\\.macatung\\agent\\prompts\\/i.test(command)) return 'Read staged task brief.';
   const compact = output.trim();
   if (!compact) return '';
   return compact.length > 1600 ? `${compact.slice(0, 1600)}\n… output truncated` : compact;
 }
+
 function loadLocalRouterConfig(): LocalRouterConfig {
   const fallback: LocalRouterConfig = { enabled: false, endpoint: LOCAL_ROUTER_ENDPOINT, apiKey: '' };
   const file = localRouterConfigPath();
@@ -392,15 +398,18 @@ function loadLocalRouterConfig(): LocalRouterConfig {
     return { enabled: Boolean(data?.enabled), endpoint: LOCAL_ROUTER_ENDPOINT, apiKey: typeof data?.apiKey === 'string' ? data.apiKey : '' };
   } catch { return fallback; }
 }
+
 function getPublicLocalRouterConfig() {
   const config = loadLocalRouterConfig();
   return { enabled: config.enabled, endpoint: config.endpoint, hasApiKey: Boolean(config.apiKey) };
 }
+
 function clearLocalRouterConfig() {
   const file = localRouterConfigPath();
   if (fs.existsSync(file)) fs.rmSync(file, { force: true });
   return getPublicLocalRouterConfig();
 }
+
 async function checkLocalRouter(includeModels = false) {
   const config = loadLocalRouterConfig();
   const healthUrl = 'http://127.0.0.1:20128/health';
@@ -419,6 +428,7 @@ async function checkLocalRouter(includeModels = false) {
     return { ok: false, endpoint: LOCAL_ROUTER_ENDPOINT, models: [], error: error?.message || '9Router is not available on 127.0.0.1:20128.' };
   }
 }
+
 function getCandidateBinDirs(): string[] {
   if (process.platform !== 'win32') {
     return ['/usr/local/bin', '/usr/bin', '/bin', '/opt/homebrew/bin', '/usr/local/git/bin'];
@@ -434,6 +444,11 @@ function getCandidateBinDirs(): string[] {
     path.join(appData, 'npm'),
     path.join(localAppData, 'agy', 'bin'),
     path.join(localAppData, 'Programs', 'Antigravity', 'bin'),
+    path.join(localAppData, 'Programs', 'OpenAI', 'Codex', 'bin'),
+    path.join(localAppData, 'Programs', 'Codex', 'bin'),
+    path.join(localAppData, 'Programs', 'OpenAI', 'bin'),
+    path.join(localAppData, 'Programs', 'Claude', 'bin'),
+    path.join(localAppData, 'Programs', 'Anthropic', 'bin'),
     path.join(localAppData, 'Programs', 'Git', 'cmd'),
     path.join(localAppData, 'Programs', 'Git', 'bin'),
     path.join(localAppData, 'pnpm'),
@@ -443,6 +458,7 @@ function getCandidateBinDirs(): string[] {
     path.join(userProfile, '.gemini', 'antigravity', 'bin'),
     path.join(userProfile, '.codex', 'bin'),
     path.join(userProfile, '.claude', 'bin'),
+    path.join(userProfile, '.cargo', 'bin'),
     path.join(userProfile, 'scoop', 'shims'),
     path.join(userProfile, 'scoop', 'apps', 'git', 'current', 'cmd'),
     path.join('C:\\scoop', 'shims'),
@@ -453,6 +469,8 @@ function getCandidateBinDirs(): string[] {
     path.join(programFilesX86, 'Git', 'bin'),
     path.join(programFiles, 'nodejs'),
     path.join(programFilesX86, 'nodejs'),
+    path.join(programFiles, 'OpenAI', 'Codex', 'bin'),
+    path.join(programFiles, 'Codex'),
     path.join(programFiles, 'Antigravity'),
     path.join(programFiles, 'ComposerSetup', 'bin'),
     path.join(programData, 'ComposerSetup', 'bin'),
@@ -462,8 +480,6 @@ function getCandidateBinDirs(): string[] {
 
 function nativeAgentEnvironment() {
   const env = { ...process.env } as Record<string, string>;
-  // The Start-menu Electron process frequently misses user-level npm and AGY
-  // directories even though PowerShell can resolve the same CLIs.
   const runtimeBins = getCandidateBinDirs();
   env.PATH = [...runtimeBins, env.PATH || ''].join(path.delimiter);
   const config = loadLocalRouterConfig();
@@ -474,6 +490,7 @@ function nativeAgentEnvironment() {
   if (config.apiKey && env.ANTHROPIC_API_KEY === config.apiKey) delete env.ANTHROPIC_API_KEY;
   return env;
 }
+
 function environmentForAgent(provider: AgentProvider): { env: Record<string, string>; route: AgentRoute } {
   const env = nativeAgentEnvironment();
   const config = loadLocalRouterConfig();
@@ -494,9 +511,6 @@ function findAntigravityExecutable() {
 }
 
 function resolveCli(command: string) {
-  // Desktop apps launched from the Start menu do not always inherit the same
-  // PATH as a developer PowerShell session. AGY is installed per-user in this
-  // location, so resolve it explicitly before falling back to `where`.
   if (process.platform === 'win32') {
     const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
     const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
@@ -515,15 +529,19 @@ function resolveCli(command: string) {
       command === 'agy' ? path.join(localAppData, 'agy', 'bin', 'agy.cmd') : undefined,
       command === 'agy' ? path.join(localAppData, 'Programs', 'Antigravity', 'bin', 'agy.exe') : undefined,
       command === 'agy' ? path.join(userProfile, '.antigravity', 'antigravity', 'bin', 'agy.exe') : undefined,
+      command === 'gemini' ? path.join(userProfile, '.gemini', 'antigravity', 'bin', 'agy.exe') : undefined,
       command === 'agy' ? path.join(userProfile, '.gemini', 'antigravity', 'bin', 'agy.exe') : undefined,
       command === 'agy' ? path.join(programFiles, 'Antigravity', 'agy.exe') : undefined,
       command === 'agy' ? path.join(programFiles, 'Antigravity', 'Antigravity.exe') : undefined,
       command === 'agy' ? path.join(localAppData, 'Microsoft', 'WinGet', 'Links', 'agy.exe') : undefined,
       command === 'agy' ? path.join(userProfile, 'scoop', 'shims', 'agy.exe') : undefined,
 
-      // The npm launcher is a .cmd file. Electron's spawn() rejects that
-      // launcher with EINVAL on some Windows builds, so use Codex's native
-      // optional-dependency binary when it is available.
+      command === 'codex' ? path.join(localAppData, 'Programs', 'OpenAI', 'Codex', 'bin', 'codex.exe') : undefined,
+      command === 'codex' ? path.join(localAppData, 'Programs', 'Codex', 'bin', 'codex.exe') : undefined,
+      command === 'codex' ? path.join(localAppData, 'Programs', 'OpenAI', 'bin', 'codex.exe') : undefined,
+      command === 'codex' ? path.join(localAppData, 'Microsoft', 'WinGet', 'Links', 'codex.exe') : undefined,
+      command === 'codex' ? path.join(programFiles, 'OpenAI', 'Codex', 'bin', 'codex.exe') : undefined,
+      command === 'codex' ? path.join(programFiles, 'Codex', 'codex.exe') : undefined,
       command === 'codex' ? path.join(appData, 'npm', 'node_modules', '@openai', 'codex', 'node_modules', '@openai', 'codex-win32-x64', 'vendor', 'x86_64-pc-windows-msvc', 'bin', 'codex.exe') : undefined,
       command === 'codex' ? path.join(appData, 'npm', 'codex.cmd') : undefined,
       command === 'codex' ? path.join(appData, 'npm', 'codex.ps1') : undefined,
@@ -534,6 +552,9 @@ function resolveCli(command: string) {
       command === 'codex' ? path.join(userProfile, 'scoop', 'shims', 'codex.cmd') : undefined,
       command === 'codex' ? path.join(programData, 'chocolatey', 'bin', 'codex.exe') : undefined,
 
+      command === 'claude' ? path.join(localAppData, 'Programs', 'Claude', 'bin', 'claude.exe') : undefined,
+      command === 'claude' ? path.join(localAppData, 'Programs', 'Anthropic', 'bin', 'claude.exe') : undefined,
+      command === 'claude' ? path.join(localAppData, 'Microsoft', 'WinGet', 'Links', 'claude.exe') : undefined,
       command === 'claude' ? path.join(appData, 'npm', 'claude.cmd') : undefined,
       command === 'claude' ? path.join(appData, 'npm', 'claude.ps1') : undefined,
       command === 'claude' ? path.join(localAppData, 'pnpm', 'claude.cmd') : undefined,
@@ -647,6 +668,13 @@ async function agentRuntimeStatus(): Promise<AgentRuntime[]> {
   return results;
 }
 
+function quoteWindowsCommandArgument(value: string): string {
+  // cmd.exe parses a batch-file path before Node can apply its usual argv
+  // escaping. Quote each argument explicitly so npm.cmd remains executable
+  // when Node is installed beneath a path such as C:\\Program Files.
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
 function runInstaller(command: string, args: string[]): Promise<{ ok: boolean; message: string }> {
   return new Promise((resolve) => {
     const executable = resolveCli(command) || command;
@@ -654,7 +682,10 @@ function runInstaller(command: string, args: string[]): Promise<{ ok: boolean; m
     let settled = false;
     const finish = (ok: boolean, message: string) => { if (!settled) { settled = true; resolve({ ok, message }); } };
     try {
-      const child = spawn(executable, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(executable), env: nativeAgentEnvironment() });
+      const isWindowsBatchShim = process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(executable);
+      const child = isWindowsBatchShim
+        ? spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', `call ${quoteWindowsCommandArgument(executable)} ${args.map(quoteWindowsCommandArgument).join(' ')}`], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], shell: false, env: nativeAgentEnvironment() })
+        : spawn(executable, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], shell: false, env: nativeAgentEnvironment() });
       const timeout = setTimeout(() => { child.kill(); finish(false, 'Installer timed out after 5 minutes.'); }, 300_000);
       child.stdout?.on('data', chunk => { output += String(chunk); });
       child.stderr?.on('data', chunk => { output += String(chunk); });
@@ -1622,7 +1653,7 @@ function quickSetupEnvironment(cwd: string, installDependencies = true) {
       execFileSync(executable, args, { cwd, encoding: 'utf8', windowsHide: true, timeout: 300000, stdio: 'ignore', shell: isBatchShim, env: nativeAgentEnvironment() });
       checks.push({ id, status: 'passed', message });
     }
-    catch { checks.push({ id, status: 'failed', message: `${command} failed to execute.` }); }
+    catch { checks.push({ id, status: 'warning', message: `${command} could not install dependencies automatically; proceeding with workspace.` }); }
   };
   const repository = git(cwd, ['rev-parse', '--show-toplevel']);
   checks.push({ id: 'repository', status: 'passed', message: `Git repository: ${repository}` });
@@ -1798,6 +1829,356 @@ function setupAutoUpdater() {
   updateTimer = setInterval(() => {
     void checkForUpdates();
   }, 6 * 60 * 60 * 1000);
+}
+
+const CAO_DEFAULT_PORT = 9889;
+let caoDaemonProcess: ChildProcess | null = null;
+type CaoRuntime =
+  | { kind: 'native'; executable: string }
+  | { kind: 'wsl'; executable: string; distro?: string };
+let caoRuntime: CaoRuntime | null | undefined;
+const CAO_WSL_BOOTSTRAP = 'export PATH="$HOME/.local/bin:$PATH"; export CAO_HOME_DIR="${TASK_HUB_CAO_WSL_HOME:-$HOME/.task-hub-cao}";';
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
+}
+
+function wslExecutable(): string | null {
+  if (process.platform !== 'win32') return null;
+  const systemWsl = path.join(process.env.WINDIR || 'C:\\Windows', 'System32', 'wsl.exe');
+  return fs.existsSync(systemWsl) ? systemWsl : resolveCli('wsl');
+}
+
+function runWslShell(script: string, timeoutMs = 5_000): Promise<CaoCommandResult> {
+  const executable = wslExecutable();
+  if (!executable) return Promise.resolve({ ok: false, output: '', error: 'WSL is unavailable.' });
+  const distro = process.env.TASK_HUB_CAO_WSL_DISTRO;
+  const args = [...(distro ? ['-d', distro] : []), '--', '/bin/bash', '-lc', `${CAO_WSL_BOOTSTRAP} ${script}`];
+  return new Promise((resolve) => {
+    let output = '';
+    let settled = false;
+    const finish = (result: CaoCommandResult) => { if (!settled) { settled = true; resolve(result); } };
+    const child = spawn(executable, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const timeout = setTimeout(() => { try { child.kill(); } catch { /* ignore */ } finish({ ok: false, output, error: 'WSL command timed out.' }); }, timeoutMs);
+    child.stdout?.on('data', (chunk) => { output += String(chunk); });
+    child.stderr?.on('data', (chunk) => { output += String(chunk); });
+    child.once('error', (error) => { clearTimeout(timeout); finish({ ok: false, output, error: error.message }); });
+    child.once('close', (code) => { clearTimeout(timeout); finish({ ok: code === 0, output, error: code === 0 ? undefined : (output.trim().slice(-1000) || `WSL exited with code ${code}.`) }); });
+  });
+}
+
+async function resolveCaoRuntime(): Promise<CaoRuntime | null> {
+  if (caoRuntime !== undefined) return caoRuntime;
+  const native = resolveCli('cao');
+  if (native) return (caoRuntime = { kind: 'native', executable: native });
+  if (!wslExecutable()) return (caoRuntime = null);
+  const probe = await runWslShell('command -v cao >/dev/null && command -v cao-server >/dev/null', 5_000);
+  return (caoRuntime = probe.ok ? { kind: 'wsl', executable: wslExecutable()!, distro: process.env.TASK_HUB_CAO_WSL_DISTRO } : null);
+}
+
+async function wslPathFor(windowsPath: string): Promise<string | null> {
+  const converted = await runWslShell(`wslpath -a -- ${shellQuote(windowsPath)}`, 5_000);
+  return converted.ok ? converted.output.trim() || null : null;
+}
+
+function caoServerPort(): number {
+  const configured = Number(process.env.CAO_SERVER_PORT || CAO_DEFAULT_PORT);
+  return Number.isInteger(configured) && configured > 0 && configured < 65536 ? configured : CAO_DEFAULT_PORT;
+}
+
+function resolveCaoExecutable(): string | null {
+  const binaryName = process.platform === 'win32' ? 'cao-server.exe' : 'cao-server';
+  const candidates = [
+    process.env.TASK_HUB_CAO_PATH,
+    process.env.CAO_SERVER_PATH,
+    path.join(process.resourcesPath, 'bin', 'cao', binaryName),
+    path.join(__dirname, '..', 'bin', 'cao', binaryName),
+    path.join(__dirname, '..', 'resources', 'bin', 'cao', binaryName),
+    resolveCli('cao-server'),
+    resolveCli('cao'),
+  ].filter(Boolean) as string[];
+
+  return candidates.find((p) => fs.existsSync(p)) || null;
+}
+
+async function isCaoPortOpen(port = caoServerPort()): Promise<boolean> {
+  return new Promise((resolve) => {
+    const req = http.get(`http://127.0.0.1:${port}/health`, { timeout: 1500 }, (res: http.IncomingMessage) => {
+      let body = '';
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => {
+        // Ensure response is from CAO server (JSON response with status/cao/version) rather than another local server (ERP/web app on port 8000)
+        const isJson = res.headers['content-type']?.includes('application/json');
+        const isCaoContent = body.includes('status') || body.includes('cao') || body.includes('version') || body.includes('ok');
+        resolve(res.statusCode === 200 && Boolean(isJson || isCaoContent));
+      });
+    });
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
+async function startCaoDaemon() {
+  try {
+    const port = caoServerPort();
+    const alreadyRunning = await isCaoPortOpen(port);
+    if (alreadyRunning) {
+      console.log(`[CAO Daemon] Existing cao-server detected on port ${port}.`);
+      return { status: 'running', source: 'external', port };
+    }
+
+    const runtime = await resolveCaoRuntime();
+    if (!runtime) {
+      console.log('[CAO Daemon] Standalone CAO binary not found; running in native fallback mode.');
+      return { status: 'fallback', message: 'Native agent runner active', port };
+    }
+
+    console.log('[CAO Daemon] Spawning official CAO daemon through:', runtime.kind, 'on port:', port);
+    // CAO reads CAO_API_PORT itself.  Do not rely on an undocumented HTTP
+    // bridge: this starts the official `cao-server` process used by `cao`.
+    const isWsl = runtime.kind === 'wsl';
+    const executable = isWsl ? runtime.executable : (resolveCaoExecutable() || runtime.executable);
+    const args = isWsl
+      ? [...(runtime.distro ? ['-d', runtime.distro] : []), '--', '/bin/bash', '-lc', `${CAO_WSL_BOOTSTRAP} exec cao-server --port ${port}`]
+      : ['--port', String(port)];
+    caoDaemonProcess = spawn(executable, args, {
+      stdio: 'ignore',
+      windowsHide: true,
+      detached: false,
+      env: { ...nativeAgentEnvironment(), CAO_API_PORT: String(port) },
+    });
+
+    caoDaemonProcess.on('error', (err: Error) => {
+      console.warn('[CAO Daemon] Failed to start:', err.message);
+      caoDaemonProcess = null;
+    });
+
+    caoDaemonProcess.on('exit', (code: number | null) => {
+      console.log('[CAO Daemon] Process exited with code:', code);
+      caoDaemonProcess = null;
+    });
+
+    return { status: 'running', source: 'embedded', executable, runtime: runtime.kind, port };
+  } catch (error: any) {
+    console.warn('[CAO Daemon] Launch exception:', error?.message);
+    return { status: 'error', message: error?.message };
+  }
+}
+
+type CaoCommandResult = { ok: boolean; output: string; error?: string };
+
+async function runCaoCommand(args: string[], cwd: string, timeoutMs = 15_000): Promise<CaoCommandResult> {
+  const runtime = await resolveCaoRuntime();
+  if (!runtime) return { ok: false, output: '', error: 'CAO CLI was not found.' };
+  const workingDirectory = runtime.kind === 'wsl' ? await wslPathFor(cwd) : cwd;
+  if (!workingDirectory) return { ok: false, output: '', error: `Could not map workspace into the CAO runtime: ${cwd}` };
+  const executable = runtime.executable;
+  const caoArgs = runtime.kind === 'wsl'
+    ? args.map((value, index) => args[index - 1] === '--working-directory' ? workingDirectory : value)
+    : args;
+  return new Promise((resolve) => {
+    let output = '';
+    let settled = false;
+    const finish = (result: CaoCommandResult) => {
+      if (!settled) { settled = true; resolve(result); }
+    };
+    try {
+      const isWsl = runtime.kind === 'wsl';
+      const commandArgs = isWsl
+        ? [...(runtime.distro ? ['-d', runtime.distro] : []), '--', '/bin/bash', '-lc', `${CAO_WSL_BOOTSTRAP} cd -- ${shellQuote(workingDirectory)}; exec cao ${caoArgs.map(shellQuote).join(' ')}`]
+        : caoArgs;
+      const child = spawn(executable, commandArgs, {
+        cwd: isWsl ? undefined : workingDirectory,
+        windowsHide: true,
+        shell: !isWsl && process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(executable),
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...nativeAgentEnvironment(), CAO_API_PORT: String(caoServerPort()) },
+      });
+      const timeout = setTimeout(() => {
+        try { child.kill(); } catch { /* ignore */ }
+        finish({ ok: false, output, error: `CAO command timed out after ${Math.round(timeoutMs / 1000)}s.` });
+      }, timeoutMs);
+      child.stdout?.on('data', (chunk) => { output += String(chunk); });
+      child.stderr?.on('data', (chunk) => { output += String(chunk); });
+      child.once('error', (error) => { clearTimeout(timeout); finish({ ok: false, output, error: error.message }); });
+      child.once('close', (code) => {
+        clearTimeout(timeout);
+        finish({ ok: code === 0, output, error: code === 0 ? undefined : (output.trim().slice(-1000) || `CAO exited with code ${code}.`) });
+      });
+    } catch (error: any) {
+      finish({ ok: false, output, error: error?.message || 'Unable to execute CAO command.' });
+    }
+  });
+}
+
+async function ensureCaoReady(cwd: string): Promise<boolean> {
+  if (!await resolveCaoRuntime()) return false;
+  if (await isCaoPortOpen()) return true;
+  const started = await startCaoDaemon();
+  if (started.status === 'error' || started.status === 'fallback') return false;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    if (await isCaoPortOpen()) return true;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  appendWorkspaceAgentLog(cwd, 'cao-runtime', 'cao_unavailable', { port: caoServerPort(), started });
+  return false;
+}
+
+function caoProvider(provider: AgentProvider): string {
+  if (provider === 'antigravity') return 'antigravity_cli';
+  return provider;
+}
+
+function stopCaoSessionPoller(sessionId: string) {
+  const poller = caoSessionPollers.get(sessionId);
+  if (poller) clearInterval(poller);
+  caoSessionPollers.delete(sessionId);
+}
+
+type CaoSessionStatus = {
+  state: string;
+  output: string;
+};
+
+function stripTerminalAnsi(value: string): string {
+  return value.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '').replace(/\r/g, '').trim();
+}
+
+function parseCaoSessionStatus(raw: string): CaoSessionStatus {
+  let data: any;
+  try {
+    data = JSON.parse(raw.trim());
+  } catch {
+    // CAO may prefix JSON with a warning (for example --yolo). Recover the
+    // final JSON object instead of forwarding the warning as agent output.
+    const objects = takeJsonObjects(raw).objects;
+    for (let index = objects.length - 1; index >= 0; index -= 1) {
+      try { data = JSON.parse(objects[index]); break; } catch { /* keep looking */ }
+    }
+  }
+  const conductor = data?.conductor || data;
+  const state = String(conductor?.status || data?.status || '').toLowerCase();
+  const outputs: string[] = [];
+  if (typeof conductor?.last_output === 'string' && conductor.last_output.trim()) {
+    outputs.push(stripTerminalAnsi(conductor.last_output));
+  }
+  if (Array.isArray(data?.workers)) {
+    for (const worker of data.workers) {
+      const output = typeof worker?.last_output === 'string' ? stripTerminalAnsi(worker.last_output) : '';
+      if (output) outputs.push(`[${worker.id || worker.name || 'worker'}]\n${output}`);
+    }
+  }
+  return { state, output: outputs.filter(Boolean).join('\n\n') };
+}
+
+function pollCaoSession(sessionId: string) {
+  const session = agentProcesses.get(sessionId);
+  if (!session?.caoSessionName) return stopCaoSessionPoller(sessionId);
+  void runCaoCommand(['session', 'status', session.caoSessionName, '--workers', '--json'], session.cwd, 10_000).then((result) => {
+    const current = agentProcesses.get(sessionId);
+    if (!current || !result.ok) return;
+    const status = parseCaoSessionStatus(result.output);
+    if (status.output && status.output !== current.caoLastOutput) {
+      const previous = current.caoLastOutput || '';
+      const delta = previous && status.output.startsWith(previous) ? status.output.slice(previous.length).trim() : status.output;
+      current.caoLastOutput = status.output;
+      if (delta) {
+        current.output = `${current.output}\n${delta}`.slice(-250000);
+        appendWorkspaceAgentLog(current.cwd, sessionId, 'cao_output', delta);
+        safeSend(win, 'agent-output', { sessionId, stream: 'stdout', text: `${delta}\n`, event: { type: 'cao.session.output', session: current.caoSessionName } });
+        persistSessionUpdate({ sessionId, output: current.output, caoSessionName: current.caoSessionName, caoLastOutput: current.caoLastOutput, status: 'running' });
+      }
+    }
+    current.caoLastStatus = status.state;
+    const normalized = status.state;
+    if (/^(error|failed|cancelled|completed|terminated|dead)$/.test(normalized)) {
+      const failed = /^(error|failed|cancelled|terminated|dead)$/.test(normalized);
+      stopCaoSessionPoller(sessionId);
+      persistSessionUpdate({ sessionId, status: failed ? 'failed' : 'completed', exitCode: failed ? 1 : 0, output: current.output, caoSessionName: current.caoSessionName, caoLastOutput: current.caoLastOutput });
+      agentProcesses.delete(sessionId);
+      safeSend(win, 'agent-exit', { sessionId, code: failed ? 1 : 0, signal: failed ? 'CAO_STATUS' : '' });
+    }
+  });
+}
+
+async function waitForCaoSession(sessionName: string, cwd: string): Promise<CaoCommandResult | null> {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const status = await runCaoCommand(['session', 'status', sessionName, '--json'], cwd, 5_000);
+    if (status.ok) return status;
+    await new Promise((resolve) => setTimeout(resolve, 750));
+  }
+  return null;
+}
+
+async function tryStartCaoAgent(payload: { provider: AgentProvider; cwd: string; prompt?: string; kind: 'task' | 'docs'; model?: string; executionPolicy: AgentExecutionPolicy }) {
+  if (!await ensureCaoReady(payload.cwd)) return null;
+  const suffix = `task-hub-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const sessionId = `cao-${suffix}`;
+  const stagedPrompt = stageAgentPrompt(payload.cwd, sessionId, payload.prompt);
+  const runtime = await resolveCaoRuntime();
+  const stagedPromptPath = path.join(workspaceAgentDirectory(payload.cwd), 'prompts', `${sessionId}.md`);
+  const caoPromptPath = runtime?.kind === 'wsl' ? await wslPathFor(stagedPromptPath) : stagedPromptPath;
+  const prompt = caoPromptPath ? stagedPrompt.replace(stagedPromptPath, caoPromptPath) : stagedPrompt;
+  const profile = process.env.TASK_HUB_CAO_PROFILE || 'code_supervisor';
+  const args = [
+    'launch', prompt,
+    '--agents', profile,
+    '--session-name', suffix,
+    '--provider', caoProvider(payload.provider),
+    '--headless', '--async', '--auto-approve',
+    '--working-directory', payload.cwd,
+  ];
+  if (payload.executionPolicy === 'full_access') args.push('--yolo');
+  // The CAO CLI can return an HTTP timeout while the detached supervisor is
+  // still being created. Treat a verifiably existing session as success so
+  // the UI does not report a false failure or lose the live CAO session.
+  const launched = await runCaoCommand(args, payload.cwd, 45_000);
+  let launchOutput = launched.output;
+  if (!launched.ok) {
+    const recovered = await waitForCaoSession(sessionId, payload.cwd);
+    if (!recovered) throw new Error(`CAO could not launch the ${profile} supervisor: ${launched.error || 'unknown error'}`);
+    launchOutput = `${launchOutput}\nCAO launch accepted; supervisor session is available.\n`.trim();
+  }
+
+  const session: AgentSession = {
+    provider: payload.provider,
+    model: payload.model,
+    cwd: payload.cwd,
+    mode: 'exec',
+    kind: payload.kind,
+    output: launchOutput,
+    events: [],
+    route: 'cao',
+    executionPolicy: payload.executionPolicy,
+    caoSessionName: sessionId,
+  };
+  agentProcesses.set(sessionId, session);
+  persistSessionUpdate({
+    sessionId, provider: payload.provider, model: payload.model, cwd: payload.cwd, mode: 'exec', kind: payload.kind,
+    status: 'running', startedAt: new Date().toISOString(), output: launchOutput, events: [], route: 'cao',
+    executionPolicy: payload.executionPolicy, caoSessionName: sessionId,
+  });
+  appendWorkspaceAgentLog(payload.cwd, sessionId, 'cao_session_started', { profile, provider: caoProvider(payload.provider), model: payload.model, execution_policy: payload.executionPolicy, cao_session: sessionId });
+  safeSend(win, 'agent-output', { sessionId, stream: 'event', text: `CAO supervisor ${profile} started (${sessionId}).\n`, event: { type: 'cao.session.started', session: sessionId, profile } });
+  const poller = setInterval(() => pollCaoSession(sessionId), 3_000);
+  caoSessionPollers.set(sessionId, poller);
+  pollCaoSession(sessionId);
+  return { mode: 'interactive' as const, sessionId, provider: payload.provider, model: payload.model, cwd: payload.cwd, capabilities: [...PROVIDER_CAPABILITIES[payload.provider], 'cao_supervisor', 'multi_agent'] };
+}
+
+function stopCaoDaemon() {
+  if (caoDaemonProcess) {
+    try {
+      console.log('[CAO Daemon] Terminating embedded daemon process...');
+      caoDaemonProcess.kill('SIGTERM');
+    } catch {
+      // ignore
+    }
+    caoDaemonProcess = null;
+  }
 }
 
 const DEFAULT_WIDTH = 640;
@@ -2160,6 +2541,28 @@ function createWindow() {
   ipcMain.handle('updater-get-state', () => updateState);
   ipcMain.handle('updater-check', async () => {
     return checkForUpdates();
+  });
+  ipcMain.handle('cao-get-status', async () => {
+    const port = caoServerPort();
+    const isRunning = await isCaoPortOpen(port);
+    const binary = resolveCaoExecutable();
+    const runtime = await resolveCaoRuntime();
+    const cli = runtime ? (runtime.kind === 'wsl' ? `WSL${runtime.distro ? ` (${runtime.distro})` : ''}: cao` : runtime.executable) : null;
+    return {
+      running: isRunning,
+      port,
+      cli,
+      available: Boolean(isRunning && runtime),
+      embeddedBinary: binary,
+      source: isRunning ? (caoDaemonProcess ? 'embedded' : 'external') : 'offline',
+    };
+  });
+  ipcMain.handle('cao-restart-daemon', async () => {
+    stopCaoDaemon();
+    // Re-probe after an operator installs CAO or changes the WSL distro while
+    // the desktop process is still open.
+    caoRuntime = undefined;
+    return await startCaoDaemon();
   });
   ipcMain.handle('agent-router-get', () => getPublicLocalRouterConfig());
   ipcMain.handle('agent-router-save', (_event, config: { enabled: boolean; apiKey?: string }) => saveLocalRouterConfig(config));
@@ -2613,13 +3016,19 @@ function formatAgyEvent(event: any): string {
   return '';
 }
 
-  const startInteractiveAgent = (_event: Electron.IpcMainInvokeEvent, { provider, cwd, prompt, kind = 'task', model, executionPolicy = 'workspace_write' }: { provider: AgentProvider; cwd: string; prompt?: string; kind?: 'task' | 'docs'; model?: string; executionPolicy?: AgentExecutionPolicy }) => {
+  const startInteractiveAgent = async (_event: Electron.IpcMainInvokeEvent, { provider, cwd, prompt, kind = 'task', model, executionPolicy = 'workspace_write' }: { provider: AgentProvider; cwd: string; prompt?: string; kind?: 'task' | 'docs'; model?: string; executionPolicy?: AgentExecutionPolicy }) => {
     const policy: AgentExecutionPolicy = executionPolicy === 'full_access' ? 'full_access' : executionPolicy === 'restricted' ? 'restricted' : 'workspace_write';
     const requestedModel = model && model !== 'default' ? String(model).trim() : undefined;
     const selectedModel = provider === 'antigravity'
       ? resolveAntigravityModelId(requestedModel)
       : requestedModel;
     const agentEnvironment = environmentForAgent(provider);
+
+    // CAO is the execution and communication layer whenever its official CLI
+    // and daemon are available. Native provider handlers remain a deliberate
+    // offline fallback, not a parallel orchestration path.
+    const caoSession = await tryStartCaoAgent({ provider, cwd, prompt, kind, model: selectedModel, executionPolicy: policy });
+    if (caoSession) return caoSession;
 
     if (provider === 'antigravity') {
         const agy = resolveCli('agy');
@@ -2666,40 +3075,38 @@ function formatAgyEvent(event: any): string {
         appendWorkspaceAgentLog(cwd, sessionId, 'session_started', { provider, model: selectedModel, kind, mode: 'exec', execution_policy: policy, route: agentEnvironment.route });
 
         let buffer = '';
+        const processAgyOutputLine = (line: string) => {
+          if (!line.trim()) return;
+          try {
+            const event = JSON.parse(line);
+            session.events = (session.events || []).concat(event);
+            appendWorkspaceAgentLog(session.cwd, sessionId, 'event', event);
+            if (event.event === 'init' && event.conversation_id) {
+              session.threadId = event.conversation_id;
+              persistSessionUpdate({ sessionId, threadId: event.conversation_id });
+            }
+            if (event.event === 'result' && event.result?.usage?.total_tokens) {
+              const total = Number(event.result.usage.total_tokens);
+              if (total > 0) recordTokenUsageToQuota('antigravity', total);
+            } else if (event.usage?.total_tokens) {
+              const total = Number(event.usage.total_tokens);
+              if (total > 0) recordTokenUsageToQuota('antigravity', total);
+            }
+            const formattedLine = formatAgyEvent(event);
+            if (formattedLine) session.output = `${session.output}${formattedLine}`.slice(-250000);
+            safeSend(win, 'agent-output', { sessionId, stream: 'event', event, text: formattedLine || '' });
+          } catch {
+            session.output = `${session.output}\n${line}`.slice(-250000);
+            appendWorkspaceAgentLog(session.cwd, sessionId, 'stdout', line);
+            extractAndRecordTokensFromText('antigravity', line);
+            safeSend(win, 'agent-output', { sessionId, stream: 'stdout', text: line });
+          }
+        };
         child.stdout.on('data', (chunk: Buffer) => {
           buffer += chunk.toString('utf8');
           const lines = buffer.split(/\r?\n/);
           buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            try {
-              const event = JSON.parse(line);
-              session.events = (session.events || []).concat(event);
-              appendWorkspaceAgentLog(session.cwd, sessionId, 'event', event);
-              if (event.event === 'init' && event.conversation_id) {
-                session.threadId = event.conversation_id;
-                persistSessionUpdate({ sessionId, threadId: event.conversation_id });
-              }
-              if (event.event === 'result' && event.result?.usage?.total_tokens) {
-                const total = Number(event.result.usage.total_tokens);
-                if (total > 0) recordTokenUsageToQuota('antigravity', total);
-              } else if (event.usage?.total_tokens) {
-                const total = Number(event.usage.total_tokens);
-                if (total > 0) recordTokenUsageToQuota('antigravity', total);
-              }
-              const formattedLine = formatAgyEvent(event);
-              if (formattedLine) {
-                session.output = `${session.output}${formattedLine}`.slice(-250000);
-              }
-              safeSend(win, 'agent-output', { sessionId, stream: 'event', event, text: formattedLine || '' });
-            } catch {
-              session.output = `${session.output}\n${line}`.slice(-250000);
-              appendWorkspaceAgentLog(session.cwd, sessionId, 'stdout', line);
-              extractAndRecordTokensFromText('antigravity', line);
-              safeSend(win, 'agent-output', { sessionId, stream: 'stdout', text: line });
-            }
-          }
+          for (const line of lines) processAgyOutputLine(line);
         });
 
         child.stderr.on('data', (chunk: Buffer) => {
@@ -2720,6 +3127,11 @@ function formatAgyEvent(event: any): string {
         });
 
         child.on('close', (code, signal) => {
+          // A stream-json producer is not required to end its final event
+          // with a newline. Process that buffered event before deriving the
+          // renderer's final status, otherwise a terminal error can vanish.
+          processAgyOutputLine(buffer);
+          buffer = '';
           appendWorkspaceAgentLog(session.cwd, sessionId, 'session_finished', { code, signal: String(signal || ''), eventCount: session.events?.length || 0 });
           persistSessionUpdate({
             sessionId,
@@ -3006,7 +3418,7 @@ function formatAgyEvent(event: any): string {
     return quota;
   });
 
-  ipcMain.on('agent-input', (_event, { sessionId, input }: { sessionId: string; input: string }) => {
+  ipcMain.on('agent-input', async (_event, { sessionId, input }: { sessionId: string; input: string }) => {
     let session = agentProcesses.get(sessionId);
     if (!session) {
       const saved = readAllSavedSessions().find((s) => s.sessionId === sessionId);
@@ -3020,12 +3432,33 @@ function formatAgyEvent(event: any): string {
           output: saved.output || '',
           threadId: saved.threadId,
           events: saved.events || [],
-          executionPolicy: saved.executionPolicy || 'restricted'
+          executionPolicy: saved.executionPolicy || 'restricted',
+          route: saved.route,
+          caoSessionName: saved.caoSessionName,
+          caoLastOutput: saved.caoLastOutput
         };
         agentProcesses.set(sessionId, session);
       }
     }
     if (!session || !input?.trim()) return;
+
+    if (session.route === 'cao' && session.caoSessionName) {
+      const sent = await runCaoCommand(['session', 'send', session.caoSessionName, input.trim(), '--async'], session.cwd, 15_000);
+      if (!sent.ok) {
+        const text = `CAO could not deliver the message: ${sent.error || 'unknown error'}`;
+        session.output = `${session.output}\n${text}`.slice(-250000);
+        appendWorkspaceAgentLog(session.cwd, sessionId, 'cao_message_failed', text);
+        safeSend(win, 'agent-output', { sessionId, stream: 'stderr', text });
+        return;
+      }
+      const text = `\n> User → CAO supervisor: ${input.trim()}\n`;
+      session.output = `${session.output}${text}`.slice(-250000);
+      appendWorkspaceAgentLog(session.cwd, sessionId, 'cao_message_sent', { session: session.caoSessionName, input: input.trim() });
+      persistSessionUpdate({ sessionId, status: 'running', output: session.output, caoSessionName: session.caoSessionName });
+      safeSend(win, 'agent-output', { sessionId, stream: 'user', text, event: { type: 'user_message', text: input.trim() } });
+      pollCaoSession(sessionId);
+      return;
+    }
 
     if (session.provider === 'codex' && session.threadId) {
       const command = resolveCli('codex') || 'codex';
@@ -3196,6 +3629,16 @@ function formatAgyEvent(event: any): string {
   ipcMain.handle('agent-stop', (_event, sessionId: string) => {
     const session = agentProcesses.get(sessionId);
     if (!session) return false;
+    if (session.route === 'cao' && session.caoSessionName) {
+      stopCaoSessionPoller(sessionId);
+      void runCaoCommand(['shutdown', '--session', session.caoSessionName], session.cwd, 15_000).then((result) => {
+        appendWorkspaceAgentLog(session.cwd, sessionId, result.ok ? 'cao_session_stopped' : 'cao_session_stop_failed', result.ok ? { session: session.caoSessionName } : { error: result.error });
+      });
+      persistSessionUpdate({ sessionId, status: 'interrupted', output: session.output, caoSessionName: session.caoSessionName });
+      agentProcesses.delete(sessionId);
+      safeSend(win, 'agent-exit', { sessionId, code: 0, signal: 'CAO_SHUTDOWN' });
+      return true;
+    }
     if (session.process) {
       if ('kill' in session.process) session.process.kill();
     }
@@ -3282,6 +3725,7 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   setupAutoUpdater();
+  void startCaoDaemon();
   setTimeout(() => {
     void checkForUpdates();
   }, 10_000);
@@ -3325,6 +3769,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  stopCaoDaemon();
   if (updateTimer) clearInterval(updateTimer);
   if (quotaSyncTimer) clearInterval(quotaSyncTimer);
   for (const session of agentProcesses.values()) session.process?.kill();

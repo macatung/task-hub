@@ -20,8 +20,9 @@ describe('buildAutoHandoffPayload', () => {
     expect(payload?.tests).toBe('Agent process exited with code 0');
   });
 
-  it('does not submit failed or sandbox-blocked runs', () => {
+  it('does not submit failed, sandbox-blocked, or agent-blocked runs', () => {
     expect(buildAutoHandoffPayload({ output: 'Process exited (1)', taskTitle: 'Task', exitCode: 1 })).toBeNull();
     expect(buildAutoHandoffPayload({ output: 'sandbox startup failure', taskTitle: 'Task', exitCode: 0 })).toBeNull();
+    expect(buildAutoHandoffPayload({ output: 'I encountered a blocking error when attempting to access the instructions in the prompt file.', taskTitle: 'Task', exitCode: 0 })).toBeNull();
   });
 });

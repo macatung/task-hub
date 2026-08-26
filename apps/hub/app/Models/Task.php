@@ -16,6 +16,7 @@ class Task extends Model
     protected $fillable = [
         'project_id',
         'workspace_id',
+        'client_request_id',
         'issue_key',
         'issue_type', // 'epic', 'story', 'task', 'bug'
         'title',

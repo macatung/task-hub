@@ -1,14 +1,12 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap');
 
-/* Hub ↔ local AI control center. Keep these tokens in lockstep with the Hub's
-   `.tasks-page.minimal-theme.dark` graphite / copper visual system. */
-html, body, #app { width: 100%; height: 100%; margin: 0; }
-.cc-shell {
+/* Hub graphite/copper dark mode baseline */
+:root {
   --cc-canvas: #151514;
   --cc-surface: #1f1f1d;
   --cc-surface-muted: #282724;
   --cc-line: #514c45;
-  --cc-line-soft: #3c3934;
   --cc-ink: #f7f3ed;
   --cc-muted: #c2bbb1;
   --cc-accent: #e09a70;
@@ -17,8 +15,32 @@ html, body, #app { width: 100%; height: 100%; margin: 0; }
   --cc-accent-line: #966044;
   --cc-success: #a9bea4;
   --cc-success-soft: #2b382b;
-  --cc-danger: #f7b5b0;
-  --cc-danger-soft: #452329;
+}
+
+/* AgentsRoom & Task Hub Visual System: Warm Charcoal (#12100E) & Glowing Amber/Orange (#F97316) */
+html, body, #app { width: 100%; height: 100%; margin: 0; }
+.cc-shell {
+  --cc-canvas: #100e0d;
+  --cc-surface: #171412;
+  --cc-surface-muted: #1f1b18;
+  --cc-surface-elevated: #29241f;
+  --cc-line: #38312a;
+  --cc-line-soft: #27221d;
+  --cc-ink: #f7f3ed;
+  --cc-muted: #a69d91;
+  --cc-accent: #f97316;
+  --cc-accent-strong: #ea580c;
+  --cc-accent-soft: rgba(249, 115, 22, 0.16);
+  --cc-accent-line: rgba(249, 115, 22, 0.5);
+  --cc-cyan: #06b6d4;
+  --cc-cyan-soft: rgba(6, 182, 212, 0.15);
+  --cc-cyan-line: #0891b2;
+  --cc-success: #10b981;
+  --cc-success-soft: rgba(16, 185, 129, 0.16);
+  --cc-danger: #f87171;
+  --cc-danger-soft: rgba(248, 113, 113, 0.16);
+  --cc-purple: #a855f7;
+  --cc-purple-soft: rgba(168, 85, 247, 0.16);
   height: 100%;
   min-width: 900px;
   display: flex;
@@ -27,7 +49,37 @@ html, body, #app { width: 100%; height: 100%; margin: 0; }
   color-scheme: dark;
   background: var(--cc-canvas);
   color: var(--cc-ink);
-  font-family: "Segoe UI Variable", "Inter", Arial, sans-serif;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+.cc-workspace-grid {
+  display: grid !important;
+  grid-template-columns: 340px minmax(0, 1fr) auto !important;
+  min-height: 0 !important;
+  flex: 1 1 0% !important;
+  overflow: hidden !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+.cc-sidebar {
+  width: 340px !important;
+  min-width: 340px !important;
+  max-width: 340px !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  background-color: #12100e !important;
+  border-right: 1px solid #26201a !important;
+}
+/* Performance & GPU Accelerated Scrolling */
+.overflow-y-auto, .overflow-x-auto, .overflow-auto {
+  transform: translateZ(0);
+  will-change: scroll-position;
+  contain: paint;
+}
+.font-mono, pre, code, .cc-terminal {
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace !important;
 }
 .cc-titlebar {
   min-height: 4rem;
@@ -77,19 +129,71 @@ html, body, #app { width: 100%; height: 100%; margin: 0; }
   .cc-titlebar__actions { gap: .35rem; }
   .cc-connection-state { display: none; }
 }
-.cc-button, .cc-primary, .cc-danger, .cc-select, .cc-input { -webkit-app-region: no-drag; border-radius: .375rem; font-size: .75rem; line-height: 1rem; transition: background-color .15s, border-color .15s; }
+.cc-button, .cc-primary, .cc-danger, .cc-select, .cc-input { -webkit-app-region: no-drag; border-radius: 9999px; font-size: .75rem; line-height: 1rem; transition: all .15s ease-in-out; }
 .cc-button, .cc-primary, .cc-danger { white-space: nowrap; min-width: max-content; }
 .cc-toolbar { overflow-x: auto; white-space: nowrap; padding-bottom: 1px; }
-.cc-button { border: 1px solid var(--cc-line); background: var(--cc-surface-muted); padding: .45rem .65rem; color: var(--cc-ink); }
-.cc-button:hover { background: #34312d; border-color: var(--cc-accent-line); }
+.cc-button { border: 1px solid var(--cc-line); background: var(--cc-surface-muted); padding: .4rem .75rem; color: var(--cc-ink); }
+.cc-button:hover { background: var(--cc-surface-elevated); border-color: var(--cc-accent-line); color: #fff; }
 .cc-button:disabled, .cc-primary:disabled { cursor: not-allowed; opacity: .5; }
-.cc-shell button[data-action-pending="true"] { cursor: wait; opacity: .72; pointer-events: none; }
-.cc-shell button[data-action-pending="true"]::after { content: ' Processing…'; display: inline-block; margin-left: .35rem; font-weight: 500; }
-.cc-primary { border: 1px solid var(--cc-accent-line); background: var(--cc-accent); padding: .45rem .7rem; color: #211f1c; font-weight: 700; }
-.cc-primary:hover { background: var(--cc-accent-strong); border-color: var(--cc-accent-strong); }
-.cc-danger { border: 1px solid #8b4b4c; background: var(--cc-danger-soft); padding: .45rem .7rem; color: var(--cc-danger); }
-.cc-select, .cc-input { width: 100%; border: 1px solid var(--cc-line); background: var(--cc-surface); padding: .45rem .55rem; color: var(--cc-ink); outline: none; }
-.cc-select:focus, .cc-input:focus { border-color: var(--cc-accent); box-shadow: 0 0 0 2px rgb(224 154 112 / .2); }
+.cc-shell button[data-action-pending="true"] {
+  cursor: wait;
+  opacity: .85;
+  pointer-events: none;
+  position: relative;
+  transition: opacity .15s ease, transform .12s ease;
+}
+.cc-shell button[data-action-pending="true"]::after {
+  content: '';
+  display: inline-block;
+  width: .625rem;
+  height: .625rem;
+  margin-left: .35rem;
+  vertical-align: -0.05rem;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 9999px;
+  animation: ccSpin .65s linear infinite;
+}
+.cc-shell button[data-action-pending="true"].grid::after,
+.cc-shell button[data-action-pending="true"][class*="place-items-center"]::after {
+  display: none;
+}
+.cc-shell button[data-action-pending="true"].grid,
+.cc-shell button[data-action-pending="true"][class*="place-items-center"] {
+  animation: ccPulseSubtle .8s ease-in-out infinite alternate;
+}
+@keyframes ccSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes ccPulseSubtle {
+  0% { opacity: .65; transform: scale(0.96); }
+  100% { opacity: .95; transform: scale(1.02); }
+}
+.cc-primary { border: 1px solid var(--cc-accent-strong); background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); padding: .45rem .85rem; color: #171412; font-weight: 700; box-shadow: 0 4px 14px rgba(249, 115, 22, 0.35); }
+.cc-primary:hover { background: linear-gradient(135deg, #fb923c 0%, #f97316 100%); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(249, 115, 22, 0.45); }
+.cc-danger { border: 1px solid #8b4b4c; background: var(--cc-danger-soft); padding: .45rem .75rem; color: var(--cc-danger); }
+.cc-select, .cc-input { width: 100%; border: 1px solid var(--cc-line); background: var(--cc-surface); padding: .45rem .65rem; color: var(--cc-ink); outline: none; border-radius: .625rem; }
+.cc-select:focus, .cc-input:focus { border-color: var(--cc-accent); box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25); }
+
+/* AgentsRoom Glow & Pill Cards */
+.cc-glow-orange {
+  border-color: rgba(249, 115, 22, 0.85) !important;
+  box-shadow: 0 0 16px -2px rgba(249, 115, 22, 0.35), inset 0 0 12px rgba(249, 115, 22, 0.08) !important;
+}
+.cc-glow-cyan {
+  border-color: rgba(6, 182, 212, 0.85) !important;
+  box-shadow: 0 0 16px -2px rgba(6, 182, 212, 0.35), inset 0 0 12px rgba(6, 182, 212, 0.08) !important;
+}
+.cc-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  border-radius: 9999px;
+  padding: .2rem .55rem;
+  font-size: .6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
 
 /* Dark hierarchy for the intentionally small Control Center component set. */
 .cc-shell .bg-white { background-color: var(--cc-surface) !important; }

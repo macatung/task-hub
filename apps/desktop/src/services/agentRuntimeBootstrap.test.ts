@@ -21,6 +21,9 @@ describe('agent CLI bootstrap and recovery', () => {
     expect(mainSource).toContain("ipcMain.handle('agent-bootstrap-runtimes'");
     expect(mainSource).toContain('function verifyCliExecutable');
     expect(mainSource).toContain("spawn(executable, ['--version']");
+    expect(mainSource).toContain('function quoteWindowsCommandArgument');
+    expect(mainSource).toContain("spawn(process.env.ComSpec || 'cmd.exe'");
+    expect(mainSource).toContain('call ${quoteWindowsCommandArgument(executable)}');
     expect(mainSource).toContain('void bootstrapAgentRuntimes()');
     expect(preloadSource).toContain("bootstrapRuntimes: () => ipcRenderer.invoke('agent-bootstrap-runtimes')");
     expect(settingsSource).toContain('Fix environment');

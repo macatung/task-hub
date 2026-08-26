@@ -44,6 +44,7 @@ class Project extends Model
         'github_token',
         'github_webhook_secret',
         'task_hub_mcp_token',
+        'task_hub_mcp_token_hash',
         'type', // legacy storage field; SaaS projects no longer expose work/personal categories
     ];
 

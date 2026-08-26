@@ -98,12 +98,23 @@ class ApiTaskController extends Controller
             $validated["due_date"] = Carbon::today()->toDateString();
         }
 
-        if ($request->user()) {
-            $workspace = app(WorkspaceContext::class)->resolve($request);
-            $project = Project::where('workspace_id', $workspace->id)->findOrFail($validated['project_id']);
-            $desktopProject = $request->attributes->get('desktop_project');
-            if ($desktopProject) abort_unless((int) $desktopProject->id === (int) $project->id, 403, 'Desktop credential is scoped to another project.');
-            $validated['workspace_id'] = $workspace->id;
+        $desktopProject = $request->attributes->get('desktop_project');
+        $workspace = $request->user()
+            ? app(WorkspaceContext::class)->resolve($request)
+            : $desktopProject?->workspace;
+        abort_unless($workspace, 401, 'An authenticated workspace principal is required.');
+        $project = Project::where('workspace_id', $workspace->id)->findOrFail($validated['project_id']);
+        if ($desktopProject) abort_unless((int) $desktopProject->id === (int) $project->id, 403, 'Desktop credential is scoped to another project.');
+        $validated['workspace_id'] = $workspace->id;
+
+        $clientRequestId = trim((string) $request->header('X-Idempotency-Key'));
+        if ($clientRequestId !== '') {
+            abort_if(mb_strlen($clientRequestId) > 128, 422, 'X-Idempotency-Key is too long.');
+            $existing = Task::where('project_id', $project->id)->where('client_request_id', $clientRequestId)->first();
+            if ($existing) {
+                return response()->json(['success' => true, 'message' => 'Task already created.', 'data' => $existing]);
+            }
+            $validated['client_request_id'] = $clientRequestId;
         }
 
         $dependencyIds = array_values(array_unique($validated['depends_on_task_ids'] ?? []));

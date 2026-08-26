@@ -10,6 +10,7 @@ use App\Services\TaskHubContextPackService;
 use Illuminate\Http\Request;
 use App\Services\GithubProjectIntegrationService;
 use App\Services\SmartProjectBreakdownService;
+use App\Services\AgentCollaborationService;
 
 class TaskHubMcpController extends \App\Http\Controllers\Controller
 {
@@ -98,6 +99,12 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
             ['name' => 'update_agent_run', 'description' => 'Update agent lifecycle, repository references, and review metadata.', 'inputSchema' => ['type' => 'object', 'properties' => ['run_id' => ['type' => 'integer'], 'status' => ['type' => 'string'], 'summary' => ['type' => 'string'], 'metadata' => ['type' => 'object']], 'required' => ['run_id']]],
             ['name' => 'attach_verification_evidence', 'description' => 'Attach test/build/security evidence to an agent run.', 'inputSchema' => ['type' => 'object', 'properties' => ['run_id' => ['type' => 'integer'], 'evidence_type' => ['type' => 'string'], 'status' => ['type' => 'string'], 'command' => ['type' => 'string'], 'summary' => ['type' => 'string']], 'required' => ['run_id', 'evidence_type', 'status']]],
             ['name' => 'complete_agent_handoff', 'description' => 'Atomically submit a structured handoff with test evidence, independent review metadata, and an optional changed-file list, then request human review.', 'inputSchema' => ['type' => 'object', 'properties' => ['run_id' => ['type' => 'integer'], 'summary' => ['type' => 'string'], 'changed_files' => ['type' => 'array', 'items' => ['type' => 'string']], 'tests' => ['type' => 'array'], 'commit_sha' => ['type' => 'string'], 'pull_request_url' => ['type' => 'string'], 'blockers' => ['type' => 'string'], 'review' => ['type' => 'object']], 'required' => ['run_id', 'summary', 'changed_files', 'tests']]],
+            ['name' => 'agents_register', 'description' => 'Register or refresh a durable agent identity for a project.', 'inputSchema' => ['type' => 'object', 'properties' => ['project_id' => ['type' => 'integer'], 'agent_key' => ['type' => 'string'], 'name' => ['type' => 'string'], 'role' => ['type' => 'string'], 'provider' => ['type' => 'string'], 'model' => ['type' => 'string']], 'required' => ['project_id', 'agent_key', 'name']]],
+            ['name' => 'agents_list_live', 'description' => 'Read the project agent roster, live state and unread inbox counts.', 'inputSchema' => ['type' => 'object', 'properties' => ['project_id' => ['type' => 'integer']], 'required' => ['project_id']]],
+            ['name' => 'agents_send', 'description' => 'Persist a message for another project agent; delivery is asynchronous.', 'inputSchema' => ['type' => 'object', 'properties' => ['project_id' => ['type' => 'integer'], 'from_agent_key' => ['type' => 'string'], 'to_agent_key' => ['type' => 'string'], 'subject' => ['type' => 'string'], 'body' => ['type' => 'string'], 'thread_id' => ['type' => 'string'], 'payload' => ['type' => 'object']], 'required' => ['project_id', 'from_agent_key', 'to_agent_key', 'subject', 'body']]],
+            ['name' => 'agents_read_inbox', 'description' => 'Read an agent inbox. Set peek to avoid marking messages as read.', 'inputSchema' => ['type' => 'object', 'properties' => ['project_id' => ['type' => 'integer'], 'agent_key' => ['type' => 'string'], 'peek' => ['type' => 'boolean']], 'required' => ['project_id', 'agent_key']]],
+            ['name' => 'agents_ack', 'description' => 'Acknowledge a received message as accepted, declined or done.', 'inputSchema' => ['type' => 'object', 'properties' => ['project_id' => ['type' => 'integer'], 'agent_key' => ['type' => 'string'], 'message_id' => ['type' => 'integer'], 'status' => ['type' => 'string', 'enum' => ['accepted', 'declined', 'done']], 'note' => ['type' => 'string']], 'required' => ['project_id', 'agent_key', 'message_id', 'status']]],
+            ['name' => 'agents_report_status', 'description' => 'Report an agent phase or blocker for the live cockpit.', 'inputSchema' => ['type' => 'object', 'properties' => ['project_id' => ['type' => 'integer'], 'agent_key' => ['type' => 'string'], 'status' => ['type' => 'string', 'enum' => ['idle', 'working', 'waiting', 'blocked', 'offline']], 'summary' => ['type' => 'string'], 'run_id' => ['type' => 'integer']], 'required' => ['project_id', 'agent_key', 'status']]],
             ['name' => 'request_human_approval', 'description' => 'Request human approval after evidence is attached.', 'inputSchema' => ['type' => 'object', 'properties' => ['task_id' => ['type' => 'integer']], 'required' => ['task_id']]],
             ['name' => 'reject_task', 'description' => 'Reject a task review and request changes with feedback.', 'inputSchema' => ['type' => 'object', 'properties' => ['task_id' => ['type' => 'integer'], 'reason' => ['type' => 'string']], 'required' => ['task_id', 'reason']]],
             ['name' => 'reject_work_item', 'description' => 'Reject a task work item review and request changes with feedback.', 'inputSchema' => ['type' => 'object', 'properties' => ['task_id' => ['type' => 'integer'], 'reason' => ['type' => 'string']], 'required' => ['task_id', 'reason']]],
@@ -246,6 +253,7 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
         $planningService = app(SmartProjectBreakdownService::class);
         $githubService = app(GithubProjectIntegrationService::class);
         $runController = app(ApiAgentRunController::class);
+        $collaboration = app(AgentCollaborationService::class);
 
         $data = match ($name) {
             'get_work_item' => $this->resolveTask($args['task_id'] ?? null),
@@ -267,6 +275,12 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
             'update_agent_run' => $runController->update(Request::create('/', 'PATCH', $args), $this->resolveAgentRun($args))->getData(true),
             'attach_verification_evidence' => $runController->evidence(Request::create('/', 'POST', $args), $this->resolveAgentRun($args))->getData(true),
             'complete_agent_handoff' => $runController->handoff(Request::create('/', 'POST', $args), $this->resolveAgentRun($args))->getData(true),
+            'agents_register' => ['success' => true, 'data' => $collaboration->register($args)],
+            'agents_list_live' => ['success' => true, 'data' => $collaboration->roster((int) $args['project_id'])],
+            'agents_send' => ['success' => true, 'data' => $collaboration->send($args)],
+            'agents_read_inbox' => ['success' => true, 'data' => $collaboration->inbox((int) $args['project_id'], (string) $args['agent_key'], (bool) ($args['peek'] ?? false))],
+            'agents_ack' => ['success' => true, 'data' => $collaboration->acknowledge($args)],
+            'agents_report_status' => ['success' => true, 'data' => $collaboration->reportStatus($args)],
             'request_human_approval' => $runController->approve($this->resolveTask($args['task_id'] ?? null))->getData(true),
             'reject_task', 'reject_work_item' => $runController->reject(Request::create('/', 'POST', ['reason' => $args['reason'] ?? 'Yêu cầu bổ sung']), $this->resolveTask($args['task_id'] ?? null))->getData(true),
             'get_next_action' => $this->getNextAction($request, $payload),
@@ -388,10 +402,7 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
         if ($projectId) {
             $query->where('project_id', $projectId);
         } else {
-            $integration = app(GithubProjectIntegrationService::class);
-            $matchedProject = Project::whereNotNull('task_hub_mcp_token')->get()->first(function ($p) use ($integration, $provided) {
-                return $integration->secret($p->task_hub_mcp_token) === $provided;
-            });
+            $matchedProject = Project::where('task_hub_mcp_token_hash', hash('sha256', $provided))->first();
             if ($matchedProject) {
                 $query->where('project_id', $matchedProject->id);
             }
@@ -493,10 +504,7 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
 
             $integration = app(GithubProjectIntegrationService::class);
 
-            $matchedProject = Project::whereNotNull('task_hub_mcp_token')->get()->first(function ($p) use ($integration, $provided) {
-                $decrypted = $integration->secret($p->task_hub_mcp_token);
-                return ($decrypted && hash_equals($decrypted, $provided)) || hash_equals($p->task_hub_mcp_token, $provided);
-            });
+            $matchedProject = Project::where('task_hub_mcp_token_hash', hash('sha256', $provided))->first();
 
             if ($matchedProject) {
                 // A project token is a principal for exactly one project. Do
@@ -511,7 +519,7 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
 
             if ($project && $project->task_hub_mcp_token) {
                 $decrypted = $integration->secret($project->task_hub_mcp_token);
-                return ($decrypted && hash_equals($decrypted, $provided)) || hash_equals($project->task_hub_mcp_token, $provided);
+                return $decrypted && hash_equals($decrypted, $provided);
             }
 
             return false;

@@ -3,7 +3,7 @@ import controlCenterSource from './ControlCenter.vue?raw';
 
 describe('ControlCenter user action feedback integration', () => {
   it('integrates useActionFeedback and binds immediate toasts for all actions', () => {
-    expect(controlCenterSource).toContain("import { useActionFeedback } from '../composables/useActionFeedback'");
+    expect(controlCenterSource).toMatch(/import\s+\{\s*useActionFeedback\s*\}\s+from\s+["']\.\.\/composables\/useActionFeedback["']/);
     expect(controlCenterSource).toContain('startOperation');
     expect(controlCenterSource).toContain('finishOperation');
     expect(controlCenterSource).toContain('notify(');
@@ -11,22 +11,22 @@ describe('ControlCenter user action feedback integration', () => {
 
   it('provides explicit immediate feedback on task selection, workspace choosing, and launching', () => {
     // Task selection feedback
-    expect(controlCenterSource).toContain("notify({ type: 'info', title: 'Đã chọn nhiệm vụ'");
+    expect(controlCenterSource).toMatch(/notify\(\s*\{\s*type:\s*["']info["'],\s*title:\s*["']Đã chọn nhiệm vụ["']/);
     // Workspace selection feedback
-    expect(controlCenterSource).toContain("notify({ type: 'info', title: 'Chọn thư mục dự án'");
+    expect(controlCenterSource).toMatch(/notify\(\s*\{\s*type:\s*["']info["'],\s*title:\s*["']Chọn thư mục dự án["']/);
     // Agent launch feedback
-    expect(controlCenterSource).toContain("startOperation('agent-run', 'Đã ghi nhận lệnh chạy'");
+    expect(controlCenterSource).toMatch(/startOperation\(\s*["']agent-run["'],\s*["']Đã ghi nhận lệnh chạy["']/);
     // Agent cancellation feedback
-    expect(controlCenterSource).toContain("notify({ type: 'warning', title: 'Đang hủy phiên chạy'");
+    expect(controlCenterSource).toMatch(/notify\(\s*\{\s*type:\s*["']warning["'],\s*title:\s*["']Đang hủy phiên chạy["']/);
     // Follow-up message feedback
-    expect(controlCenterSource).toContain("notify({ type: 'info', title: 'Đã gửi tin nhắn đến Agent'");
+    expect(controlCenterSource).toMatch(/notify\(\s*\{\s*type:\s*["']info["'],\s*title:\s*["']Đã gửi tin nhắn đến Agent["']/);
   });
 
   it('provides feedback during requirement discovery and docs workflows', () => {
-    expect(controlCenterSource).toContain("startOperation('req-run', 'Đang phân tích yêu cầu'");
-    expect(controlCenterSource).toContain("startOperation('create-backlog', 'Đang tạo Backlog trên Hub'");
-    expect(controlCenterSource).toContain("startOperation('docs-scan', 'Đang quét tài liệu'");
-    expect(controlCenterSource).toContain("startOperation('sync-docs', 'Đang đồng bộ tài liệu lên Hub'");
+    expect(controlCenterSource).toMatch(/startOperation\(\s*["']req-run["'],\s*["']Đang phân tích yêu cầu["']/);
+    expect(controlCenterSource).toMatch(/startOperation\(\s*["']create-backlog["'],\s*["']Đang tạo Backlog trên Hub["']/);
+    expect(controlCenterSource).toMatch(/startOperation\(\s*["']docs-scan["'],\s*["']Đang quét tài liệu["']/);
+    expect(controlCenterSource).toMatch(/startOperation\(\s*["']sync-docs["'],\s*["']Đang đồng bộ tài liệu lên Hub["']/);
   });
 
   it('includes ActivityTimelineDrawer for complete audit trail visibility', () => {

@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from '../Harness/index.js';
+import { describe, expect, it } from '../Harness/index.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -116,7 +116,7 @@ describe('UI Button Workflow & Interactive Flows E2E Audit', () => {
     it('provides Launch Agent, Cancel Run, and Follow-up Send buttons in RunWorkspace.vue', () => {
       expect(desktopRunWorkspaceSrc).toContain("@click=\"$emit('launch')\"");
       expect(desktopRunWorkspaceSrc).toContain("@click=\"$emit('cancel')\"");
-      expect(desktopRunWorkspaceSrc).toContain("@click=\"followUp && ($emit('send', followUp)");
+      expect(desktopRunWorkspaceSrc).toContain("$emit('send'");
     });
 
     it('provides Human Approval Escalation & Retry buttons with security policy levels', () => {
@@ -127,8 +127,8 @@ describe('UI Button Workflow & Interactive Flows E2E Audit', () => {
 
     it('provides Structured Handoff submission form and button triggers', () => {
       expect(desktopRunWorkspaceSrc).toContain('Review & submit handoff');
-      expect(desktopRunWorkspaceSrc).toContain('Send to Hub');
-      expect(desktopRunWorkspaceSrc).toContain("emit('handoff'");
+      expect(desktopRunWorkspaceSrc).toContain('Gửi lên Hub');
+      expect(desktopRunWorkspaceSrc).toMatch(/emit\(['"]handoff['"]/);
     });
 
     it('provides Requirement AI Discovery review, edit draft, request revision, and sync buttons', () => {

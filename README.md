@@ -85,15 +85,25 @@ npm --workspace apps/desktop run build
 
 ---
 
-## 🤖 Điều phối Local AI Agents
+## 🤖 Điều phối Local AI Agents qua CAO
 
-Ứng dụng **Task Companion** cho phép kết nối trực tiếp với các công cụ AI coding đã cài sẵn trên máy mà **không cần cấu hình API key mô hình trên Hub server**:
+Task Companion ưu tiên **AWS Labs CLI Agent Orchestrator (CAO)** làm execution và communication layer. Task Hub vẫn là nguồn dữ liệu chuẩn cho task, evidence và human approval; CAO quản lý supervisor/worker, MCP inter-agent messaging và session lifecycle. Khi CAO không khả dụng, Desktop hiển thị rõ trạng thái **Native fallback** và dùng provider CLI cục bộ.
 
-1. **Antigravity 2.0 IDE:** Tự động thiết lập cấu hình MCP `.agents/mcp_config.json` vào workspace repository, nạp context pack và đồng bộ verification evidence.
-2. **Codex CLI / Claude Code:** Mở phiên làm việc độc lập trong thư mục được cô lập, stream output thời gian thực và quản lý lifecycle task.
+1. Cài CAO theo [hướng dẫn chính thức](https://awslabs.github.io/cli-agent-orchestrator/docs/getting-started/installation/), sau đó cài profile supervisor mặc định:
+
+```bash
+uv tool install cli-agent-orchestrator
+cao install code_supervisor
+cao-server
+```
+
+2. Mở Task Companion. Khi `cao` và `cao-server` hoạt động tại `localhost:9889`, mọi lần chạy mới được khởi tạo bằng `cao launch --agents code_supervisor`; follow-up và cancel được chuyển lần lượt qua `cao session send` và `cao shutdown`.
+3. Các provider được map qua CAO: `codex` → `codex`, `claude_code` → `claude_code`, `antigravity` → `antigravity_cli`. Đặt `TASK_HUB_CAO_PROFILE` nếu dùng profile supervisor khác, hoặc `CAO_SERVER_PORT` khi chạy daemon ở port khác.
+
+CAO cần một runtime có `tmux` theo yêu cầu của dự án CAO. Trên Windows, Desktop tự phát hiện `cao` trong WSL và chuyển đường dẫn worktree sang định dạng WSL; có thể chọn distro bằng `TASK_HUB_CAO_WSL_DISTRO` (mặc định là distro WSL mặc định). Cài CAO và các provider CLI trong cùng distro đó. Desktop không tự cài hoặc cấp quyền `--yolo`; cờ này chỉ được gửi sau khi người dùng đã chọn **Full access** trong Task Companion.
 
 ```powershell
-# Đảm bảo các CLI có sẵn trong PATH nếu dùng provider tương ứng:
+# Kiểm tra provider CLI trong môi trường CAO:
 codex --version
 claude --version
 agy --version

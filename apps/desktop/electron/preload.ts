@@ -134,4 +134,8 @@ contextBridge.exposeInMainWorld('desktopApi', {
       return () => ipcRenderer.removeListener('agent-quota-updated', listener);
     },
   },
+  cao: {
+    getStatus: () => ipcRenderer.invoke('cao-get-status'),
+    restartDaemon: () => ipcRenderer.invoke('cao-restart-daemon'),
+  },
 });

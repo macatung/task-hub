@@ -95,7 +95,9 @@ class DesktopPairingController extends Controller
         abort_unless((int) $project->workspace_id === (int) $workspace->id, 403, 'Project does not belong to the active workspace.');
 
         if (!$project->task_hub_mcp_token) {
-            $project->task_hub_mcp_token = Crypt::encryptString(Str::random(64));
+            $token = Str::random(64);
+            $project->task_hub_mcp_token = Crypt::encryptString($token);
+            $project->task_hub_mcp_token_hash = hash('sha256', $token);
             $project->save();
         }
         $session->update(['status' => 'approved', 'user_id' => Auth::id(), 'workspace_id' => $workspace->id, 'project_id' => $project->id, 'approved_at' => now()]);

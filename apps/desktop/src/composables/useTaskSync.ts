@@ -74,6 +74,14 @@ export interface DailyReviewData {
   wisdom_quote: string;
 }
 
+type PendingSyncOperation = {
+  id: string;
+  method: 'POST' | 'PATCH';
+  path: string;
+  body: Record<string, unknown>;
+  temporaryTaskId?: number;
+};
+
 /** Keep completed tasks visible when a prerequisite regresses so desktop can
  * surface the required human reconsideration instead of hiding the warning. */
 const needsDependencyReview = (task: TaskItem, allTasks: TaskItem[]) => {
@@ -130,6 +138,7 @@ export function useTaskSync() {
   const connectionError = ref('');
 
   const cacheKey = () => `task_hub_desktop_synced_tasks:${credential.value?.projectId || 'offline'}`;
+  const outboxKey = () => `task_hub_desktop_outbox:${credential.value?.projectId || 'offline'}`;
   const apiUrl = (suffix = '') => `${(credential.value?.taskHubUrl || DEFAULT_TASK_HUB_URL).replace(/\/$/, '')}/api/v1/desktop/tasks${suffix}`;
   const projectsUrl = () => `${(credential.value?.taskHubUrl || DEFAULT_TASK_HUB_URL).replace(/\/$/, '')}/api/v1/desktop/projects`;
   const authHeaders = (): Record<string, string> => credential.value ? {
@@ -156,6 +165,64 @@ export function useTaskSync() {
     } catch (e) {
       console.warn('Local task save error:', e);
     }
+  };
+
+  const readOutbox = (): PendingSyncOperation[] => {
+    try {
+      const value = JSON.parse(localStorage.getItem(outboxKey()) || '[]');
+      return Array.isArray(value) ? value : [];
+    } catch { return []; }
+  };
+
+  const writeOutbox = (operations: PendingSyncOperation[]) => {
+    localStorage.setItem(outboxKey(), JSON.stringify(operations));
+  };
+
+  const enqueueSync = (operation: PendingSyncOperation) => {
+    const current = readOutbox();
+    // Keep the newest pending change for an existing task while preserving
+    // creates as a separate operation that must be replayed first.
+    const filtered = operation.method === 'PATCH'
+      ? current.filter(item => !(item.method === 'PATCH' && item.path === operation.path))
+      : current;
+    writeOutbox([...filtered, operation]);
+  };
+
+  const replayOutbox = async () => {
+    if (!credential.value) return false;
+    let operations = readOutbox();
+    while (operations.length) {
+      const operation = operations[0];
+      try {
+        const response = await fetch(`${apiUrl()}${operation.path}`, {
+          method: operation.method,
+          headers: { ...authHeaders(), 'X-Idempotency-Key': operation.id },
+          body: JSON.stringify(operation.body),
+        });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || payload?.success === false) throw new Error(payload?.message || `HTTP ${response.status}`);
+        if (operation.temporaryTaskId && payload?.data?.id) {
+          const index = tasks.value.findIndex(task => task.id === operation.temporaryTaskId);
+          if (index !== -1) tasks.value[index] = payload.data;
+          saveLocalCache();
+        }
+        if (operation.method === 'PATCH' && payload?.data?.id) {
+          const replace = (items: TaskItem[]) => {
+            const index = items.findIndex(task => task.id === payload.data.id);
+            if (index !== -1) items[index] = { ...items[index], ...payload.data };
+          };
+          replace(tasks.value);
+          replace(agentTasks.value);
+          saveLocalCache();
+        }
+        operations = operations.slice(1);
+        writeOutbox(operations);
+      } catch (error) {
+        connectionError.value = error instanceof Error ? error.message : 'Pending changes are waiting to sync.';
+        return false;
+      }
+    }
+    return true;
   };
 
   const syncHeartbeatService = async (cred: DesktopCredential | null) => {
@@ -298,6 +365,7 @@ export function useTaskSync() {
           tasks.value = json.data;
           saveLocalCache();
           isOnline.value = true;
+          void replayOutbox();
           return;
         }
       }
@@ -363,10 +431,13 @@ export function useTaskSync() {
     tasks.value.unshift(newTask);
     saveLocalCache();
 
+    const operation: PendingSyncOperation = {
+      id: crypto.randomUUID(), method: 'POST', path: '', body: { ...newTask }, temporaryTaskId: newTask.id,
+    };
     try {
       const res = await fetch(apiUrl(), {
         method: 'POST',
-        headers: authHeaders(),
+        headers: { ...authHeaders(), 'X-Idempotency-Key': operation.id },
         body: JSON.stringify(newTask),
       });
       if (res.ok) {
@@ -376,17 +447,18 @@ export function useTaskSync() {
           if (idx !== -1) tasks.value[idx] = json.data;
           saveLocalCache();
         }
+      } else {
+        enqueueSync(operation);
       }
     } catch (e) {
       console.warn('Failed to sync created task to API:', e);
+      enqueueSync(operation);
     }
 
     return newTask;
   };
 
   const updateTaskStatus = async (task: TaskItem, newStatus: TaskItem['status']) => {
-    const previousStatus = task.status;
-    const previousCompletedAt = task.completed_at;
     task.status = newStatus;
     task.completed_at = newStatus === 'done' ? new Date().toISOString() : null;
     saveLocalCache();
@@ -413,9 +485,11 @@ export function useTaskSync() {
       }
       return task;
     } catch (e) {
-      task.status = previousStatus;
-      task.completed_at = previousCompletedAt;
       saveLocalCache();
+      enqueueSync({
+        id: crypto.randomUUID(), method: 'PATCH', path: `/${task.id}`,
+        body: { status: newStatus },
+      });
       throw e;
     }
   };
@@ -436,18 +510,23 @@ export function useTaskSync() {
 
     try {
       if (!credential.value) return;
-      await fetch(`${apiUrl()}/${task.id}`, {
+      const response = await fetch(`${apiUrl()}/${task.id}`, {
         method: 'PATCH',
         headers: authHeaders(),
         body: JSON.stringify({ completed_pomodoros: task.completed_pomodoros }),
       });
+      if (!response.ok) throw new Error(`Task Hub returned HTTP ${response.status}.`);
     } catch (e) {
       console.warn('Failed to sync pomodoro count:', e);
+      enqueueSync({
+        id: crypto.randomUUID(), method: 'PATCH', path: `/${task.id}`,
+        body: { completed_pomodoros: task.completed_pomodoros },
+      });
     }
   };
 
   onMounted(() => {
-    void loadCredential().then(() => fetchProjects()).then(() => fetchTasks()).then(() => fetchAgentTasks());
+    void loadCredential().then(() => fetchProjects()).then(() => fetchTasks()).then(() => fetchAgentTasks()).then(() => replayOutbox());
   });
 
   return {
@@ -469,5 +548,6 @@ export function useTaskSync() {
     updateTaskStatus,
     toggleTaskComplete,
     incrementPomodoro,
+    replayOutbox,
   };
 }

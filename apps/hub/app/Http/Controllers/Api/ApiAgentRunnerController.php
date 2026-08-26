@@ -198,29 +198,29 @@ class ApiAgentRunnerController extends Controller
         $clientId = $data['client_id'] ?? (string) Str::uuid();
 
         $workspace = null;
-        if (!empty($data['workspace_id'])) {
-            $workspace = \App\Models\Workspace::find($data['workspace_id']);
-        }
-        if (!$workspace && $request->user()) {
+        if ($request->user()) {
             $workspace = app(\App\Services\WorkspaceContext::class)->resolve($request, false);
-        }
-        if (!$workspace) {
+        } else {
             $token = (string) $request->bearerToken();
-            if ($token !== '') {
-                $session = \App\Models\DesktopPairingSession::where('workspace_token_hash', hash('sha256', $token))->first();
-                if ($session?->workspace) {
-                    $workspace = $session->workspace;
-                }
-            }
+            abort_if($token === '', 401, 'An approved desktop pairing credential is required.');
+            $session = \App\Models\DesktopPairingSession::where('workspace_token_hash', hash('sha256', $token))
+                ->where('status', 'approved')
+                ->whereNotNull('workspace_id')
+                ->first();
+            abort_unless($session?->workspace, 401, 'Invalid desktop pairing credential.');
+            $workspace = $session->workspace;
         }
-        $workspace ??= \App\Models\Workspace::first();
+
+        if (!empty($data['workspace_id'])) {
+            abort_unless((int) $data['workspace_id'] === (int) $workspace->id, 403, 'Workspace does not match the authenticated principal.');
+        }
 
         $activeProviders = $data['active_providers'] ?? ['antigravity', 'claude_code', 'codex'];
         $activeProvider = $data['active_provider'] ?? (is_array($activeProviders) && count($activeProviders) ? $activeProviders[0] : 'antigravity');
 
         $runner = null;
         if (!empty($data['client_id'])) {
-            $runner = AgentRunner::where('client_id', $data['client_id'])->first();
+            $runner = AgentRunner::where('client_id', $data['client_id'])->where('workspace_id', $workspace->id)->first();
         }
 
         $token = Str::random(80);

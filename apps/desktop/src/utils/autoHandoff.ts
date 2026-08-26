@@ -26,7 +26,8 @@ export function buildAutoHandoffPayload({ output, taskTitle, exitCode }: AutoHan
   if (exitCode !== 0 || !taskTitle.trim()) return null;
 
   const text = output || '';
-  const blocked = /\b(?:blocked by|cannot proceed|unable to complete|sandbox startup failure)\b/i.test(text);
+  const blocked = hasAgentReportedFailure(text)
+    || /\b(?:blocked by|cannot proceed|unable to complete|sandbox startup failure)\b/i.test(text);
   if (blocked) return null;
 
   const commandEvidence = [...text.matchAll(/(?:npm|pnpm|yarn|bun|php artisan|pytest|go test|cargo test|vitest)[^\n]*/gi)].at(-1)?.[0];
@@ -47,3 +48,4 @@ export function buildAutoHandoffPayload({ output, taskTitle, exitCode }: AutoHan
     blockers: '',
   };
 }
+import { hasAgentReportedFailure } from './agentRunOutcome';

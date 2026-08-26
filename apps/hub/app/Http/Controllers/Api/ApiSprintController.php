@@ -13,12 +13,22 @@ use App\Services\WorkspaceContext;
 
 class ApiSprintController extends Controller
 {
+    private function workspace(Request $request)
+    {
+        return app(WorkspaceContext::class)->resolve($request);
+    }
+
+    private function authorizeSprint(Request $request, Sprint $sprint): void
+    {
+        abort_unless((int) $sprint->workspace_id === (int) $this->workspace($request)->id, 404);
+    }
+
     /**
      * Get sprints for a project
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Sprint::with(['tasks' => function ($q) {
+        $query = Sprint::where('workspace_id', $this->workspace($request)->id)->with(['tasks' => function ($q) {
             $q->select('id', 'sprint_id', 'status', 'story_points', 'issue_type')
               ->where('issue_type', '!=', 'epic');
         }]);
@@ -62,11 +72,11 @@ class ApiSprintController extends Controller
             'status' => 'nullable|in:future,active,completed',
         ]);
 
-        $workspace = $request->user() ? app(WorkspaceContext::class)->resolve($request) : null;
-        if ($workspace) Project::where('workspace_id', $workspace->id)->findOrFail($validated['project_id']);
+        $workspace = $this->workspace($request);
+        Project::where('workspace_id', $workspace->id)->findOrFail($validated['project_id']);
         $sprint = Sprint::create([
             'project_id' => $validated['project_id'],
-            'workspace_id' => $workspace?->id,
+            'workspace_id' => $workspace->id,
             'name' => $validated['name'],
             'goal' => $validated['goal'] ?? null,
             'start_date' => $validated['start_date'] ?? null,
@@ -86,6 +96,7 @@ class ApiSprintController extends Controller
      */
     public function update(Request $request, Sprint $sprint): JsonResponse
     {
+        $this->authorizeSprint($request, $sprint);
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'goal' => 'nullable|string',
@@ -108,6 +119,7 @@ class ApiSprintController extends Controller
      */
     public function start(Request $request, Sprint $sprint): JsonResponse
     {
+        $this->authorizeSprint($request, $sprint);
         $validated = $request->validate([
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date',
@@ -137,6 +149,7 @@ class ApiSprintController extends Controller
      */
     public function complete(Request $request, Sprint $sprint): JsonResponse
     {
+        $this->authorizeSprint($request, $sprint);
         $validated = $request->validate([
             'move_incomplete_to' => 'nullable|string', // 'backlog' or sprint_id
         ]);
@@ -149,6 +162,10 @@ class ApiSprintController extends Controller
         $targetSprintId = is_numeric($validated['move_incomplete_to'] ?? null)
             ? (int)$validated['move_incomplete_to']
             : null;
+
+        if ($targetSprintId !== null) {
+            Sprint::where('workspace_id', $this->workspace($request)->id)->findOrFail($targetSprintId);
+        }
 
         if ($targetSprintId !== null) {
             Task::where('sprint_id', $sprint->id)
@@ -175,8 +192,9 @@ class ApiSprintController extends Controller
     /**
      * Delete sprint
      */
-    public function destroy(Sprint $sprint): JsonResponse
+    public function destroy(Request $request, Sprint $sprint): JsonResponse
     {
+        $this->authorizeSprint($request, $sprint);
         // Move all tasks in this sprint to backlog
         Task::where('sprint_id', $sprint->id)->update(['sprint_id' => null]);
         $sprint->delete();
@@ -199,12 +217,16 @@ class ApiSprintController extends Controller
         ]);
 
         $targetSprintId = $validated['sprint_id'] ?? null;
+        $workspaceId = $this->workspace($request)->id;
+        $taskQuery = Task::where('workspace_id', $workspaceId)->whereIn('id', $validated['task_ids']);
+        abort_unless($taskQuery->count() === count(array_unique($validated['task_ids'])), 404);
         if ($targetSprintId !== null) {
-            Task::whereIn('id', $validated['task_ids'])->where('issue_type', '!=', 'epic')->update([
+            Sprint::where('workspace_id', $workspaceId)->findOrFail($targetSprintId);
+            $taskQuery->where('issue_type', '!=', 'epic')->update([
                 'sprint_id' => $targetSprintId,
             ]);
         } else {
-            Task::whereIn('id', $validated['task_ids'])->update([
+            $taskQuery->update([
                 'sprint_id' => null,
             ]);
         }

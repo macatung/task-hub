@@ -20,6 +20,7 @@ const props = defineProps<{
   autoReviewEnabled: boolean;
   reviewerProvider: 'codex' | 'claude_code' | 'antigravity';
   autoReviewMaxIterations: number;
+  caoStatus: { running: boolean; available: boolean; port: number; cli: string | null; source: 'embedded' | 'external' | 'offline' } | null;
 }>();
 
 const emit = defineEmits<{
@@ -136,10 +137,9 @@ const saveAutoReview = () => emit('updateAutoReview', { enabled: reviewEnabled.v
                 <div class="flex flex-wrap items-center gap-2"><b class="text-xs text-white">Automatic independent review loop</b><span class="rounded-full bg-[#5c3a1f] px-2 py-0.5 text-[10px] font-semibold text-[#f5c99e]">{{ reviewEnabled ? 'Enabled' : 'Disabled' }}</span></div>
                 <p class="mt-1 text-xs leading-5 text-[#d4bda8]">After the implementation agent finishes, Task Hub starts a separate reviewer session for the diff. You may use the same provider as implementation; it still runs as an isolated read-only review session. Requested changes are sent back automatically until the review passes or the limit is reached. Hub still requires human approval; nothing is auto-merged.</p>
                 <div class="mt-3 grid grid-cols-2 gap-2">
-                  <label class="text-[11px] font-medium text-[#ead7c6]">Reviewer session provider<select v-model="reviewProvider" class="cc-select mt-1" @change="saveAutoReview"><option value="codex">Codex</option><option value="claude_code">Claude Code</option><option value="antigravity">Antigravity (manual)</option></select></label>
+                  <label class="text-[11px] font-medium text-[#ead7c6]">Reviewer session provider<select v-model="reviewProvider" class="cc-select mt-1" @change="saveAutoReview"><option value="codex">Codex</option><option value="claude_code">Claude Code</option><option value="antigravity">Antigravity</option></select></label>
                   <label class="text-[11px] font-medium text-[#ead7c6]">Max review rounds<select v-model.number="reviewMaxIterations" class="cc-select mt-1" @change="saveAutoReview"><option :value="1">1 round</option><option :value="2">2 rounds</option><option :value="3">3 rounds</option><option :value="4">4 rounds</option><option :value="5">5 rounds</option></select></label>
                 </div>
-                <p v-if="reviewProvider === 'antigravity'" class="mt-2 text-[11px] text-amber-200">Antigravity opens an external session and cannot be parsed for an automatic loop. Choose Codex or Claude Code for unattended review.</p>
               </div>
             </div>
           </section>
@@ -166,6 +166,20 @@ const saveAutoReview = () => emit('updateAutoReview', { enabled: reviewEnabled.v
               <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" :class="runtime.status === 'ready' ? 'bg-emerald-950/60 text-emerald-300' : runtime.status === 'installing' ? 'bg-amber-950/60 text-amber-300' : 'bg-rose-950/60 text-rose-300'">{{ runtime.status === 'ready' ? 'Ready' : runtime.status === 'installing' ? 'Installing' : 'Needs fix' }}</span>
             </div>
             <p v-if="!agentRuntimes.length" class="rounded-md border border-[#263244] bg-black/20 px-3 py-2 text-xs text-[#8b9bb0]">Checking local CLI availability…</p>
+          </div>
+        </section>
+
+        <section class="border-t border-[#263244] pt-6">
+          <div class="flex items-start justify-between gap-4">
+            <div><h3 class="text-sm font-semibold text-white">CAO Multi-Agent Orchestrator</h3><p class="mt-1 text-xs leading-5 text-[#8b9bb0]">Điều phối tác nhân đa luồng (Supervisor - Worker) qua AWS Labs CLI Agent Orchestrator. Tự động chuyển đổi giữa CAO daemon và Native Process.</p></div>
+              <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" :class="caoStatus?.available ? 'bg-emerald-950/60 text-emerald-300' : 'bg-amber-950/60 text-amber-300'">{{ caoStatus?.available ? 'Active (CAO-first)' : 'Native fallback' }}</span>
+          </div>
+          <div class="mt-3 rounded-md border border-[#263244] bg-black/20 px-3 py-2 text-xs">
+            <div class="flex items-center justify-between text-zinc-300">
+              <span class="font-medium text-white">Orchestrator Backend:</span>
+              <span class="font-mono" :class="caoStatus?.available ? 'text-emerald-400' : 'text-amber-300'">{{ caoStatus?.available ? `CAO CLI + daemon / Port ${caoStatus.port}` : 'CAO CLI or daemon unavailable' }}</span>
+            </div>
+            <p v-if="!caoStatus?.available" class="mt-2 text-[11px] text-[#8b9bb0]">Task Hub uses native provider execution until CAO becomes available. Install CAO and ensure its local daemon can start.</p>
           </div>
         </section>
 

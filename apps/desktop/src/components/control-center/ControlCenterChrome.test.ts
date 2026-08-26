@@ -11,6 +11,8 @@ describe('Control Center application chrome', () => {
     expect(headerSource).toContain('cc-overflow-menu');
     expect(headerSource).toContain('Scan repo docs');
     expect(headerSource).toContain('Open Hub');
+    expect(headerSource).toContain('triggerOverflowAction');
+    expect(headerSource).toContain("overflowMenu.value?.removeAttribute('open')");
   });
 
   it('exposes accessible window controls from the frameless title bar', () => {

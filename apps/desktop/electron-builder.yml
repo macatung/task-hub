@@ -9,6 +9,11 @@ files:
   - dist/**
   - dist-electron/**
   - package.json
+extraResources:
+  - from: resources/bin/cao
+    to: bin/cao
+    filter:
+      - '**/*'
 # The renderer runs reliably from dist/ but crashes on this Windows machine
 # when Chromium loads the same assets from app.asar. Keep release assets
 # unpacked so the desktop agent remains usable on affected installations.

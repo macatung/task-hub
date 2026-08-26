@@ -2850,39 +2850,6 @@ onUnmounted(() => {
 
     <RunnerDashboard :is-dark-mode="isDarkMode" @dispatch="handleRunnerDashboardDispatch" />
 
-    <!-- Keep review work visible without requiring users to discover the bell drawer. -->
-    <section
-      v-if="pendingAgentReviews.length"
-      class="mx-4 mt-3 rounded-2xl border p-3 shadow-sm"
-      :class="isDarkMode ? 'border-amber-700/70 bg-amber-950/25 text-amber-50' : 'border-amber-300 bg-amber-50 text-amber-950'"
-      aria-label="Agent review inbox"
-    >
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p class="text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-amber-400">Review inbox</p>
-          <h2 class="mt-1 text-sm font-bold">{{ pendingAgentReviews.length }} agent handoff{{ pendingAgentReviews.length === 1 ? '' : 's' }} waiting for review</h2>
-          <p class="mt-1 text-xs opacity-75">Independent review evidence and requested changes are attached to each task. Open a card to approve or request changes.</p>
-        </div>
-        <button @click="isNotificationsOpen = true" class="shrink-0 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/20 cursor-pointer whitespace-nowrap">Open review inbox</button>
-      </div>
-      <div class="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-        <button
-          v-for="run in pendingAgentReviews.slice(0, 6)"
-          :key="`review-card-${run.id}`"
-          @click="openNotification({ id: `agent-run-${run.id}`, task: run.task || taskList.find(candidate => candidate.id === run.task_id) })"
-          class="rounded-xl border p-3 text-left transition-colors cursor-pointer"
-          :class="isDarkMode ? 'border-amber-800/70 bg-slate-950/40 hover:border-amber-500 hover:bg-slate-900' : 'border-amber-200 bg-white hover:border-amber-400'"
-        >
-          <div class="flex items-center justify-between gap-2 text-[10px] font-mono">
-            <span class="font-bold text-amber-300">{{ run.task?.issue_key || `Task #${run.task_id || '—'}` }}</span>
-            <span class="rounded-full border border-amber-500/40 px-1.5 py-0.5 text-amber-300">Run #{{ run.id }}</span>
-          </div>
-          <p class="mt-1 truncate text-xs font-semibold">{{ run.task?.title || run.summary || 'Agent handoff' }}</p>
-          <p class="mt-1 text-[11px] opacity-70">{{ run.metadata?.handoff?.auto_review?.reviewer_provider ? `Reviewed by ${run.metadata.handoff.auto_review.reviewer_provider}` : 'Handoff evidence ready' }}</p>
-        </button>
-      </div>
-    </section>
-
     <!-- ========================================================================= -->
     <!-- 2. MAIN LAYOUT (SIDEBAR + MAIN CANVAS)                                    -->
     <!-- ========================================================================= -->

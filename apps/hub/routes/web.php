@@ -143,13 +143,15 @@ $registerApiRoutes = function () {
     Route::delete('/projects/{id}', [ApiProjectController::class, 'destroy'])->middleware('auth');
 
     // Sprints
-    Route::get('/sprints', [ApiSprintController::class, 'index']);
-    Route::post('/sprints', [ApiSprintController::class, 'store']);
-    Route::patch('/sprints/{sprint}', [ApiSprintController::class, 'update']);
-    Route::post('/sprints/{sprint}/start', [ApiSprintController::class, 'start']);
-    Route::post('/sprints/{sprint}/complete', [ApiSprintController::class, 'complete']);
-    Route::post('/sprints/move-tasks', [ApiSprintController::class, 'moveTasks']);
-    Route::delete('/sprints/{sprint}', [ApiSprintController::class, 'destroy']);
+    Route::middleware(['auth', 'workspace'])->group(function () {
+        Route::get('/sprints', [ApiSprintController::class, 'index']);
+        Route::post('/sprints', [ApiSprintController::class, 'store']);
+        Route::patch('/sprints/{sprint}', [ApiSprintController::class, 'update']);
+        Route::post('/sprints/{sprint}/start', [ApiSprintController::class, 'start']);
+        Route::post('/sprints/{sprint}/complete', [ApiSprintController::class, 'complete']);
+        Route::post('/sprints/move-tasks', [ApiSprintController::class, 'moveTasks']);
+        Route::delete('/sprints/{sprint}', [ApiSprintController::class, 'destroy']);
+    });
 
     // Agent Runs, Models, Quota & Context Pack
     Route::get('/agent/models', [ApiAgentRunController::class, 'models']);
