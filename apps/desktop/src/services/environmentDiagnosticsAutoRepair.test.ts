@@ -179,18 +179,18 @@ describe('Milestone 1: Environment Diagnostics & Robust Auto-Repair', () => {
       expect(mainSource).toContain('CLI version check timed out after');
     });
 
-    it('evaluates runtime statuses with health verification in agentRuntimeStatus', () => {
+    it('evaluates provider availability inside the CAO runtime', () => {
       expect(mainSource).toContain('async function agentRuntimeStatus()');
-      expect(mainSource).toContain('await verifyCliExecutable(executable, 2500)');
+      expect(mainSource).toContain('const available = await isCaoProviderAvailable(provider, cao)');
+      expect(mainSource).toContain('inside the CAO');
       expect(mainSource).toContain("status: 'ready'");
       expect(mainSource).toContain("status: 'missing'");
     });
 
-    it('auto-bootstraps missing runtimes using official installers', () => {
+    it('does not install provider CLIs outside CAO', () => {
       expect(mainSource).toContain('async function bootstrapAgentRuntimes()');
-      expect(mainSource).toContain('https://antigravity.google/cli/install.ps1');
-      expect(mainSource).toContain("'@openai/codex'");
-      expect(mainSource).toContain("'@anthropic-ai/claude-code'");
+      expect(mainSource).toContain('never install or execute provider CLIs in the host');
+      expect(mainSource).toContain('Install it inside the CAO runtime');
     });
   });
 

@@ -37,6 +37,7 @@ export interface AgentRunLogItem {
 export interface AgentRunFullItem {
   id: number;
   task_id?: number | null;
+  run_type?: string;
   provider: string;
   execution_mode?: string;
   runner_id?: number | null;
@@ -66,6 +67,7 @@ export interface TaskItemProps {
   issue_key?: string;
   title: string;
   status: string;
+  issue_type?: string;
   description?: string | null;
   priority?: string;
 }
@@ -101,6 +103,18 @@ const handoffFiles = computed<string[]>(() => {
 const autoReview = computed(() => {
   const run = runDetails.value || props.activeRun;
   return run?.metadata?.handoff?.auto_review || run?.metadata?.auto_review || null;
+});
+const isEpicAggregate = computed(() => {
+  const run = runDetails.value || props.activeRun;
+  return props.task?.issue_type === 'epic'
+    && run?.run_type === 'epic'
+    && run?.metadata?.epic_sequence?.local_cao === true;
+});
+const epicChildren = computed(() => {
+  const run = runDetails.value || props.activeRun;
+  return Array.isArray(run?.metadata?.epic_sequence?.children)
+    ? run.metadata.epic_sequence.children
+    : [];
 });
 
 let sseSource: EventSource | null = null;
@@ -326,7 +340,9 @@ const approveSafetyOrHandoff = async () => {
       // Final task approval
       const res = await axios.post(`/api/tasks/work-items/${props.task.id}/approve`);
       if (res.data?.success) {
-        isActionFeedback.value = '✓ Task approved & marked Done!';
+        isActionFeedback.value = isEpicAggregate.value
+          ? '✓ Epic approved & all child tasks marked Done!'
+          : '✓ Task approved & marked Done!';
         emit('approved', res.data.data);
       }
     }
@@ -771,6 +787,19 @@ onBeforeUnmount(() => {
         <p class="mt-2 text-[11px] text-violet-200/80">This is additional evidence. Final approval and merge remain a human action on Hub.</p>
       </div>
 
+      <div v-if="isEpicAggregate && epicChildren.length" class="rounded-xl border border-amber-700/60 bg-amber-950/20 p-3 text-xs">
+        <div class="flex items-center justify-between gap-2">
+          <span class="font-bold text-amber-100">CAO Epic child results</span>
+          <span class="font-mono text-[10px] text-amber-200">{{ epicChildren.length }} task(s)</span>
+        </div>
+        <div class="mt-2 grid gap-1.5 sm:grid-cols-2">
+          <div v-for="child in epicChildren" :key="child.taskId" class="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-amber-800/50 bg-black/20 px-2 py-1.5">
+            <span class="truncate font-mono text-[10px] text-amber-100" :title="child.title">{{ child.issueKey || child.taskId }}</span>
+            <span class="shrink-0 text-[10px] text-emerald-300">{{ child.testStatus || 'verified' }}</span>
+          </div>
+        </div>
+      </div>
+
       <!-- PR & Git Commit Links -->
       <div class="flex flex-wrap items-center gap-3 pt-1 text-xs">
         <a
@@ -802,7 +831,8 @@ onBeforeUnmount(() => {
           Automated Handoff Ready for Final Review
         </h4>
         <p class="text-[11px] text-slate-300">
-          All test evidence has passed. Click below to approve and mark this task as Done.
+          <template v-if="isEpicAggregate">All CAO child tasks have passed. Click below to approve the Epic and mark every child Done.</template>
+          <template v-else>All test evidence has passed. Click below to approve and mark this task as Done.</template>
         </p>
       </div>
 
@@ -818,7 +848,7 @@ onBeforeUnmount(() => {
           class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 shadow-lg active:scale-95 shrink-0"
         >
           <Icons name="Check" :size="13" />
-          <span>{{ isApproving ? 'Approving...' : 'Approve & Mark Done' }}</span>
+          <span>{{ isApproving ? 'Approving...' : isEpicAggregate ? 'Approve Epic & Mark All Done' : 'Approve & Mark Done' }}</span>
         </button>
       </div>
     </div>

@@ -210,7 +210,6 @@ const formatCheckTitle = (id: string) => {
     remote: 'Remote Synchronization',
     working_tree: 'Working Tree State',
     worktree_metadata: 'Git Worktree Metadata',
-    router: '9Router Gateway',
     workspace: 'Workspace Path',
     environment_setup: 'Environment Setup',
   };

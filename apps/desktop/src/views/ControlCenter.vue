@@ -27,6 +27,7 @@ import { DEFAULT_PROVIDER_MODELS } from '../constants/models';
 type ToolMode = "requirement" | "docs" | null;
 type RunStatus = "idle" | "running" | "completed" | "failed" | "cancelled";
 type ExecutionPolicy = "restricted" | "workspace_write" | "full_access";
+type ExecutionRoute = "cao" | null;
 type ApprovalRequest = {
   id: string;
   reason: string;
@@ -70,6 +71,7 @@ const worktree = ref("");
 const phase = ref("Ready");
 const output = ref("");
 const sessionId = ref<string | null>(null);
+const executionRoute = ref<ExecutionRoute>(null);
 const runId = ref<number | null>(null);
 const implementationRunId = ref<number | null>(null);
 const reviewerRunId = ref<number | null>(null);
@@ -108,6 +110,34 @@ type EpicSequence = {
   activeChildId: number | null;
   waitingForApproval: boolean;
   autoContinue: boolean;
+  parentRunId: number | null;
+  childRunIds: number[];
+  childResults: EpicChildResult[];
+  transitionToken: number;
+  processingChildId: number | null;
+  finalizing: boolean;
+  worktreePath: string | null;
+};
+type EpicChildResult = {
+  taskId: number;
+  runId: number | null;
+  issueKey: string;
+  title: string;
+  summary: string;
+  changedFiles: string[];
+  tests: string;
+  testStatus: string;
+  testSummary: string;
+  commitSha: string;
+  pullRequestUrl: string;
+  blockers: string;
+  review?: {
+    status: AutoReviewStatus;
+    reviewerProvider?: Provider;
+    reviewerRunId?: number | null;
+    iterations?: number;
+    feedback?: string;
+  };
 };
 const epicSequence = ref<EpicSequence | null>(null);
 let epicApprovalToken = 0;
@@ -135,17 +165,14 @@ const autoReviewMaxIterations = ref(
   ),
 );
 const autoReviewIteration = ref(0);
+const taskReviewMaxIterations = ref<number | null>(null);
+const activeReviewMaxIterations = computed(() =>
+  taskReviewMaxIterations.value ?? autoReviewMaxIterations.value,
+);
 const autoReviewStatus = ref<AutoReviewStatus>("idle");
 const autoReviewFeedback = ref("");
 const autoReviewSummary = ref("");
 const settingsOpen = ref(false);
-const router = ref<{
-  enabled: boolean;
-  endpoint: string;
-  hasApiKey: boolean;
-} | null>(null);
-const routerMessage = ref("");
-const routerSaving = ref(false);
 const updater = ref<{
   status: string;
   version?: string;
@@ -205,6 +232,39 @@ const maximize = async () => {
 };
 const appVersion = ref("Task Hub Desktop");
 const running = computed(() => runStatus.value === "running");
+const reconnectableCaoSession = computed(() => {
+  const directories = new Set([workspace.value, worktree.value].filter(Boolean));
+  return fleetAgents.value.find((candidate) =>
+    candidate?.route === 'cao' &&
+    directories.has(candidate.cwd) &&
+    candidate.status !== 'running' &&
+    candidate.caoSessionName,
+  ) || null;
+});
+const reconnectCaoSession = async () => {
+  const candidate = reconnectableCaoSession.value;
+  if (!candidate?.sessionId) return;
+  try {
+    const saved = await window.desktopApi?.agent?.getSessionState?.(candidate.sessionId);
+    const result = await window.desktopApi?.agent?.reconnectCaoSession?.(candidate.sessionId);
+    if (!result) throw new Error('Desktop could not reconnect to the saved CAO session.');
+    sessionId.value = result.sessionId;
+    executionRoute.value = 'cao';
+    runStatus.value = 'running';
+    runExitCode.value = null;
+    error.value = '';
+    approvalRequest.value = null;
+    if (saved?.output) output.value = saved.output;
+    phase.value = 'CAO worker resumed';
+    toolMessage.value = `Reconnected to ${result.workers?.length || 0} CAO worker(s); the existing Hub run is still active.`;
+    await refreshFleet();
+    notify({ type: 'success', title: 'CAO reconnected', message: 'Đã tiếp tục session hiện có, không tạo run Hub mới.' });
+  } catch (e: any) {
+    error.value = e?.message || 'Could not reconnect to the CAO session.';
+    phase.value = 'CAO reconnect failed';
+    notify({ type: 'warning', title: 'Không thể reconnect CAO', message: error.value });
+  }
+};
 const hubUrl = computed(
   () => sync.credential.value?.taskHubUrl || "https://task-hub.macatung.dev",
 );
@@ -251,50 +311,6 @@ const updateAutoReview = ({
     phase.value = "Auto-review paused — human review required";
   }
 };
-const loadRouterSettings = async () => {
-  try {
-    router.value = (await window.desktopApi?.agent?.getLocalRouter?.()) || null;
-  } catch {
-    routerMessage.value = "Could not read local router settings.";
-  }
-};
-const saveRouterSettings = async ({
-  enabled,
-  apiKey,
-}: {
-  enabled: boolean;
-  apiKey: string;
-}) => {
-  try {
-    routerSaving.value = true;
-    routerMessage.value = "";
-    router.value = await window.desktopApi.agent.saveLocalRouter({
-      enabled,
-      apiKey: apiKey.trim() || undefined,
-    });
-    routerMessage.value = enabled
-      ? "Local router configuration saved."
-      : "Local router disabled. Providers will use their native routes.";
-  } catch (e: any) {
-    routerMessage.value =
-      e?.message || "Could not save local router configuration.";
-  } finally {
-    routerSaving.value = false;
-  }
-};
-const checkRouter = async () => {
-  try {
-    routerMessage.value = "Testing local router…";
-    const result = await window.desktopApi.agent.checkLocalRouter(true);
-    routerMessage.value = result?.ok
-      ? `Connected. ${result.models?.length || 0} model(s) discovered.`
-      : result?.error || "Local router is unavailable.";
-  } catch (e: any) {
-    routerMessage.value = e?.message || "Could not test local router.";
-  }
-};
-const openRouterDashboard = () =>
-  window.desktopApi?.agent?.openLocalRouterDashboard?.();
 const checkAppUpdate = async () => {
   updater.value = (await window.desktopApi?.updater?.check?.()) || {
     status: "error",
@@ -311,6 +327,10 @@ const isSandboxFailure = (value: string) =>
   );
 const isEnvironmentLaunchFailure = (value: string) =>
   /SPAWN_ERROR|Unable to launch|executable not found|ENOENT/i.test(value);
+const isCaoRuntimeFailure = (value: string) =>
+  /CAO (?:could not launch|daemon is not ready|session failed|runtime)|cao-server|HTTP\s*500|internal server error|operation not supported|fifo|TASK_HUB_RUN_BLOCKED: command not found/i.test(
+    value,
+  );
 const runDiagnostics = async () => {
   if (provider.value !== "codex") return;
   diagnosticsLoading.value = true;
@@ -329,6 +349,13 @@ const runDiagnostics = async () => {
 const requestHumanApproval = async (
   reason = error.value || "The local agent needs an approval to continue.",
 ) => {
+  if (isCaoRuntimeFailure(reason)) {
+    approvalRequest.value = null;
+    phase.value = 'CAO runtime needs repair';
+    error.value = reason;
+    toolMessage.value = 'CAO could not create a worker. Restart the CAO runtime; a sandbox approval cannot fix this error.';
+    return;
+  }
   if (!pendingLaunch.value && selectedTask.value) {
     pendingLaunch.value = {
       prompt: `Execute only ${selectedTask.value.issue_key || selectedTask.value.title}. Use the supplied Task Hub context, work in this isolated worktree, run relevant tests, and finish with a concise handoff.`,
@@ -702,6 +729,7 @@ const startLocal = async (
   activeAgentRole.value = role;
   runIntent.value = intent;
   if (!preserveOutput) output.value = '';
+  executionRoute.value = null;
   runOutputStart.value = output.value.length;
   if (role === "implementation")
     implementationOutputStart.value = runOutputStart.value;
@@ -729,6 +757,7 @@ const startLocal = async (
       policy,
     );
     sessionId.value = result.sessionId;
+    executionRoute.value = result.route === 'cao' ? 'cao' : null;
     void refreshFleet();
     void syncCockpitAgent(
       "working",
@@ -773,28 +802,32 @@ const advanceEpicSequence = async (
 ) => {
   const sequence = epicSequence.value;
   if (!sequence) return;
+  if (sequence.finalizing) return;
+  const transitionToken = ++sequence.transitionToken;
   sequence.completedIds = [...new Set([...sequence.completedIds, childId])];
   sequence.waitingForApproval = false;
   const next = nextEpicTask(sequence);
+  if (epicSequence.value !== sequence || sequence.transitionToken !== transitionToken)
+    return;
   if (!next) {
     const unfinished = sequence.tasks.filter(
       (task) =>
         !sequence.completedIds.includes(task.id) && task.status !== "done",
     );
     if (unfinished.length) {
-      phase.value = "Epic blocked by task dependencies";
-      error.value = `No dependency-ready task remains. Review: ${unfinished.map((task) => task.issue_key || `#${task.id}`).join(", ")}.`;
+      await failEpicSequence(
+        `No dependency-ready task remains. Review: ${unfinished.map((task) => task.issue_key || `#${task.id}`).join(", ")}.`,
+      );
       return;
     }
     phase.value = "Epic sequence complete";
-    toolMessage.value =
-      gate === "approval"
-        ? `All ${sequence.tasks.length} task handoffs were approved on Hub.`
-        : `All ${sequence.tasks.length} tasks have run. Handoffs remain available for Hub review.`;
+    toolMessage.value = `All ${sequence.tasks.length} tasks have run. Preparing one final Epic handoff for Hub review.`;
     selectedTask.value = sequence.epic;
-    epicSequence.value = null;
-    runStatus.value = "idle";
-    runIntent.value = "task";
+    sequence.finalizing = true;
+    sequence.waitingForApproval = true;
+    runStatus.value = "completed";
+    runIntent.value = "epic";
+    await finalizeEpicHandoff(sequence);
     return;
   }
   sequence.activeChildId = next.id;
@@ -849,6 +882,13 @@ const launchEpic = async () => {
     activeChildId: null,
     waitingForApproval: false,
     autoContinue: autoContinueEpic.value,
+    parentRunId: null,
+    childRunIds: [],
+    childResults: [],
+  transitionToken: ++epicApprovalToken,
+    processingChildId: null,
+    finalizing: false,
+    worktreePath: null,
   };
   const first = nextEpicTask(sequence);
   if (!first) {
@@ -861,6 +901,57 @@ const launchEpic = async () => {
   sequence.activeChildId = first.id;
   phase.value = `Starting ${first.issue_key || `#${first.id}`} in Epic sequence (1/${tasks.length})`;
   await launch();
+};
+const ensureEpicParentRun = async (repository: string, context: any) => {
+  const sequence = epicSequence.value;
+  if (!sequence) return null;
+  if (sequence.parentRunId) return sequence.parentRunId;
+  const started = await mcp("start_agent_run", {
+    task_id: sequence.epic.id,
+    provider: provider.value,
+    agent_session_id: `${provider.value}-epic-${Date.now()}`,
+    repository,
+    branch: worktree.value,
+    run_type: "epic",
+    context: {
+      ...(context || {}),
+      epic_id: sequence.epic.id,
+      epic_issue_key: sequence.epic.issue_key,
+      child_task_ids: sequence.tasks.map((task) => task.id),
+    },
+    metadata: {
+      epic_sequence: {
+        local_cao: true,
+        epic_id: sequence.epic.id,
+        child_task_ids: sequence.tasks.map((task) => task.id),
+        child_run_ids: [],
+        children: [],
+      },
+    },
+    instruction: {
+      role: "epic_orchestrator",
+      execution_policy: executionPolicy.value,
+      approval_mode: "final_epic_review",
+    },
+  });
+  const parentRunId = Number(started?.data?.id || started?.id || 0) || null;
+  if (!parentRunId) throw new Error("Task Hub did not return an Epic run id.");
+  sequence.parentRunId = parentRunId;
+  await updateRunFor(
+    parentRunId,
+    "running",
+    `CAO Epic sequence started for ${sequence.epic.issue_key || sequence.epic.title}.`,
+    {
+      epic_sequence: {
+        local_cao: true,
+        epic_id: sequence.epic.id,
+        child_task_ids: sequence.tasks.map((task) => task.id),
+        child_run_ids: [],
+        children: [],
+      },
+    },
+  );
+  return parentRunId;
 };
 const launch = async () => {
   try {
@@ -884,9 +975,23 @@ const launch = async () => {
       "Đã ghi nhận lệnh chạy",
       `Khởi chạy ${selectedTask.value.issue_key || `#${selectedTask.value.id}`} với ${provider.value.toUpperCase()}…`,
     );
-    const { preflight } = await prepareWorktree(
-      selectedTask.value.issue_key || `task-${selectedTask.value.id}`,
-    );
+    let preflight: any;
+    if (epicSequence.value?.worktreePath) {
+      preflight = await window.desktopApi.agent.preflight(
+        provider.value,
+        epicSequence.value.worktreePath,
+      );
+      if (!preflight?.ok) throw new Error("Epic worktree preflight failed.");
+      worktree.value = epicSequence.value.worktreePath;
+    } else {
+      const prepared = await prepareWorktree(
+        selectedTask.value.issue_key || `task-${selectedTask.value.id}`,
+      );
+      preflight = prepared.preflight;
+      if (epicSequence.value) {
+        epicSequence.value.worktreePath = prepared.result.path;
+      }
+    }
 
     const taskUpdatedAt = (selectedTask.value as any).updated_at;
     let context = contextPackCache.get(selectedTask.value.id)?.data;
@@ -919,6 +1024,10 @@ const launch = async () => {
       plainContext = context || {};
     }
 
+    const epicParentRunId = epicSequence.value
+      ? await ensureEpicParentRun(preflight.repository, plainContext)
+      : null;
+
     const started = await mcp("start_agent_run", {
       task_id: selectedTask.value.id,
       provider: provider.value,
@@ -933,11 +1042,33 @@ const launch = async () => {
             ? "bypass"
             : "request_human_approval",
       },
+      metadata: epicParentRunId
+        ? {
+            epic_sequence: {
+              local_cao: true,
+              epic_id: epicSequence.value?.epic.id,
+              parent_run_id: epicParentRunId,
+            },
+          }
+        : undefined,
     });
     runId.value = started?.data?.id || started?.id || null;
     implementationRunId.value = runId.value;
+    if (epicSequence.value && runId.value) {
+      epicSequence.value.childRunIds = [
+        ...new Set([...epicSequence.value.childRunIds, Number(runId.value)]),
+      ];
+      await updateEpicParentRun(
+        epicSequence.value,
+        'running',
+        `CAO child ${selectedTask.value.issue_key || selectedTask.value.title} started.`,
+      );
+    }
     reviewerRunId.value = null;
     autoReviewIteration.value = 0;
+    taskReviewMaxIterations.value = selectedTask.value
+      ? Number(localStorage.getItem(`task-hub-auto-review-limit-${selectedTask.value.id}`)) || null
+      : null;
     autoReviewStatus.value = "idle";
     autoReviewFeedback.value = "";
     autoReviewSummary.value = "";
@@ -971,10 +1102,15 @@ const launch = async () => {
     if (runId.value)
       void updateRun("failed", e?.message || "Could not launch local agent.");
     runStatus.value = "failed";
-    phase.value = "Run failed";
-    error.value = e.message || "Could not launch agent.";
+    const launchError = e?.message || "Could not launch agent.";
+    phase.value = isCaoRuntimeFailure(launchError) ? 'CAO runtime needs repair' : "Run failed";
+    error.value = launchError;
     finishOperation("agent-run", "error", "Lỗi khởi chạy", error.value);
-    void requestHumanApproval(error.value);
+    if (epicSequence.value) {
+      await failEpicSequence(error.value);
+    } else if (!isCaoRuntimeFailure(error.value)) {
+      void requestHumanApproval(error.value);
+    }
   }
 };
 const updateRunFor = async (
@@ -1048,13 +1184,13 @@ const startAutoReview = async (
   if (!selectedTask.value || !implementationRunId.value || !worktree.value)
     return false;
   if (!autoReviewCanRun.value) return false;
-  if (autoReviewIteration.value >= autoReviewMaxIterations.value) return false;
+  if (autoReviewIteration.value >= activeReviewMaxIterations.value) return false;
   autoReviewIteration.value += 1;
   autoReviewStatus.value = "reviewing";
   autoReviewFeedback.value = "";
   autoReviewSummary.value = "";
   error.value = "";
-  phase.value = `Independent review ${autoReviewIteration.value}/${autoReviewMaxIterations.value}`;
+  phase.value = `Independent review ${autoReviewIteration.value}/${activeReviewMaxIterations.value}`;
   toolMessage.value = `${reviewerLabel(reviewerProvider.value)} is reviewing the implementation in read-only mode…`;
   const reviewerPreflight = await window.desktopApi.agent.preflight(
     reviewerProvider.value,
@@ -1122,7 +1258,7 @@ Use changes_requested for any correctness, scope, security, test, or acceptance-
     await updateRunFor(
       reviewerRunId.value,
       "running",
-      `Independent review ${autoReviewIteration.value}/${autoReviewMaxIterations.value} started.`,
+      `Independent review ${autoReviewIteration.value}/${activeReviewMaxIterations.value} started.`,
       {
         auto_review: {
           iteration: autoReviewIteration.value,
@@ -1197,10 +1333,27 @@ const continueAfterReview = async (review: {
     activeAgentRole.value = "implementation";
     runOutputStart.value = implementationOutputStart.value;
     runStatus.value = "completed";
+    if (epicSequence.value && runIntent.value === 'epic') {
+      const payload = autoHandoffPayload();
+      if (!payload) {
+        await failEpicSequence(
+          `${selectedTask.value?.issue_key || 'Epic child'} completed without a safe handoff payload.`,
+        );
+        return;
+      }
+      await recordEpicChildResult(payload, {
+        status: 'approved',
+        reviewerProvider: reviewerProvider.value,
+        reviewerRunId: currentReviewerRunId,
+        iterations: autoReviewIteration.value,
+        feedback: review.feedback,
+      });
+      return;
+    }
     await updateRunFor(
       implementationRunId.value,
       "waiting_input",
-      "Implementation approved by independent reviewer; handoff is ready for Hub review.",
+      "Implementation approved by independent reviewer; automatically completing handoff.",
       {
         auto_review: {
           status: "approved",
@@ -1213,23 +1366,27 @@ const continueAfterReview = async (review: {
     );
     const payload = autoHandoffPayload();
     if (payload) {
-      payload.blockers = [
-        payload.blockers,
+      // Keep the approval note informational. The handoff path treats any
+      // non-empty `blockers` value as a failed verification for Epic
+      // auto-continuation, so putting a successful review note there would
+      // incorrectly pause an otherwise verified handoff.
+      payload.summary = [
+        payload.summary,
         `Independent review approved by ${reviewerLabel(reviewerProvider.value)} after ${autoReviewIteration.value} iteration(s).`,
       ]
         .filter(Boolean)
         .join("\n");
-      await handoff(payload);
+      await handoff(payload, true);
     }
     return;
   }
   autoReviewStatus.value = "changes_requested";
   autoReviewFeedback.value = review.feedback;
   autoReviewSummary.value = review.summary;
-  if (autoReviewIteration.value >= autoReviewMaxIterations.value) {
+  if (autoReviewIteration.value >= activeReviewMaxIterations.value) {
     autoReviewStatus.value = "max_iterations";
-    phase.value = "Auto-review reached its limit — human review required";
-    toolMessage.value = `${reviewerLabel(reviewerProvider.value)} requested changes after ${autoReviewIteration.value} iteration(s). Review the feedback and continue manually.`;
+    phase.value = "Auto-review reached its limit — human decision required";
+    toolMessage.value = `${reviewerLabel(reviewerProvider.value)} requested changes after ${autoReviewIteration.value} iteration(s). Choose a manual review or increase this task's limit.`;
     runId.value = implementationRunId.value;
     activeAgentRole.value = "implementation";
     runOutputStart.value = implementationOutputStart.value;
@@ -1237,7 +1394,7 @@ const continueAfterReview = async (review: {
     await updateRunFor(
       implementationRunId.value,
       "waiting_input",
-      `Auto-review reached the ${autoReviewMaxIterations.value}-iteration limit. Human review required.`,
+      `Auto-review reached the ${activeReviewMaxIterations.value}-iteration limit. Human decision required.`,
       {
         auto_review: {
           status: "max_iterations",
@@ -1253,7 +1410,7 @@ const continueAfterReview = async (review: {
   runId.value = implementationRunId.value;
   activeAgentRole.value = "implementation";
   runOutputStart.value = implementationOutputStart.value;
-  phase.value = `Implementation agent applying review changes (${autoReviewIteration.value + 1}/${autoReviewMaxIterations.value})`;
+  phase.value = `Implementation agent applying review changes (${autoReviewIteration.value + 1}/${activeReviewMaxIterations.value})`;
   toolMessage.value = `Sending ${reviewerLabel(reviewerProvider.value)}'s feedback to the implementation agent…`;
   output.value += `\n\n--- Independent review ${autoReviewIteration.value}: changes requested ---\n${review.feedback}\n`;
   await updateRunFor(
@@ -1267,13 +1424,53 @@ const continueAfterReview = async (review: {
 Reviewer feedback:
 ${review.feedback}
 
-This is review iteration ${autoReviewIteration.value + 1} of ${autoReviewMaxIterations.value}.`,
+This is review iteration ${autoReviewIteration.value + 1} of ${activeReviewMaxIterations.value}.`,
     "task",
     executionPolicy.value,
     runIntent.value,
     true,
     "implementation",
   );
+};
+const approveAfterManualReview = async () => {
+  const task = selectedTask.value;
+  const payload = autoHandoffPayload();
+  if (!task || !payload) return;
+  await handoff(payload);
+  const result = await mcp('request_human_approval', { task_id: task.id });
+  if (result?.success === false) throw new Error(result.message || 'Could not complete manual review.');
+  phase.value = 'Completed after manual review';
+  autoReviewStatus.value = 'idle';
+  await refresh();
+};
+const continueAfterHumanReview = async (feedback: string) => {
+  if (!selectedTask.value || !implementationRunId.value) return;
+  const nextLimit = Math.min(10, Math.max(activeReviewMaxIterations.value + 1, autoReviewIteration.value + 1));
+  taskReviewMaxIterations.value = nextLimit;
+  localStorage.setItem(`task-hub-auto-review-limit-${selectedTask.value.id}`, String(nextLimit));
+  autoReviewStatus.value = 'changes_requested';
+  autoReviewFeedback.value = feedback.trim() || autoReviewFeedback.value;
+  await updateRunFor(implementationRunId.value, 'running', 'Human requested additional changes after the auto-review limit.', {
+    auto_review: { status: 'changes_requested', max_iterations: nextLimit, feedback: autoReviewFeedback.value },
+  });
+  phase.value = `Implementation agent applying human review changes (${autoReviewIteration.value + 1}/${nextLimit})`;
+  await startLocal(
+    `Continue the implementation for ${selectedTask.value.issue_key || selectedTask.value.title}. A human reviewer requested the changes below after the automatic review limit was reached. Apply every item, run relevant tests, and finish with a concise handoff summary.\n\nHuman feedback:\n${autoReviewFeedback.value}`,
+    'task', executionPolicy.value, runIntent.value, true, 'implementation',
+  );
+};
+const increaseTaskReviewLimit = async (limit: number) => {
+  const nextLimit = Math.min(10, Math.max(activeReviewMaxIterations.value + 1, Number(limit) || 0));
+  taskReviewMaxIterations.value = nextLimit;
+  if (selectedTask.value)
+    localStorage.setItem(`task-hub-auto-review-limit-${selectedTask.value.id}`, String(nextLimit));
+  autoReviewStatus.value = 'changes_requested';
+  if (implementationRunId.value) {
+    await updateRunFor(implementationRunId.value, 'waiting_input', `Review limit raised to ${nextLimit} for this task.`, {
+      auto_review: { status: 'changes_requested', max_iterations: nextLimit, feedback: autoReviewFeedback.value },
+    });
+  }
+  await continueAfterHumanReview('');
 };
 const cancel = async () => {
   notify({
@@ -1298,6 +1495,12 @@ const cancel = async () => {
       "cancelled",
       "Automatic review loop cancelled by user.",
     );
+  if (epicSequence.value?.parentRunId)
+    await updateRunFor(
+      epicSequence.value.parentRunId,
+      "cancelled",
+      "CAO Epic sequence cancelled by user.",
+    );
   autoReviewStatus.value = "failed";
   autoReviewFeedback.value = "Automatic review loop cancelled by user.";
   sessionId.value = null;
@@ -1317,18 +1520,25 @@ const send = (message: string) => {
     notify({ type: 'info', title: 'Đã gửi tin nhắn đến Agent', message: message.trim() });
   }
 };
-const handoff = async (payload: any) => {
+const handoff = async (payload: any, autoApprove = false) => {
   try {
     if (!selectedTask.value) return;
     const handoffTaskId = selectedTask.value.id;
-    const isEpicChild = epicSequence.value && runIntent.value === "epic";
+    const isEpicChild = Boolean(
+      epicSequence.value &&
+        runIntent.value === "epic" &&
+        selectedTask.value.id !== epicSequence.value.epic.id,
+    );
+    const isEpicAggregate = Boolean(
+      epicSequence.value && selectedTask.value.id === epicSequence.value.epic.id,
+    );
     startOperation(
       "handoff",
       "Đang gửi bàn giao",
       "Đồng bộ kết quả kiểm thử và PR lên Task Hub…",
     );
     const handoffRunId = implementationRunId.value || runId.value;
-    const result = await mcp('complete_agent_handoff', {
+    const result = await mcp(autoApprove ? 'complete_auto_approved_handoff' : 'complete_agent_handoff', {
       run_id: handoffRunId || undefined,
       task_id: handoffTaskId,
       summary: payload.summary || "Local agent completed work.",
@@ -1361,20 +1571,31 @@ const handoff = async (payload: any) => {
       throw new Error(result.message || "Task Hub rejected the handoff.");
     const confirmedRunId = Number(result?.data?.id || runId.value || 0);
     handoffReviewUrl.value = `${hubUrl.value.replace(/\/$/, "")}/tasks?task_id=${encodeURIComponent(String(handoffTaskId))}${confirmedRunId ? `&run_id=${confirmedRunId}` : ""}`;
-    phase.value = 'Submitted for Hub review';
+    if (autoApprove) {
+      phase.value = isEpicAggregate ? 'Epic completed automatically' : 'Completed after automatic review';
+    } else if (isEpicAggregate) {
+      phase.value = 'Epic handoff ready for final Hub review';
+    } else {
+      phase.value = 'Submitted for Hub review';
+    }
     finishOperation(
       "handoff",
       "success",
-      "Bàn giao thành công!",
-      "Task đã chuyển sang chế độ chờ duyệt trên Hub. Mở link để review và approve/reject.",
-      handoffReviewUrl.value,
+      autoApprove ? "Auto-review đã hoàn tất" : (isEpicAggregate ? "Epic handoff đã sẵn sàng!" : "Bàn giao thành công!"),
+      autoApprove
+        ? "Evidence đã được lưu và task đã tự chuyển sang Done."
+        : (isEpicAggregate ? "Toàn bộ task con đã chạy qua CAO. Chỉ cần duyệt một lần trên Hub." : "Task đã chuyển sang chế độ chờ duyệt trên Hub. Mở link để review và approve/reject."),
+      autoApprove ? undefined : handoffReviewUrl.value,
     );
+    if (isEpicAggregate && selectedTask.value) {
+      selectedTask.value = { ...selectedTask.value, status: autoApprove ? 'done' : 'review' };
+    }
     await refresh();
     if (isEpicChild && epicSequence.value) {
       const failedVerification =
         payload.testStatus === "failed" ||
         Boolean(String(payload.blockers || "").trim());
-      if (epicSequence.value.autoContinue && !failedVerification) {
+      if (autoApprove && epicSequence.value.autoContinue && !failedVerification) {
         void advanceEpicSequence(handoffTaskId, 'handoff');
       } else if (failedVerification) {
         phase.value = "Epic paused — review failed handoff";
@@ -1401,7 +1622,183 @@ const autoHandoffPayload = () =>
         exitCode: runExitCode.value,
       })
     : null;
+const epicChildResultFor = (task: TaskItem, payload: any, review?: EpicChildResult['review']): EpicChildResult => ({
+  taskId: task.id,
+  runId: implementationRunId.value || runId.value,
+  issueKey: task.issue_key || `#${task.id}`,
+  title: task.title,
+  summary: String(payload.summary || `Completed ${task.issue_key || task.title}.`),
+  changedFiles: String(payload.changedFiles || '')
+    .split(/\r?\n/)
+    .map((item: string) => item.trim())
+    .filter(Boolean),
+  tests: String(payload.tests || 'Agent process exited with code 0'),
+  testStatus: String(payload.testStatus || 'skipped'),
+  testSummary: String(payload.testSummary || 'Completed.'),
+  commitSha: String(payload.commitSha || ''),
+  pullRequestUrl: String(payload.pullRequestUrl || ''),
+  blockers: String(payload.blockers || ''),
+  review,
+});
+const updateEpicParentRun = async (sequence: EpicSequence, status = 'running', summary?: string) => {
+  if (!sequence.parentRunId) return;
+  await updateRunFor(
+    sequence.parentRunId,
+    status,
+    summary,
+    {
+      epic_sequence: {
+        local_cao: true,
+        epic_id: sequence.epic.id,
+        child_task_ids: sequence.tasks.map((task) => task.id),
+        child_run_ids: sequence.childRunIds,
+        children: sequence.childResults,
+      },
+    },
+  );
+};
+const recordEpicChildResult = async (
+  payload: any,
+  review?: EpicChildResult['review'],
+) => {
+  const sequence = epicSequence.value;
+  const task = selectedTask.value;
+  if (!sequence || !task || task.id === sequence.epic.id) return false;
+  if (sequence.finalizing || sequence.completedIds.includes(task.id)) return false;
+  if (sequence.processingChildId !== null && sequence.processingChildId !== task.id)
+    return false;
+  sequence.processingChildId = task.id;
+  const childRunId = implementationRunId.value || runId.value;
+  const result = epicChildResultFor(task, payload, review);
+  const failedVerification = result.testStatus === 'failed' || Boolean(result.blockers.trim());
+  try {
+    sequence.childResults = [
+      ...sequence.childResults.filter((item) => item.taskId !== task.id),
+      result,
+    ];
+    if (childRunId) {
+      await updateRunFor(
+        childRunId,
+        failedVerification ? 'failed' : 'verified',
+        result.summary,
+        {
+          epic_sequence: {
+            local_cao: true,
+            epic_id: sequence.epic.id,
+            parent_run_id: sequence.parentRunId,
+            child_task_id: task.id,
+            child_result: result,
+          },
+        },
+      );
+      const evidenceStatus = ['passed', 'failed', 'skipped', 'pending'].includes(result.testStatus)
+        ? result.testStatus
+        : 'skipped';
+      await mcp('attach_verification_evidence', {
+        run_id: childRunId,
+        task_id: task.id,
+        evidence_type: 'epic_child_verification',
+        status: evidenceStatus,
+        command: result.tests,
+        summary: result.testSummary,
+      });
+      if (!failedVerification && review?.status === 'approved') {
+        const completion = await mcp('complete_auto_approved_handoff', {
+          run_id: childRunId,
+          summary: result.summary,
+          changed_files: result.changedFiles,
+          tests: [{ command: result.tests || 'Verification', status: result.testStatus, summary: result.testSummary }],
+          commit_sha: result.commitSha || undefined,
+          pull_request_url: result.pullRequestUrl || undefined,
+          review: {
+            status: 'approved', reviewer_provider: review.reviewerProvider,
+            reviewer_run_id: review.reviewerRunId, iterations: review.iterations,
+            feedback: review.feedback,
+          },
+        });
+        if (completion?.success === false) throw new Error(completion.message || 'Could not automatically complete Epic child.');
+      }
+    }
+    await updateEpicParentRun(
+      sequence,
+      failedVerification ? 'failed' : 'running',
+      failedVerification
+        ? `${result.issueKey} failed verification; Epic sequence stopped.`
+        : `Verified ${result.issueKey}; ${sequence.childResults.length}/${sequence.tasks.length} Epic tasks complete.`,
+    );
+    if (failedVerification) {
+      await failEpicSequence(
+        `${result.issueKey} contains failed verification or blockers; the Epic sequence was stopped safely.`,
+      );
+      return false;
+    }
+    await advanceEpicSequence(task.id, 'handoff');
+    return true;
+  } finally {
+    if (sequence.processingChildId === task.id) sequence.processingChildId = null;
+  }
+};
+const failEpicSequence = async (reason: string) => {
+  const sequence = epicSequence.value;
+  if (!sequence) return;
+  sequence.finalizing = true;
+  sequence.waitingForApproval = false;
+  phase.value = 'Epic sequence blocked';
+  error.value = reason;
+  toolMessage.value = reason;
+  runStatus.value = 'failed';
+  await updateEpicParentRun(sequence, 'failed', reason);
+};
+const finalizeEpicHandoff = async (sequence: EpicSequence) => {
+  if (!sequence.parentRunId || !sequence.childResults.length) {
+    await failEpicSequence('Epic has no verified child results to hand off.');
+    return false;
+  }
+  const failedChild = sequence.childResults.find(
+    (child) => child.testStatus === 'failed' || child.blockers,
+  );
+  if (failedChild) {
+    await failEpicSequence(
+      `${failedChild.issueKey} contains failed verification or blockers; Epic handoff was not submitted.`,
+    );
+    return false;
+  }
+  const changedFiles = [...new Set(sequence.childResults.flatMap((child) => child.changedFiles))];
+  const tests = sequence.childResults
+    .map((child) => `${child.issueKey}: ${child.tests} — ${child.testSummary}`)
+    .join('\n');
+  const summary = sequence.childResults
+    .map((child) => `${child.issueKey}: ${child.summary}`)
+    .join('\n');
+  const lastCommit = [...sequence.childResults].reverse().find((child) => child.commitSha)?.commitSha || '';
+  const lastPullRequest = [...sequence.childResults].reverse().find((child) => child.pullRequestUrl)?.pullRequestUrl || '';
+  runId.value = sequence.parentRunId;
+  implementationRunId.value = sequence.parentRunId;
+  activeAgentRole.value = 'implementation';
+  runOutputStart.value = 0;
+  try {
+    autoReviewStatus.value = 'approved';
+    await handoff({
+      summary: `Epic ${sequence.epic.issue_key || sequence.epic.title} completed through CAO.\n${summary}`,
+      changedFiles: changedFiles.join('\n'),
+      tests,
+      testStatus: 'passed',
+      testSummary: `Verified ${sequence.childResults.length} child task(s) through the CAO Epic sequence.`,
+      commitSha: lastCommit,
+      pullRequestUrl: lastPullRequest,
+      blockers: '',
+    }, true);
+    sequence.waitingForApproval = false;
+    phase.value = 'Epic completed automatically';
+    toolMessage.value = 'All Epic tasks passed automatic review and are Done.';
+    return true;
+  } catch (e: any) {
+    await failEpicSequence(e?.message || 'Epic handoff submission failed.');
+    return false;
+  }
+};
 const tryAutoSubmitHandoff = () => {
+  if (epicSequence.value && runIntent.value === 'epic') return false;
   const epicAutoSubmit = runIntent.value === 'epic' && epicSequence.value?.autoContinue === true;
   if (
     autoReviewStatus.value !== "idle" ||
@@ -1668,6 +2065,7 @@ const selectTask = (task: TaskItem) => {
   )
     stopEpicSequence("Epic sequence paused because another task was selected.");
   selectedTask.value = task;
+  executionRoute.value = null;
   handoffReviewUrl.value = "";
   implementationRunId.value = null;
   reviewerRunId.value = null;
@@ -1723,6 +2121,11 @@ const handleAgentExit = async (event: any) => {
       phase.value = "Auto-review cancelled — human review required";
       toolMessage.value =
         "The reviewer was stopped before it could finish. Review and submit the implementation handoff manually.";
+      if (epicSequence.value && runIntent.value === 'epic') {
+        await failEpicSequence(
+          "Automatic review was cancelled for an Epic child; the sequence was stopped safely.",
+        );
+      }
       if (trackedRunId)
         void updateRunFor(trackedRunId, "cancelled", autoReviewFeedback.value);
       finishOperation(
@@ -1738,6 +2141,11 @@ const handleAgentExit = async (event: any) => {
       autoReviewFeedback.value = `Reviewer process ended with exit code ${exitCode ?? "unknown"}.`;
       phase.value = "Auto-review failed — human review required";
       toolMessage.value = `${reviewerLabel(reviewerProvider.value)} could not complete its review. You can review the diff and submit a human handoff.`;
+      if (epicSequence.value && runIntent.value === 'epic') {
+        await failEpicSequence(
+          "Automatic review failed for an Epic child; the sequence was stopped safely.",
+        );
+      }
       if (trackedRunId)
         void updateRunFor(trackedRunId, "failed", autoReviewFeedback.value);
       finishOperation(
@@ -1766,6 +2174,8 @@ const handleAgentExit = async (event: any) => {
       phase.value = "Auto-review failed — human review required";
       toolMessage.value =
         "The reviewer finished, but Task Hub could not save the review evidence. Review and submit the handoff manually.";
+      if (epicSequence.value && runIntent.value === 'epic')
+        await failEpicSequence(autoReviewFeedback.value);
       if (trackedRunId)
         void updateRunFor(trackedRunId, "failed", autoReviewFeedback.value);
       finishOperation(
@@ -1795,7 +2205,9 @@ const handleAgentExit = async (event: any) => {
       "Sandbox bị chặn",
       "Cần cấp quyền để thử lại.",
     );
-    if (pendingLaunch.value)
+    if (epicSequence.value && runIntent.value === 'epic')
+      await failEpicSequence(error.value);
+    else if (pendingLaunch.value)
       void requestHumanApproval(agentOutput.slice(-8000));
     if (trackedRunId) void updateRunFor(trackedRunId, "failed", error.value);
     return;
@@ -1812,11 +2224,23 @@ const handleAgentExit = async (event: any) => {
     toolMessage.value =
       "No handoff was created because the agent reported a blocking error.";
     finishOperation("start-local", "error", "Agent báo lỗi chặn", error.value);
+    if (epicSequence.value && runIntent.value === 'epic')
+      await failEpicSequence(error.value);
     if (trackedRunId) void updateRunFor(trackedRunId, "failed", error.value);
     return;
   }
 
   if (runStatus.value === "failed") {
+    if (executionRoute.value === 'cao' && event.signal === 'CAO_STATUS') {
+      phase.value = 'CAO session failed';
+      error.value = 'CAO reported that the supervisor and all workers stopped. Check the CAO session details or reconnect a still-live session; sandbox approval cannot repair this failure.';
+      toolMessage.value = 'CAO session ended before implementation/review could finish.';
+      finishOperation('start-local', 'error', 'CAO session failed', error.value);
+      if (epicSequence.value && runIntent.value === 'epic')
+        await failEpicSequence(error.value);
+      if (trackedRunId) void updateRunFor(trackedRunId, 'failed', error.value);
+      return;
+    }
     if (isEnvironmentLaunchFailure(output.value.slice(runOutputStart.value))) {
       phase.value = 'Environment needs repair';
       error.value =
@@ -1828,6 +2252,8 @@ const handleAgentExit = async (event: any) => {
         "Môi trường cần sửa chữa",
         error.value,
       );
+      if (epicSequence.value && runIntent.value === 'epic')
+        await failEpicSequence(error.value);
       if (trackedRunId) void updateRunFor(trackedRunId, "failed", error.value);
       return;
     }
@@ -1835,7 +2261,9 @@ const handleAgentExit = async (event: any) => {
     error.value = `Agent process ended with exit code ${exitCode ?? "unknown"}. Review the execution details below.`;
     toolMessage.value = "The agent did not complete successfully.";
     finishOperation("start-local", "error", "Agent dừng thực thi", error.value);
-    if (pendingLaunch.value)
+    if (epicSequence.value && runIntent.value === 'epic')
+      await failEpicSequence(error.value);
+    else if (pendingLaunch.value)
       void requestHumanApproval(`${error.value}\n${output.value.slice(-8000)}`);
     if (trackedRunId) void updateRunFor(trackedRunId, "failed", error.value);
     return;
@@ -1850,6 +2278,8 @@ const handleAgentExit = async (event: any) => {
       "Đã hủy phiên chạy",
       "Tiến trình agent đã dừng.",
     );
+    if (epicSequence.value && runIntent.value === 'epic')
+      await failEpicSequence("Epic sequence was cancelled by the user.");
     if (trackedRunId)
       void updateRunFor(trackedRunId, "cancelled", "Stopped by user.");
     return;
@@ -1889,9 +2319,15 @@ const handleAgentExit = async (event: any) => {
       );
     const started = await startAutoReview(agentOutput);
     if (!started) {
-      phase.value = "Run completed — human review required";
-      toolMessage.value =
-        "Automatic review could not start. Review and submit the handoff manually.";
+      if (epicSequence.value && runIntent.value === 'epic') {
+        await failEpicSequence(
+          "Automatic review could not start for this Epic child; the sequence was stopped safely.",
+        );
+      } else {
+        phase.value = "Run completed — human review required";
+        toolMessage.value =
+          "Automatic review could not start. Review and submit the handoff manually.";
+      }
     }
     finishOperation(
       "start-local",
@@ -1901,6 +2337,27 @@ const handleAgentExit = async (event: any) => {
         ? "Đang chạy independent review trước khi gửi Hub."
         : "Sẵn sàng cho human review.",
     );
+  } else if (epicSequence.value && runIntent.value === 'epic') {
+    const payload = autoHandoffPayload();
+    if (!payload) {
+      await failEpicSequence(
+        `${selectedTask.value?.issue_key || 'Epic child'} completed without a safe handoff payload.`,
+      );
+      finishOperation(
+        "start-local",
+        "error",
+        "Epic child verification failed",
+        error.value,
+      );
+    } else {
+      await recordEpicChildResult(payload);
+      finishOperation(
+        "start-local",
+        "success",
+        "Epic child verified",
+        "Đang tự động chuyển sang task kế tiếp trong Epic.",
+      );
+    }
   } else if (
     ["task", "epic"].includes(runIntent.value) &&
     (autoSubmitHandoff.value ||
@@ -1928,6 +2385,7 @@ const handleAgentExit = async (event: any) => {
   }
   if (
     trackedRunId &&
+    !(epicSequence.value && runIntent.value === 'epic') &&
     !autoHandoffSubmitting.value &&
     autoReviewStatus.value === "idle"
   )
@@ -1960,6 +2418,15 @@ const refreshCaoStatus = async () => {
     caoStatus.value = null;
   }
 };
+const restartCao = async () => {
+  try {
+    await window.desktopApi?.cao?.restartDaemon?.();
+    await Promise.all([refreshCaoStatus(), refreshAgentRuntimes()]);
+    notify({ type: "info", title: "CAO daemon", message: "Đã khởi động lại và kiểm tra CAO runtime." });
+  } catch (e: any) {
+    notify({ type: "warning", title: "CAO daemon chưa sẵn sàng", message: e?.message || "Không thể khởi động lại CAO daemon." });
+  }
+};
 const repairAgentRuntimes = async () => {
   runtimeRepairing.value = true;
   try {
@@ -1972,7 +2439,7 @@ const repairAgentRuntimes = async () => {
     notify({
       type: "info",
       title: "Môi trường Agent",
-      message: "Đã hoàn tất kiểm tra và sửa chữa môi trường CLI.",
+      message: "Đã kiểm tra provider trong runtime CAO; không cài provider native ngoài CAO.",
     });
   } catch (e: any) {
     notify({
@@ -1991,7 +2458,6 @@ onMounted(async () => {
   if (version) appVersion.value = `v${version}`;
   const saved = await window.desktopApi?.agent?.listWorkspaces?.();
   if (saved?.[0]) workspace.value = saved[0];
-  await loadRouterSettings();
   await refreshAgentRuntimes();
   await refreshCaoStatus();
   // The Electron main process starts the WSL/native CAO daemon in the
@@ -2105,9 +2571,6 @@ onUnmounted(() => {
       :diagnostics="diagnostics"
       :diagnostics-loading="diagnosticsLoading"
       :updater="updater"
-      :router="router"
-      :router-message="routerMessage"
-      :saving="routerSaving"
       :agent-runtimes="agentRuntimes"
       :runtime-repairing="runtimeRepairing"
       :auto-submit-handoff="autoSubmitHandoff"
@@ -2133,11 +2596,9 @@ onUnmounted(() => {
       @update-auto-review="updateAutoReview"
       @run-diagnostics="runDiagnostics"
       @repair-runtimes="repairAgentRuntimes"
+      @restart-cao="restartCao"
       @check-app-update="checkAppUpdate"
       @install-app-update="installAppUpdate"
-      @save-router="saveRouterSettings"
-      @check-router="checkRouter"
-      @open-router-dashboard="openRouterDashboard"
       @open-hub="openHub"
     />
     <WorkflowPanel
@@ -2192,27 +2653,30 @@ onUnmounted(() => {
         :run-status="runStatus"
         :context-health="contextHealth"
         :cao-available="Boolean(caoStatus?.available)"
+        :execution-route="executionRoute"
+        :can-reconnect-cao="Boolean(reconnectableCaoSession)"
         :exit-code="runExitCode"
         :error="error"
         :approval-request="approvalRequest"
         :safety-alert="activeSafetyAlert"
-        :epic-child-count="
-          selectedTask?.issue_type === 'epic'
-            ? sync.agentTasks.value.filter(
-                (task) =>
-                  task.epic_id === selectedTask?.id &&
-                  task.issue_type !== 'epic',
-              ).length
-            : 0
-        "
+         :epic-child-count="
+           epicSequence?.tasks.length || (selectedTask?.issue_type === 'epic'
+             ? sync.agentTasks.value.filter(
+                 (task) =>
+                   task.epic_id === selectedTask?.id &&
+                   task.issue_type !== 'epic',
+               ).length
+             : 0)
+         "
         :epic-completed-count="epicSequence?.completedIds.length || 0"
         :epic-auto-continue="epicSequence?.autoContinue ?? autoContinueEpic"
         :epic-sequence-running="Boolean(epicSequence)"
+        :epic-finalizing="Boolean(epicSequence?.finalizing)"
         :diagnostics-loading="diagnosticsLoading"
         :handoff-review-url="handoffReviewUrl"
         :auto-review-status="autoReviewStatus"
         :auto-review-iteration="autoReviewIteration"
-        :auto-review-max-iterations="autoReviewMaxIterations"
+        :auto-review-max-iterations="activeReviewMaxIterations"
         :auto-review-feedback="autoReviewFeedback"
         :reviewer-provider="reviewerProvider"
         @choose-workspace="chooseWorkspace"
@@ -2221,11 +2685,15 @@ onUnmounted(() => {
         @send="send"
         @handoff="handoff"
         @request-approval="requestHumanApproval"
+        @reconnect-cao="reconnectCaoSession"
         @reopen-todo="reopenEpicAsTodo"
         @approve-retry="approveRetry"
         @dismiss-approval="dismissApproval"
         @approve-safety-alert="approveSafetyAlert"
         @reject-safety-alert="rejectSafetyAlert"
+        @manual-review-approve="approveAfterManualReview"
+        @manual-review-changes="continueAfterHumanReview"
+        @increase-review-limit="increaseTaskReviewLimit"
         @open-hub="openHub"
         @timeline="showTimelineDrawer = true"
       />

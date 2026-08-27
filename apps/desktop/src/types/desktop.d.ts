@@ -6,7 +6,7 @@ export type AgentProvider = 'codex' | 'claude_code' | 'antigravity';
 
 export type AgentExecutionPolicy = 'restricted' | 'workspace_write' | 'full_access';
 
-export type AgentRoute = 'native' | '9router';
+export type AgentRoute = 'native' | 'cao';
 
 export type CodexSandboxStatus = 'ready' | 'needs_setup' | 'unavailable' | 'unknown';
 
@@ -59,11 +59,6 @@ declare global {
         quickSetup?: (cwd: string, installDependencies?: boolean) => Promise<any>;
       };
       agent?: {
-        getLocalRouter?: () => Promise<any>;
-        saveLocalRouter?: (config: { enabled: boolean; apiKey?: string }) => Promise<any>;
-        clearLocalRouter?: () => Promise<any>;
-        checkLocalRouter?: (includeModels?: boolean) => Promise<any>;
-        openLocalRouterDashboard?: () => Promise<void>;
         codexDiagnostics?: () => Promise<CodexDiagnostic>;
         runtimeStatus?: () => Promise<any>;
         bootstrapRuntimes?: () => Promise<any>;
@@ -81,7 +76,7 @@ declare global {
         readGeneratedDocuments?: (worktree: string) => Promise<any>;
         applyDocsToWorkspace?: (worktree: string, destinationWorkspace: string) => Promise<any>;
         configureMcp?: (options: { cwd: string; provider: string; taskHubUrl: string; projectId: string; token: string }) => Promise<any>;
-        start?: (provider: string, cwd: string, prompt?: string, model?: string) => Promise<{ sessionId: string }>;
+        start?: (provider: string, cwd: string, prompt?: string, model?: string) => Promise<{ sessionId: string; route?: 'cao' }>;
         startInteractive?: (
           provider: string,
           cwd: string,
@@ -89,7 +84,7 @@ declare global {
           kind?: 'task' | 'docs',
           model?: string,
           executionPolicy?: AgentExecutionPolicy
-        ) => Promise<{ sessionId: string }>;
+        ) => Promise<{ sessionId: string; route?: 'cao' }>;
         listAvailableModels?: (provider?: string, options?: { forceRefresh?: boolean; taskHubUrl?: string }) => Promise<any[]>;
         saveCustomModel?: (provider: string, model: { id: string; name?: string; badges?: string[]; description?: string }) => Promise<any>;
         deleteCustomModel?: (provider: string, modelId: string) => Promise<any>;
@@ -97,6 +92,7 @@ declare global {
         syncQuotaUsage?: (taskHubUrl?: string) => Promise<any>;
         updateQuotaSettings?: (settings: { enableCreditOverages?: boolean; plan?: string }) => Promise<any>;
         listSessions?: () => Promise<any[]>;
+        reconnectCaoSession?: (sessionId: string) => Promise<{ sessionId: string; route: 'cao'; status: string; workers: any[] }>;
         saveSessionState?: (state: any) => Promise<any>;
         listSavedSessions?: () => Promise<any[]>;
         getSessionState?: (sessionId: string) => Promise<any>;

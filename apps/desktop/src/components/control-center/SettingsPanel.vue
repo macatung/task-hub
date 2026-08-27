@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import type { DesktopCredential } from '../../composables/useTaskSync';
 
 const props = defineProps<{
@@ -10,9 +10,6 @@ const props = defineProps<{
   diagnostics: { ok: boolean; sandbox: string; summary: string; details: string[]; version?: string } | null;
   diagnosticsLoading: boolean;
   updater: { status: string; version?: string; percent?: number; message?: string };
-  router: { enabled: boolean; endpoint: string; hasApiKey: boolean } | null;
-  routerMessage: string;
-  saving: boolean;
   agentRuntimes: Array<{ provider: 'codex' | 'claude_code' | 'antigravity'; label: string; executable: string | null; status: 'ready' | 'missing' | 'installing' | 'failed'; message: string }>;
   runtimeRepairing: boolean;
   autoSubmitHandoff: boolean;
@@ -31,24 +28,13 @@ const emit = defineEmits<{
   repairRuntimes: [];
   checkAppUpdate: [];
   installAppUpdate: [];
-  saveRouter: [payload: { enabled: boolean; apiKey: string }];
-  checkRouter: [];
-  openRouterDashboard: [];
   openHub: [];
   updateAutoSubmitHandoff: [value: boolean];
   updateAutoContinueEpic: [value: boolean];
   updateAutoReview: [payload: { enabled: boolean; reviewer: 'codex' | 'claude_code' | 'antigravity'; maxIterations: number }];
+  restartCao: [];
 }>();
 
-const routerEnabled = ref(false);
-const apiKey = ref('');
-watch(() => [props.open, props.router] as const, () => {
-  routerEnabled.value = Boolean(props.router?.enabled);
-  apiKey.value = '';
-}, { immediate: true });
-const routerHint = computed(() => props.router?.hasApiKey
-  ? 'An encrypted API key is already stored on this device.'
-  : 'Enter the local 9Router API key to enable this route.');
 const reviewEnabled = ref(false);
 const reviewProvider = ref<'codex' | 'claude_code' | 'antigravity'>('claude_code');
 const reviewMaxIterations = ref(3);
@@ -145,7 +131,7 @@ const saveAutoReview = () => emit('updateAutoReview', { enabled: reviewEnabled.v
           </section>
           <div class="mt-4 rounded-lg border border-[#263244] bg-black/20 p-3">
             <div class="flex items-center justify-between gap-3">
-              <div><p class="text-xs font-medium text-white">Codex diagnostics</p><p class="mt-1 text-xs text-[#8b9bb0]">Checks CLI and Windows sandbox readiness on this device.</p></div>
+              <div><p class="text-xs font-medium text-white">Codex diagnostics via CAO</p><p class="mt-1 text-xs text-[#8b9bb0]">Kiểm tra Codex trong runtime CAO; Windows sandbox native không áp dụng cho phiên CAO.</p></div>
               <button class="cc-button shrink-0" :disabled="diagnosticsLoading" @click="emit('runDiagnostics')">{{ diagnosticsLoading ? 'Checking…' : 'Run diagnostics' }}</button>
             </div>
             <div v-if="diagnostics" class="mt-3 text-xs">
@@ -157,8 +143,8 @@ const saveAutoReview = () => emit('updateAutoReview', { enabled: reviewEnabled.v
 
         <section class="border-t border-[#263244] pt-6">
           <div class="flex items-start justify-between gap-4">
-            <div><h3 class="text-sm font-semibold text-white">Agent CLI environment</h3><p class="mt-1 text-xs leading-5 text-[#8b9bb0]">Task Hub installs missing Codex, Claude Code and Antigravity CLIs automatically after installation. Sign-in remains controlled by each provider.</p></div>
-            <button class="cc-primary shrink-0" :disabled="runtimeRepairing" @click="emit('repairRuntimes')">{{ runtimeRepairing ? 'Fixing…' : 'Fix environment' }}</button>
+            <div><h3 class="text-sm font-semibold text-white">CAO provider runtime</h3><p class="mt-1 text-xs leading-5 text-[#8b9bb0]">Provider CLI được kiểm tra trong đúng runtime CAO (WSL hoặc native CAO). Task Hub không cài hay chạy provider native ngoài CAO.</p></div>
+            <button class="cc-primary shrink-0" :disabled="runtimeRepairing" @click="emit('repairRuntimes')">{{ runtimeRepairing ? 'Checking…' : 'Refresh CAO runtime' }}</button>
           </div>
           <div class="mt-3 space-y-2">
             <div v-for="runtime in agentRuntimes" :key="runtime.provider" class="flex items-start justify-between gap-3 rounded-md border border-[#263244] bg-black/20 px-3 py-2 text-xs">
@@ -171,30 +157,19 @@ const saveAutoReview = () => emit('updateAutoReview', { enabled: reviewEnabled.v
 
         <section class="border-t border-[#263244] pt-6">
           <div class="flex items-start justify-between gap-4">
-            <div><h3 class="text-sm font-semibold text-white">CAO Multi-Agent Orchestrator</h3><p class="mt-1 text-xs leading-5 text-[#8b9bb0]">Điều phối tác nhân đa luồng (Supervisor - Worker) qua AWS Labs CLI Agent Orchestrator. Tự động chuyển đổi giữa CAO daemon và Native Process.</p></div>
-              <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" :class="caoStatus?.available ? 'bg-emerald-950/60 text-emerald-300' : 'bg-amber-950/60 text-amber-300'">{{ caoStatus?.available ? 'Active (CAO-first)' : 'Native fallback' }}</span>
+            <div><h3 class="text-sm font-semibold text-white">CAO Multi-Agent Orchestrator</h3><p class="mt-1 text-xs leading-5 text-[#8b9bb0]">Điều phối tác nhân đa luồng (Supervisor - Worker) qua AWS Labs CLI Agent Orchestrator. Mọi phiên agent đều bắt buộc chạy qua CAO.</p></div>
+              <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" :class="caoStatus?.available ? 'bg-emerald-950/60 text-emerald-300' : 'bg-rose-950/60 text-rose-300'">{{ caoStatus?.available ? 'Active (CAO required)' : 'Blocked (CAO unavailable)' }}</span>
           </div>
           <div class="mt-3 rounded-md border border-[#263244] bg-black/20 px-3 py-2 text-xs">
             <div class="flex items-center justify-between text-zinc-300">
               <span class="font-medium text-white">Orchestrator Backend:</span>
               <span class="font-mono" :class="caoStatus?.available ? 'text-emerald-400' : 'text-amber-300'">{{ caoStatus?.available ? `CAO CLI + daemon / Port ${caoStatus.port}` : 'CAO CLI or daemon unavailable' }}</span>
             </div>
-            <p v-if="!caoStatus?.available" class="mt-2 text-[11px] text-[#8b9bb0]">Task Hub uses native provider execution until CAO becomes available. Install CAO and ensure its local daemon can start.</p>
+            <p v-if="!caoStatus?.available" class="mt-2 text-[11px] text-[#d7a5a5]">Agent runs are blocked until CAO CLI and its local daemon are available in the selected runtime.</p>
+            <button class="cc-button mt-3" @click="emit('restartCao')">Restart CAO daemon</button>
           </div>
         </section>
 
-        <section class="border-t border-[#263244] pt-6">
-          <div class="flex items-start justify-between gap-4">
-            <div><h3 class="text-sm font-semibold text-white">Local 9Router</h3><p class="mt-1 text-xs leading-5 text-[#8b9bb0]">Route Codex or Claude Code through an OpenAI-compatible service on this machine. Antigravity always stays native.</p></div>
-            <label class="flex shrink-0 items-center gap-2 text-xs text-[#cbd5e1]"><input v-model="routerEnabled" type="checkbox"> Enable</label>
-          </div>
-          <div class="mt-4 space-y-3">
-            <label class="block text-xs font-medium text-[#cbd5e1]">Endpoint<input class="cc-input mt-2" :value="router?.endpoint || 'http://127.0.0.1:20128/v1'" readonly></label>
-            <label class="block text-xs font-medium text-[#cbd5e1]">API key<input v-model="apiKey" class="cc-input mt-2" type="password" :placeholder="router?.hasApiKey ? 'Saved securely — enter a new key to replace' : '9Router API key'" autocomplete="off"><span class="mt-1 block font-normal text-[#8b9bb0]">{{ routerHint }}</span></label>
-            <div class="flex flex-wrap items-center gap-2"><button class="cc-primary" :disabled="saving" @click="emit('saveRouter', { enabled: routerEnabled, apiKey })">{{ saving ? 'Saving…' : 'Save configuration' }}</button><button class="cc-button" :disabled="saving" @click="emit('checkRouter')">Test connection</button><button class="cc-button" @click="emit('openRouterDashboard')">Open dashboard</button></div>
-            <p v-if="routerMessage" class="rounded-md border border-[#263244] bg-black/20 px-3 py-2 text-xs text-[#cbd5e1]">{{ routerMessage }}</p>
-          </div>
-        </section>
       </main>
     </aside>
   </div>

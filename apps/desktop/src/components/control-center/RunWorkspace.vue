@@ -3,6 +3,8 @@ import { computed, ref } from "vue";
 import type { TaskItem } from "../../composables/useTaskSync";
 import DangerousCommandBanner from "../DangerousCommandBanner.vue";
 import type { SafetyInterceptEvent } from "../../utils/safetyGuardrails";
+import FlowStepper from "./FlowStepper.vue";
+import { deriveFlowState } from "../../utils/flowState";
 import {
   PROVIDER_MODELS,
   DEFAULT_PROVIDER_MODELS,
@@ -12,6 +14,7 @@ export type Provider = "codex" | "claude_code" | "antigravity";
 export type RunStatus =
   "idle" | "running" | "completed" | "failed" | "cancelled";
 type ExecutionPolicy = "restricted" | "workspace_write" | "full_access";
+type ExecutionRoute = "cao" | null;
 type ApprovalRequest = {
   id: string;
   reason: string;
@@ -41,6 +44,7 @@ const props = defineProps<{
   epicCompletedCount?: number;
   epicAutoContinue?: boolean;
   epicSequenceRunning?: boolean;
+  epicFinalizing?: boolean;
   autoReviewStatus?:
     | "idle"
     | "reviewing"
@@ -54,6 +58,8 @@ const props = defineProps<{
   reviewerProvider?: Provider;
   contextHealth?: "healthy" | "quiet";
   caoAvailable?: boolean;
+  executionRoute?: ExecutionRoute;
+  canReconnectCao?: boolean;
 }>();
 const emit = defineEmits<{
   "update:provider": [value: Provider];
@@ -72,6 +78,10 @@ const emit = defineEmits<{
   timeline: [];
   approveSafetyAlert: [eventId: string];
   rejectSafetyAlert: [eventId: string];
+  manualReviewApprove: [];
+  manualReviewChanges: [feedback: string];
+  increaseReviewLimit: [limit: number];
+  reconnectCao: [];
 }>();
 const followUp = ref("");
 const showHandoff = ref(false);
@@ -84,6 +94,20 @@ const commitSha = ref("");
 const pullRequestUrl = ref("");
 const blockers = ref("");
 const activeSubTab = ref<'terminal' | 'turns' | 'handoff'>('terminal');
+const humanReviewFeedback = ref('');
+const increasedReviewLimit = ref(3);
+const showRunContext = ref(false);
+const isStreaming = computed(() => props.running && Boolean(props.output?.trim()));
+const flowState = computed(() =>
+  deriveFlowState({
+    phase: props.phase,
+    runStatus: props.runStatus,
+    autoReviewStatus: props.autoReviewStatus,
+    approvalPending: Boolean(props.approvalRequest),
+    caoAvailable: props.caoAvailable,
+    executionRoute: props.executionRoute,
+  }),
+);
 const insertSnippet = (template: string) => {
   followUp.value = followUp.value ? `${followUp.value}\n${template}` : template;
 };
@@ -133,6 +157,9 @@ const dependencyState = computed(() => {
   };
 });
 const isEpic = computed(() => props.task?.issue_type === "epic");
+const isEpicContext = computed(
+  () => isEpic.value || Boolean(props.epicSequenceRunning || props.epicFinalizing),
+);
 const runnableStatus = computed(
   () => props.task?.status === "todo" || props.task?.status === "in_progress",
 );
@@ -280,11 +307,11 @@ const activityLabel = (kind: ActivityKind) =>
   })[kind];
 const activityTone = (kind: ActivityKind) =>
   ({
-    tool: "text-violet-300 hover:text-violet-200",
+    tool: "cc-activity-tone--tool",
     progress: "text-zinc-400 hover:text-zinc-200",
-    thinking: "text-cyan-300 hover:text-cyan-200",
-    warning: "text-amber-300 hover:text-amber-200",
-    result: "text-emerald-300 hover:text-emerald-200",
+    thinking: "cc-activity-tone--thinking",
+    warning: "cc-activity-tone--warning",
+    result: "cc-activity-tone--result",
   })[kind];
 const groupSummary = (group: ActivityGroup) =>
   `${group.lines.length} ${activityLabel(group.kind).toLowerCase()} item${group.lines.length === 1 ? "" : "s"}`;
@@ -331,30 +358,12 @@ const providerVersion = computed(() => {
 });
 
 const providerTone = computed(() => {
-  if (props.provider === "antigravity") {
-    return {
-      border: "border-orange-500/50",
-      bg: "bg-[#18130f]/80",
-      text: "text-orange-400",
-      subText: "text-orange-500",
-      highlight: "text-orange-300",
-    };
-  }
-  if (props.provider === "claude_code") {
-    return {
-      border: "border-purple-500/50",
-      bg: "bg-[#161219]/80",
-      text: "text-purple-400",
-      subText: "text-purple-500",
-      highlight: "text-purple-300",
-    };
-  }
   return {
-    border: "border-cyan-500/60",
-    bg: "bg-[#121619]/80",
-    text: "text-cyan-400",
-    subText: "text-cyan-500",
-    highlight: "text-cyan-300",
+    border: "cc-provider-border",
+    bg: "cc-provider-bg",
+    text: "cc-provider-text",
+    subText: "cc-provider-subtext",
+    highlight: "cc-provider-highlight",
   };
 });
 
@@ -375,9 +384,9 @@ const displayPermission = computed(() => {
 });
 
 const permissionTone = computed(() => {
-  if (props.executionPolicy === "full_access") return "text-amber-400 font-medium";
-  if (props.executionPolicy === "workspace_write") return "text-emerald-400 font-medium";
-  return "text-zinc-400";
+  if (props.executionPolicy === "full_access") return "cc-permission-tone--elevated font-medium";
+  if (props.executionPolicy === "workspace_write") return "cc-permission-tone--write font-medium";
+  return "cc-permission-tone--readonly";
 });
 
 const submit = () => {
@@ -401,20 +410,20 @@ const submit = () => {
 <template>
   <section class="flex flex-1 flex-col overflow-hidden bg-[#12100e] select-none">
     <!-- Active Agent Header Banner (AgentsRoom style) -->
-    <header class="flex items-center justify-between border-b border-[#251e18] bg-[#161310] px-5 py-2.5">
-      <div class="flex items-center gap-3 min-w-0 flex-1 mr-3">
+    <header class="cc-run-header flex items-center justify-between border-b border-[#251e18] bg-[#161310] px-5 py-2.5">
+      <div class="cc-run-header__identity flex items-center gap-3 min-w-0 flex-1 mr-3">
         <!-- Avatar with status dot -->
         <div class="relative shrink-0">
           <div
-            class="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-tr text-white font-black text-xs shadow-md ring-2 ring-white/10"
+            class="cc-task-avatar grid h-10 w-10 place-items-center rounded-2xl text-white font-black text-xs ring-2 ring-white/10"
             :class="
               task?.issue_type === 'epic'
-                ? 'from-purple-600 via-indigo-700 to-purple-800 ring-purple-500/30'
+                ? 'cc-task-avatar--epic'
                 : task?.issue_type === 'story'
-                  ? 'from-emerald-600 via-teal-700 to-emerald-800 ring-emerald-500/30'
+                  ? 'cc-task-avatar--story'
                   : task?.issue_type === 'bug'
-                    ? 'from-rose-600 via-red-700 to-rose-800 ring-rose-500/30'
-                    : 'from-amber-600 via-orange-700 to-amber-800 ring-amber-500/30'
+                    ? 'cc-task-avatar--bug'
+                    : 'cc-task-avatar--task'
             "
           >
             <i
@@ -432,7 +441,7 @@ const submit = () => {
           </div>
           <span
             class="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-[#161310]"
-            :class="running ? 'bg-emerald-400 animate-pulse' : task ? 'bg-orange-500' : 'bg-zinc-600'"
+            :class="running ? 'cc-dot--active' : task ? 'cc-dot--accent' : 'cc-dot--muted'"
           ></span>
         </div>
 
@@ -442,91 +451,84 @@ const submit = () => {
             <h2 class="text-sm font-bold text-zinc-100 truncate" :title="task ? task.title : 'Chưa chọn tác vụ'">
               {{ task ? task.title : 'Chưa chọn tác vụ' }}
             </h2>
-            <span v-if="task?.priority === 'high'" class="shrink-0 grid h-4 px-1.5 place-items-center rounded-full bg-rose-500/20 text-rose-400 text-[9px] font-bold">
+            <span v-if="task?.priority === 'high'" class="cc-status-chip cc-status-chip--danger shrink-0 grid h-4 px-1.5 place-items-center rounded-full text-[9px] font-bold">
               ƯU TIÊN
             </span>
           </div>
 
-          <div class="flex items-center gap-2 mt-0.5 min-w-0">
-            <span class="shrink-0 rounded-full bg-[#241d18] border border-[#3b2e24] px-2 py-0.2 text-[9px] font-bold tracking-wide uppercase text-orange-400">
+          <div class="cc-run-header__meta flex items-center gap-2 mt-0.5 min-w-0">
+            <span class="cc-status-chip cc-status-chip--accent shrink-0 rounded-full px-2 py-0.2 text-[9px] font-bold tracking-wide uppercase">
               ● {{ task ? (task.issue_key || `#${task.id}`) : 'CHƯA CHỌN TASK' }}
             </span>
-            <span class="shrink-0 hidden sm:inline-flex items-center gap-1 text-[10px] font-medium text-zinc-400">
-              <span class="h-1.5 w-1.5 rounded-full" :class="workspace ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+            <span class="cc-run-header__workspace-meta shrink-0 hidden sm:inline-flex items-center gap-1 text-[10px] font-medium text-zinc-400">
+              <span class="h-1.5 w-1.5 rounded-full" :class="workspace ? 'cc-dot--success' : 'cc-dot--warning'"></span>
               <span>{{ workspace ? (workspace.split(/[\\/]/).pop() || 'Workspace') : 'Chưa chọn thư mục' }}</span>
             </span>
-            <span class="text-[10px] text-zinc-500 truncate hidden md:inline">
+            <span class="cc-run-header__phase-meta text-[10px] text-zinc-500 truncate hidden md:inline">
               {{ phase }} · {{ contextHealth === 'quiet' ? 'Quiet context' : 'Context healthy' }}
             </span>
           </div>
         </div>
       </div>
 
-      <!-- Header Controls: Model Selector, Timeline, Launch & Window Controls -->
-      <div class="flex items-center gap-2 shrink-0">
-        <!-- Model Selector Pill (AgentsRoom style: gpt-5.5 with purple dot) -->
-        <div class="flex items-center gap-1 rounded-full bg-[#1e1915] border border-[#332a21] px-3 py-1 text-xs">
-          <span class="h-2 w-2 rounded-full bg-purple-400"></span>
-          <select
-            :value="activeModelValue"
-            class="bg-transparent text-xs font-semibold text-zinc-200 focus:outline-none cursor-pointer"
-            title="Select AI Model"
-            @change="$emit('update:model', ($event.target as HTMLSelectElement).value)"
-          >
-            <option v-for="m in availableModels" :key="m.id" :value="m.id" class="bg-[#181411] text-zinc-200">
-              {{ m.name }}
-            </option>
-          </select>
-        </div>
+      <!-- Header Controls: primary action plus secondary controls that move into overflow on narrow widths. -->
+      <div class="cc-run-header__actions flex items-center gap-2 shrink-0">
+        <details class="cc-overflow-menu cc-run-header-overflow">
+          <summary class="cc-run-header-overflow__trigger grid h-7 w-7 place-items-center rounded-lg text-zinc-400 hover:bg-[#251e18] hover:text-zinc-200 transition" title="Tùy chọn agent" aria-label="Tùy chọn agent">
+            <i class="codicon codicon-kebab-vertical text-xs"></i>
+          </summary>
+          <div class="cc-overflow-menu__panel cc-run-header-overflow__panel">
+            <div class="cc-run-header-control cc-run-header-control--model flex items-center gap-1 rounded-full bg-[#1e1915] border border-[#332a21] px-3 py-1 text-xs">
+              <span class="h-2 w-2 rounded-full cc-dot--accent"></span>
+              <select
+                :value="activeModelValue"
+                class="bg-transparent text-xs font-semibold text-zinc-200 focus:outline-none cursor-pointer"
+                title="Select AI Model"
+                aria-label="Select AI Model"
+                @change="$emit('update:model', ($event.target as HTMLSelectElement).value)"
+              >
+                <option v-for="m in availableModels" :key="m.id" :value="m.id" class="bg-[#181411] text-zinc-200">{{ m.name }}</option>
+              </select>
+            </div>
 
-        <!-- Provider Switcher -->
-        <select
-          :value="provider"
-          class="hidden md:block rounded-full bg-[#1e1915] border border-[#332a21] px-2.5 py-1 text-xs font-medium text-zinc-300 focus:outline-none"
-          @change="$emit('update:provider', ($event.target as HTMLSelectElement).value as Provider)"
-        >
-          <option value="codex" class="bg-[#181411]">Codex</option>
-          <option value="claude_code" class="bg-[#181411]">Claude Code</option>
-          <option value="antigravity" class="bg-[#181411]">Antigravity</option>
-        </select>
+            <select
+              :value="provider"
+              class="cc-run-header-control rounded-full bg-[#1e1915] border border-[#332a21] px-2.5 py-1 text-xs font-medium text-zinc-300 focus:outline-none"
+              aria-label="Provider"
+              @change="$emit('update:provider', ($event.target as HTMLSelectElement).value as Provider)"
+            >
+              <option value="codex" class="bg-[#181411]">Codex</option>
+              <option value="claude_code" class="bg-[#181411]">Claude Code</option>
+              <option value="antigravity" class="bg-[#181411]">Antigravity</option>
+            </select>
 
-        <!-- Execution Policy Selector -->
-        <select
-          :value="executionPolicy"
-          class="hidden lg:block rounded-full bg-[#1e1915] border border-[#332a21] px-2.5 py-1 text-xs font-medium text-zinc-300 focus:outline-none"
-          title="Execution permission"
-          @change="$emit('update:executionPolicy', ($event.target as HTMLSelectElement).value as ExecutionPolicy)"
-        >
-          <option value="restricted" class="bg-[#181411]">Read only</option>
-          <option value="workspace_write" class="bg-[#181411]">Workspace write</option>
-          <option value="full_access" class="bg-[#181411]">Full access</option>
-        </select>
+            <select
+              :value="executionPolicy"
+              class="cc-run-header-control rounded-full bg-[#1e1915] border border-[#332a21] px-2.5 py-1 text-xs font-medium text-zinc-300 focus:outline-none"
+              title="Execution permission"
+              aria-label="Execution permission"
+              @change="$emit('update:executionPolicy', ($event.target as HTMLSelectElement).value as ExecutionPolicy)"
+            >
+              <option value="restricted" class="bg-[#181411]">Read only</option>
+              <option value="workspace_write" class="bg-[#181411]">Workspace write</option>
+              <option value="full_access" class="bg-[#181411]">Full access</option>
+            </select>
 
-        <button
-          class="hidden sm:inline-flex cc-button text-xs"
-          title="View E2E Activity and Audit Timeline"
-          @click="$emit('timeline')"
-        >
-          ⏱ Timeline
-        </button>
-
-        <button class="hidden sm:inline-flex cc-button text-xs" @click="$emit('chooseWorkspace')">
-          {{ workspace ? "Đổi thư mục" : "Chọn thư mục" }}
-        </button>
+            <button class="cc-run-header-control cc-button text-xs" title="View E2E Activity and Audit Timeline" @click="$emit('timeline')">⏱ Timeline</button>
+            <button class="cc-run-header-control cc-button text-xs" @click="$emit('chooseWorkspace')">{{ workspace ? "Đổi thư mục" : "Chọn thư mục" }}</button>
+          </div>
+        </details>
 
         <!-- Launch / Run Button -->
         <button
-          class="cc-primary text-xs"
+          class="cc-primary cc-run-header__launch text-xs"
           :disabled="!canLaunch"
           @click="$emit('launch')"
         >
           {{ isEpic ? "Run Epic sequence" : "Launch agent" }}
         </button>
 
-        <!-- Header Actions: 3-dot, Expand, Close -->
-        <button class="grid h-7 w-7 place-items-center rounded-lg text-zinc-400 hover:bg-[#251e18] hover:text-zinc-200 transition" title="More options">
-          <i class="codicon codicon-kebab-vertical text-xs"></i>
-        </button>
+        <!-- Header Actions: fullscreen -->
         <button class="grid h-7 w-7 place-items-center rounded-lg text-zinc-400 hover:bg-[#251e18] hover:text-zinc-200 transition" title="Toàn màn hình">
           <i class="codicon codicon-screen-full text-xs"></i>
         </button>
@@ -534,46 +536,36 @@ const submit = () => {
     </header>
 
     <!-- Epic / Dependency / Safety Banners -->
-    <div v-if="isEpic" class="px-5 pt-2 text-[11px] font-semibold text-violet-300">
-      Epic sequence · {{ epicCompletedCount || 0 }}/{{ epicChildCount || 0 }} tasks completed · runs one task at a time<span v-if="epicAutoContinue">
-        and starts the next task after each handoff; Hub review remains required.
-      </span><!-- it never bypasses dependencies --><span v-else>
-        and waits for Hub approval before continuing.
-      </span>
+    <div v-if="isEpicContext" class="cc-muted-callout px-5 pt-2 text-[11px] font-semibold">
+      <template v-if="epicSequenceRunning || epicFinalizing">
+        <span v-if="epicFinalizing">Epic handoff is being completed automatically · </span>
+        <span v-else>CAO đang chạy xuyên Epic · {{ task?.issue_key || task?.title || 'TH-01' }} · </span>
+        {{ epicCompletedCount || 0 }}/{{ epicChildCount || 0 }} tasks completed
+      </template>
+      <template v-else>
+        Epic sequence · {{ epicCompletedCount || 0 }}/{{ epicChildCount || 0 }} tasks completed · runs one task at a time<span v-if="epicAutoContinue">
+          and starts the next task after each automatic verification.
+        </span><!-- it never bypasses dependencies --><span v-else>
+          and pauses only if a human decision is required.
+        </span>
+      </template>
     </div>
 
-    <!-- Independent Review Banner -->
-    <div
-      v-if="autoReviewStatus && autoReviewStatus !== 'idle'"
-      class="mx-5 mt-2 rounded-xl border px-3.5 py-2 text-xs"
-      :class="
-        autoReviewStatus === 'approved'
-          ? 'border-emerald-700/70 bg-emerald-950/30 text-emerald-200'
-          : autoReviewStatus === 'reviewing'
-            ? 'border-sky-700/70 bg-sky-950/30 text-sky-200'
-            : 'border-amber-700/70 bg-amber-950/30 text-amber-200'
-      "
-    >
-      <div class="flex items-center justify-between gap-3">
-        <b>{{
-          autoReviewStatus === "reviewing"
-            ? `Independent review ${autoReviewIteration || 0}/${autoReviewMaxIterations || 0}`
-            : autoReviewStatus === "approved"
-              ? "Independent review approved"
-              : autoReviewStatus === "changes_requested"
-                ? "Reviewer requested changes"
-                : autoReviewStatus === "max_iterations"
-                  ? "Review limit reached"
-                  : "Independent review failed"
-        }}</b>
-        <span v-if="reviewerProvider" class="text-[11px] opacity-80">
-          {{ reviewerProvider === "claude_code" ? "Claude Code" : reviewerProvider === "antigravity" ? "Antigravity" : "Codex" }}
-        </span>
+    <!-- Only show review UI when the configured automatic limit needs a human decision. -->
+    <section v-if="autoReviewStatus === 'max_iterations'" class="mx-5 mt-3 rounded-xl border border-amber-600/60 bg-amber-950/25 p-4 text-xs text-amber-100">
+      <div class="flex items-center justify-between gap-3"><b>Auto-review reached its limit</b><span>{{ autoReviewIteration || 0 }}/{{ autoReviewMaxIterations || 0 }} rounds</span></div>
+      <p class="mt-2 text-amber-100/80">Review the final feedback, approve the task, request another implementation pass, or increase this task’s review limit.</p>
+      <p v-if="autoReviewFeedback" class="mt-3 whitespace-pre-wrap rounded-lg bg-black/20 p-3 leading-5">{{ autoReviewFeedback }}</p>
+      <textarea v-model="humanReviewFeedback" class="mt-3 min-h-20 w-full rounded-lg border border-amber-700/60 bg-black/20 p-2 text-xs text-amber-50" placeholder="Human review feedback (required when requesting changes)" />
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <button class="cc-primary text-xs" @click="$emit('manualReviewApprove')">Approve &amp; mark Done</button>
+        <button class="cc-button text-xs" :disabled="!humanReviewFeedback.trim()" @click="$emit('manualReviewChanges', humanReviewFeedback)">Request changes</button>
+        <label class="ml-auto flex items-center gap-2 text-[11px]">Increase to
+          <input v-model.number="increasedReviewLimit" class="w-14 rounded border border-amber-700/60 bg-black/20 px-1.5 py-1" type="number" :min="(autoReviewMaxIterations || 1) + 1" max="10" /> rounds
+        </label>
+        <button class="cc-button text-xs" :disabled="increasedReviewLimit <= (autoReviewMaxIterations || 0)" @click="$emit('increaseReviewLimit', increasedReviewLimit)">Continue auto-review</button>
       </div>
-      <p v-if="autoReviewFeedback" class="mt-1 whitespace-pre-wrap leading-5 opacity-90">
-        {{ autoReviewFeedback }}
-      </p>
-    </div>
+    </section>
 
     <!-- Dangerous Command & Safety Interception Banner -->
     <div v-if="safetyAlert" class="mx-5 mt-3">
@@ -587,10 +579,17 @@ const submit = () => {
     <!-- Error / Approval Request Banner -->
     <div
       v-if="error"
-      class="mx-5 mt-3 rounded-xl border border-rose-900/70 bg-rose-950/30 px-3.5 py-3 text-sm text-rose-200"
+      class="cc-error-banner mx-5 mt-3 rounded-xl border px-3.5 py-3 text-sm"
     >
       <div class="flex items-start justify-between gap-3">
         <span>{{ error }}</span>
+        <button
+          v-if="canReconnectCao"
+          class="cc-primary shrink-0"
+          @click="$emit('reconnectCao')"
+        >
+          Reconnect CAO session
+        </button>
         <button
           v-if="!approvalRequest"
           class="cc-button shrink-0"
@@ -633,89 +632,81 @@ const submit = () => {
       </div>
     </div>
 
-    <!-- Main Workspace Content / Terminal Display -->
-    <main class="min-h-0 flex-1 overflow-y-auto px-5 py-4 space-y-4">
-      <!-- Terminal Frame (Dynamically adapted to active provider & model) -->
+    <!-- Main Workspace Content / Compact stream display -->
+    <main class="cc-run-content min-h-0 flex-1 overflow-y-auto">
+      <!-- Compact execution context: collapses automatically once text starts streaming. -->
       <section
-        class="rounded-2xl border bg-[#0e0c0b] p-4 shadow-lg transition-colors"
-        :class="providerTone.border"
+        class="cc-run-surface"
+        :class="{ 'cc-run-surface--streaming': isStreaming }"
       >
-        <!-- Terminal Header Box (Dynamic style based on Provider) -->
-        <div
-          class="rounded-xl border p-3.5 text-xs font-mono mb-4 max-w-xl shadow-md transition-all"
-          :class="[providerTone.border, providerTone.bg, providerTone.text]"
+        <button
+          type="button"
+          class="cc-run-context__summary"
+          :aria-expanded="showRunContext"
+          @click="showRunContext = !showRunContext"
         >
-          <div class="font-bold text-sm flex items-center gap-1.5" :class="providerTone.text">
-            <span>&gt;_</span>
-            <span>{{ providerTitle }}</span>
-            <span class="text-xs font-normal opacity-75">({{ providerVersion }})</span>
+          <span class="cc-run-context__dot" :class="isStreaming ? 'cc-run-context__dot--live' : 'cc-run-context__dot--idle'"></span>
+          <span class="cc-run-context__title">{{ isStreaming ? 'Đang stream' : 'Execution context' }}</span>
+          <span class="cc-run-context__meta">{{ displayModelName }} · {{ displayDirectory.split(/[\\/]/).pop() || 'workspace' }}</span>
+          <span class="cc-run-context__action">
+            {{ showRunContext ? 'Thu gọn' : 'Chi tiết' }}
+            <i class="codicon text-[10px]" :class="showRunContext ? 'codicon-chevron-up' : 'codicon-chevron-down'"></i>
+          </span>
+        </button>
+
+        <div v-if="showRunContext" class="cc-run-context__body">
+          <div class="cc-run-context__identity">
+            <span class="cc-run-context__provider">{{ providerTitle }}</span>
+            <span class="cc-run-context__version">{{ providerVersion }}</span>
           </div>
-          <div class="mt-2.5 space-y-1.5 text-[11px]">
-            <div class="grid grid-cols-[100px_1fr] gap-2 items-center">
-              <span class="text-zinc-400">model:</span>
-              <span class="font-semibold" :class="providerTone.highlight">
-                {{ displayModelName }}
-              </span>
-            </div>
-            <div class="grid grid-cols-[100px_1fr] gap-2 items-center">
-              <span class="text-zinc-400">directory:</span>
-              <span class="text-zinc-200 truncate font-mono text-[10px]" :title="displayDirectory">{{ displayDirectory }}</span>
-            </div>
-            <div class="grid grid-cols-[100px_1fr] gap-2 items-center">
-              <span class="text-zinc-400">permissions:</span>
-              <span :class="permissionTone">{{ displayPermission }}</span>
-            </div>
-            <div v-if="task" class="grid grid-cols-[100px_1fr] gap-2 items-center">
-              <span class="text-zinc-400">active task:</span>
-              <span class="text-orange-300 font-semibold truncate">{{ task.issue_key || `#${task.id}` }}: {{ task.title }}</span>
-            </div>
+          <div class="cc-run-context__details">
+            <div><span>Model</span><strong :class="providerTone.highlight">{{ displayModelName }}</strong></div>
+            <div><span>Directory</span><strong :title="displayDirectory">{{ displayDirectory }}</strong></div>
+            <div><span>Permissions</span><strong :class="permissionTone">{{ displayPermission }}</strong></div>
+            <div v-if="task"><span>Task</span><strong :title="task.title">{{ task.issue_key || `#${task.id}` }} · {{ task.title }}</strong></div>
           </div>
         </div>
 
-        <!-- Terminal Status & Environment Output -->
-        <div class="font-mono text-xs text-zinc-400 space-y-2.5 leading-relaxed border-b border-[#221c17] pb-4 mb-4">
-          <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-emerald-400">
+        <FlowStepper
+          :current-step="flowState.currentStep"
+          :state="flowState.state"
+          :label="flowState.label"
+          :details="showRunContext ? flowState.details : undefined"
+        />
+
+        <!-- Status line stays visible while the terminal-like context collapses. -->
+        <div class="cc-run-statusline">
+          <div class="cc-run-statusline__items">
             <div class="flex items-center gap-1.5">
-              <i class="codicon codicon-pass text-xs"></i>
-              <span>Task Hub Protocol: <span class="font-bold">Đã sẵn sàng</span></span>
+              <i class="codicon codicon-pass text-xs cc-icon--success"></i>
+              <span>Task Hub Protocol · <b>Đã sẵn sàng</b></span>
             </div>
-            <span class="text-zinc-600 hidden sm:inline">•</span>
-            <div class="flex items-center gap-1.5 text-sky-300">
-              <i class="codicon codicon-server-process text-xs"></i>
-              <span>CAO Orchestrator: <span class="font-bold" :class="caoAvailable ? 'text-sky-200' : 'text-amber-300'">{{ caoAvailable ? 'Sẵn sàng (CAO-first)' : 'Native fallback' }}</span></span>
+            <div class="flex items-center gap-1.5">
+              <i class="codicon codicon-server-process text-xs cc-icon--info"></i>
+              <span>CAO · <b :class="caoAvailable ? 'cc-state--success' : 'cc-state--blocked'">{{ caoAvailable ? 'Sẵn sàng' : 'Bắt buộc · chưa sẵn sàng' }}</b></span>
+            </div>
+            <div class="cc-run-route" :class="executionRoute === 'cao' ? 'cc-run-route--cao' : ''">
+              <i class="codicon" :class="executionRoute === 'cao' ? 'codicon-broadcast' : 'codicon-terminal'" aria-hidden="true"></i>
+              <span>{{ executionRoute === 'cao' ? 'CAO session stream' : 'Chưa khởi động — CAO bắt buộc' }}</span>
             </div>
           </div>
-          <p class="text-zinc-300 flex items-center gap-2">
-            <span :class="providerTone.text">&gt;</span>
-            <span class="font-semibold" :class="providerTone.highlight">{{ displayModelName }}</span>
-            <span class="text-zinc-500">•</span>
-            <span class="text-zinc-400">{{ displayDirectory.split(/[\\/]/).pop() || 'workspace' }}</span>
-          </p>
+          <span class="cc-run-statusline__state" :class="`cc-run-statusline__state--${runStatus}`">
+            <i class="h-1.5 w-1.5 rounded-full bg-current"></i>{{ statusLabel }}
+          </span>
         </div>
 
         <!-- Dynamic Agent Turns & Execution Logs -->
         <div class="space-y-4">
-          <div class="flex items-center justify-between text-xs text-zinc-500 pb-1">
+          <div class="cc-run-section-heading">
             <span>Hoạt động & Lượt phản hồi</span>
-            <span
-              class="inline-flex items-center gap-1.5 font-medium"
-              :class="{
-                'text-sky-400': runStatus === 'running',
-                'text-emerald-400': runStatus === 'completed',
-                'text-rose-400': runStatus === 'failed',
-                'text-amber-400': runStatus === 'cancelled',
-              }"
-            >
-              <i class="h-1.5 w-1.5 rounded-full bg-current"></i>
-              {{ statusLabel }}
-            </span>
+            <span class="text-[11px] text-[#8e938f]">{{ responseTurns.length ? `${responseTurns.length} lượt` : 'Chưa có lượt' }}</span>
           </div>
 
           <!-- Empty State or Live Execution Output -->
           <div v-if="!responseTurns.length" class="py-6 text-center text-xs text-zinc-500">
             <div v-if="running" class="inline-flex flex-col items-center gap-2">
-              <span class="inline-flex items-center gap-2 font-medium text-sky-400 animate-pulse">
-                <i class="h-2 w-2 rounded-full bg-sky-400"></i>Đang thực thi và streaming dữ liệu…
+                <span class="inline-flex items-center gap-2 font-medium cc-state--active">
+                <i class="h-2 w-2 rounded-full cc-dot--active"></i>Đang thực thi và streaming dữ liệu…
               </span>
               <span class="text-[11px] text-zinc-500">Dòng dữ liệu streaming sẽ hiển thị tại đây khi tiến trình output.</span>
             </div>
@@ -727,30 +718,25 @@ const submit = () => {
             <article
               v-for="(turn, index) in responseTurns"
               :key="index"
-              class="rounded-xl border border-[#27201a] bg-[#16120f] p-3.5 space-y-2.5"
+              class="cc-response-card rounded-xl p-3.5 space-y-2.5"
             >
               <div class="flex items-center justify-between gap-3 text-xs text-zinc-400 border-b border-[#241c16] pb-2">
                 <span class="font-semibold flex items-center gap-1.5 text-zinc-200">
                   <span
                     class="h-2 w-2 rounded-full"
-                    :class="{
-                      'bg-sky-400 animate-pulse': turn.pending,
-                      'bg-emerald-400': turn.outcome === 'completed',
-                      'bg-rose-400': turn.outcome === 'failed',
-                      'bg-amber-400': turn.outcome === 'cancelled',
-                    }"
+                    :class="turn.pending ? 'cc-dot--active' : turn.outcome === 'completed' ? 'cc-dot--success' : turn.outcome === 'failed' ? 'cc-dot--danger' : turn.outcome === 'cancelled' ? 'cc-dot--warning' : 'cc-dot--muted'"
                   ></span>
                   <span>{{ responseLabel(turn) }}</span>
                 </span>
                 <span class="text-[11px] text-zinc-500">Step {{ index + 1 }}</span>
               </div>
 
-              <pre class="whitespace-pre-wrap break-words font-mono text-xs leading-6 text-zinc-100 bg-[#0e0c0a] p-3 rounded-lg border border-[#201914]">{{ turn.response }}</pre>
+              <div class="cc-response-text whitespace-pre-wrap break-words text-sm leading-6">{{ turn.response }}</div>
 
               <!-- Technical Details & Logs Disclosures -->
               <details
                 v-if="turn.activity.length"
-                :open="turn.pending || running"
+                :open="!isStreaming && turn.pending"
                 class="group mt-2"
               >
                 <summary class="cursor-pointer list-none text-xs text-zinc-400 hover:text-zinc-200 flex items-center gap-1">
@@ -762,7 +748,7 @@ const submit = () => {
                   <details
                     v-for="group in activityGroups(turn)"
                     :key="group.kind"
-                    :open="running"
+                    :open="!isStreaming && !running"
                     class="group/nested"
                   >
                     <summary class="cursor-pointer list-none text-xs font-mono" :class="activityTone(group.kind)">
@@ -792,8 +778,8 @@ const submit = () => {
       </section>
 
       <!-- Status Notice Banner (AgentsRoom style callout) -->
-      <div class="rounded-xl border border-amber-600/30 bg-amber-950/20 px-3.5 py-2.5 text-xs text-amber-200 flex items-start gap-2.5">
-        <i class="codicon codicon-info text-amber-400 mt-0.5 shrink-0"></i>
+      <div v-if="runStatus === 'idle' && !output.trim()" class="cc-muted-callout rounded-xl border px-3.5 py-2.5 text-xs flex items-start gap-2.5">
+        <i class="codicon codicon-info cc-icon--warning mt-0.5 shrink-0"></i>
         <p class="leading-5 text-[11px]">
           Chưa gửi: tác vụ này chưa từng khởi động nên terminal chỉ là một shell. Hãy hoàn tất phần cài đặt hiển thị phía trên, khởi động tác vụ rồi gửi lại. Tin nhắn của bạn vẫn được giữ.
         </p>
@@ -916,8 +902,14 @@ const submit = () => {
           >
             Open handoff in Hub ↗
           </a>
+          <span
+            v-if="isEpicContext && (epicSequenceRunning || epicFinalizing)"
+            class="cc-button text-xs cursor-default"
+          >
+            CAO đang chạy xuyên Epic — {{ epicCompletedCount || 0 }}/{{ epicChildCount || 0 }}
+          </span>
           <button
-            v-if="task"
+            v-else-if="task"
             class="cc-button text-xs"
             @click="showHandoff = !showHandoff"
           >
@@ -931,7 +923,7 @@ const submit = () => {
 
       <!-- Handoff Submission Form -->
       <form
-        v-if="showHandoff"
+        v-if="showHandoff && !(isEpicContext && (epicSequenceRunning || epicFinalizing))"
         class="mt-3 grid grid-cols-2 gap-2.5 rounded-xl bg-[#181411] border border-[#2a221b] p-3.5 text-xs"
         @submit.prevent="submit"
       >

@@ -113,7 +113,10 @@ class ApiAgentRunController extends Controller
                     : 'Task is already done. Reopen it before starting another run.',
             ], 422);
         }
-        if ($task?->hasIncompleteDependencies()) {
+        $localCaoEpicChild = $task
+            && $task->issue_type !== 'epic'
+            && data_get($request->input('metadata'), 'epic_sequence.local_cao') === true;
+        if ($task?->hasIncompleteDependencies() && !($localCaoEpicChild && $this->localCaoDependenciesVerified($task, (array) $request->input('metadata')))) {
             return response()->json([
                 'success' => false,
                 'message' => 'Task is blocked until all dependency tasks are done.',
@@ -503,6 +506,7 @@ class ApiAgentRunController extends Controller
             'review.reviewer_run_id' => 'nullable|integer',
             'review.iterations' => 'nullable|integer|min:0|max:20',
             'review.feedback' => 'nullable|string|max:10000',
+            'auto_approved' => 'nullable|boolean',
             'idempotency_key' => 'nullable|uuid',
         ]);
         $validated['changed_files'] = array_values($validated['changed_files'] ?? []);
@@ -512,7 +516,30 @@ class ApiAgentRunController extends Controller
         }
         unset($validated['idempotency_key']);
 
-        $run = DB::transaction(function () use ($agentRun, $validated, $idempotencyKey) {
+        $autoApproved = (bool) ($validated['auto_approved'] ?? false);
+        if ($autoApproved) {
+            $reviewerRunId = (int) data_get($validated, 'review.reviewer_run_id', 0);
+            $reviewerRun = AgentRun::query()->find($reviewerRunId);
+            $hasIndependentPassedReview = $reviewerRun
+                && (int) $reviewerRun->id !== (int) $agentRun->id
+                && (int) $reviewerRun->task_id === (int) $agentRun->task_id
+                && $reviewerRun->evidence()
+                    ->where('evidence_type', 'independent_review')
+                    ->where('status', 'passed')
+                    ->exists();
+            $isVerifiedLocalCaoEpic = $agentRun->run_type === 'epic'
+                && $agentRun->task?->issue_type === 'epic'
+                && data_get($agentRun->metadata, 'epic_sequence.local_cao') === true
+                && !Task::query()->where('epic_id', $agentRun->task_id)->where('status', '!=', 'done')->exists();
+            if ((!$hasIndependentPassedReview && !$isVerifiedLocalCaoEpic) || data_get($validated, 'review.status') !== 'approved') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Auto-approval requires passed evidence from a separate independent reviewer run.',
+                ], 422);
+            }
+        }
+
+        $run = DB::transaction(function () use ($agentRun, $validated, $idempotencyKey, $autoApproved) {
             $metadata = array_merge($agentRun->metadata ?: [], [
                 'handoff' => [
                     'changed_files' => array_values($validated['changed_files']),
@@ -520,19 +547,20 @@ class ApiAgentRunController extends Controller
                     'auto_review' => $validated['review'] ?? null,
                     'idempotency_key' => $idempotencyKey,
                     'submitted_at' => now()->toIso8601String(),
+                    'auto_approved' => $autoApproved,
                 ],
             ]);
             $agentRun->update([
-                'status' => 'needs_review', 'summary' => $validated['summary'],
+                'status' => $autoApproved ? 'verified' : 'needs_review', 'summary' => $validated['summary'],
                 'commit_sha' => $validated['commit_sha'] ?? $agentRun->commit_sha,
                 'pull_request_url' => $validated['pull_request_url'] ?? $agentRun->pull_request_url,
                 'metadata' => $metadata,
+                'finished_at' => $autoApproved ? now() : $agentRun->finished_at,
             ]);
-            // A submitted handoff is the Hub review boundary. Move the linked
-            // task into review so it is visible in the board and notification
-            // inbox; approval/rejection remains a human Hub action.
             if ($agentRun->task && $agentRun->task->status !== 'done') {
-                $agentRun->task->update(['status' => 'review']);
+                $agentRun->task->update($autoApproved
+                    ? ['status' => 'done', 'completed_at' => now()]
+                    : ['status' => 'review']);
             }
             foreach ($validated['tests'] as $test) {
                 $agentRun->evidence()->create([
@@ -542,7 +570,12 @@ class ApiAgentRunController extends Controller
                     'metadata' => ['source' => 'desktop_handoff'],
                 ]);
             }
-            $this->recordEvent($agentRun, 'handoff_completed', 'needs_review', ['changed_files' => $validated['changed_files'], 'test_count' => count($validated['tests'])]);
+            $this->recordEvent(
+                $agentRun,
+                $autoApproved ? 'auto_handoff_approved' : 'handoff_completed',
+                $autoApproved ? 'verified' : 'needs_review',
+                ['changed_files' => $validated['changed_files'], 'test_count' => count($validated['tests']), 'reviewer_run_id' => data_get($validated, 'review.reviewer_run_id')],
+            );
             return $agentRun->fresh()->load(['evidence', 'events']);
         });
         return response()->json(['success' => true, 'data' => $run]);
@@ -568,14 +601,63 @@ class ApiAgentRunController extends Controller
 
     public function approve(Task $task)
     {
-        $latest = $task->agentRuns()->latest()->first();
+        // A reviewer run is created after the implementation run; approvals
+        // must evaluate the implementation handoff evidence rather than a
+        // read-only reviewer session.
+        $latest = $task->agentRuns()->where('run_type', '!=', 'review')->latest()->first();
         if (!$latest || !$latest->evidence()->where('status', 'passed')->exists()) {
             return response()->json(['success' => false, 'message' => 'Passing verification evidence is required before approval.'], 422);
         }
+
+        $sequence = data_get($latest->metadata, 'epic_sequence');
+        $isLocalCaoEpic = $task->issue_type === 'epic'
+            && $latest->run_type === 'epic'
+            && data_get($sequence, 'local_cao') === true;
+        if ($isLocalCaoEpic) {
+            $childIds = collect(data_get($sequence, 'child_task_ids', []))
+                ->filter(fn ($id) => is_numeric($id))
+                ->map(fn ($id) => (int) $id)
+                ->values();
+            $children = Task::query()
+                ->where('epic_id', $task->id)
+                ->whereIn('id', $childIds)
+                ->get();
+            if ($children->count() !== $childIds->count()) {
+                return response()->json(['success' => false, 'message' => 'Epic handoff is incomplete: one or more child tasks are missing.'], 422);
+            }
+            $childRunIds = collect(data_get($sequence, 'child_run_ids', []))
+                ->filter(fn ($id) => is_numeric($id))
+                ->map(fn ($id) => (int) $id)
+                ->values();
+            $now = now();
+            DB::transaction(function () use ($task, $latest, $children, $childRunIds, $now) {
+                $task->update(['status' => 'done', 'completed_at' => $now]);
+                $latest->update(['status' => 'verified', 'finished_at' => $now]);
+                if ($children->isNotEmpty()) {
+                    Task::whereIn('id', $children->pluck('id'))
+                        ->update(['status' => 'done', 'completed_at' => $now]);
+                }
+                if ($childRunIds->isNotEmpty()) {
+                    AgentRun::whereIn('id', $childRunIds)
+                        ->whereIn('task_id', $children->pluck('id'))
+                        ->update(['status' => 'verified', 'finished_at' => $now]);
+                }
+                $this->recordEvent($latest, 'epic_human_approved', 'verified', [
+                    'task_id' => $task->id,
+                    'child_task_ids' => $children->pluck('id')->values()->all(),
+                    'child_run_ids' => $childRunIds->all(),
+                ]);
+            });
+            return response()->json([
+                'success' => true,
+                'message' => 'Epic approved; all CAO child tasks were marked Done.',
+                'data' => $task->fresh(),
+            ]);
+        }
+
         $task->update(['status' => 'done', 'completed_at' => now()]);
         if ($latest->status !== 'verified') $latest->update(['status' => 'verified', 'finished_at' => now()]);
         $this->recordEvent($latest, 'human_approved', 'verified', ['task_id' => $task->id]);
-        $sequence = data_get($latest->metadata, 'epic_sequence');
         if (is_array($sequence) && !empty($sequence['task_ids'])) {
             $remaining = collect($sequence['task_ids'])->map(fn ($id) => Task::find($id))->filter(fn ($candidate) => $candidate && $candidate->status !== 'done');
             $next = $remaining->first(fn (Task $candidate) => in_array($candidate->status, ['todo', 'backlog'], true) && !$candidate->hasIncompleteDependencies());
@@ -603,7 +685,22 @@ class ApiAgentRunController extends Controller
         $latest = $task->agentRuns()->latest()->first();
         if ($latest) {
             $latest->update(['status' => 'waiting_input', 'failure_reason' => $validated['reason']]);
-            $this->recordEvent($latest, 'human_rejected', 'waiting_input', $validated);
+            $isLocalCaoEpic = $task->issue_type === 'epic'
+                && $latest->run_type === 'epic'
+                && data_get($latest->metadata, 'epic_sequence.local_cao') === true;
+            $this->recordEvent(
+                $latest,
+                $isLocalCaoEpic ? 'epic_human_rejected' : 'human_rejected',
+                'waiting_input',
+                $validated,
+            );
+            if ($isLocalCaoEpic) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Epic returned for changes. No child task was auto-started.',
+                    'data' => $task->fresh(),
+                ]);
+            }
         }
         return response()->json(['success' => true, 'message' => 'Task returned to changes requested.', 'data' => $task->fresh()]);
     }
@@ -652,6 +749,29 @@ class ApiAgentRunController extends Controller
     {
         if (($fields['status'] ?? null) === 'running') $fields['started_at'] = $fields['started_at'] ?? now();
         if (in_array($fields['status'] ?? null, ['verified', 'failed', 'cancelled'], true)) $fields['finished_at'] = $fields['finished_at'] ?? now();
+    }
+
+    /**
+     * A local CAO Epic verifies each child in the shared parent run before
+     * starting the next dependency-ready child. Child task rows intentionally
+     * remain open until the single final Epic approval, so dependency checks
+     * must also accept that durable verification evidence.
+     */
+    private function localCaoDependenciesVerified(Task $task, array $metadata): bool
+    {
+        $parentRunId = (int) data_get($metadata, 'epic_sequence.parent_run_id', 0);
+        if (!$parentRunId) return false;
+        $parent = AgentRun::query()->whereKey($parentRunId)->where('run_type', 'epic')->first();
+        if (!$parent || (int) $parent->task_id !== (int) $task->epic_id) return false;
+        $verifiedChildIds = collect(data_get($parent->metadata, 'epic_sequence.children', []))
+            ->filter(fn ($child) => is_array($child))
+            ->map(fn ($child) => $child['taskId'] ?? $child['task_id'] ?? null)
+            ->filter(fn ($id) => is_numeric($id))
+            ->map(fn ($id) => (int) $id);
+        return $task->dependencies->every(function ($dependency) use ($verifiedChildIds) {
+            $dependencyId = (int) $dependency->depends_on_task_id;
+            return $dependency->dependsOn?->status === 'done' || $verifiedChildIds->contains($dependencyId);
+        });
     }
 
     private function recordEvent(AgentRun $run, string $type, ?string $status, array $payload = [], ?string $eventId = null, $occurredAt = null): AgentRunEvent

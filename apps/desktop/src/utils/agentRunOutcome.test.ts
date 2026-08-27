@@ -10,4 +10,16 @@ describe('hasAgentReportedFailure', () => {
   it('does not reject an ordinary successful completion', () => {
     expect(hasAgentReportedFailure('Implemented the change and npm test passed.')).toBe(false);
   });
+
+  it('ignores the staged protocol echoed by CAO before a successful response', () => {
+    const caoEcho = [
+      'Task Hub Desktop execution protocol:',
+      '1. Read and follow the complete task instructions from this exact local file:',
+      '/mnt/d/Work/task/.macatung/agent/prompts/cao-run.md',
+      '2. Do not report the task as completed until those instructions have been read and the requested work is done.',
+      '3. If the file cannot be read, stop and respond with the literal prefix TASK_HUB_RUN_BLOCKED: unable to read staged task instructions, followed by the reason. Do not claim success.',
+      'I have assigned the review task and am waiting for the review results.',
+    ].join('\n');
+    expect(hasAgentReportedFailure(caoEcho)).toBe(false);
+  });
 });

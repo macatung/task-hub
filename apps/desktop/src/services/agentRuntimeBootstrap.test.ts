@@ -13,20 +13,15 @@ describe('agent CLI bootstrap and recovery', () => {
     expect(mainSource).toContain("/\\\\WindowsApps\\\\OpenAI\\.Codex_/i");
   });
 
-  it('bootstraps only missing official CLIs and exposes a repair endpoint', () => {
-    expect(mainSource).toContain("'@openai/codex'");
-    expect(mainSource).toContain("'@anthropic-ai/claude-code'");
-    expect(mainSource).toContain("'--include=optional'");
-    expect(mainSource).toContain('https://antigravity.google/cli/install.ps1');
+  it('refreshes CAO provider status and exposes a repair endpoint', () => {
     expect(mainSource).toContain("ipcMain.handle('agent-bootstrap-runtimes'");
     expect(mainSource).toContain('function verifyCliExecutable');
     expect(mainSource).toContain("spawn(executable, ['--version']");
-    expect(mainSource).toContain('function quoteWindowsCommandArgument');
-    expect(mainSource).toContain("spawn(process.env.ComSpec || 'cmd.exe'");
-    expect(mainSource).toContain('call ${quoteWindowsCommandArgument(executable)}');
+    expect(mainSource).toContain('never install or execute provider CLIs in the host');
     expect(mainSource).toContain('void bootstrapAgentRuntimes()');
     expect(preloadSource).toContain("bootstrapRuntimes: () => ipcRenderer.invoke('agent-bootstrap-runtimes')");
-    expect(settingsSource).toContain('Fix environment');
+    expect(settingsSource).toContain('Refresh CAO runtime');
+    expect(mainSource).toContain('never install or execute provider CLIs in the host');
   });
 
   it('turns a failed Codex spawn into a normal failed run instead of leaving the UI working', () => {

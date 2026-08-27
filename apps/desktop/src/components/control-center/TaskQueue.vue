@@ -311,7 +311,7 @@ const statusDotColor = (task: TaskItem) => {
                   </span>
                   <span
                     v-if="task.issue_type === 'epic'"
-                    class="text-[9px] font-semibold text-purple-400 ml-auto"
+                    class="cc-task-secondary-meta text-[9px] font-semibold text-purple-400 ml-auto"
                   >
                     {{ childCount(task.id) }} task con
                   </span>

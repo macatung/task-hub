@@ -1764,21 +1764,181 @@ async function repairEnvironment(provider: AgentProvider, cwd: string) {
   };
 }
 
+/**
+ * Windows Git writes absolute drive-letter paths to linked-worktree metadata.
+ * CAO may run Git inside WSL, which cannot resolve those paths. Relative links
+ * are understood by both Git implementations, provided both targets stay in
+ * the expected source repository/worktree pair.
+ */
+function normalizeWorktreeGitMetadata(root: string, target: string) {
+  try {
+    const worktreeGitFile = path.join(target, '.git');
+    if (!fs.existsSync(worktreeGitFile) || fs.statSync(worktreeGitFile).isDirectory()) return false;
+    const raw = fs.readFileSync(worktreeGitFile, 'utf8').trim();
+    const matched = /^gitdir:\s*(.+)$/im.exec(raw);
+    if (!matched) return false;
+    const adminGitDir = path.resolve(target, matched[1].trim());
+    const expectedRoot = path.resolve(root, '.git') + path.sep;
+    if (!adminGitDir.startsWith(expectedRoot) || !fs.existsSync(adminGitDir)) {
+      return false;
+    }
+    const adminGitFile = path.join(adminGitDir, 'gitdir');
+    if (!fs.existsSync(adminGitFile)) {
+      return false;
+    }
+    const relativeAdmin = path.relative(target, adminGitDir).replace(/\\/g, '/');
+    const relativeWorktree = path.relative(adminGitDir, worktreeGitFile).replace(/\\/g, '/');
+    if (!relativeAdmin || relativeAdmin.startsWith('../'.repeat(8)) || !relativeWorktree) {
+      return false;
+    }
+    if (process.platform === 'win32') {
+      try { fs.chmodSync(worktreeGitFile, 0o666); } catch { /* ignore */ }
+      try { fs.chmodSync(adminGitFile, 0o666); } catch { /* ignore */ }
+    }
+    fs.writeFileSync(worktreeGitFile, `gitdir: ${relativeAdmin}\n`, 'utf8');
+    fs.writeFileSync(adminGitFile, `${relativeWorktree}\n`, 'utf8');
+    return true;
+  } catch (error) {
+    console.warn('[normalizeWorktreeGitMetadata] Non-fatal metadata normalization notice:', error);
+    return false;
+  }
+}
+
+function repairWorktreeForCao(cwd: string) {
+  try {
+    const gitFile = path.join(cwd, '.git');
+    if (!fs.existsSync(gitFile) || fs.statSync(gitFile).isDirectory()) return false;
+    const root = git(cwd, ['rev-parse', '--show-toplevel']);
+    return normalizeWorktreeGitMetadata(root, cwd);
+  } catch {
+    return false;
+  }
+}
+
 function createAgentWorktree(repository: string, issueKey: string) {
   const root = git(repository, ['rev-parse', '--show-toplevel']);
   const key = safeIssueKey(issueKey);
   const branch = `codex/${key}`;
   const target = path.join(path.dirname(root), '.task-companion-worktrees', key);
   let reused = false;
+
+  // 1. Dọn dẹp lock files rác và metadata worktree cũ (Auto-prune)
+  try { pruneGitLocks(root); } catch { /* ignore */ }
+  try { git(root, ['worktree', 'prune']); } catch { /* ignore */ }
+
+  // 2. Kiểm tra xem thư mục worktree đích đã tồn tại và có hợp lệ không
   if (fs.existsSync(target)) {
-    reused = true;
-    disableAgentGuardrails(target);
-  } else {
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    try { git(root, ['worktree', 'add', '-b', branch, target, 'HEAD']); }
-    catch { git(root, ['worktree', 'add', target, branch]); }
-    disableAgentGuardrails(target);
+    let isValidWorktree = false;
+    try {
+      const gitDir = git(target, ['rev-parse', '--git-dir']);
+      if (gitDir && fs.existsSync(path.join(target, '.git'))) {
+        isValidWorktree = true;
+      }
+    } catch {
+      isValidWorktree = false;
+    }
+
+    if (isValidWorktree) {
+      reused = true;
+      disableAgentGuardrails(target);
+      try { normalizeWorktreeGitMetadata(root, target); } catch { /* ignore non-fatal */ }
+      const setup = quickSetupEnvironment(target, true);
+      if (!setup.ok) {
+        const failures = setup.checks.filter((check) => check.status === 'failed').map((check) => check.message).join(' ');
+        throw new Error(`Worktree environment setup failed. ${failures || 'Use Fix environment and retry.'}`);
+      }
+      return { path: target, branch, reused, baseCommit: git(target, ['rev-parse', 'HEAD']), environmentChecks: setup.checks };
+    }
+
+    // Nếu thư mục tồn tại nhưng hỏng / không phải worktree hợp lệ -> xóa sạch để tạo mới
+    try {
+      if (process.platform === 'win32') {
+        try { fs.chmodSync(path.join(target, '.git'), 0o666); } catch { /* ignore */ }
+      }
+      fs.rmSync(target, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    } catch (e) {
+      console.warn('[Worktree] Failed to remove corrupt target dir:', e);
+    }
+    try { git(root, ['worktree', 'prune']); } catch { /* ignore */ }
   }
+
+  // 3. Tự động kiểm tra và giải phóng bất kỳ worktree xung đột nào đang gắn nhánh này
+  try {
+    const wtPorcelain = git(root, ['worktree', 'list', '--porcelain']);
+    const blocks = wtPorcelain.split('\n\n');
+    for (const block of blocks) {
+      const lines = block.trim().split('\n');
+      let wtPath = '';
+      let wtBranch = '';
+      for (const line of lines) {
+        if (line.startsWith('worktree ')) wtPath = line.substring(9).trim();
+        if (line.startsWith('branch ')) wtBranch = line.substring(7).trim();
+      }
+      if (wtBranch === `refs/heads/${branch}` || wtBranch === branch) {
+        if (path.resolve(wtPath).toLowerCase() !== path.resolve(target).toLowerCase()) {
+          try {
+            git(root, ['worktree', 'remove', '--force', wtPath]);
+          } catch {
+            try {
+              if (fs.existsSync(wtPath)) fs.rmSync(wtPath, { recursive: true, force: true });
+            } catch { /* ignore */ }
+            try {
+              const wtMetaDir = path.join(root, '.git', 'worktrees', path.basename(wtPath));
+              if (fs.existsSync(wtMetaDir)) fs.rmSync(wtMetaDir, { recursive: true, force: true });
+            } catch { /* ignore */ }
+          }
+        }
+      }
+    }
+    git(root, ['worktree', 'prune']);
+  } catch (err) {
+    console.warn('[Worktree] Conflicting worktree scan warning:', err);
+  }
+
+  // 4. Tạo thư mục cha và khởi tạo worktree an toàn
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+
+  let branchExists = false;
+  try {
+    git(root, ['rev-parse', '--verify', branch]);
+    branchExists = true;
+  } catch {
+    branchExists = false;
+  }
+
+  let created = false;
+  let lastErr: any = null;
+
+  try {
+    if (branchExists) {
+      git(root, ['worktree', 'add', '--force', target, branch]);
+    } else {
+      git(root, ['worktree', 'add', '--force', '-b', branch, target, 'HEAD']);
+    }
+    created = true;
+  } catch (err: any) {
+    lastErr = err;
+  }
+
+  // Fallback: Tự động dọn dẹp và force reset branch (-B) nếu có xung đột
+  if (!created) {
+    try {
+      try { git(root, ['worktree', 'prune']); } catch { /* ignore */ }
+      try { fs.rmSync(target, { recursive: true, force: true }); } catch { /* ignore */ }
+      git(root, ['worktree', 'add', '--force', '-B', branch, target, 'HEAD']);
+      created = true;
+    } catch (fallbackErr: any) {
+      throw new Error(`Git worktree creation failed: ${fallbackErr?.message || fallbackErr || lastErr?.message}`);
+    }
+  }
+
+  disableAgentGuardrails(target);
+  try {
+    normalizeWorktreeGitMetadata(root, target);
+  } catch (normErr) {
+    console.warn('[Worktree] normalizeWorktreeGitMetadata notice:', normErr);
+  }
+
   // A Git worktree never inherits node_modules/vendor from its source tree.
   // Prepare it before the agent starts so verification does not fail merely
   // because Vue, Vitest, or another project dependency is absent.
@@ -2167,6 +2327,53 @@ async function tryStartCaoAgent(payload: { provider: AgentProvider; cwd: string;
   caoSessionPollers.set(sessionId, poller);
   pollCaoSession(sessionId);
   return { mode: 'interactive' as const, sessionId, provider: payload.provider, model: payload.model, cwd: payload.cwd, capabilities: [...PROVIDER_CAPABILITIES[payload.provider], 'cao_supervisor', 'multi_agent'] };
+}
+
+async function reconnectCaoSession(sessionId: string) {
+  const saved = readAllSavedSessions().find((s) => s.sessionId === sessionId || s.caoSessionName === sessionId);
+  if (!saved || saved.route !== 'cao') {
+    throw new Error(`Cannot find saved CAO session: ${sessionId}`);
+  }
+  const caoSessionName = saved.caoSessionName || saved.sessionId;
+  const cwd = saved.cwd || process.cwd();
+
+  if (repairWorktreeForCao(cwd)) {
+    appendWorkspaceAgentLog(cwd, 'cao-runtime', 'worktree_metadata_normalized', { cwd });
+  }
+
+  const statusResult = await runCaoCommand(['session', 'status', caoSessionName, '--workers', '--json'], cwd, 10_000);
+  if (!statusResult.ok) {
+    throw new Error(`CAO session ${caoSessionName} is not active: ${statusResult.error || 'unknown error'}`);
+  }
+
+  const parsed = parseCaoSessionStatus(statusResult.output);
+  const session: AgentSession = {
+    provider: saved.provider || 'codex',
+    model: saved.model,
+    cwd,
+    mode: saved.mode || 'exec',
+    kind: saved.kind || 'task',
+    output: saved.output || parsed.output,
+    events: saved.events || [],
+    route: 'cao',
+    executionPolicy: saved.executionPolicy || 'workspace_write',
+    caoSessionName,
+    caoLastOutput: parsed.output,
+    caoLastStatus: parsed.state,
+  };
+  agentProcesses.set(saved.sessionId, session);
+
+  stopCaoSessionPoller(saved.sessionId);
+  const poller = setInterval(() => pollCaoSession(saved.sessionId), 3_000);
+  caoSessionPollers.set(saved.sessionId, poller);
+  pollCaoSession(saved.sessionId);
+
+  return {
+    sessionId: saved.sessionId,
+    route: 'cao' as const,
+    status: parsed.state,
+    workers: [],
+  };
 }
 
 function stopCaoDaemon() {
@@ -2576,13 +2783,31 @@ function createWindow() {
   ipcMain.handle('agent-quick-setup', (_event, { cwd, installDependencies }: { cwd: string; installDependencies?: boolean }) => quickSetupEnvironment(cwd, installDependencies !== false));
   ipcMain.handle('agent-repair-environment', async (_event, { provider, cwd }: { provider: AgentProvider; cwd: string }) => repairEnvironment(provider, cwd));
   ipcMain.handle('agent-create-worktree', (_event, { repository, issueKey }: { repository: string; issueKey: string }) => createAgentWorktree(repository, issueKey));
+  ipcMain.handle('agent-reconnect-cao-session', (_event, sessionId: string) => reconnectCaoSession(sessionId));
   ipcMain.handle('agent-open-workspace', async (_event, cwd: string) => shell.openPath(cwd));
   ipcMain.handle('agent-cleanup-worktree', (_event, { repository, worktree }: { repository: string; worktree: string }) => {
-    const root = git(repository, ['rev-parse', '--show-toplevel']);
-    const allowedRoot = path.join(path.dirname(root), '.task-companion-worktrees') + path.sep;
-    if (!path.resolve(worktree).startsWith(path.resolve(allowedRoot))) throw new Error('Can only clean worktrees created by Task Hub Studio.');
-    git(root, ['worktree', 'remove', '--force', worktree]);
-    return true;
+    try {
+      const root = git(repository, ['rev-parse', '--show-toplevel']);
+      const allowedRoot = path.join(path.dirname(root), '.task-companion-worktrees') + path.sep;
+      if (!path.resolve(worktree).startsWith(path.resolve(allowedRoot))) throw new Error('Can only clean worktrees created by Task Hub Studio.');
+      try {
+        git(root, ['worktree', 'remove', '--force', worktree]);
+      } catch {
+        if (fs.existsSync(worktree)) {
+          try {
+            if (process.platform === 'win32') {
+              try { fs.chmodSync(path.join(worktree, '.git'), 0o666); } catch { /* ignore */ }
+            }
+            fs.rmSync(worktree, { recursive: true, force: true });
+          } catch { /* ignore */ }
+        }
+      }
+      try { git(root, ['worktree', 'prune']); } catch { /* ignore */ }
+      return true;
+    } catch (e: any) {
+      console.warn('[Worktree Cleanup] Warning:', e);
+      return false;
+    }
   });
   ipcMain.handle('agent-run-test', async (_event, { cwd, command = 'npm test' }: { cwd: string; command?: string }) => {
     const startTime = Date.now();

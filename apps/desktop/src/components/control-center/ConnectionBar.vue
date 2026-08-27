@@ -41,9 +41,9 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
 </script>
 
 <template>
-  <header class="drag-region flex min-h-[3.75rem] items-center justify-between border-b border-[#2a241f] bg-[#141210] px-3.5 py-1.5 text-zinc-100 select-none">
+  <header class="cc-connectionbar drag-region flex min-h-[3.75rem] items-center justify-between border-b border-[#2a241f] bg-[#141210] px-3.5 py-1.5 text-zinc-100 select-none">
     <!-- Brand & Workspace Identity -->
-    <div class="flex items-center gap-3 min-w-0">
+    <div class="cc-connectionbar__identity flex items-center gap-3 min-w-0 flex-1">
       <!-- Logo & Workspace Name -->
       <div class="flex items-center gap-2 pr-1">
         <div class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-tr from-orange-600 via-amber-500 to-orange-400 shadow-[0_0_12px_rgba(249,115,22,0.35)]">
@@ -67,7 +67,7 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
       </div>
 
       <!-- Real Projects Quick Switcher Chips (AgentsRoom style) -->
-      <div v-if="projects && projects.length" class="no-drag hidden sm:flex items-center gap-1.5 rounded-full bg-[#1c1815] border border-[#2d2620] p-1">
+      <div v-if="projects && projects.length" class="cc-connectionbar__projects no-drag hidden sm:flex items-center gap-1.5 rounded-full bg-[#1c1815] border border-[#2d2620] p-1">
         <button
           v-for="p in projects.slice(0, 3)"
           :key="p.id"
@@ -88,11 +88,11 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
     </div>
 
     <!-- Center / Right Action Pills -->
-    <div class="no-drag flex items-center gap-2">
+    <div class="cc-connectionbar__actions no-drag flex items-center gap-2 min-w-0">
       <!-- Attention / Need Input Pill (Only shown if real attention items exist) -->
       <button 
         v-if="attentionCount && attentionCount > 0" 
-        class="hidden md:inline-flex items-center gap-1.5 rounded-full bg-amber-950/40 border border-amber-600/40 px-3 py-1 text-xs font-semibold text-amber-400 hover:bg-amber-900/50 transition shadow-[0_0_10px_rgba(245,158,11,0.15)]"
+        class="cc-connectionbar__attention hidden md:inline-flex items-center gap-1.5 rounded-full bg-amber-950/40 border border-amber-600/40 px-3 py-1 text-xs font-semibold text-amber-400 hover:bg-amber-900/50 transition shadow-[0_0_10px_rgba(245,158,11,0.15)]"
         title="Các yêu cầu phê duyệt hoặc phản hồi đang chờ bạn xử lý"
         @click="emit('timeline')"
       >
@@ -102,7 +102,7 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
 
       <!-- AI Requirement Wizard Action Pill -->
       <button 
-        class="hidden lg:inline-flex items-center gap-1.5 rounded-full bg-[#1d1916] border border-[#2e2721] px-2.5 py-1 text-xs text-zinc-300 hover:text-orange-400 hover:border-orange-500/40 transition"
+        class="cc-connectionbar__requirement hidden lg:inline-flex items-center gap-1.5 rounded-full bg-[#1d1916] border border-[#2e2721] px-2.5 py-1 text-xs text-zinc-300 hover:text-orange-400 hover:border-orange-500/40 transition"
         title="Khám phá và tạo backlog yêu cầu bằng AI"
         @click="emit('requirement')"
       >
@@ -112,7 +112,7 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
 
       <!-- Repo Docs Scanner Pill -->
       <button 
-        class="hidden xl:inline-flex items-center gap-1.5 rounded-full bg-[#1d1916] border border-[#2e2721] px-2.5 py-1 text-xs text-zinc-300 hover:text-sky-400 hover:border-sky-500/40 transition"
+        class="cc-connectionbar__docs hidden xl:inline-flex items-center gap-1.5 rounded-full bg-[#1d1916] border border-[#2e2721] px-2.5 py-1 text-xs text-zinc-300 hover:text-sky-400 hover:border-sky-500/40 transition"
         title="Quét mã nguồn và cập nhật tài liệu kiến trúc docs/"
         @click="emit('docs')"
       >
@@ -122,7 +122,7 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
 
       <!-- Activity Timeline Pill -->
       <button 
-        class="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-[#1d1916] border border-[#2e2721] px-2.5 py-1 text-xs text-zinc-300 hover:text-white hover:border-zinc-500 transition"
+        class="cc-connectionbar__timeline hidden sm:inline-flex items-center gap-1.5 rounded-full bg-[#1d1916] border border-[#2e2721] px-2.5 py-1 text-xs text-zinc-300 hover:text-white hover:border-zinc-500 transition"
         title="Xem dòng thời gian và nhật ký tương tác"
         @click="emit('timeline')"
       >
@@ -141,11 +141,11 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
       </button>
 
       <!-- Real User Profile Pill -->
-      <div class="flex items-center gap-2 rounded-full bg-[#201b17] border border-[#332b23] pl-1 pr-2.5 py-1">
+      <div class="cc-connectionbar__profile flex items-center gap-2 rounded-full bg-[#201b17] border border-[#332b23] pl-1 pr-2.5 py-1">
         <span class="grid h-5 w-5 place-items-center rounded-full bg-gradient-to-tr from-orange-600 to-amber-500 text-[9px] font-black text-black">
           {{ (credential?.userName || 'OP').slice(0, 2).toUpperCase() }}
         </span>
-        <span class="text-xs font-semibold text-zinc-200 truncate max-w-[90px]">
+        <span class="cc-connectionbar__profile-name text-xs font-semibold text-zinc-200 truncate max-w-[90px]">
           {{ credential?.userName || 'Operator' }}
         </span>
         <span
@@ -158,7 +158,7 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
 
       <!-- Real Sync Status Badge -->
       <button 
-        class="hidden xl:inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition"
+        class="cc-connectionbar__sync hidden xl:inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition"
         :class="online ? 'bg-emerald-950/40 border border-emerald-600/40 text-emerald-300' : 'bg-[#1c1815] border border-[#2d2620] text-zinc-400'"
         :disabled="syncing"
         :title="online ? 'Đã kết nối với Task Hub API' : 'Đang ở chế độ ngoại tuyến'"

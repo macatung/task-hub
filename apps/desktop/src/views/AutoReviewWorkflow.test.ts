@@ -21,14 +21,33 @@ describe('automatic independent review workflow', () => {
     expect(controlCenterSource).toContain('Applying independent review feedback');
     expect(controlCenterSource).toContain('Automatic review loop cancelled by user.');
     expect(controlCenterSource).toContain('complete_agent_handoff');
-    expect(runWorkspaceSource).toContain('Independent review');
+    expect(runWorkspaceSource).toContain('Auto-review reached its limit');
     expect(controlCenterSource).not.toContain('reviewerProvider.value !== provider.value');
     expect(controlCenterSource).toContain('separate independent reviewer session');
     expect(runWorkspaceSource).toContain('it never bypasses dependencies');
   });
 
-  it('keeps final Hub approval human-controlled', () => {
-    expect(controlCenterSource).toContain('Human Hub approval is still required.');
-    expect(runWorkspaceSource).toContain('Review & submit handoff');
+  it('automatically completes a passed review and exposes human choices only at the limit', () => {
+    expect(controlCenterSource).toContain('complete_auto_approved_handoff');
+    expect(controlCenterSource).toContain('approveAfterManualReview');
+    expect(controlCenterSource).toContain('increaseTaskReviewLimit');
+    expect(runWorkspaceSource).toContain('Approve &amp; mark Done');
+    expect(runWorkspaceSource).toContain('Request changes');
+  });
+
+  it('does not turn an approved review note into an Epic handoff blocker', () => {
+    expect(controlCenterSource).toContain('payload.summary = [');
+    expect(controlCenterSource).not.toContain('payload.blockers = [\n        payload.blockers,');
+  });
+
+  it('offers recovery of a live CAO session instead of sending a false failure to human approval', () => {
+    expect(controlCenterSource).toContain('const reconnectCaoSession = async');
+    expect(controlCenterSource).toContain('reconnectableCaoSession');
+    expect(runWorkspaceSource).toContain('Reconnect CAO session');
+    expect(runWorkspaceSource).toContain("@click=\"$emit('reconnectCao')\"");
+    expect(controlCenterSource).toContain("phase.value = 'CAO session failed'");
+    expect(controlCenterSource).toContain('sandbox approval cannot repair this failure');
+    expect(controlCenterSource).toContain('const isCaoRuntimeFailure');
+    expect(controlCenterSource).toContain("phase.value = 'CAO runtime needs repair'");
   });
 });
