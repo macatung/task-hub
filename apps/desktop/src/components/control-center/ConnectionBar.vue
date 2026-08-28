@@ -11,6 +11,8 @@ const props = defineProps<{
   attentionCount?: number;
   pendingOutboxCount?: number;
   projects?: ProjectItem[];
+  fleetCount?: number;
+  activeFleetCount?: number;
   caoStatus?: {
     running: boolean;
     available: boolean;
@@ -31,6 +33,7 @@ const emit = defineEmits<{
   docs: [];
   openHub: [];
   timeline: [];
+  agentRoom: [];
   minimize: [];
   maximize: [];
   close: [];
@@ -103,6 +106,20 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
       >
         <span class="h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span>
         <span>{{ attentionCount }} cần phản hồi</span>
+      </button>
+
+      <!-- Agent Room Drawer Trigger Button -->
+      <button 
+        class="cc-connectionbar__fleet inline-flex items-center gap-1.5 rounded-full bg-[#101927] border border-[#1e2f47] px-3 py-1 text-xs font-semibold text-zinc-200 hover:border-[#00f5a0]/60 hover:text-[#00f5a0] transition shadow-sm"
+        title="Mở phòng trực chiến Agent (Agent Room Local Fleet)"
+        @click="emit('agentRoom')"
+      >
+        <span class="relative flex h-2 w-2">
+          <span v-if="activeFleetCount && activeFleetCount > 0" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00f5a0] opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2" :class="activeFleetCount && activeFleetCount > 0 ? 'bg-[#00f5a0]' : 'bg-zinc-500'"></span>
+        </span>
+        <span>Agent Room</span>
+        <span v-if="fleetCount !== undefined && fleetCount > 0" class="rounded-full bg-[#19273c] px-1.5 py-0.2 text-[10px] font-mono text-zinc-300">{{ fleetCount }}</span>
       </button>
 
       <!-- AI Requirement Wizard Action Pill -->

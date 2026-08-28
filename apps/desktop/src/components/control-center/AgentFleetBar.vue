@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted, onUnmounted } from "vue";
 
 export type FleetAgentRole =
   | "supervisor"
@@ -33,16 +33,26 @@ export interface FleetAgent {
   updatedAt?: string;
 }
 
-const props = defineProps<{
-  agents: FleetAgent[];
-  activeSessionId?: string | null;
-  sidebar?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    agents: FleetAgent[];
+    activeSessionId?: string | null;
+    sidebar?: boolean;
+    drawer?: boolean;
+    open?: boolean;
+  }>(),
+  {
+    sidebar: false,
+    drawer: true,
+    open: false,
+  }
+);
 
 const emit = defineEmits<{
   select: [sessionId: string];
-  stop?: [sessionId: string];
-  reconnect?: [sessionId: string];
+  close: [];
+  stop: [sessionId: string];
+  reconnect: [sessionId: string];
 }>();
 
 const active = computed(
@@ -111,10 +121,143 @@ const formatTokens = (count?: number): string => {
   if (count >= 1_000) return `${(count / 1_000).toFixed(1)}k`;
   return String(count);
 };
+
+const handleKeyDown = (e: KeyboardEvent) => {
+  if (e.key === "Escape" && props.open) {
+    emit("close");
+  }
+};
+
+onMounted(() => {
+  window.addEventListener("keydown", handleKeyDown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("keydown", handleKeyDown);
+});
+
+const handleCardClick = (sessionId: string) => {
+  emit("select", sessionId);
+  if (props.drawer) {
+    emit("close");
+  }
+};
 </script>
 
 <template>
+  <!-- DRAWER MODE (Modal slide-over from right) -->
+  <div v-if="drawer && open" class="fixed inset-0 z-50 flex justify-end">
+    <!-- Backdrop Overlay -->
+    <div
+      class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+      @click="emit('close')"
+    ></div>
+
+    <!-- Drawer Panel Content -->
+    <aside
+      class="relative z-10 flex h-full w-full max-w-md flex-col border-l border-[#1a273b] bg-[#070b14] p-5 text-zinc-100 shadow-2xl animate-in slide-in-from-right duration-200"
+    >
+      <!-- Drawer Header -->
+      <div class="flex items-center justify-between border-b border-[#162235] pb-4">
+        <div class="flex items-center gap-2.5">
+          <div class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-tr from-[#00f5a0]/20 to-[#00f5d4]/10 border border-[#00f5a0]/30 text-[#00f5a0]">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-sm font-bold text-white font-['Space_Grotesk'] tracking-wide">
+              AGENT ROOM
+            </h2>
+            <p class="text-[11px] text-zinc-400">
+              {{ active }} đang chạy · {{ waiting }} cần phản hồi · {{ agents.length }} phiên
+            </p>
+          </div>
+        </div>
+
+        <button
+          class="grid h-7 w-7 place-items-center rounded-lg border border-[#1d2d46] bg-[#0c1626] text-zinc-400 hover:text-white hover:border-zinc-500 transition"
+          title="Đóng (Escape)"
+          @click="emit('close')"
+        >
+          ✕
+        </button>
+      </div>
+
+      <!-- Agent Cards List -->
+      <div class="flex-1 space-y-3 overflow-y-auto pt-4 pr-1">
+        <article
+          v-for="agent in agents"
+          :key="agent.sessionId"
+          class="cursor-pointer rounded-xl border p-3.5 text-xs transition space-y-2.5 shadow-sm"
+          :class="[
+            agent.sessionId === activeSessionId
+              ? 'border-[#00f5a0]/70 bg-[#0c1e18] shadow-[0_0_14px_rgba(0,245,160,0.15)]'
+              : 'border-[#17253b] bg-[#0a101d] hover:border-[#243a5a] hover:bg-[#0f172a]',
+          ]"
+          @click="handleCardClick(agent.sessionId)"
+        >
+          <div class="flex items-center gap-3">
+            <span
+              class="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-orange-400 to-amber-700 text-[11px] font-bold text-black shadow"
+            >
+              {{ initials(agent) }}
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center justify-between gap-2">
+                <span class="truncate font-bold text-zinc-100">{{ label(agent.provider) }}</span>
+                <span class="inline-flex items-center gap-1.5 text-[10px] capitalize text-zinc-400">
+                  <i class="h-2 w-2 rounded-full" :class="tone(agent.status)" />
+                  {{ agent.status || "saved" }}
+                </span>
+              </div>
+              <div class="mt-1 flex items-center justify-between gap-2">
+                <span
+                  class="rounded-md border px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider"
+                  :class="roleBadgeClass(agent)"
+                >
+                  {{ role(agent) }}
+                </span>
+                <span
+                  v-if="agent.tokenUsage && agent.tokenUsage.totalTokens > 0"
+                  class="font-mono text-[10px] text-zinc-400"
+                  :title="`Prompt: ${formatTokens(agent.tokenUsage.promptTokens)} · Completion: ${formatTokens(agent.tokenUsage.completionTokens)} · Total: ${formatTokens(agent.tokenUsage.totalTokens)}`"
+                >
+                  {{ formatTokens(agent.tokenUsage.totalTokens) }} tokens
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <p
+            v-if="agent.stepInfo"
+            class="truncate rounded-md bg-black/30 px-2 py-1 text-[11px] text-zinc-300 font-mono"
+            :title="agent.stepInfo"
+          >
+            {{ agent.stepInfo }}
+          </p>
+
+          <p
+            class="truncate border-t border-[#162235] pt-2 font-mono text-[10px] text-zinc-500"
+            :title="agent.cwd"
+          >
+            {{ agent.cwd || agent.sessionId }}
+          </p>
+        </article>
+
+        <div
+          v-if="!agents.length"
+          class="rounded-xl border border-dashed border-[#1e2f47] bg-[#0a101d] p-8 text-center text-xs text-zinc-500"
+        >
+          Chưa có phiên agent nào được lưu. Khởi chạy một agent để hiển thị trong phòng trực chiến này.
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- STATIC INLINE BAR MODE (Fallback if drawer is disabled) -->
   <section
+    v-else-if="!drawer"
     class="border-b border-white/10 bg-[#11110f] px-4 py-3"
     :class="{ 'max-h-64 overflow-y-auto': sidebar }"
   >

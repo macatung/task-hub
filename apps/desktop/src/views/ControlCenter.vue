@@ -110,6 +110,7 @@ const toolMessage = ref("");
 const toolBusy = ref(false);
 const showTimelineDrawer = ref(false);
 const showFilesDrawer = ref(false);
+const showAgentRoomDrawer = ref(false);
 type EpicSequence = {
   epic: TaskItem;
   tasks: TaskItem[];
@@ -2914,6 +2915,8 @@ onUnmounted(() => {
       :is-maximized="isMaximized"
       :attention-count="approvalRequest ? 1 : 0"
       :projects="sync.projects.value"
+      :fleet-count="fleetAgents.length"
+      :active-fleet-count="fleetAgents.filter((a) => a.status === 'running').length"
       :cao-status="caoStatus"
       :cao-reconnecting="caoReconnecting"
       @sync="refresh"
@@ -2932,6 +2935,7 @@ onUnmounted(() => {
       @requirement="openTool('requirement')"
       @docs="openTool('docs')"
       @timeline="showTimelineDrawer = true"
+      @agent-room="showAgentRoomDrawer = true"
       @open-hub="openHub"
       @minimize="minimize"
       @maximize="maximize"
@@ -3016,13 +3020,15 @@ onUnmounted(() => {
         @requirement="openTool('requirement')"
         @open-hub="openHub"
       />
+      <AgentFleetBar
+        :open="showAgentRoomDrawer"
+        :drawer="true"
+        :agents="fleetAgents"
+        :active-session-id="sessionId"
+        @select="handleSelectFleetSession"
+        @close="showAgentRoomDrawer = false"
+      />
       <div class="flex flex-1 flex-col min-w-0 h-full overflow-hidden">
-        <AgentFleetBar
-          v-if="!selectedTask"
-          :agents="fleetAgents"
-          :active-session-id="sessionId"
-          @select="handleSelectFleetSession"
-        />
         <RunWorkspace
           v-model:provider="provider"
           v-model:model="selectedModel"
