@@ -50,7 +50,7 @@ class DesktopPairingController extends Controller
 
         $project = $session->project;
         if (!$project) return response()->json(['success' => false, 'status' => 'rejected', 'message' => 'No project is linked to this pairing.'], 422);
-        $workspace = $project->workspace;
+        $workspace = $session->workspace ?: $project->workspace;
         if (!$workspace) return response()->json(['success' => false, 'status' => 'rejected', 'message' => 'Project workspace is unavailable.'], 422);
         $workspaceToken = Str::random(64);
         $session->update(['workspace_token_hash' => hash('sha256', $workspaceToken), 'consumed_at' => now()]);
@@ -78,7 +78,21 @@ class DesktopPairingController extends Controller
             $request->session()->put('desktop_pairing_intended', $request->fullUrl());
             return redirect('/auth/github');
         }
-        return view('desktop.pairing', ['session' => $session, 'code' => $code]);
+
+        $user = Auth::user();
+        $workspaces = $user->workspaces()->where('is_system', false)->where('slug', '!=', 'legacy')->get();
+        if ($workspaces->isEmpty()) {
+            $workspaces = $user->workspaces()->get();
+        }
+        $currentWorkspaceId = (int) $request->session()->get('current_workspace_id');
+        $activeWorkspace = $workspaces->firstWhere('id', $currentWorkspaceId) ?: $workspaces->first();
+
+        return view('desktop.pairing', [
+            'session' => $session,
+            'code' => $code,
+            'workspaces' => $workspaces,
+            'activeWorkspace' => $activeWorkspace,
+        ]);
     }
 
     public function approve(Request $request, string $pairingId)
@@ -87,12 +101,41 @@ class DesktopPairingController extends Controller
         $session = DesktopPairingSession::with('project')->where('pairing_id', $pairingId)->firstOrFail();
         if (!hash_equals($session->code_hash, hash('sha256', strtoupper((string) $request->input('code'))))) abort(403);
         if ($session->expires_at->isPast() || $session->status !== 'pending') abort(410);
-        $workspaceId = (int) $request->session()->get('current_workspace_id');
-        if (!$workspaceId) $workspaceId = (int) Auth::user()->workspaces()->value('workspaces.id');
-        $workspace = \App\Models\Workspace::whereKey($workspaceId)->firstOrFail();
-        abort_unless(Auth::user()->workspaces()->whereKey($workspace->id)->exists(), 403, 'You do not have access to this workspace.');
-        $project = $session->project ?: Project::where('workspace_id', $workspace->id)->orderBy('id')->firstOrFail();
-        abort_unless((int) $project->workspace_id === (int) $workspace->id, 403, 'Project does not belong to the active workspace.');
+
+        $user = Auth::user();
+        $requestedWorkspaceId = (int) $request->input('workspace_id');
+        $sessionWorkspaceId = (int) $request->session()->get('current_workspace_id');
+
+        $workspace = null;
+        if ($requestedWorkspaceId) {
+            $workspace = $user->workspaces()->whereKey($requestedWorkspaceId)->first();
+        }
+        if (!$workspace && $sessionWorkspaceId) {
+            $workspace = $user->workspaces()->whereKey($sessionWorkspaceId)->first();
+        }
+        if (!$workspace) {
+            $workspace = $user->workspaces()->where('is_system', false)->where('slug', '!=', 'legacy')->first()
+                ?: $user->workspaces()->where('is_system', false)->first()
+                ?: $user->workspaces()->first();
+        }
+        abort_unless($workspace, 403, 'You do not have access to this workspace.');
+
+        $project = $session->project;
+        if ($project && (int) $project->workspace_id !== (int) $workspace->id) {
+            $project = null;
+        }
+        if (!$project) {
+            $project = Project::where('workspace_id', $workspace->id)->orderBy('id')->first();
+        }
+        if (!$project) {
+            $project = Project::create([
+                'workspace_id' => $workspace->id,
+                'user_id' => $user->id,
+                'title' => ($workspace->name ?: 'My Workspace') . ' Project',
+                'slug' => 'project-' . $user->id . '-' . Str::random(4),
+                'category' => 'software',
+            ]);
+        }
 
         if (!$project->task_hub_mcp_token) {
             $token = Str::random(64);
@@ -100,8 +143,14 @@ class DesktopPairingController extends Controller
             $project->task_hub_mcp_token_hash = hash('sha256', $token);
             $project->save();
         }
-        $session->update(['status' => 'approved', 'user_id' => Auth::id(), 'workspace_id' => $workspace->id, 'project_id' => $project->id, 'approved_at' => now()]);
-        return view('desktop.pairing-approved', ['session' => $session->fresh('project')]);
+        $session->update([
+            'status' => 'approved',
+            'user_id' => $user->id,
+            'workspace_id' => $workspace->id,
+            'project_id' => $project->id,
+            'approved_at' => now(),
+        ]);
+        return view('desktop.pairing-approved', ['session' => $session->fresh(['project', 'workspace'])]);
     }
 
     public function deny(Request $request, string $pairingId)

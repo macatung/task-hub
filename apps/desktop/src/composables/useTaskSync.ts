@@ -435,7 +435,7 @@ export function useTaskSync() {
     if (!credential.value) await loadCredential();
     if (!credential.value) { loadLocalCache(); isOnline.value = false; isLoading.value = false; return; }
     try {
-      const res = await fetchWithTimeout(`${apiUrl()}?today=1&project_id=${encodeURIComponent(credential.value.projectId)}`, { headers: authHeaders() });
+      const res = await fetchWithTimeout(apiUrl(), { headers: authHeaders() });
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -483,7 +483,7 @@ export function useTaskSync() {
 
     const fetchPromise = (async () => {
       try {
-        const response = await fetchWithTimeout(`${apiUrl()}?project_id=${encodeURIComponent(credential.value!.projectId)}`, { headers: authHeaders() });
+        const response = await fetchWithTimeout(apiUrl(), { headers: authHeaders() });
         const payload = response.ok ? await response.json() : null;
         if (!payload?.success || !Array.isArray(payload.data)) throw new Error('Task Hub did not return a project backlog.');
         tasks.value = payload.data;
