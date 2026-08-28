@@ -1353,18 +1353,36 @@ const reviewerLabel = (value: Provider) =>
       ? "Antigravity"
       : "Codex";
 const reviewPayloadFromOutput = (text: string) => {
+  let body = "";
   const marker = text.match(/<TASK_HUB_REVIEW>([\s\S]*?)<\/TASK_HUB_REVIEW>/i);
-  const body = marker?.[1]?.trim() || "";
+  if (marker?.[1]) {
+    body = marker[1].trim();
+  } else {
+    const codeBlock = text.match(/```(?:json)?\s*([\s\S]*?"verdict"[\s\S]*?)\s*```/i);
+    if (codeBlock?.[1]) {
+      body = codeBlock[1].trim();
+    } else {
+      const rawMatch = text.match(/(\{[\s\S]*?"verdict"\s*:\s*"(?:approved|changes_requested)"[\s\S]*?\})/i);
+      if (rawMatch?.[1]) {
+        body = rawMatch[1].trim();
+      }
+    }
+  }
+
   let parsed: any = null;
   if (body) {
     try {
       parsed = JSON.parse(body);
     } catch {
-      parsed = null;
+      try {
+        const cleaned = body.replace(/,\s*([\]}])/g, '$1');
+        parsed = JSON.parse(cleaned);
+      } catch {
+        parsed = null;
+      }
     }
   }
   const verdictText = String(parsed?.verdict || "").toLowerCase();
-  // Fail closed: an unstructured reviewer response must never auto-approve.
   const approved = Boolean(parsed && verdictText === "approved");
   const feedback = String(
     parsed?.feedback || parsed?.summary || body || text.slice(-8000),

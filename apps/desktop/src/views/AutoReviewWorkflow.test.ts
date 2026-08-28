@@ -31,6 +31,8 @@ describe('automatic independent review workflow', () => {
     expect(controlCenterSource).toContain('complete_auto_approved_handoff');
     expect(controlCenterSource).toContain('approveAfterManualReview');
     expect(controlCenterSource).toContain('increaseTaskReviewLimit');
+    expect(controlCenterSource).toContain('verdictText === "approved"');
+    expect(controlCenterSource).toContain('rawMatch');
     expect(runWorkspaceSource).toContain('Approve &amp; mark Done');
     expect(runWorkspaceSource).toContain('Request changes');
   });
