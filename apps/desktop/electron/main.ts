@@ -2436,7 +2436,8 @@ async function reconnectCaoSession(sessionId: string) {
 
   const statusResult = await runCaoCommand(['session', 'status', caoSessionName, '--workers', '--json'], cwd, 10_000);
   if (!statusResult.ok) {
-    throw new Error(`CAO session ${caoSessionName} is not active: ${statusResult.error || 'unknown error'}`);
+    saveSavedSession({ ...saved, status: 'completed' });
+    throw new Error(`CAO session ${caoSessionName} is not active: ${statusResult.error || 'No active terminals'}`);
   }
 
   const parsed = parseCaoSessionStatus(statusResult.output);

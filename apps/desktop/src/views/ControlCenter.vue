@@ -281,7 +281,7 @@ const reconnectableCaoSession = computed(() => {
   return fleetAgents.value.find((candidate) =>
     candidate?.route === 'cao' &&
     directories.has(candidate.cwd) &&
-    candidate.status !== 'running' &&
+    ['waiting_input', 'blocked', 'interrupted'].includes(candidate.status || '') &&
     candidate.caoSessionName,
   ) || null;
 });
