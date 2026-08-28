@@ -7,7 +7,7 @@ import TasksEmptyState from '@/Components/tasks/TasksEmptyState.vue';
 import ProjectDocumentsPanel from '@/Components/tasks/ProjectDocumentsPanel.vue';
 import ProjectReleaseLog from '@/Components/tasks/ProjectReleaseLog.vue';
 import RunnerDashboard from '@/Components/tasks/RunnerDashboard.vue';
-import RemoteDispatchModal from '@/Components/tasks/RemoteDispatchModal.vue';
+import RemoteDispatchModal, { type TaskItemProps } from '@/Components/tasks/RemoteDispatchModal.vue';
 import StreambackConsole from '@/Components/tasks/StreambackConsole.vue';
 import TaskContextRail from '@/Components/tasks/TaskContextRail.vue';
 import TaskHistoryTimeline from '@/Components/tasks/TaskHistoryTimeline.vue';
@@ -26,6 +26,7 @@ export interface ProjectItem {
   id: number;
   title: string;
   slug: string;
+  tagline?: string;
   key?: string;
   category?: string;
   tags?: string[] | null;
@@ -217,7 +218,8 @@ const toggleTheme = () => {
   sound.playClick();
 };
 
-// Sidebar State
+// Sidebar & Keyboard Navigation State
+const keyboardSequence = ref('');
 const isSidebarOpen = ref(true);
 const selectedProjectId = ref<string | number>(props.selectedProjectId || 'all');
 const currentView = ref<'board' | 'backlog' | 'roadmap'>('board');
@@ -1099,7 +1101,16 @@ export interface AiTaskItem {
   start_date: string;
   due_date: string;
   subtasks: Array<{ text: string }>;
+  epic_ref?: string;
+  epic_title?: string;
   enabled?: boolean;
+}
+
+export interface AiEpicItem {
+  title: string;
+  description: string;
+  story_points?: number;
+  priority?: 'urgent' | 'high' | 'medium' | 'low';
 }
 
 export interface AiSprintItem {
@@ -1127,6 +1138,7 @@ export interface AiPlanPreview {
     start_date: string;
     end_date: string;
   };
+  epics?: AiEpicItem[];
   sprints: AiSprintItem[];
 }
 
@@ -1152,18 +1164,22 @@ const aiGeneratedPlan = ref<AiPlanPreview | null>(null);
 const aiTemplates = [
   {
     title: 'Multi-channel E-commerce Platform (B2C)',
+    label: 'Multi-channel E-commerce Platform (B2C)',
     prompt: 'Build a multi-channel e-commerce platform with payment gateways, a real-time cart, inventory management, a driver mobile app and revenue dashboards.',
   },
   {
     title: 'AI SaaS Platform & Intelligent Chatbot',
+    label: 'AI SaaS Platform & Intelligent Chatbot',
     prompt: 'Build an AI SaaS platform with Gemini and OpenAI models, PDF analysis, streaming Q&A and monthly subscriptions.',
   },
   {
     title: 'HR Management & GPS Attendance App',
+    label: 'HR Management & GPS Attendance App',
     prompt: 'Build an HR management system with GPS attendance in a Flutter mobile app, multi-level leave approvals and automated payroll exports.',
   },
   {
     title: 'Microservices & Real-time Message Queue',
+    label: 'Microservices & Real-time Message Queue',
     prompt: 'Design a microservices backend with Redis messaging, real-time WebSocket notifications, OAuth2 JWT authentication and Docker/Kubernetes CI/CD.',
   },
 ];
@@ -1929,6 +1945,17 @@ const handleDeleteSprint = async (sprint: SprintItem) => {
 };
 
 // PROJECT CRUD
+const generateProjectMcpToken = () => {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const bytes = new Uint8Array(24);
+    crypto.getRandomValues(bytes);
+    const token = Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+    projectForm.value.task_hub_mcp_token = `th_mcp_${token}`;
+  } else {
+    projectForm.value.task_hub_mcp_token = `th_mcp_${Math.random().toString(36).substring(2)}${Date.now().toString(36)}`;
+  }
+};
+
 const openCreateProjectModal = () => {
   projectModalMode.value = 'create';
   editingProjectId.value = null;
@@ -2360,7 +2387,7 @@ const exportRoadmapWorkbook = async () => {
     const response = await axios.get(`/api/projects/${activeProjectObject.value.id}/roadmap-export`, { responseType: 'blob' });
     const disposition = response.headers['content-disposition'] || '';
     const filename = /filename="?([^";]+)"?/i.exec(disposition)?.[1] || `${activeProjectObject.value.slug || 'project'}-roadmap.xlsx`;
-    const url = URL.createObjectURL(new Blob([response.data], { type: response.headers['content-type'] }));
+    const url = URL.createObjectURL(new Blob([response.data], { type: (response.headers['content-type'] as string) || undefined }));
     const link = document.createElement('a');
     link.href = url;
     link.download = filename;
@@ -3349,9 +3376,11 @@ onUnmounted(() => {
             </div>
             <div :class="['rounded-xl border p-4', isDarkMode ? 'bg-slate-950/40 border-slate-800' : 'bg-white border-slate-200']">
               <div class="flex items-center justify-between mb-3"><h3 class="text-xs font-bold">Current sprint</h3><span class="text-[10px] text-slate-500">{{ activeSprint?.end_date || 'No deadline' }}</span></div>
-              <p v-if="activeSprint" class="truncate text-[11px] font-medium">{{ activeSprint.name }}</p>
-              <div v-if="activeSprint" class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"><div class="h-full rounded-full bg-blue-600" :style="{ width: (activeSprint.total_tasks ? Math.round(((activeSprint.done_tasks || 0) / activeSprint.total_tasks) * 100) : 0) + '%' }"></div></div>
-              <p v-if="activeSprint" class="mt-2 text-[10px] text-slate-500">{{ activeSprint.done_tasks || 0 }}/{{ activeSprint.total_tasks || 0 }} tasks complete</p>
+              <template v-if="activeSprint">
+                <p class="truncate text-[11px] font-medium">{{ activeSprint?.name }}</p>
+                <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"><div class="h-full rounded-full bg-blue-600" :style="{ width: ((activeSprint?.total_tasks ?? 0) > 0 ? Math.round(((activeSprint?.done_tasks ?? 0) / (activeSprint?.total_tasks ?? 1)) * 100) : 0) + '%' }"></div></div>
+                <p class="mt-2 text-[10px] text-slate-500">{{ activeSprint?.done_tasks || 0 }}/{{ activeSprint?.total_tasks || 0 }} tasks complete</p>
+              </template>
               <p v-else class="text-[11px] text-slate-500">No active sprint.</p>
             </div>
             <div :class="['rounded-xl border p-4', isDarkMode ? 'bg-slate-950/40 border-slate-800' : 'bg-white border-slate-200']">
@@ -5020,7 +5049,7 @@ onUnmounted(() => {
                 <label :class="['font-mono text-[10px] font-bold uppercase', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Project MCP Token (AI Agents)</label>
                 <button
                   type="button"
-                  @click="projectForm.task_hub_mcp_token = 'th_mcp_' + Array.from(crypto.getRandomValues(new Uint8Array(24))).map(b => b.toString(16).padStart(2, '0')).join('')"
+                  @click="generateProjectMcpToken"
                   class="text-[10px] text-blue-500 hover:text-blue-400 font-bold cursor-pointer"
                 >
                   ⚡ Auto-Generate Token

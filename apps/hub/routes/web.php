@@ -129,6 +129,7 @@ $registerApiRoutes = function () {
     Route::get('/tasks/agent-runs/{agentRun}', [ApiAgentRunController::class, 'show']);
     Route::patch('/tasks/agent-runs/{agentRun}', [ApiAgentRunController::class, 'update']);
     Route::post('/tasks/agent-runs/{agentRun}/events', [ApiAgentRunController::class, 'event']);
+    Route::post('/tasks/agent-runs/{agentRun}/logs', [ApiAgentRunController::class, 'log']);
     Route::post('/tasks/agent-runs/{agentRun}/evidence', [ApiAgentRunController::class, 'evidence']);
     Route::post('/tasks/agent-runs/{agentRun}/handoff', [ApiAgentRunController::class, 'handoff']);
     Route::post('/tasks/agent-runs/{agentRun}/cancel', [ApiAgentRunController::class, 'cancel']);
@@ -186,6 +187,7 @@ $registerApiRoutes = function () {
     Route::get('/agent-runs/{agentRun}', [ApiAgentRunController::class, 'show']);
     Route::patch('/agent-runs/{agentRun}', [ApiAgentRunController::class, 'update']);
     Route::post('/agent-runs/{agentRun}/events', [ApiAgentRunController::class, 'event']);
+    Route::post('/agent-runs/{agentRun}/logs', [ApiAgentRunController::class, 'log']);
     Route::post('/agent-runs/{agentRun}/evidence', [ApiAgentRunController::class, 'evidence']);
     Route::post('/agent-runs/{agentRun}/handoff', [ApiAgentRunController::class, 'handoff']);
     Route::get('/context-pack', [ApiAgentRunController::class, 'context']);

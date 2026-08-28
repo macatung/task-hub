@@ -108,13 +108,33 @@ describe('Milestone 4: Web Hub Remote Dispatch UI & Live Streamback Integration'
   });
 
   describe('4. Real-time Streamback Console in Task Detail Drawer (StreambackConsole.vue)', () => {
-    it('implements 6-step visual execution stepper mapping lifecycle states', () => {
-      expect(streambackConsoleVueSrc).toContain('1. Dispatched');
-      expect(streambackConsoleVueSrc).toContain('2. Worktree Prepared');
-      expect(streambackConsoleVueSrc).toContain('3. MCP Context Loaded');
-      expect(streambackConsoleVueSrc).toContain('4. Auto-Pilot Coding');
-      expect(streambackConsoleVueSrc).toContain('5. Tests Verified');
-      expect(streambackConsoleVueSrc).toContain('6. Handoff Ready');
+    it('implements 4-phase multi-agent step stream mapping lifecycle states', () => {
+      expect(streambackConsoleVueSrc).toContain('1. Architect / Planner');
+      expect(streambackConsoleVueSrc).toContain('2. Core Implementer');
+      expect(streambackConsoleVueSrc).toContain('3. Test Engineer');
+      expect(streambackConsoleVueSrc).toContain('4. Evidence Auditor / Reviewer');
+      expect(streambackConsoleVueSrc).toContain('Multi-Agent Step Stream');
+    });
+
+    it('renders role badges, avatars, and active model tags per phase', () => {
+      expect(streambackConsoleVueSrc).toContain("badge: 'PLANNER'");
+      expect(streambackConsoleVueSrc).toContain("badge: 'DEVELOPER'");
+      expect(streambackConsoleVueSrc).toContain("badge: 'QA'");
+      expect(streambackConsoleVueSrc).toContain("badge: 'REVIEWER'");
+      expect(streambackConsoleVueSrc).toContain("avatar: '📐'");
+      expect(streambackConsoleVueSrc).toContain("avatar: '⚡'");
+      expect(streambackConsoleVueSrc).toContain("avatar: '🧪'");
+      expect(streambackConsoleVueSrc).toContain("avatar: '🔍'");
+      expect(streambackConsoleVueSrc).toContain('gemini-3.7-pro');
+      expect(streambackConsoleVueSrc).toContain('gemini-3.7-flash');
+    });
+
+    it('implements scoped collapsible accordions for terminal logs and tool executions', () => {
+      expect(streambackConsoleVueSrc).toContain('expandedLogs');
+      expect(streambackConsoleVueSrc).toContain('expandedTools');
+      expect(streambackConsoleVueSrc).toContain('copyPhaseLogs');
+      expect(streambackConsoleVueSrc).toContain('Terminal Logs');
+      expect(streambackConsoleVueSrc).toContain('Tool Executions');
     });
 
     it('renders live terminal log stream with stdout, stderr, and system stream color coding', () => {
@@ -131,6 +151,15 @@ describe('Milestone 4: Web Hub Remote Dispatch UI & Live Streamback Integration'
       expect(streambackConsoleVueSrc).toContain('activeToolAccordion');
       expect(streambackConsoleVueSrc).toContain('INPUT PARAMETERS');
       expect(streambackConsoleVueSrc).toContain('RESULT / OUTPUT');
+    });
+
+    it('provides pause, resume, cancel, and SSE listener bindings (agent-run, agent-log, agent-event)', () => {
+      expect(streambackConsoleVueSrc).toContain('pauseActiveRun');
+      expect(streambackConsoleVueSrc).toContain('resumeActiveRun');
+      expect(streambackConsoleVueSrc).toContain('cancelActiveRun');
+      expect(streambackConsoleVueSrc).toContain("sseSource.addEventListener('agent-run'");
+      expect(streambackConsoleVueSrc).toContain("sseSource.addEventListener('agent-log'");
+      expect(streambackConsoleVueSrc).toContain("sseSource.addEventListener('agent-event'");
     });
 
     it('displays high-contrast safety guardrail interception banner for waiting_input state with Approve/Reject actions', () => {

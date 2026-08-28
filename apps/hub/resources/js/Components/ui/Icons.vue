@@ -6,7 +6,7 @@ interface Props {
   name: string;
   size?: number | string;
   strokeWidth?: number | string;
-  class?: string;
+  class?: any;
 }
 
 const props = withDefaults(defineProps<Props>(), {

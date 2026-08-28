@@ -4,16 +4,18 @@ import type { FlowStateTone, FlowStepId } from "../../utils/flowState";
 
 const props = withDefaults(
   defineProps<{
-    currentStep: FlowStepId;
+    currentStep: FlowStepId | string;
     state: FlowStateTone;
     details?: string;
     compact?: boolean;
     label?: string;
+    mode?: "cao" | "multi_agent";
+    steps?: Array<{ id: string; label: string; shortLabel: string }>;
   }>(),
-  { compact: false },
+  { compact: false, mode: "cao" },
 );
 
-const steps: Array<{ id: FlowStepId; label: string; shortLabel: string }> = [
+const defaultCaoSteps: Array<{ id: FlowStepId | string; label: string; shortLabel: string }> = [
   { id: "ready", label: "Sẵn sàng", shortLabel: "Sẵn sàng" },
   { id: "preflight", label: "Kiểm tra trước chạy", shortLabel: "Kiểm tra" },
   { id: "running", label: "CAO đang chạy", shortLabel: "CAO" },
@@ -21,14 +23,27 @@ const steps: Array<{ id: FlowStepId; label: string; shortLabel: string }> = [
   { id: "handoff", label: "Handoff", shortLabel: "Handoff" },
 ];
 
-const currentIndex = computed(() => Math.max(0, steps.findIndex((step) => step.id === props.currentStep)));
+const multiAgentSteps: Array<{ id: string; label: string; shortLabel: string }> = [
+  { id: "architect", label: "1. Architect", shortLabel: "Architect" },
+  { id: "implementer", label: "2. Implementer", shortLabel: "Implementer" },
+  { id: "tester", label: "3. Tester", shortLabel: "Tester" },
+  { id: "auditor", label: "4. Auditor", shortLabel: "Auditor" },
+];
+
+const activeSteps = computed(() => {
+  if (props.steps && props.steps.length > 0) return props.steps;
+  if (props.mode === "multi_agent") return multiAgentSteps;
+  return defaultCaoSteps;
+});
+
+const currentIndex = computed(() => Math.max(0, activeSteps.value.findIndex((step) => step.id === props.currentStep)));
 const stepStatus = (index: number) => {
   if (index < currentIndex.value) return "complete";
   if (index > currentIndex.value) return "upcoming";
   return props.state;
 };
 
-const liveLabel = computed(() => props.label || steps[currentIndex.value]?.label || "Flow");
+const liveLabel = computed(() => props.label || activeSteps.value[currentIndex.value]?.label || "Flow");
 </script>
 
 <template>
@@ -40,7 +55,7 @@ const liveLabel = computed(() => props.label || steps[currentIndex.value]?.label
   >
     <ol class="cc-flow-stepper__track">
       <li
-        v-for="(step, index) in steps"
+        v-for="(step, index) in activeSteps"
         :key="step.id"
         class="cc-flow-stepper__item"
         :class="`cc-flow-stepper__item--${stepStatus(index)}`"

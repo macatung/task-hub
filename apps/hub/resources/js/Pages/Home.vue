@@ -107,7 +107,7 @@ const homeJsonLd = {
       leave-to-class="opacity-0 -translate-y-8 scale-95"
     >
       <div
-        v-if="transitionToast.visible"
+        v-if="transitionToast && transitionToast.visible"
         class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl glass-panel border shadow-2xl flex items-center gap-3 select-none max-w-md w-full mx-4"
         :style="{
           borderColor: activePhase.accentBorder,
@@ -134,7 +134,7 @@ const homeJsonLd = {
         </div>
         <button
           type="button"
-          @click="transitionToast.visible = false"
+          @click="transitionToast && (transitionToast.visible = false)"
           class="text-slate-400 hover:text-slate-100 p-1 rounded-lg hover:bg-white/5 transition-colors"
         >
           <Icons name="X" :size="13" />

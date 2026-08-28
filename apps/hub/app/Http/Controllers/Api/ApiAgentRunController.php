@@ -73,9 +73,40 @@ class ApiAgentRunController extends Controller
 
                 foreach ($events as $event) {
                     $currentAfter = max($currentAfter, $event->id);
+                    $payload = is_array($event->payload) ? $event->payload : [];
+                    $role = data_get($payload, 'role')
+                        ?: data_get($payload, 'sourceRole')
+                        ?: (preg_match('/(architect|implementer|tester|auditor|test_engineer)/i', $event->event_type, $m) ? (strtolower($m[1]) === 'test_engineer' ? 'tester' : strtolower($m[1])) : null);
+                    $stage = data_get($payload, 'stage')
+                        ?: (str_starts_with($event->event_type, 'stage_') ? substr($event->event_type, 6) : (str_starts_with($event->event_type, 'role_') ? preg_replace('/^role_[a-z]+_?/', '', $event->event_type) : null));
+                    $toolCalls = data_get($payload, 'tool_calls')
+                        ?: (data_get($payload, 'tool_call') ? [data_get($payload, 'tool_call')] : (data_get($payload, 'tool') ? [['name' => data_get($payload, 'tool'), 'status' => $event->status]] : null));
+                    $toolCall = data_get($payload, 'tool_call')
+                        ?: (data_get($payload, 'tool') ? ['name' => data_get($payload, 'tool'), 'status' => $event->status] : null);
+                    $logText = data_get($payload, 'log');
+
+                    $eventData = [
+                        'id' => $event->id,
+                        'run_id' => $event->agent_run_id,
+                        'type' => $event->event_type,
+                        'event_type' => $event->event_type,
+                        'status' => $event->status,
+                        'role' => $role,
+                        'stage' => $stage,
+                        'tool_call' => $toolCall,
+                        'tool_calls' => $toolCalls,
+                        'log' => $logText,
+                        'payload' => $event->payload,
+                        'occurred_at' => $event->occurred_at?->toIso8601String(),
+                    ];
+
                     echo 'id: ' . $event->id . "\n";
                     echo "event: agent-run\n";
-                    echo 'data: ' . json_encode(['id' => $event->id, 'run_id' => $event->agent_run_id, 'type' => $event->event_type, 'status' => $event->status, 'payload' => $event->payload, 'occurred_at' => $event->occurred_at?->toIso8601String()], JSON_UNESCAPED_UNICODE) . "\n\n";
+                    echo 'data: ' . json_encode($eventData, JSON_UNESCAPED_UNICODE) . "\n\n";
+
+                    echo 'id: evt-' . $event->id . "\n";
+                    echo "event: agent-run-event\n";
+                    echo 'data: ' . json_encode($eventData, JSON_UNESCAPED_UNICODE) . "\n\n";
                 }
 
                 $logs = AgentRunLog::query()->where('id', '>', $currentAfterLog)
@@ -85,9 +116,19 @@ class ApiAgentRunController extends Controller
 
                 foreach ($logs as $log) {
                     $currentAfterLog = max($currentAfterLog, $log->id);
+                    $logRole = data_get($log, 'role')
+                        ?: (preg_match('/\[(Architect|Implementer|Test Engineer|Tester|Auditor)\]/i', $log->content, $m) ? (strtolower($m[1]) === 'test engineer' ? 'tester' : strtolower($m[1])) : null);
+                    $logData = [
+                        'id' => $log->id,
+                        'run_id' => $log->agent_run_id,
+                        'stream' => $log->stream,
+                        'content' => $log->content,
+                        'role' => $logRole,
+                        'occurred_at' => $log->occurred_at?->toIso8601String(),
+                    ];
                     echo 'id: log-' . $log->id . "\n";
                     echo "event: agent-log\n";
-                    echo 'data: ' . json_encode(['id' => $log->id, 'run_id' => $log->agent_run_id, 'stream' => $log->stream, 'content' => $log->content, 'occurred_at' => $log->occurred_at?->toIso8601String()], JSON_UNESCAPED_UNICODE) . "\n\n";
+                    echo 'data: ' . json_encode($logData, JSON_UNESCAPED_UNICODE) . "\n\n";
                 }
 
                 echo ": keepalive\n\n";
@@ -467,9 +508,14 @@ class ApiAgentRunController extends Controller
     public function event(Request $request, AgentRun $agentRun)
     {
         $validated = $request->validate([
-            'event_id' => 'required|uuid',
+            'event_id' => 'required|string|max:128',
             'event_type' => 'required|string|max:60',
-            'status' => 'nullable|in:' . implode(',', self::STATUSES),
+            'status' => 'nullable|string|max:40',
+            'role' => 'nullable|string|in:architect,implementer,tester,auditor,test_engineer',
+            'stage' => 'nullable|string|max:60',
+            'tool_call' => 'nullable|array',
+            'tool_calls' => 'nullable|array',
+            'log' => 'nullable|string|max:50000',
             'payload' => 'nullable|array',
             'occurred_at' => 'nullable|date',
         ]);
@@ -482,9 +528,49 @@ class ApiAgentRunController extends Controller
                 $this->applyLifecycleFields($fields);
                 $agentRun->update($fields);
             }
-            $this->recordEvent($agentRun, $validated['event_type'], $validated['status'] ?? null, $validated['payload'] ?? [], $validated['event_id'], $validated['occurred_at'] ?? null);
+            $payload = $validated['payload'] ?? [];
+            if (!empty($validated['role'])) {
+                $payload['role'] = $validated['role'] === 'test_engineer' ? 'tester' : $validated['role'];
+            }
+            if (!empty($validated['stage'])) {
+                $payload['stage'] = $validated['stage'];
+            }
+            if (!empty($validated['tool_call'])) {
+                $payload['tool_call'] = $validated['tool_call'];
+            }
+            if (!empty($validated['tool_calls'])) {
+                $payload['tool_calls'] = $validated['tool_calls'];
+            }
+            if (!empty($validated['log'])) {
+                $payload['log'] = $validated['log'];
+            }
+            $this->recordEvent($agentRun, $validated['event_type'], $validated['status'] ?? null, $payload, $validated['event_id'], $validated['occurred_at'] ?? null);
         });
         return response()->json(['success' => true, 'data' => $agentRun->fresh()]);
+    }
+
+    public function log(Request $request, AgentRun $agentRun)
+    {
+        $data = $request->validate([
+            'sequence' => 'nullable|integer|min:0',
+            'stream' => 'nullable|in:stdout,stderr,system',
+            'role' => 'nullable|string|in:architect,implementer,tester,auditor,test_engineer',
+            'content' => 'required|string|max:50000',
+        ]);
+        $content = preg_replace('/(authorization\s*:\s*bearer\s+)[^\s,;]+/i', '$1[REDACTED]', $data['content']);
+        $content = preg_replace('/((?:token|api[_-]?key|password|secret)\s*[:=]\s*)[^\s,;]+/i', '$1[REDACTED]', $content);
+        $content = preg_replace('/gh[pousr]_[A-Za-z0-9_]+/', '[REDACTED]', $content);
+
+        $sequence = $data['sequence'] ?? ((AgentRunLog::where('agent_run_id', $agentRun->id)->max('sequence') ?? 0) + 1);
+        $role = !empty($data['role']) ? ($data['role'] === 'test_engineer' ? 'tester' : $data['role']) : null;
+        $log = AgentRunLog::create([
+            'agent_run_id' => $agentRun->id,
+            'sequence' => $sequence,
+            'stream' => $data['stream'] ?? 'stdout',
+            'content' => $content,
+            'occurred_at' => now(),
+        ]);
+        return response()->json(['success' => true, 'data' => $log], 201);
     }
 
     public function evidence(Request $request, AgentRun $agentRun)
@@ -493,6 +579,7 @@ class ApiAgentRunController extends Controller
             'task_id' => 'nullable|exists:tasks,id',
             'evidence_type' => 'required|string|max:40',
             'status' => 'required|in:passed,failed,skipped,pending',
+            'role' => 'nullable|string|in:architect,implementer,tester,auditor,test_engineer',
             'command' => 'nullable|string|max:500',
             'summary' => 'nullable|string|max:10000',
             'artifact_url' => 'nullable|url|max:500',
@@ -506,10 +593,12 @@ class ApiAgentRunController extends Controller
             if ($existing) return response()->json(['success' => true, 'duplicate' => true, 'data' => $existing]);
         }
         unset($validated['idempotency_key']);
+        $role = !empty($validated['role']) ? ($validated['role'] === 'test_engineer' ? 'tester' : $validated['role']) : 'tester';
+        unset($validated['role']);
         $validated['task_id'] = $validated['task_id'] ?? $agentRun->task_id;
-        $validated['metadata'] = array_merge($validated['metadata'] ?? [], $idempotencyKey ? ['idempotency_key' => $idempotencyKey] : []);
+        $validated['metadata'] = array_merge($validated['metadata'] ?? [], ['role' => $role], $idempotencyKey ? ['idempotency_key' => $idempotencyKey] : []);
         $evidence = $agentRun->evidence()->create($validated);
-        $this->recordEvent($agentRun, 'evidence_attached', $agentRun->status, ['evidence_id' => $evidence->id, 'type' => $evidence->evidence_type]);
+        $this->recordEvent($agentRun, 'evidence_attached', $agentRun->status, ['evidence_id' => $evidence->id, 'type' => $evidence->evidence_type, 'role' => $role, 'status' => $evidence->status]);
         return response()->json(['success' => true, 'data' => $evidence], 201);
     }
 
@@ -529,6 +618,11 @@ class ApiAgentRunController extends Controller
             'commit_sha' => 'nullable|string|max:80',
             'pull_request_url' => 'nullable|url|max:500',
             'blockers' => 'nullable|string|max:10000',
+            'role' => 'nullable|string|in:architect,implementer,tester,auditor,test_engineer',
+            'stage_executions' => 'nullable|array',
+            'context_packages' => 'nullable|array',
+            'context_package' => 'nullable|array',
+            'evidence' => 'nullable|array',
             'review' => 'nullable|array',
             'review.status' => 'nullable|string|in:idle,reviewing,changes_requested,approved,max_iterations,failed',
             'review.reviewer_provider' => 'nullable|in:codex,claude_code,antigravity',
@@ -568,19 +662,25 @@ class ApiAgentRunController extends Controller
             }
         }
 
-        $run = DB::transaction(function () use ($agentRun, $validated, $idempotencyKey, $autoApproved) {
+        $role = !empty($validated['role']) ? ($validated['role'] === 'test_engineer' ? 'tester' : $validated['role']) : 'auditor';
+
+        $run = DB::transaction(function () use ($agentRun, $validated, $idempotencyKey, $autoApproved, $role) {
             $metadata = array_merge($agentRun->metadata ?: [], [
                 'handoff' => [
+                    'role' => $role,
                     'changed_files' => array_values($validated['changed_files']),
                     'blockers' => $validated['blockers'] ?? null,
                     'auto_review' => $validated['review'] ?? null,
+                    'stage_executions' => $validated['stage_executions'] ?? null,
+                    'context_packages' => $validated['context_packages'] ?? ($validated['context_package'] ? [$validated['context_package']] : null),
                     'idempotency_key' => $idempotencyKey,
                     'submitted_at' => now()->toIso8601String(),
                     'auto_approved' => $autoApproved,
                 ],
             ]);
             $agentRun->update([
-                'status' => $autoApproved ? 'verified' : 'needs_review', 'summary' => $validated['summary'],
+                'status' => $autoApproved ? 'verified' : 'needs_review',
+                'summary' => $validated['summary'],
                 'commit_sha' => $validated['commit_sha'] ?? $agentRun->commit_sha,
                 'pull_request_url' => $validated['pull_request_url'] ?? $agentRun->pull_request_url,
                 'metadata' => $metadata,
@@ -596,14 +696,20 @@ class ApiAgentRunController extends Controller
                     'task_id' => $agentRun->task_id, 'evidence_type' => 'test',
                     'status' => $test['status'], 'command' => $test['command'],
                     'summary' => $test['summary'] ?? null, 'commit_sha' => $validated['commit_sha'] ?? $agentRun->commit_sha,
-                    'metadata' => ['source' => 'desktop_handoff'],
+                    'metadata' => ['source' => 'desktop_handoff', 'role' => 'tester'],
                 ]);
             }
             $this->recordEvent(
                 $agentRun,
                 $autoApproved ? 'auto_handoff_approved' : 'handoff_completed',
                 $autoApproved ? 'verified' : 'needs_review',
-                ['changed_files' => $validated['changed_files'], 'test_count' => count($validated['tests']), 'reviewer_run_id' => data_get($validated, 'review.reviewer_run_id')],
+                [
+                    'role' => $role,
+                    'changed_files' => $validated['changed_files'],
+                    'test_count' => count($validated['tests']),
+                    'reviewer_run_id' => data_get($validated, 'review.reviewer_run_id'),
+                    'context_packages_count' => is_array($validated['context_packages'] ?? null) ? count($validated['context_packages']) : 0,
+                ],
             );
             return $agentRun->fresh()->load(['evidence', 'events']);
         });

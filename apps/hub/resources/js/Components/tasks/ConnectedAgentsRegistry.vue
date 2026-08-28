@@ -281,7 +281,7 @@ onBeforeUnmount(() => {
 
         <!-- Refresh Button -->
         <button
-          @click="fetchRunners"
+          @click="() => fetchRunners(true)"
           :disabled="isRefreshing"
           class="p-1.5 rounded-lg border text-[11px] transition-all cursor-pointer flex items-center justify-center"
           :class="[

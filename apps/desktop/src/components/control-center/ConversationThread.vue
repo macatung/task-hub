@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
-import type { ThreadMessage, ToolCallItem } from '../../composables/useConversationThread';
+import type { ThreadMessage, ToolCallItem, ConversationRole } from '../../composables/useConversationThread';
 import { renderMarkdown } from '../../utils/markdown';
 
 const props = withDefaults(
@@ -10,7 +10,7 @@ const props = withDefaults(
     streamingText?: string;
     provider?: string;
     model?: string;
-    role?: 'supervisor' | 'worker' | 'reviewer';
+    role?: ConversationRole;
     taskTitle?: string;
     userName?: string;
   }>(),
@@ -89,6 +89,15 @@ const providerBadgeClass = (p?: string) => {
 
 const roleBadgeClass = (r?: string) => {
   switch (r) {
+    case 'architect':
+      return 'bg-indigo-950/60 text-indigo-300 border-indigo-500/40';
+    case 'implementer':
+      return 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40';
+    case 'tester':
+    case 'test_engineer':
+      return 'bg-amber-950/60 text-amber-300 border-amber-500/40';
+    case 'auditor':
+      return 'bg-cyan-950/60 text-cyan-300 border-cyan-500/40';
     case 'supervisor':
       return 'bg-blue-950/50 text-blue-300 border-blue-600/40';
     case 'reviewer':
@@ -100,6 +109,15 @@ const roleBadgeClass = (r?: string) => {
 
 const formatRole = (r?: string) => {
   switch (r) {
+    case 'architect':
+      return 'Architect';
+    case 'implementer':
+      return 'Implementer';
+    case 'tester':
+    case 'test_engineer':
+      return 'Test Engineer';
+    case 'auditor':
+      return 'Auditor';
     case 'supervisor':
       return 'Supervisor';
     case 'reviewer':

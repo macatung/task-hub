@@ -5,7 +5,9 @@ import DangerousCommandBanner from "../DangerousCommandBanner.vue";
 import type { SafetyInterceptEvent } from "../../utils/safetyGuardrails";
 import FlowStepper from "./FlowStepper.vue";
 import ConversationThread from "./ConversationThread.vue";
+import StreamCardsView from "./StreamCardsView.vue";
 import { useConversationThread } from "../../composables/useConversationThread";
+import { useAutoPilotStore } from "../../stores/useAutoPilotStore";
 import { deriveFlowState } from "../../utils/flowState";
 import {
   PROVIDER_MODELS,
@@ -126,11 +128,12 @@ const testSummary = ref("");
 const commitSha = ref("");
 const pullRequestUrl = ref("");
 const blockers = ref("");
-const activeSubTab = ref<"conversation" | "terminal" | "turns" | "handoff">("conversation");
+const activeSubTab = ref<"cards" | "conversation" | "terminal" | "turns" | "handoff">("cards");
 const humanReviewFeedback = ref("");
 const increasedReviewLimit = ref(3);
 const showRunContext = ref(false);
 
+const autoPilotStore = useAutoPilotStore();
 const thread = useConversationThread();
 
 watch(
@@ -791,8 +794,19 @@ const submit = () => {
           </div>
         </details>
 
-        <!-- Header Sub-Tabs Switcher: Cuộc trò chuyện / Terminal / Timeline -->
+        <!-- Header Sub-Tabs Switcher: Phân bước AI / Cuộc trò chuyện / Terminal / Timeline -->
         <div class="flex items-center gap-1 rounded-xl bg-[#090d16] border border-[#1b293e] p-1 shadow-sm shrink-0">
+          <button
+            class="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition"
+            :class="
+              activeSubTab === 'cards'
+                ? 'bg-[#121c35] border border-indigo-500/60 text-indigo-300 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200'
+            "
+            @click="activeSubTab = 'cards'"
+          >
+            <span>🗂️ Phân bước AI (4)</span>
+          </button>
           <button
             class="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition"
             :class="
@@ -1247,8 +1261,19 @@ const submit = () => {
           </span>
         </div>
 
-        <!-- Conversation Thread Tab (Default View) -->
-        <div v-if="activeSubTab === 'conversation'" class="flex-1 min-h-[480px] h-full rounded-xl border border-[#17253b] bg-[#050911] shadow-inner overflow-hidden flex flex-col">
+        <!-- Step-by-Step Multi-Agent Cards Tab (Default Stream View) -->
+        <div v-if="activeSubTab === 'cards'" class="flex-1 min-h-[480px] h-full rounded-xl border border-[#17253b] bg-[#050911] shadow-inner overflow-hidden flex flex-col">
+          <StreamCardsView
+            :stage-executions="autoPilotStore.stageExecutions.value"
+            :context-packages="autoPilotStore.contextPackages.value"
+            :running="running"
+            :task-title="task?.title"
+            :task-key="task?.issue_key || (task?.id ? `#${task.id}` : undefined)"
+          />
+        </div>
+
+        <!-- Conversation Thread Tab (Linear Chat View) -->
+        <div v-else-if="activeSubTab === 'conversation'" class="flex-1 min-h-[480px] h-full rounded-xl border border-[#17253b] bg-[#050911] shadow-inner overflow-hidden flex flex-col">
           <ConversationThread
             :messages="thread.messages.value"
             :running="running"

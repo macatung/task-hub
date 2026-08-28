@@ -55,9 +55,10 @@ describe('ConversationThread and useConversationThread', () => {
     expect(threadComponentSource).toContain('scrollToBottom');
   });
 
-  it('embeds ConversationThread as default tab in RunWorkspace.vue', () => {
+  it('embeds ConversationThread and StreamCardsView in RunWorkspace.vue', () => {
     expect(runWorkspaceSource).toContain('<ConversationThread');
-    expect(runWorkspaceSource).toContain("activeSubTab = ref<\"conversation\" | \"terminal\" | \"turns\" | \"handoff\">(\"conversation\")");
+    expect(runWorkspaceSource).toContain('<StreamCardsView');
+    expect(runWorkspaceSource).toContain('activeSubTab');
     expect(runWorkspaceSource).toContain('💬 Cuộc trò chuyện');
     expect(runWorkspaceSource).toContain('>_ Terminal');
   });

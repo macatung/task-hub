@@ -191,6 +191,33 @@ export class SoundEngine implements ISoundEngine {
     }
   }
 
+  public playError(intensity: number = 1) {
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sawtooth';
+      const baseFreq = 160 * intensity;
+      osc.frequency.setValueAtTime(baseFreq, now);
+      osc.frequency.exponentialRampToValueAtTime(70, now + 0.18);
+
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.19);
+    } catch {
+      // Ignore
+    }
+  }
+
   public playCelestialChime(phaseId: string = 'midnight') {
     const ctx = this.getContext();
     if (!ctx) return;
@@ -239,4 +266,5 @@ export const playHop = (intensity?: number) => sound.playHop(intensity);
 export const playTalisman = () => sound.playTalisman();
 export const playTerminalKey = () => sound.playTerminalKey();
 export const playSuccess = () => sound.playSuccess();
+export const playError = (intensity?: number) => sound.playError(intensity);
 export const playCelestialChime = (phaseId?: string) => sound.playCelestialChime(phaseId);

@@ -22,6 +22,7 @@ export interface TimePhaseConfig {
   mascotAccessory: 'none' | 'coffee' | 'sunglasses' | 'talisman' | 'stretch';
   tagline: string;
   themeDescription: string;
+  badgeText?: string;
 }
 
 export const TIME_PHASES: Record<TimePhaseId, TimePhaseConfig> = {
@@ -43,7 +44,8 @@ export const TIME_PHASES: Record<TimePhaseId, TimePhaseConfig> = {
     mascotState: 'Caffeine',
     mascotAccessory: 'talisman',
     tagline: 'Vạn vật say ngủ, dòng code thức giấc',
-    themeDescription: 'Thời điểm tâm trí hòa cùng tần số vũ trụ, zero distraction, năng suất cực đại.'
+    themeDescription: 'Thời điểm tâm trí hòa cùng tần số vũ trụ, zero distraction, năng suất cực đại.',
+    badgeText: 'MIDNIGHT VOID'
   },
   dawn: {
     id: 'dawn',
@@ -63,7 +65,8 @@ export const TIME_PHASES: Record<TimePhaseId, TimePhaseConfig> = {
     mascotState: 'Normal',
     mascotAccessory: 'coffee',
     tagline: 'Tách cà phê sớm, nạp trọn linh khí',
-    themeDescription: 'Không khí trong lành, tư duy minh mẫn, chuẩn bị kiến trúc và lên kế hoạch tác chiến.'
+    themeDescription: 'Không khí trong lành, tư duy minh mẫn, chuẩn bị kiến trúc và lên kế hoạch tác chiến.',
+    badgeText: 'GOLDEN DAWN'
   },
   afternoon: {
     id: 'afternoon',
@@ -83,7 +86,8 @@ export const TIME_PHASES: Record<TimePhaseId, TimePhaseConfig> = {
     mascotState: 'Normal',
     mascotAccessory: 'sunglasses',
     tagline: 'Tập trung cao độ, bứt phá tiến độ',
-    themeDescription: 'Tối ưu hóa hiệu năng, review code chuẩn chỉ, triển khai các giải pháp kiên cố.'
+    themeDescription: 'Tối ưu hóa hiệu năng, review code chuẩn chỉ, triển khai các giải pháp kiên cố.',
+    badgeText: 'HIGH-NOON'
   },
   twilight: {
     id: 'twilight',
@@ -103,7 +107,8 @@ export const TIME_PHASES: Record<TimePhaseId, TimePhaseConfig> = {
     mascotState: 'Caffeine',
     mascotAccessory: 'stretch',
     tagline: 'Ánh đèn neon bật, phù phép bắt đầu',
-    themeDescription: 'Chuyển giao năng lượng từ ngày sang đêm, vươn vai khởi động cho ca thâu đêm.'
+    themeDescription: 'Chuyển giao năng lượng từ ngày sang đêm, vươn vai khởi động cho ca thâu đêm.',
+    badgeText: 'TWILIGHT DUSK'
   }
 };
 

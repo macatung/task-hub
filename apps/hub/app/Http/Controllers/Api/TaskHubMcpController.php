@@ -97,9 +97,10 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
             ['name' => 'get_task_references', 'description' => 'Read project documents relevant to one task; required references are flagged.', 'inputSchema' => ['type' => 'object', 'properties' => ['task_id' => ['type' => 'integer']], 'required' => ['task_id']]],
             ['name' => 'start_agent_run', 'description' => 'Create an auditable agent run for a task, local CAO Epic orchestrator, or independent reviewer.', 'inputSchema' => ['type' => 'object', 'properties' => ['task_id' => ['type' => 'integer'], 'provider' => ['type' => 'string'], 'agent_session_id' => ['type' => 'string'], 'repository' => ['type' => 'string'], 'branch' => ['type' => 'string'], 'run_type' => ['type' => 'string', 'description' => 'implementation, epic, or review'], 'metadata' => ['type' => 'object'], 'context' => ['type' => 'object'], 'instruction' => ['type' => 'object']], 'required' => ['task_id', 'provider']]],
             ['name' => 'update_agent_run', 'description' => 'Update agent lifecycle, repository references, and review metadata.', 'inputSchema' => ['type' => 'object', 'properties' => ['run_id' => ['type' => 'integer'], 'status' => ['type' => 'string'], 'summary' => ['type' => 'string'], 'metadata' => ['type' => 'object']], 'required' => ['run_id']]],
-            ['name' => 'attach_verification_evidence', 'description' => 'Attach test/build/security evidence to an agent run.', 'inputSchema' => ['type' => 'object', 'properties' => ['run_id' => ['type' => 'integer'], 'evidence_type' => ['type' => 'string'], 'status' => ['type' => 'string'], 'command' => ['type' => 'string'], 'summary' => ['type' => 'string']], 'required' => ['run_id', 'evidence_type', 'status']]],
-            ['name' => 'complete_agent_handoff', 'description' => 'Atomically submit a structured handoff with test evidence, independent review metadata, and an optional changed-file list, then request human review.', 'inputSchema' => ['type' => 'object', 'properties' => ['run_id' => ['type' => 'integer'], 'summary' => ['type' => 'string'], 'changed_files' => ['type' => 'array', 'items' => ['type' => 'string']], 'tests' => ['type' => 'array'], 'commit_sha' => ['type' => 'string'], 'pull_request_url' => ['type' => 'string'], 'blockers' => ['type' => 'string'], 'review' => ['type' => 'object']], 'required' => ['run_id', 'summary', 'changed_files', 'tests']]],
-            ['name' => 'complete_auto_approved_handoff', 'description' => 'Submit a handoff and automatically finish the task after a separate reviewer run attached passed independent-review evidence.', 'inputSchema' => ['type' => 'object', 'properties' => ['run_id' => ['type' => 'integer'], 'summary' => ['type' => 'string'], 'changed_files' => ['type' => 'array', 'items' => ['type' => 'string']], 'tests' => ['type' => 'array'], 'commit_sha' => ['type' => 'string'], 'pull_request_url' => ['type' => 'string'], 'blockers' => ['type' => 'string'], 'review' => ['type' => 'object']], 'required' => ['run_id', 'summary', 'changed_files', 'tests', 'review']]],
+            ['name' => 'attach_verification_evidence', 'description' => 'Attach test/build/security evidence to an agent run.', 'inputSchema' => ['type' => 'object', 'properties' => ['run_id' => ['type' => 'integer'], 'evidence_type' => ['type' => 'string'], 'status' => ['type' => 'string'], 'command' => ['type' => 'string'], 'summary' => ['type' => 'string'], 'role' => ['type' => 'string', 'enum' => ['architect', 'implementer', 'tester', 'auditor']], 'metadata' => ['type' => 'object'], 'evidence' => ['type' => 'object']], 'required' => ['run_id']]],
+            ['name' => 'attach_evidence', 'description' => 'Attach test/build/security evidence to an agent run.', 'inputSchema' => ['type' => 'object', 'properties' => ['run_id' => ['type' => 'integer'], 'evidence_type' => ['type' => 'string'], 'status' => ['type' => 'string'], 'command' => ['type' => 'string'], 'summary' => ['type' => 'string'], 'role' => ['type' => 'string', 'enum' => ['architect', 'implementer', 'tester', 'auditor']], 'metadata' => ['type' => 'object'], 'evidence' => ['type' => 'object']], 'required' => ['run_id']]],
+            ['name' => 'complete_agent_handoff', 'description' => 'Atomically submit a structured handoff with test evidence, independent review metadata, and an optional changed-file list, then request human review.', 'inputSchema' => ['type' => 'object', 'properties' => ['run_id' => ['type' => 'integer'], 'summary' => ['type' => 'string'], 'role' => ['type' => 'string', 'enum' => ['architect', 'implementer', 'tester', 'auditor']], 'changed_files' => ['type' => 'array', 'items' => ['type' => 'string']], 'tests' => ['type' => 'array'], 'commit_sha' => ['type' => 'string'], 'pull_request_url' => ['type' => 'string'], 'blockers' => ['type' => 'string'], 'review' => ['type' => 'object'], 'stage_executions' => ['type' => 'array'], 'context_packages' => ['type' => 'array'], 'handoff' => ['type' => 'object']], 'required' => ['run_id']]],
+            ['name' => 'complete_auto_approved_handoff', 'description' => 'Submit a handoff and automatically finish the task after a separate reviewer run attached passed independent-review evidence.', 'inputSchema' => ['type' => 'object', 'properties' => ['run_id' => ['type' => 'integer'], 'summary' => ['type' => 'string'], 'role' => ['type' => 'string', 'enum' => ['architect', 'implementer', 'tester', 'auditor']], 'changed_files' => ['type' => 'array', 'items' => ['type' => 'string']], 'tests' => ['type' => 'array'], 'commit_sha' => ['type' => 'string'], 'pull_request_url' => ['type' => 'string'], 'blockers' => ['type' => 'string'], 'review' => ['type' => 'object'], 'stage_executions' => ['type' => 'array'], 'context_packages' => ['type' => 'array'], 'handoff' => ['type' => 'object']], 'required' => ['run_id']]],
             ['name' => 'agents_register', 'description' => 'Register or refresh a durable agent identity for a project.', 'inputSchema' => ['type' => 'object', 'properties' => ['project_id' => ['type' => 'integer'], 'agent_key' => ['type' => 'string'], 'name' => ['type' => 'string'], 'role' => ['type' => 'string'], 'provider' => ['type' => 'string'], 'model' => ['type' => 'string']], 'required' => ['project_id', 'agent_key', 'name']]],
             ['name' => 'agents_list_live', 'description' => 'Read the project agent roster, live state and unread inbox counts.', 'inputSchema' => ['type' => 'object', 'properties' => ['project_id' => ['type' => 'integer']], 'required' => ['project_id']]],
             ['name' => 'agents_send', 'description' => 'Persist a message for another project agent; delivery is asynchronous.', 'inputSchema' => ['type' => 'object', 'properties' => ['project_id' => ['type' => 'integer'], 'from_agent_key' => ['type' => 'string'], 'to_agent_key' => ['type' => 'string'], 'subject' => ['type' => 'string'], 'body' => ['type' => 'string'], 'thread_id' => ['type' => 'string'], 'payload' => ['type' => 'object']], 'required' => ['project_id', 'from_agent_key', 'to_agent_key', 'subject', 'body']]],
@@ -274,9 +275,38 @@ class TaskHubMcpController extends \App\Http\Controllers\Controller
                 'instruction' => $args['instruction'] ?? null,
             ]), $contextService)->getData(true),
             'update_agent_run' => $runController->update(Request::create('/', 'PATCH', $args), $this->resolveAgentRun($args))->getData(true),
-            'attach_verification_evidence' => $runController->evidence(Request::create('/', 'POST', $args), $this->resolveAgentRun($args))->getData(true),
-            'complete_agent_handoff' => $runController->handoff(Request::create('/', 'POST', $args), $this->resolveAgentRun($args))->getData(true),
-            'complete_auto_approved_handoff' => $runController->handoff(Request::create('/', 'POST', array_merge($args, ['auto_approved' => true])), $this->resolveAgentRun($args))->getData(true),
+            'attach_verification_evidence', 'attach_evidence' => (function () use ($runController, $args) {
+                $run = $this->resolveAgentRun($args);
+                $evidenceData = $args['evidence'] ?? $args;
+                if (is_array($evidenceData)) {
+                    if (!empty($args['role']) && empty($evidenceData['role'])) {
+                        $evidenceData['role'] = $args['role'];
+                    }
+                    if (!empty($args['metadata']) && is_array($args['metadata'])) {
+                        $evidenceData['metadata'] = array_merge($evidenceData['metadata'] ?? [], $args['metadata']);
+                    }
+                } else {
+                    $evidenceData = $args;
+                }
+                return $runController->evidence(Request::create('/', 'POST', $evidenceData), $run)->getData(true);
+            })(),
+            'complete_agent_handoff' => (function () use ($runController, $args) {
+                $run = $this->resolveAgentRun($args);
+                $handoffData = $args['handoff'] ?? $args;
+                if (is_array($handoffData)) {
+                    $handoffData = array_merge($args, $handoffData);
+                }
+                return $runController->handoff(Request::create('/', 'POST', $handoffData), $run)->getData(true);
+            })(),
+            'complete_auto_approved_handoff' => (function () use ($runController, $args) {
+                $run = $this->resolveAgentRun($args);
+                $handoffData = $args['handoff'] ?? $args;
+                if (is_array($handoffData)) {
+                    $handoffData = array_merge($args, $handoffData);
+                }
+                $handoffData['auto_approved'] = true;
+                return $runController->handoff(Request::create('/', 'POST', $handoffData), $run)->getData(true);
+            })(),
             'agents_register' => ['success' => true, 'data' => $collaboration->register($args)],
             'agents_list_live' => ['success' => true, 'data' => $collaboration->roster((int) $args['project_id'])],
             'agents_send' => ['success' => true, 'data' => $collaboration->send($args)],

@@ -21,6 +21,7 @@ export interface GameStats {
   wordsCleared: number;
   totalKeystrokes: number;
   correctKeystrokes: number;
+  wrongKeystrokes: number;
   comboStreak: number;
   maxComboStreak: number;
   wpm: number;

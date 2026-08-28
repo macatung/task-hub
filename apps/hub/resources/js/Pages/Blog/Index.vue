@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref } from 'vue';
+import { router } from '@inertiajs/vue3';
 import SeoHead from '@/Components/common/SeoHead.vue';
 import Navbar from '@/Components/layout/Navbar.vue';
 import Footer from '@/Components/layout/Footer.vue';

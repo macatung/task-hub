@@ -3,6 +3,8 @@ export interface Project {
   title: string;
   tagline: string;
   description: string;
+  longDescription?: string;
+  highlights?: string[];
   category: 'fullstack' | 'creative' | 'ai-web3' | 'tools';
   coverGradient: string;
   tags: string[];
@@ -99,6 +101,7 @@ export interface ISoundEngine {
   playClick(): void;
   playTerminalKey(): void;
   playSuccess(): void;
+  playError(intensity?: number): void;
   playCelestialChime(phaseId?: string): void;
 }
 

@@ -25,7 +25,14 @@ const isGlossaryOpen = ref(false);
 const isMobileMenuOpen = ref(false);
 const { activeZenPhase } = useZenTimeCycle();
 
-const navItems = [
+interface NavItem {
+  label: string;
+  href: string;
+  icon: string;
+  isHighlight?: boolean;
+}
+
+const navItems: NavItem[] = [
   { label: 'Trang Chủ', href: '/theravada', icon: 'Home' },
   { label: 'Pháp Học', href: '/theravada/danh-muc/phap-hoc', icon: 'BookOpen' },
   { label: 'Pháp Hành (Vipassanā)', href: '/theravada/danh-muc/phap-hanh', icon: 'Sparkles' },

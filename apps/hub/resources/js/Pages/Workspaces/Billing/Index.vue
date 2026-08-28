@@ -312,6 +312,19 @@ const addonTotalMonthly = computed(() => {
   return extraRunners.value * runnerRate + extraSeatsCount * seatRate;
 });
 
+// Contact Sales & Download Helpers
+const handleContactSales = () => {
+  if (typeof window !== 'undefined') {
+    window.location.href = '/pricing#contact';
+  }
+};
+
+const handleDownloadInvoice = (invoiceNumber: string) => {
+  if (typeof window !== 'undefined') {
+    window.alert(`Invoice ${invoiceNumber} receipt download simulated.`);
+  }
+};
+
 // Switch / Upgrade Plan
 const handleSwitchPlan = async (planSlug: string) => {
   if (submittingPlanSlug.value || isSubmitting.value) return;
@@ -983,7 +996,7 @@ onMounted(() => {
               <button
                 v-else-if="plan.slug === 'enterprise'"
                 type="button"
-                @click="window.location.href = '/pricing#contact'"
+                @click="handleContactSales"
                 class="w-full py-2.5 px-4 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-white font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <span>Contact Sales</span>
@@ -1177,7 +1190,7 @@ onMounted(() => {
                 <td class="py-3 px-4 text-right">
                   <button
                     type="button"
-                    @click="alert(`Invoice ${inv.invoice_number} receipt download simulated.`)"
+                    @click="handleDownloadInvoice(inv.invoice_number)"
                     class="text-emerald-400 hover:text-emerald-300 font-bold hover:underline cursor-pointer"
                   >
                     Download

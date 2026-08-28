@@ -9,10 +9,21 @@ export interface ToolCallItem {
   durationMs?: number;
 }
 
+export type ConversationRole =
+  | 'architect'
+  | 'implementer'
+  | 'tester'
+  | 'test_engineer'
+  | 'auditor'
+  | 'operator'
+  | 'supervisor'
+  | 'worker'
+  | 'reviewer';
+
 export interface ThreadMessage {
   id: string;
   sender: 'user' | 'agent' | 'system';
-  role?: 'operator' | 'supervisor' | 'worker' | 'reviewer';
+  role?: ConversationRole;
   provider?: string;
   model?: string;
   timestamp: string;
@@ -105,7 +116,7 @@ export function useConversationThread() {
     options?: {
       provider?: string;
       model?: string;
-      role?: 'supervisor' | 'worker' | 'reviewer';
+      role?: ConversationRole;
       toolCalls?: ToolCallItem[];
       thought?: string;
       status?: 'stream' | 'completed' | 'failed';
