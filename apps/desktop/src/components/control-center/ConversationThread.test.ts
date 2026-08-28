@@ -59,6 +59,6 @@ describe('ConversationThread and useConversationThread', () => {
     expect(runWorkspaceSource).toContain('<ConversationThread');
     expect(runWorkspaceSource).toContain("activeSubTab = ref<\"conversation\" | \"terminal\" | \"turns\" | \"handoff\">(\"conversation\")");
     expect(runWorkspaceSource).toContain('💬 Cuộc trò chuyện');
-    expect(runWorkspaceSource).toContain('>_ Luồng Terminal');
+    expect(runWorkspaceSource).toContain('>_ Terminal');
   });
 });

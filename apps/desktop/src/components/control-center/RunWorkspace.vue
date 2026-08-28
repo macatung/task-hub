@@ -791,6 +791,38 @@ const submit = () => {
           </div>
         </details>
 
+        <!-- Header Sub-Tabs Switcher: Cuộc trò chuyện / Terminal / Timeline -->
+        <div class="flex items-center gap-1 rounded-xl bg-[#090d16] border border-[#1b293e] p-1 shadow-sm shrink-0">
+          <button
+            class="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition"
+            :class="
+              activeSubTab === 'conversation'
+                ? 'bg-[#0f281d] border border-[#00f5a0]/60 text-[#00f5a0] shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200'
+            "
+            @click="activeSubTab = 'conversation'"
+          >
+            <span>💬 Cuộc trò chuyện ({{ thread.messages.value.length }})</span>
+          </button>
+          <button
+            class="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition"
+            :class="
+              activeSubTab === 'terminal'
+                ? 'bg-[#241d18] border border-orange-500/50 text-orange-400 shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200'
+            "
+            @click="activeSubTab = 'terminal'"
+          >
+            <span>>_ Terminal</span>
+          </button>
+          <button
+            class="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-zinc-400 hover:text-zinc-200 transition"
+            @click="$emit('timeline')"
+          >
+            <span>⏱ Timeline</span>
+          </button>
+        </div>
+
         <!-- Launch / Run Button -->
         <button
           class="cc-primary cc-run-header__launch text-xs"
@@ -1216,7 +1248,7 @@ const submit = () => {
         </div>
 
         <!-- Conversation Thread Tab (Default View) -->
-        <div v-if="activeSubTab === 'conversation'" class="h-[440px] rounded-xl border border-[#17253b] bg-[#050911] shadow-inner overflow-hidden">
+        <div v-if="activeSubTab === 'conversation'" class="flex-1 min-h-[480px] h-full rounded-xl border border-[#17253b] bg-[#050911] shadow-inner overflow-hidden flex flex-col">
           <ConversationThread
             :messages="thread.messages.value"
             :running="running"
@@ -1231,7 +1263,7 @@ const submit = () => {
         </div>
 
         <!-- Terminal Stream Output Tab -->
-        <div v-else-if="activeSubTab === 'terminal'" class="space-y-3">
+        <div v-else-if="activeSubTab === 'terminal'" class="flex-1 min-h-[480px] h-full space-y-2 flex flex-col">
           <div class="cc-run-section-heading">
             <span class="flex items-center gap-2">
               <i class="codicon codicon-terminal text-orange-400"></i>
@@ -1243,11 +1275,11 @@ const submit = () => {
           </div>
 
           <div
-            class="rounded-xl border border-[#2b231c] bg-[#0c0a09] p-3.5 font-mono text-xs text-zinc-300 shadow-inner"
+            class="flex-1 min-h-0 rounded-xl border border-[#2b231c] bg-[#0c0a09] p-3.5 font-mono text-xs text-zinc-300 shadow-inner overflow-auto"
           >
             <pre
               v-if="output"
-              class="max-h-[440px] overflow-auto whitespace-pre-wrap break-words leading-relaxed font-mono select-text"
+              class="h-full whitespace-pre-wrap break-words leading-relaxed font-mono select-text"
               >{{ output }}</pre
             >
             <div v-else class="py-10 text-center text-xs text-zinc-500">
@@ -1524,71 +1556,38 @@ const submit = () => {
         </div>
       </div>
 
-      <!-- Sub-Tabs Toolbar: Cuộc trò chuyện, Terminal, Dòng thời gian -->
-      <div class="flex items-center justify-between text-xs pt-1">
-        <div class="flex items-center gap-2">
-          <button
-            class="flex items-center gap-1.5 rounded-full px-3 py-1 font-semibold transition"
-            :class="
-              activeSubTab === 'conversation'
-                ? 'bg-[#0b1c14] border border-[#00f5a0]/50 text-[#00f5a0] shadow-sm'
-                : 'bg-[#181411] border border-[#2b231c] text-zinc-400 hover:text-zinc-200'
-            "
-            @click="activeSubTab = 'conversation'"
-          >
-            <span>💬 Cuộc trò chuyện ({{ thread.messages.value.length }})</span>
-          </button>
-          <button
-            class="flex items-center gap-1.5 rounded-full px-3 py-1 font-semibold transition"
-            :class="
-              activeSubTab === 'terminal'
-                ? 'bg-[#241d18] border border-orange-500/40 text-orange-400 shadow-sm'
-                : 'bg-[#181411] border border-[#2b231c] text-zinc-400 hover:text-zinc-200'
-            "
-            @click="activeSubTab = 'terminal'"
-          >
-            <span>>_ Luồng Terminal</span>
-          </button>
-          <button
-            class="flex items-center gap-1.5 rounded-full bg-[#181411] border border-[#2b231c] px-3 py-1 font-semibold hover:border-zinc-500 text-zinc-300 hover:text-white transition"
-            @click="$emit('timeline')"
-          >
-            <span>⏱ Dòng thời gian</span>
-          </button>
-        </div>
-
-        <div v-if="!running" class="flex items-center gap-2">
-          <a
-            v-if="handoffReviewUrl"
-            :href="handoffReviewUrl"
-            target="_blank"
-            rel="noreferrer"
-            class="cc-primary text-xs"
-          >
-            Open handoff in Hub ↗
-          </a>
-          <span
-            v-if="isEpicContext && (epicSequenceRunning || epicFinalizing)"
-            class="cc-button text-xs cursor-default"
-          >
-            CAO đang chạy xuyên Epic —
-            {{ epicCompletedCount || 0 }}/{{ epicChildCount || 0 }}
-          </span>
-          <button
-            v-else-if="task"
-            class="cc-button text-xs"
-            @click="showHandoff = !showHandoff"
-          >
-            Review & submit handoff
-          </button>
-          <button
-            v-else
-            class="cc-button text-xs"
-            @click="$emit('open-hub')"
-          >
-            Open Hub for review
-          </button>
-        </div>
+      <!-- Footer Actions: Handoff & Hub Link -->
+      <div v-if="!running" class="flex items-center justify-end gap-2 text-xs pt-1">
+        <a
+          v-if="handoffReviewUrl"
+          :href="handoffReviewUrl"
+          target="_blank"
+          rel="noreferrer"
+          class="cc-primary text-xs"
+        >
+          Open handoff in Hub ↗
+        </a>
+        <span
+          v-if="isEpicContext && (epicSequenceRunning || epicFinalizing)"
+          class="cc-button text-xs cursor-default"
+        >
+          CAO đang chạy xuyên Epic —
+          {{ epicCompletedCount || 0 }}/{{ epicChildCount || 0 }}
+        </span>
+        <button
+          v-else-if="task"
+          class="cc-button text-xs"
+          @click="showHandoff = !showHandoff"
+        >
+          Review & submit handoff
+        </button>
+        <button
+          v-else
+          class="cc-button text-xs"
+          @click="$emit('open-hub')"
+        >
+          Open Hub for review
+        </button>
       </div>
 
       <!-- Handoff Submission Form -->

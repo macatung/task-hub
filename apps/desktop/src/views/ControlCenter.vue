@@ -3018,6 +3018,7 @@ onUnmounted(() => {
       />
       <div class="flex flex-1 flex-col min-w-0 h-full overflow-hidden">
         <AgentFleetBar
+          v-if="!selectedTask"
           :agents="fleetAgents"
           :active-session-id="sessionId"
           @select="handleSelectFleetSession"
