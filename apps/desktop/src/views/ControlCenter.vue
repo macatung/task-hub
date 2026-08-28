@@ -2713,12 +2713,20 @@ const refreshAgentRuntimes = async () => {
     // ignore
   }
 };
+const consecutiveCaoFailures = ref(0);
 const refreshCaoStatus = async () => {
   try {
     const current = (await window.desktopApi?.cao?.getStatus?.()) || null;
+    if (current?.available) {
+      consecutiveCaoFailures.value = 0;
+    } else {
+      consecutiveCaoFailures.value += 1;
+    }
+
     if (
       previousCaoAvailable.value === true &&
       current?.available === false &&
+      consecutiveCaoFailures.value >= 2 &&
       runStatus.value === "running"
     ) {
       notify({
@@ -2727,17 +2735,24 @@ const refreshCaoStatus = async () => {
         message:
           "CAO Daemon bị ngắt kết nối trong khi agent đang chạy. Phiên làm việc có thể bị gián đoạn.",
       });
+      void restartCao();
     }
     previousCaoAvailable.value = current?.available ?? null;
     caoStatus.value = current;
   } catch {
-    if (previousCaoAvailable.value === true && runStatus.value === "running") {
+    consecutiveCaoFailures.value += 1;
+    if (
+      previousCaoAvailable.value === true &&
+      consecutiveCaoFailures.value >= 2 &&
+      runStatus.value === "running"
+    ) {
       notify({
         type: "error",
         title: "Mất kết nối CAO",
         message:
           "CAO Daemon bị ngắt kết nối trong khi agent đang chạy. Phiên làm việc có thể bị gián đoạn.",
       });
+      void restartCao();
     }
     previousCaoAvailable.value = false;
     caoStatus.value = null;

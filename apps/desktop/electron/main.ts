@@ -2065,24 +2065,31 @@ function resolveCaoExecutable(): string | null {
   return candidates.find((p) => fs.existsSync(p)) || null;
 }
 
-async function isCaoPortOpen(port = caoServerPort()): Promise<boolean> {
-  return new Promise((resolve) => {
-    const req = http.get(`http://127.0.0.1:${port}/health`, { timeout: 1500 }, (res: http.IncomingMessage) => {
-      let body = '';
-      res.on('data', (chunk) => { body += chunk; });
-      res.on('end', () => {
-        // Ensure response is from CAO server (JSON response with status/cao/version) rather than another local server (ERP/web app on port 8000)
-        const isJson = res.headers['content-type']?.includes('application/json');
-        const isCaoContent = body.includes('status') || body.includes('cao') || body.includes('version') || body.includes('ok');
-        resolve(res.statusCode === 200 && Boolean(isJson || isCaoContent));
+async function isCaoPortOpen(port = caoServerPort(), timeoutMs = 3000): Promise<boolean> {
+  const checkOnce = (timeout: number): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const req = http.get(`http://127.0.0.1:${port}/health`, { timeout }, (res: http.IncomingMessage) => {
+        let body = '';
+        res.on('data', (chunk) => { body += chunk; });
+        res.on('end', () => {
+          // Ensure response is from CAO server (JSON response with status/cao/version) rather than another local server (ERP/web app on port 8000)
+          const isJson = res.headers['content-type']?.includes('application/json');
+          const isCaoContent = body.includes('status') || body.includes('cao') || body.includes('version') || body.includes('ok');
+          resolve(res.statusCode === 200 && Boolean(isJson || isCaoContent));
+        });
+      });
+      req.on('error', () => resolve(false));
+      req.on('timeout', () => {
+        req.destroy();
+        resolve(false);
       });
     });
-    req.on('error', () => resolve(false));
-    req.on('timeout', () => {
-      req.destroy();
-      resolve(false);
-    });
-  });
+  };
+
+  const initial = await checkOnce(timeoutMs);
+  if (initial) return true;
+  // If first attempt timed out or failed, attempt 1 quick retry with 2000ms timeout
+  return await checkOnce(2000);
 }
 
 async function inspectCaoPortOwner(port = caoServerPort()): Promise<CaoPortOwnerInfo> {
@@ -2851,6 +2858,9 @@ function createWindow() {
     const isRunning = await isCaoPortOpen(port);
     const binary = resolveCaoExecutable();
     const runtime = await resolveCaoRuntime();
+    if (!isRunning && runtime && !caoDaemonProcess) {
+      void startCaoDaemon();
+    }
     const cli = runtime ? (runtime.kind === 'wsl' ? `WSL${runtime.distro ? ` (${runtime.distro})` : ''}: cao` : runtime.executable) : null;
     return {
       running: isRunning,
