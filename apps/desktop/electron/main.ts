@@ -2479,13 +2479,16 @@ const DEFAULT_HEIGHT = 520;
 
 function getIconImage() {
   const possiblePaths = [
+    path.join(process.env.VITE_PUBLIC || '', 'icon.png'),
+    path.join(__dirname, '../public/icon.png'),
+    path.join(process.env.VITE_PUBLIC || '', 'midnight-hub-mark.png'),
+    path.join(__dirname, '../public/midnight-hub-mark.png'),
     path.join(process.env.VITE_PUBLIC || '', 'midnight-hub-mark.svg'),
     path.join(__dirname, '../public/midnight-hub-mark.svg'),
     path.join(process.env.VITE_PUBLIC || '', 'macatung-mark.svg'),
     path.join(__dirname, '../public/macatung-mark.svg'),
-    path.join(__dirname, '../public/icon.png'),
-    path.join(__dirname, '../../public/brand/midnight-hub-mark.svg'),
-    path.join(process.cwd(), 'public/brand/midnight-hub-mark.svg'),
+    path.join(__dirname, '../../public/brand/midnight-hub-mark.png'),
+    path.join(process.cwd(), 'public/brand/midnight-hub-mark.png'),
     path.join(process.cwd(), 'desktop/public/icon.png'),
   ];
 
@@ -2503,6 +2506,10 @@ function getIconImage() {
 
 function getTrayImage() {
   const possiblePaths = [
+    path.join(process.env.VITE_PUBLIC || '', 'tray-icon.png'),
+    path.join(__dirname, '../public/tray-icon.png'),
+    path.join(process.env.VITE_PUBLIC || '', 'midnight-hub-tray.png'),
+    path.join(__dirname, '../public/midnight-hub-tray.png'),
     path.join(process.env.VITE_PUBLIC || '', 'midnight-hub-tray.svg'),
     path.join(__dirname, '../public/midnight-hub-tray.svg'),
     path.join(process.env.VITE_PUBLIC || '', 'macatung-tray.svg'),

@@ -57,11 +57,8 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
     <div class="cc-connectionbar__identity flex items-center gap-3 min-w-0 flex-1">
       <!-- Logo & Workspace Name -->
       <div class="flex items-center gap-2.5 pr-1">
-        <div class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-tr from-[#00f5a0] via-[#00f5d4] to-[#9d4edd] shadow-[0_0_14px_rgba(0,245,160,0.35)]">
-          <svg class="h-5 w-5 text-black" viewBox="0 0 32 32" fill="none">
-            <path d="M7 23V9h3l6 8 6-8h3v14h-3V14l-6 8-6-8v9H7z" fill="currentColor"/>
-            <circle cx="16" cy="7" r="1.5" fill="currentColor"/>
-          </svg>
+        <div class="relative h-8 w-8 shrink-0 rounded-xl overflow-hidden shadow-[0_0_14px_rgba(0,245,160,0.35)]">
+          <img src="/midnight-hub-mark.svg" alt="Midnight Hub" class="h-full w-full object-cover" />
         </div>
         <div class="flex flex-col">
           <span class="text-xs font-black tracking-wider uppercase text-zinc-100 flex items-center gap-1.5 font-['Space_Grotesk']">
