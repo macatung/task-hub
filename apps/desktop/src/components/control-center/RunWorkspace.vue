@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import type { TaskItem } from "../../composables/useTaskSync";
 import DangerousCommandBanner from "../DangerousCommandBanner.vue";
 import type { SafetyInterceptEvent } from "../../utils/safetyGuardrails";
 import FlowStepper from "./FlowStepper.vue";
+import ConversationThread from "./ConversationThread.vue";
+import { useConversationThread } from "../../composables/useConversationThread";
 import { deriveFlowState } from "../../utils/flowState";
 import {
   PROVIDER_MODELS,
@@ -124,10 +126,50 @@ const testSummary = ref("");
 const commitSha = ref("");
 const pullRequestUrl = ref("");
 const blockers = ref("");
-const activeSubTab = ref<"terminal" | "turns" | "handoff">("terminal");
+const activeSubTab = ref<"conversation" | "terminal" | "turns" | "handoff">("conversation");
 const humanReviewFeedback = ref("");
 const increasedReviewLimit = ref(3);
 const showRunContext = ref(false);
+
+const thread = useConversationThread();
+
+watch(
+  () => props.task?.id,
+  (id) => {
+    if (id) thread.loadThread(id);
+  },
+  { immediate: true },
+);
+
+watch(
+  () => props.output,
+  (out) => {
+    if (props.running && out) {
+      thread.updateStreamingAgentTurn(out, {
+        provider: props.provider,
+        model: props.model,
+        role: (props.agentRole as any) || 'worker',
+        status: 'stream',
+      });
+    }
+  },
+);
+
+watch(
+  () => props.running,
+  (isRun, wasRun) => {
+    if (wasRun && !isRun) {
+      thread.finalizeStreamingTurn(props.runStatus === 'failed' ? 'failed' : 'completed');
+    }
+  },
+);
+
+const handleSendPrompt = (text: string) => {
+  if (!text.trim()) return;
+  thread.addUserMessage(text.trim());
+  emit("send", text.trim());
+  activeSubTab.value = "conversation";
+};
 
 const isStreaming = computed(
   () => props.running && Boolean(props.output?.trim()),
@@ -1173,8 +1215,23 @@ const submit = () => {
           </span>
         </div>
 
+        <!-- Conversation Thread Tab (Default View) -->
+        <div v-if="activeSubTab === 'conversation'" class="h-[440px] rounded-xl border border-[#17253b] bg-[#050911] shadow-inner overflow-hidden">
+          <ConversationThread
+            :messages="thread.messages.value"
+            :running="running"
+            :streaming-text="output"
+            :provider="provider"
+            :model="model"
+            :role="(agentRole as any)"
+            :task-title="task?.title"
+            @send-prompt="handleSendPrompt"
+            @stop="$emit('cancel')"
+          />
+        </div>
+
         <!-- Terminal Stream Output Tab -->
-        <div v-if="activeSubTab === 'terminal'" class="space-y-3">
+        <div v-else-if="activeSubTab === 'terminal'" class="space-y-3">
           <div class="cc-run-section-heading">
             <span class="flex items-center gap-2">
               <i class="codicon codicon-terminal text-orange-400"></i>
@@ -1379,7 +1436,10 @@ const submit = () => {
                 : 'Chọn một tác vụ từ danh sách để bắt đầu'
           "
           @keyup.enter="
-            followUp && ($emit('send', followUp), (followUp = ''))
+            followUp.trim() &&
+            (handleSendPrompt(followUp.trim()),
+            $emit('send', followUp),
+            (followUp = ''))
           "
         ></textarea>
 
@@ -1441,8 +1501,8 @@ const submit = () => {
                 title="Gửi lệnh cho tác nhân (Enter)"
                 :disabled="!followUp && !running && !canLaunch"
                 @click="
-                  followUp
-                    ? ($emit('send', followUp), (followUp = ''))
+                  followUp.trim()
+                    ? (handleSendPrompt(followUp.trim()), (followUp = ''))
                     : canLaunch
                       ? $emit('launch')
                       : null
@@ -1464,9 +1524,20 @@ const submit = () => {
         </div>
       </div>
 
-      <!-- Sub-Tabs Toolbar: Terminal, Lượt phản hồi, Bàn giao, Dòng thời gian -->
+      <!-- Sub-Tabs Toolbar: Cuộc trò chuyện, Terminal, Dòng thời gian -->
       <div class="flex items-center justify-between text-xs pt-1">
         <div class="flex items-center gap-2">
+          <button
+            class="flex items-center gap-1.5 rounded-full px-3 py-1 font-semibold transition"
+            :class="
+              activeSubTab === 'conversation'
+                ? 'bg-[#0b1c14] border border-[#00f5a0]/50 text-[#00f5a0] shadow-sm'
+                : 'bg-[#181411] border border-[#2b231c] text-zinc-400 hover:text-zinc-200'
+            "
+            @click="activeSubTab = 'conversation'"
+          >
+            <span>💬 Cuộc trò chuyện ({{ thread.messages.value.length }})</span>
+          </button>
           <button
             class="flex items-center gap-1.5 rounded-full px-3 py-1 font-semibold transition"
             :class="
@@ -1477,17 +1548,6 @@ const submit = () => {
             @click="activeSubTab = 'terminal'"
           >
             <span>>_ Luồng Terminal</span>
-          </button>
-          <button
-            class="flex items-center gap-1.5 rounded-full px-3 py-1 font-semibold transition"
-            :class="
-              activeSubTab === 'turns'
-                ? 'bg-[#241d18] border border-orange-500/40 text-orange-400 shadow-sm'
-                : 'bg-[#181411] border border-[#2b231c] text-zinc-400 hover:text-zinc-200'
-            "
-            @click="activeSubTab = 'turns'"
-          >
-            <span>💬 Lượt phản hồi ({{ responseTurns.length }})</span>
           </button>
           <button
             class="flex items-center gap-1.5 rounded-full bg-[#181411] border border-[#2b231c] px-3 py-1 font-semibold hover:border-zinc-500 text-zinc-300 hover:text-white transition"

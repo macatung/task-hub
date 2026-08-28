@@ -2701,7 +2701,7 @@ watch([autoSubmitHandoff, runStatus], () => {
   void tryAutoSubmitHandoff();
 });
 watch(provider, (next) => {
-  selectedModel.value = DEFAULT_PROVIDER_MODELS[next] || "default";
+  selectedModel.value = (DEFAULT_PROVIDER_MODELS as Record<string, string>)[next] || "default";
 });
 const refreshAgentRuntimes = async () => {
   try {
