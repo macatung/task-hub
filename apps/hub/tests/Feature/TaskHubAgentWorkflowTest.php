@@ -216,8 +216,11 @@ class TaskHubAgentWorkflowTest extends TestCase
         ]);
         $user = User::factory()->create(['github_id' => 'github-sync-user']);
         $user->forceFill(['github_access_token' => Crypt::encryptString('github-user-token')])->save();
+        $workspace = Workspace::create(['owner_id' => $user->id, 'name' => 'Default Workspace', 'slug' => 'workspace-' . \Illuminate\Support\Str::random(6)]);
+        $workspace->members()->attach($user->id, ['role' => 'owner']);
+        $project->update(['workspace_id' => $workspace->id]);
 
-        $this->actingAs($user)->postJson('/api/projects/' . $project->id . '/github/connect', [
+        $this->actingAs($user)->withHeaders(['X-Workspace-Id' => $workspace->id])->postJson('/api/projects/' . $project->id . '/github/connect', [
             'github_repository' => 'acme/demo',
             'github_default_branch' => 'develop',
             'github_webhook_secret' => 'project-webhook-secret',

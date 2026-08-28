@@ -1,41 +1,33 @@
-# 🧛‍♂️ Ma Cà Tưng Brand Assets Kit (`macatung.dev`)
+# 🌙 Midnight Hub (MDNT) — Brand Assets Kit
 
-> **Brand Identity**: "The Midnight Alchemist" — Creative Systems Architect & Full-Stack Engineer  
-> **Slogan**: *"Code at midnight"*
+> **Brand Slogan**: *"Code at midnight. Deploy at dawn."*  
+> **Brand Identity**: "The Midnight Alchemist" — Autonomous AI Agent Orchestrator & Developer Studio.
 
 ---
 
 ## 📦 Danh Sách File Logo Vector SVG
 
-| Tên File | Định Dạng | Kích Thước Khuyên Dùng | Mục Đích Sử Dụng |
-| :--- | :--- | :--- | :--- |
-| **`macatung-logo-horizontal.svg`** | Vector SVG | 520 × 120 px (Scalable) | Logo ngang đầy đủ (Icon Mascot + Tên miền `macatung.dev` + Slogan). Phù hợp cho Header Website, Banner, Tài liệu kỹ thuật. |
-| **`macatung-mascot-icon.svg`** | Vector SVG | 512 × 512 px (Scalable) | App Icon Badge vuông bo góc (Squircle) có viền phát sáng Neon Mint. Phù hợp làm Avatar mạng xã hội, App Icon, Favicon. |
-| **`macatung-mascot-transparent.svg`** | Vector SVG | 240 × 280 px (Scalable) | Linh vật Ma Cà Tưng tách nền trong suốt 100%. Dùng in ấn Merchandise, Sticker, Áo thun, Chèn vào video/slide. |
+| Tên File | Định Dạng | Mục Đích Sử Dụng |
+| :--- | :--- | :--- |
+| **`midnight-hub-mark.svg`** | Vector SVG (512×512) | App Icon Badge vuông bo góc (Squircle) với Monogram M & Mặt trăng khuyết phát sáng Neon Mint. Phù hợp làm Avatar, App Icon, Favicon. |
+| **`midnight-hub-logo-horizontal.svg`** | Vector SVG (640×140) | Logo ngang đầy đủ (Crescent M Mark + Wordmark `Midnight Hub` + Tagline). Phù hợp cho Header Website, Banner, Tài liệu kỹ thuật. |
+| **`midnight-hub-tray.svg`** | Vector SVG (32×32) | Icon tối giản dành riêng cho System Tray trên taskbar. |
+| **`midnight-hub-monochrome.svg`** | Vector SVG (512×512) | Bản đơn sắc phục vụ in ấn hoặc stencil. |
 
 ---
 
-## 🎨 Bảng Mã Màu Thương Hiệu (Brand Color Palette)
+## 🎨 Bảng Mã Màu Thương Hiệu (Brand Colors)
 
 ```css
 /* Deep Midnight Backgrounds */
---bg-midnight-950: #04070d; /* Nền tối sâu nguyên bản */
---bg-midnight-900: #070b14; /* Nền card kính mờ */
---bg-midnight-850: #0c1220; /* Nền container phụ */
+--bg-midnight-950: #04070d; /* Nền tối sâu nguyên bản (Obsidian) */
+--bg-midnight-900: #070b14; /* Nền khung làm việc chính */
+--bg-midnight-850: #0c1220; /* Nền card kính mờ */
 
 /* Primary Neon Accents */
 --phantom-mint:    #00f5a0; /* Ánh sáng dạ ngọc cốt lõi */
 --phantom-cyan:    #00f5d4; /* Neon thứ cấp */
---talisman-yellow: #ffd166; /* Màu lá bùa vàng cổ điển */
---talisman-gold:   #f59e0b; /* Màu viền vàng kim */
---cinnabar-red:    #ff0054; /* Dấu mộc chu sa / Răng nanh */
+--talisman-gold:   #ffd166; /* Màu hoàng kim bùa chú */
+--cinnabar-red:    #ff0054; /* Dấu mộc chu sa / Alert */
 --phantom-purple:  #9d4edd; /* Ma lực tím huyền bí */
 ```
-
----
-
-## 🔤 Kiểu Chữ Thương Hiệu (Typography)
-
-- **Display & Headlines**: `Space Grotesk` / `Syne` (Bold, tracking-tight, hiện đại)
-- **Body & Paragraphs**: `Plus Jakarta Sans` / `Inter` (Rõ ràng, dễ đọc trên nền tối)
-- **Code & Protocol Runes**: `JetBrains Mono` / `Fira Code` (Monospace sắc nét)

@@ -63,6 +63,7 @@ COPY --from=frontend-builder /app/public/build /var/www/html/public/build
 # Copy configs
 COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 COPY docker/php.ini /usr/local/etc/php/conf.d/custom.ini
+COPY docker/zz-docker.conf /usr/local/etc/php-fpm.d/zz-docker.conf
 COPY docker/supervisord.conf /etc/supervisord.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY docker/start-nginx.sh /usr/local/bin/start-nginx.sh

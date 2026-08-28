@@ -109,4 +109,25 @@ class AdminAnalyticsController extends Controller
             'recent_pageviews' => $recentPageviews,
         ]);
     }
+
+    /**
+     * Record public analytics beacon event
+     */
+    public function recordEvent(\Illuminate\Http\Request $request): \Illuminate\Http\JsonResponse
+    {
+        $validated = $request->validate([
+            'event_type' => 'required|string|max:100',
+            'event_data' => 'nullable|array',
+        ]);
+
+        $event = AnalyticsEvent::create([
+            'event_type' => $validated['event_type'],
+            'event_data' => $validated['event_data'] ?? [],
+            'session_id' => $request->session()->getId(),
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
+        return response()->json(['success' => true, 'data' => $event]);
+    }
 }

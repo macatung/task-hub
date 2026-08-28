@@ -12,7 +12,8 @@ class Sprint extends Model
     use HasFactory;
 
     protected $fillable = [
-        'project_id', 'workspace_id',
+        'project_id',
+        'workspace_id',
         'name',
         'goal',
         'start_date',
@@ -22,9 +23,19 @@ class Sprint extends Model
 
     protected $casts = [
         'project_id' => 'integer',
+        'workspace_id' => 'integer',
         'start_date' => 'date:Y-m-d',
         'end_date' => 'date:Y-m-d',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Sprint $sprint) {
+            if (!$sprint->workspace_id && $sprint->project_id) {
+                $sprint->workspace_id = $sprint->project?->workspace_id;
+            }
+        });
+    }
 
     public function project(): BelongsTo
     {

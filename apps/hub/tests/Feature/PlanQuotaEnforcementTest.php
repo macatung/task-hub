@@ -135,7 +135,7 @@ class PlanQuotaEnforcementTest extends TestCase
         Project::create([
             'workspace_id' => $workspace->id,
             'user_id' => $user->id,
-            'slug' => 'project-2',
+            'slug' => 'project-2-' . $user->id . '-' . \Illuminate\Support\Str::random(4),
             'title' => 'Project 2',
             'category' => 'software',
         ]);
@@ -143,7 +143,7 @@ class PlanQuotaEnforcementTest extends TestCase
         Project::create([
             'workspace_id' => $workspace->id,
             'user_id' => $user->id,
-            'slug' => 'project-3',
+            'slug' => 'project-3-' . $user->id . '-' . \Illuminate\Support\Str::random(4),
             'title' => 'Project 3',
             'category' => 'software',
         ]);
@@ -181,7 +181,7 @@ class PlanQuotaEnforcementTest extends TestCase
             $this->actingAs($user)
                 ->withHeaders(['X-Workspace-Id' => $workspace->id])
                 ->postJson('/api/v1/projects', [
-                    'title' => "Project {$i}",
+                    'title' => "Pro Project {$i}",
                 ])->assertCreated();
         }
 

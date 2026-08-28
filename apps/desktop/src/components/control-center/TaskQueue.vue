@@ -176,6 +176,62 @@ const statusDotColor = (task: TaskItem) => {
   if (task.status === "done") return "bg-indigo-400";
   return "bg-zinc-500";
 };
+
+const viewMode = ref<"tree" | "flat">("tree");
+const expandedEpics = ref<Record<number, boolean>>({});
+
+const isEpicExpanded = (epicId: number) => expandedEpics.value[epicId] !== false;
+
+const toggleEpic = (epicId: number, e?: Event) => {
+  if (e) e.stopPropagation();
+  expandedEpics.value[epicId] = !isEpicExpanded(epicId);
+};
+
+interface EpicTreeGroup {
+  epic: TaskItem;
+  children: TaskItem[];
+  completedCount: number;
+  totalCount: number;
+  progressPercent: number;
+}
+
+const epics = computed(() =>
+  props.tasks.filter((t) => t.issue_type === "epic")
+);
+
+const epicGroups = computed((): EpicTreeGroup[] => {
+  return epics.value
+    .map((epic) => {
+      const allChildren = props.tasks.filter(
+        (t) => t.epic_id === epic.id && t.issue_type !== "epic"
+      );
+      const filteredChildren = filteredTasks.value.filter(
+        (t) => t.epic_id === epic.id && t.issue_type !== "epic"
+      );
+      const completedCount = allChildren.filter((t) => t.status === "done").length;
+      const totalCount = allChildren.length;
+      const progressPercent =
+        totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+      return {
+        epic,
+        children: filteredChildren,
+        completedCount,
+        totalCount,
+        progressPercent,
+      };
+    })
+    .filter((group) => {
+      const epicMatches = filteredTasks.value.some((t) => t.id === group.epic.id);
+      return epicMatches || group.children.length > 0;
+    });
+});
+
+const standaloneTasks = computed(() => {
+  const allEpicIds = new Set(epics.value.map((e) => e.id));
+  return filteredTasks.value.filter(
+    (t) => t.issue_type !== "epic" && (!t.epic_id || !allEpicIds.has(t.epic_id))
+  );
+});
 </script>
 
 <template>
@@ -213,35 +269,52 @@ const statusDotColor = (task: TaskItem) => {
         </div>
       </div>
 
-      <!-- Filter Tabs: Tất cả / Đang làm / Cần duyệt -->
-      <div class="mt-2 flex items-center gap-1.5">
-        <button 
-          class="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition"
-          :class="status === 'all' ? 'bg-[#261f18] text-orange-400 border border-orange-500/40 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
-          @click="status = 'all'"
-        >
-          <span class="h-1.5 w-1.5 rounded-full bg-orange-400"></span>
-          <span>Tất cả ({{ filteredTasks.length }})</span>
-        </button>
-        <button 
-          class="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition"
-          :class="status === 'in_progress' ? 'bg-[#261f18] text-emerald-400 border border-emerald-500/40 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
-          @click="status = status === 'in_progress' ? 'all' : 'in_progress'"
-        >
-          <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-          <span>Đang chạy</span>
-        </button>
-        <button
-          class="grid h-6 w-6 place-items-center rounded-full bg-orange-600 text-black hover:bg-orange-500 font-bold text-xs ml-auto transition"
-          title="Tạo yêu cầu backlog mới"
-          @click="emit('requirement')"
-        >
-          +
-        </button>
+      <!-- Filter Tabs & Tree/Flat View Switcher -->
+      <div class="mt-2 flex items-center justify-between gap-1">
+        <div class="flex items-center gap-1">
+          <button 
+            class="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition"
+            :class="status === 'all' ? 'bg-[#261f18] text-orange-400 border border-orange-500/40 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+            @click="status = 'all'"
+          >
+            <span class="h-1.5 w-1.5 rounded-full bg-orange-400"></span>
+            <span>Tất cả ({{ filteredTasks.length }})</span>
+          </button>
+          <button 
+            class="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition"
+            :class="status === 'in_progress' ? 'bg-[#261f18] text-emerald-400 border border-emerald-500/40 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+            @click="status = status === 'in_progress' ? 'all' : 'in_progress'"
+          >
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+            <span>Đang chạy</span>
+          </button>
+        </div>
+
+        <!-- View Mode Switcher -->
+        <div class="flex items-center bg-[#181411] border border-[#2b231c] rounded-lg p-0.5">
+          <button
+            class="px-1.5 py-0.5 rounded text-[10px] font-semibold transition flex items-center gap-1"
+            :class="viewMode === 'tree' ? 'bg-orange-600 text-white shadow-xs' : 'text-zinc-400 hover:text-zinc-200'"
+            title="Xem dạng cây phân cấp Epic"
+            @click="viewMode = 'tree'"
+          >
+            <i class="codicon codicon-list-tree text-[11px]"></i>
+            <span>Cây</span>
+          </button>
+          <button
+            class="px-1.5 py-0.5 rounded text-[10px] font-semibold transition flex items-center gap-1"
+            :class="viewMode === 'flat' ? 'bg-orange-600 text-white shadow-xs' : 'text-zinc-400 hover:text-zinc-200'"
+            title="Xem dạng danh sách phẳng"
+            @click="viewMode = 'flat'"
+          >
+            <i class="codicon codicon-list-flat text-[11px]"></i>
+            <span>Phẳng</span>
+          </button>
+        </div>
       </div>
 
       <!-- Search Box -->
-      <div class="mt-2.5 relative">
+      <div class="mt-2 relative">
         <i class="codicon codicon-search absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-500"></i>
         <input 
           v-model="searchQuery" 
@@ -253,8 +326,302 @@ const statusDotColor = (task: TaskItem) => {
       </div>
     </div>
 
-    <!-- Task List (Categorized in 3 Sections: CẦN XỬ LÝ, ĐANG THỰC HIỆN, ĐÃ XEM) -->
-    <div class="min-h-0 flex-1 overflow-y-auto p-2.5 space-y-3">
+    <!-- Task List (Tree View by Default or Flat View) -->
+    <!-- Tree View: Epic Hierarchy with nested Child tasks -->
+    <div v-if="viewMode === 'tree'" class="min-h-0 flex-1 overflow-y-auto p-2.5 space-y-3">
+      <!-- Empty state -->
+      <div v-if="!epicGroups.length && !standaloneTasks.length" class="p-4 text-center text-xs text-zinc-500">
+        <p>Chưa có tác vụ hoặc epic nào trong dự án này.</p>
+        <div class="mt-3 flex justify-center gap-2">
+          <button class="cc-button text-xs" @click="emit('requirement')">Yêu cầu mới</button>
+          <button class="cc-button text-xs" @click="emit('openHub')">Mở Hub</button>
+        </div>
+      </div>
+
+      <!-- Epic Groups (Tree hierarchy) -->
+      <div v-if="epicGroups.length" class="space-y-3">
+        <div class="mb-1.5 flex items-center justify-between px-1">
+          <div class="flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase text-purple-400">
+            <span class="h-1.5 w-1.5 rounded-full bg-purple-500"></span>
+            <span>CHUỖI EPIC ({{ epicGroups.length }})</span>
+          </div>
+        </div>
+
+        <div v-for="group in epicGroups" :key="group.epic.id" class="rounded-2xl border border-purple-500/30 bg-[#16121c] p-2 transition-all space-y-2">
+          <!-- Epic Header Card -->
+          <div
+            class="group rounded-xl border p-2.5 text-left transition-all relative overflow-hidden cursor-pointer"
+            :class="
+              selectedId === group.epic.id
+                ? 'border-purple-500/80 bg-[#251b2e] shadow-[0_0_16px_rgba(168,85,247,0.25)]'
+                : 'border-purple-500/20 bg-[#1e1726] hover:border-purple-500/50 hover:bg-[#251c30]'
+            "
+            @click="emit('select', group.epic)"
+          >
+            <div class="flex items-start gap-2">
+              <!-- Expand / Collapse chevron -->
+              <button
+                type="button"
+                class="mt-1 grid h-5 w-5 place-items-center rounded text-purple-400 hover:bg-purple-900/50 hover:text-purple-200 transition shrink-0"
+                :title="isEpicExpanded(group.epic.id) ? 'Thu gọn' : 'Mở rộng'"
+                @click.stop="toggleEpic(group.epic.id, $event)"
+              >
+                <i
+                  class="codicon text-xs transition-transform duration-200"
+                  :class="isEpicExpanded(group.epic.id) ? 'codicon-chevron-down' : 'codicon-chevron-right'"
+                ></i>
+              </button>
+
+              <!-- Epic Icon Avatar with Status Dot -->
+              <div class="relative shrink-0 mt-0.5">
+                <div
+                  class="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-700 text-white shadow-sm ring-1 ring-white/10"
+                  :title="taskTypeLabel(group.epic)"
+                >
+                  <i class="codicon text-xs" :class="taskTypeIcon(group.epic)"></i>
+                </div>
+                <span class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full" :class="statusDotColor(group.epic)"></span>
+              </div>
+
+              <!-- Epic Info -->
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="font-mono text-[10px] font-bold text-purple-300">
+                    {{ group.epic.issue_key || `#${group.epic.id}` }}
+                  </span>
+                  <span class="rounded-full px-1.5 py-0.2 text-[8px] font-black tracking-wider uppercase border bg-purple-950/60 border-purple-500/40 text-purple-300">
+                    EPIC
+                  </span>
+                  <span
+                    v-if="priorityBadge(group.epic)"
+                    class="rounded-full px-1.5 py-0.2 text-[8px] font-bold border"
+                    :class="priorityBadge(group.epic)?.class"
+                  >
+                    {{ priorityBadge(group.epic)?.label }}
+                  </span>
+                  <span class="cc-task-secondary-meta text-[9px] font-semibold text-purple-300 ml-auto">
+                    {{ group.totalCount }} task con
+                  </span>
+                </div>
+
+                <!-- Epic Title -->
+                <h3 class="text-xs font-bold text-zinc-100 group-hover:text-purple-300 transition line-clamp-2 mt-1 leading-snug">
+                  {{ group.epic.title }}
+                </h3>
+
+                <!-- Progress Bar -->
+                <div class="mt-2 space-y-1">
+                  <div class="flex items-center justify-between text-[9px] text-purple-300/90 font-medium">
+                    <span>Tiến độ: {{ group.completedCount }}/{{ group.totalCount }} hoàn tất</span>
+                    <span class="font-bold text-purple-200">{{ group.progressPercent }}%</span>
+                  </div>
+                  <div class="h-1.5 w-full rounded-full bg-[#100c14] border border-purple-900/40 overflow-hidden">
+                    <div
+                      class="h-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-300"
+                      :style="{ width: `${group.progressPercent}%` }"
+                    ></div>
+                  </div>
+                </div>
+
+                <!-- Dependency constraints notes -->
+                <div v-if="dependencyState(group.epic).total" class="mt-1.5 pt-1 border-t border-[#26201a] text-[9px] text-zinc-500">
+                  <p>Depends on {{ dependencyState(group.epic).labels.join(", ") }}</p>
+                  <p v-if="dependencyState(group.epic).pendingLabels.length" class="font-semibold text-amber-400">
+                    Blocked by {{ dependencyState(group.epic).pendingLabels.join(", ") }}
+                  </p>
+                  <p v-else-if="!['todo', 'in_progress'].includes(group.epic.status)" class="font-semibold text-zinc-500">
+                    {{ group.epic.status === "review" ? "Waiting for Hub review" : "Completed — reopen on Hub to run again" }}
+                  </p>
+                  <p v-if="dependencyState(group.epic).reconsidered" class="font-semibold text-rose-400">
+                    Needs review: a prerequisite moved back from done
+                  </p>
+                </div>
+                <div v-if="dependencyState(group.epic).dependents.length" class="mt-0.5 text-[9px] text-zinc-500">
+                  <p>Unlocks {{ dependencyState(group.epic).dependents.join(", ") }}</p>
+                  <p v-if="dependencyState(group.epic).dependentReconsideration.length" class="font-semibold text-rose-400">
+                    Reconsider dependent work: {{ dependencyState(group.epic).dependentReconsideration.join(", ") }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Child Tasks Sub-tree (Branches) -->
+          <div
+            v-if="isEpicExpanded(group.epic.id) && group.children.length"
+            class="border-l-2 border-purple-500/30 ml-4 pl-3 space-y-1.5 mt-1"
+          >
+            <button
+              v-for="task in group.children"
+              :key="task.id"
+              class="group w-full rounded-xl border p-2 text-left transition-all relative overflow-hidden"
+              :class="
+                selectedId === task.id
+                  ? 'border-orange-500/80 bg-[#251e18] shadow-[0_0_16px_rgba(249,115,22,0.25)]'
+                  : 'border-[#26201a] bg-[#171411] hover:border-[#3a3027] hover:bg-[#1e1915]'
+              "
+              @click="emit('select', task)"
+            >
+              <div class="flex items-start gap-2">
+                <!-- Status indicator dot & icon -->
+                <div class="relative shrink-0 mt-0.5">
+                  <div
+                    class="grid h-6 w-6 place-items-center rounded-lg bg-gradient-to-tr text-white shadow-sm ring-1 ring-white/10 text-[10px]"
+                    :class="taskTypeBg(task)"
+                    :title="taskTypeLabel(task)"
+                  >
+                    <i class="codicon text-xs" :class="taskTypeIcon(task)"></i>
+                  </div>
+                  <span class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full" :class="statusDotColor(task)"></span>
+                </div>
+
+                <!-- Info -->
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-1 flex-wrap">
+                    <span class="font-mono text-[10px] font-bold text-orange-400">
+                      {{ task.issue_key || `#${task.id}` }}
+                    </span>
+                    <span
+                      class="rounded-full px-1.5 py-0.2 text-[8px] font-black tracking-wider uppercase border"
+                      :class="taskTypeBadge(task)"
+                    >
+                      {{ taskTypeLabel(task) }}
+                    </span>
+                    <span
+                      v-if="priorityBadge(task)"
+                      class="rounded-full px-1.5 py-0.2 text-[8px] font-bold border"
+                      :class="priorityBadge(task)?.class"
+                    >
+                      {{ priorityBadge(task)?.label }}
+                    </span>
+                    <span v-if="task.status === 'in_progress'" class="text-[9px] text-emerald-400 font-medium ml-auto animate-pulse">● Đang chạy</span>
+                    <span v-else-if="task.status === 'done'" class="text-[9px] font-semibold text-indigo-400 ml-auto">Đã xong</span>
+                  </div>
+
+                  <h4 class="text-xs font-bold text-zinc-100 group-hover:text-orange-300 transition line-clamp-2 mt-0.5 leading-snug">
+                    {{ task.title }}
+                  </h4>
+
+                  <p v-if="task.description" class="truncate text-[10px] text-zinc-500 mt-0.5">
+                    {{ task.description }}
+                  </p>
+
+                  <!-- Dependency constraints notes -->
+                  <div v-if="dependencyState(task).total" class="mt-1 pt-1 border-t border-[#26201a] text-[9px] text-zinc-500">
+                    <p>Depends on {{ dependencyState(task).labels.join(", ") }}</p>
+                    <p v-if="dependencyState(task).pendingLabels.length" class="font-semibold text-amber-400">
+                      Blocked by {{ dependencyState(task).pendingLabels.join(", ") }}
+                    </p>
+                    <p v-else-if="!['todo', 'in_progress'].includes(task.status)" class="font-semibold text-zinc-500">
+                      {{ task.status === "review" ? "Waiting for Hub review" : "Completed — reopen on Hub to run again" }}
+                    </p>
+                    <p v-if="dependencyState(task).reconsidered" class="font-semibold text-rose-400">
+                      Needs review: a prerequisite moved back from done
+                    </p>
+                  </div>
+                  <div v-if="dependencyState(task).dependents.length" class="mt-0.5 text-[9px] text-zinc-500">
+                    <p>Unlocks {{ dependencyState(task).dependents.join(", ") }}</p>
+                    <p v-if="dependencyState(task).dependentReconsideration.length" class="font-semibold text-rose-400">
+                      Reconsider dependent work: {{ dependencyState(task).dependentReconsideration.join(", ") }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Standalone Tasks (Without Epic) -->
+      <div v-if="standaloneTasks.length" class="space-y-2">
+        <div class="mb-1.5 flex items-center justify-between px-1">
+          <div class="flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase text-zinc-400">
+            <span class="h-1.5 w-1.5 rounded-full bg-zinc-500"></span>
+            <span>TÁC VỤ ĐỘC LẬP ({{ standaloneTasks.length }})</span>
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <button
+            v-for="task in standaloneTasks"
+            :key="task.id"
+            class="group w-full rounded-2xl border p-2.5 text-left transition-all relative overflow-hidden"
+            :class="
+              selectedId === task.id
+                ? 'border-orange-500/80 bg-[#251e18] shadow-[0_0_16px_rgba(249,115,22,0.25)]'
+                : 'border-[#26201a] bg-[#171411] hover:border-[#3a3027] hover:bg-[#1e1915]'
+            "
+            @click="emit('select', task)"
+          >
+            <div class="flex items-start gap-2.5">
+              <div class="relative shrink-0 mt-0.5">
+                <div
+                  class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-tr text-white shadow-sm ring-1 ring-white/10"
+                  :class="taskTypeBg(task)"
+                  :title="taskTypeLabel(task)"
+                >
+                  <i class="codicon text-sm" :class="taskTypeIcon(task)"></i>
+                </div>
+                <span class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full" :class="statusDotColor(task)"></span>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="font-mono text-[10px] font-bold text-orange-400">
+                    {{ task.issue_key || `#${task.id}` }}
+                  </span>
+                  <span
+                    class="rounded-full px-1.5 py-0.2 text-[8px] font-black tracking-wider uppercase border"
+                    :class="taskTypeBadge(task)"
+                  >
+                    {{ taskTypeLabel(task) }}
+                  </span>
+                  <span
+                    v-if="priorityBadge(task)"
+                    class="rounded-full px-1.5 py-0.2 text-[8px] font-bold border"
+                    :class="priorityBadge(task)?.class"
+                  >
+                    {{ priorityBadge(task)?.label }}
+                  </span>
+                  <span v-if="task.status === 'in_progress'" class="text-[9px] text-emerald-400 font-medium ml-auto animate-pulse">● Đang chạy</span>
+                  <span v-else-if="task.status === 'done'" class="text-[9px] font-semibold text-indigo-400 ml-auto">Đã xong</span>
+                </div>
+
+                <h3 class="text-xs font-bold text-zinc-100 group-hover:text-orange-300 transition line-clamp-2 mt-1 leading-snug">
+                  {{ task.title }}
+                </h3>
+
+                <p v-if="task.description" class="truncate text-[10px] text-zinc-500 mt-0.5">
+                  {{ task.description }}
+                </p>
+
+                <!-- Dependency constraints notes -->
+                <div v-if="dependencyState(task).total" class="mt-1.5 pt-1 border-t border-[#26201a] text-[9px] text-zinc-500">
+                  <p>Depends on {{ dependencyState(task).labels.join(", ") }}</p>
+                  <p v-if="dependencyState(task).pendingLabels.length" class="font-semibold text-amber-400">
+                    Blocked by {{ dependencyState(task).pendingLabels.join(", ") }}
+                  </p>
+                  <p v-else-if="!['todo', 'in_progress'].includes(task.status)" class="font-semibold text-zinc-500">
+                    {{ task.status === "review" ? "Waiting for Hub review" : "Completed — reopen on Hub to run again" }}
+                  </p>
+                  <p v-if="dependencyState(task).reconsidered" class="font-semibold text-rose-400">
+                    Needs review: a prerequisite moved back from done
+                  </p>
+                </div>
+                <div v-if="dependencyState(task).dependents.length" class="mt-0.5 text-[9px] text-zinc-500">
+                  <p>Unlocks {{ dependencyState(task).dependents.join(", ") }}</p>
+                  <p v-if="dependencyState(task).dependentReconsideration.length" class="font-semibold text-rose-400">
+                    Reconsider dependent work: {{ dependencyState(task).dependentReconsideration.join(", ") }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Flat List (Categorized in 3 Sections: CẦN XỬ LÝ, ĐANG THỰC HIỆN, TẤT CẢ TÁC VỤ) -->
+    <div v-else class="min-h-0 flex-1 overflow-y-auto p-2.5 space-y-3">
       <!-- Section 1: CẦN XỬ LÝ (Need Action / Review / Blocked) -->
       <div v-if="needInputTasks.length">
         <div class="mb-1.5 flex items-center justify-between px-1">

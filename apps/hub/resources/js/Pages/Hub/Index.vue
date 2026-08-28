@@ -29,9 +29,9 @@ const mobileMenuOpen = ref(false);
 </script>
 
 <template>
-  <Head title="Task Hub — AI-Native Task Engine for Engineering Teams" />
+  <Head title="Midnight Hub — Autonomous AI Agent Orchestrator & Developer Studio" />
 
-  <div class="hub-landing min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-slate-950 overflow-x-hidden">
+  <div class="hub-landing min-h-screen bg-[#04070d] text-slate-100 font-sans selection:bg-[#00f5a0] selection:text-slate-950 overflow-x-hidden">
     <!-- Ambient Background Glows -->
     <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
       <div class="absolute -top-40 left-1/2 -translate-x-1/2 h-[500px] w-[900px] rounded-full bg-gradient-to-tr from-emerald-600/20 via-teal-500/15 to-blue-600/10 blur-[130px]" />
@@ -40,15 +40,15 @@ const mobileMenuOpen = ref(false);
     </div>
 
     <!-- Sticky Navigation Header -->
-    <header class="sticky top-0 z-50 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-md">
+    <header class="sticky top-0 z-50 border-b border-slate-800/80 bg-[#04070d]/85 backdrop-blur-md">
       <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <a href="/" class="flex items-center gap-3 group">
           <div class="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-cyan-500/20 border border-emerald-500/40 p-1 shadow-md shadow-emerald-500/10 group-hover:border-emerald-400 group-hover:scale-105 transition-all">
-            <img src="/brand/macatung-mascot-icon.svg" alt="Ma Cà Tưng" class="h-full w-full object-contain drop-shadow-sm" />
+            <img src="/brand/midnight-hub-mark.svg" alt="Midnight Hub" class="h-full w-full object-contain drop-shadow-sm" />
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-xl font-bold tracking-tight text-white group-hover:text-emerald-400 transition-colors">Task Hub</span>
-            <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">AI-Native</span>
+            <span class="text-xl font-extrabold tracking-tight text-white group-hover:text-emerald-400 transition-colors font-['Space_Grotesk']">Midnight Hub</span>
+            <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400 uppercase tracking-wider font-mono">MDNT</span>
           </div>
         </a>
 

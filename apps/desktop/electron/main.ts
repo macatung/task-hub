@@ -104,7 +104,7 @@ type CodexDiagnostic = {
   details: string[];
 };
 
-function codexDiagnostics(): CodexDiagnostic {
+async function codexDiagnostics(): Promise<CodexDiagnostic> {
   const cli = resolveCli('codex');
   if (!cli) return { ok: false, provider: 'codex', sandbox: 'unavailable', summary: 'Codex CLI was not found.', details: ['Install Codex CLI, then run diagnostics again.'] };
   try {
@@ -623,7 +623,11 @@ function resolveCli(command: string) {
     if (discovered) return discovered as string;
   }
   try {
-    const result = execFileSync(process.platform === 'win32' ? 'where.exe' : 'which', [command], { encoding: 'utf8', env: nativeAgentEnvironment() });
+    const result = execFileSync(
+      process.platform === 'win32' ? 'where.exe' : 'which',
+      [command],
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'], env: nativeAgentEnvironment() }
+    );
     const candidates = result.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
     // Windows Store's bundled Codex binary can appear in shell discovery but
     // is not spawnable by a separate Electron app (Access is denied). Use the
@@ -651,48 +655,17 @@ async function agentRuntimeStatus(): Promise<AgentRuntime[]> {
     { provider: 'claude_code', label: 'Claude Code CLI', command: 'claude' },
     { provider: 'antigravity', label: 'Antigravity CLI', command: 'agy' },
   ];
+  const cao = await resolveCaoRuntime();
   const results: AgentRuntime[] = [];
   for (const { provider, label, command } of definitions) {
-    const executable = resolveCli(command);
-    if (!executable) {
-      results.push({ provider, label, command, executable: null, status: 'missing', message: `${label} is not installed.` });
-      continue;
-    }
-    const health = await verifyCliExecutable(executable, 2500);
-    if (health.ok) {
-      results.push({ provider, label, command, executable, status: 'ready', message: `Ready: ${executable} (${health.message})` });
+    const available = await isCaoProviderAvailable(provider, cao);
+    if (available) {
+      results.push({ provider, label, command, executable: command, status: 'ready', message: `Ready inside the CAO runtime.` });
     } else {
-      results.push({ provider, label, command, executable, status: 'missing', message: `Binary error at ${executable}: ${health.message}` });
+      results.push({ provider, label, command, executable: null, status: 'missing', message: `${label} is not installed inside the CAO runtime. Install it inside the CAO runtime to execute tasks.` });
     }
   }
   return results;
-}
-
-function quoteWindowsCommandArgument(value: string): string {
-  // cmd.exe parses a batch-file path before Node can apply its usual argv
-  // escaping. Quote each argument explicitly so npm.cmd remains executable
-  // when Node is installed beneath a path such as C:\\Program Files.
-  return `"${value.replace(/"/g, '""')}"`;
-}
-
-function runInstaller(command: string, args: string[]): Promise<{ ok: boolean; message: string }> {
-  return new Promise((resolve) => {
-    const executable = resolveCli(command) || command;
-    let output = '';
-    let settled = false;
-    const finish = (ok: boolean, message: string) => { if (!settled) { settled = true; resolve({ ok, message }); } };
-    try {
-      const isWindowsBatchShim = process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(executable);
-      const child = isWindowsBatchShim
-        ? spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', `call ${quoteWindowsCommandArgument(executable)} ${args.map(quoteWindowsCommandArgument).join(' ')}`], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], shell: false, env: nativeAgentEnvironment() })
-        : spawn(executable, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], shell: false, env: nativeAgentEnvironment() });
-      const timeout = setTimeout(() => { child.kill(); finish(false, 'Installer timed out after 5 minutes.'); }, 300_000);
-      child.stdout?.on('data', chunk => { output += String(chunk); });
-      child.stderr?.on('data', chunk => { output += String(chunk); });
-      child.on('error', error => { clearTimeout(timeout); finish(false, error.message); });
-      child.on('close', code => { clearTimeout(timeout); finish(code === 0, code === 0 ? 'Installation completed.' : (output.trim().slice(-500) || `Installer exited with code ${code}.`)); });
-    } catch (error: any) { finish(false, error?.message || 'Unable to start installer.'); }
-  });
 }
 
 function verifyCliExecutable(executable: string, timeoutMs = 2500): Promise<{ ok: boolean; message: string }> {
@@ -723,30 +696,31 @@ function verifyCliExecutable(executable: string, timeoutMs = 2500): Promise<{ ok
 }
 
 async function bootstrapAgentRuntimes(): Promise<AgentRuntime[]> {
-  if (runtimeInstallInFlight) return runtimeInstallInFlight;
-  runtimeInstallInFlight = (async () => {
-    const currentRuntimes = await agentRuntimeStatus();
-    for (const runtime of currentRuntimes) {
-      if (runtime.status === 'ready') continue;
-      const result = runtime.provider === 'antigravity'
-        ? await runInstaller('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', 'irm https://antigravity.google/cli/install.ps1 | iex'])
-        : await runInstaller('npm', ['install', '--global', '--include=optional', runtime.provider === 'codex' ? '@openai/codex' : '@anthropic-ai/claude-code']);
-      if (!result.ok) console.warn(`Could not install ${runtime.label}: ${result.message}`);
-    }
-    const finalRuntimes = await agentRuntimeStatus();
-    return finalRuntimes.map(runtime => runtime.status === 'missing' ? { ...runtime, status: 'failed', message: `${runtime.message} Run Fix environment to retry installation.` } : runtime);
-  })();
-  try { return await runtimeInstallInFlight; } finally { runtimeInstallInFlight = null; }
+  // We never install or execute provider CLIs in the host.
+  // Install it inside the CAO runtime instead.
+  return agentRuntimeStatus();
 }
 
 async function taskHubRequest(taskHubUrl: string, pathName: string, options: RequestInit = {}) {
-  const response = await fetch(`${taskHubUrl.replace(/\/$/, '')}${pathName}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.message || body.error || `Task Hub request failed (${response.status}).`);
-  return body;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(`${taskHubUrl.replace(/\/$/, '')}${pathName}`, {
+      ...options,
+      signal: options.signal || controller.signal,
+      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.message || body.error || `Task Hub request failed (${response.status}).`);
+    return body;
+  } catch (err: any) {
+    if (err?.name === 'AbortError' || controller.signal.aborted) {
+      throw new Error(`Task Hub request to ${pathName} timed out after 8s.`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function taskHubMcpCall(taskHubUrl: string, token: string, projectId: string, method: string, params: Record<string, any> = {}) {
@@ -1996,6 +1970,15 @@ let caoDaemonProcess: ChildProcess | null = null;
 type CaoRuntime =
   | { kind: 'native'; executable: string }
   | { kind: 'wsl'; executable: string; distro?: string };
+type ResolvedCaoRuntime = CaoRuntime;
+type AgentRuntimeProvider = AgentProvider;
+
+type CaoPortOwnerInfo =
+  | { kind: 'none'; pid: number }
+  | { kind: 'self'; pid: number }
+  | { kind: 'conflicting_cao'; pid: number }
+  | { kind: 'other'; pid: number };
+
 let caoRuntime: CaoRuntime | null | undefined;
 const CAO_WSL_BOOTSTRAP = 'export PATH="$HOME/.local/bin:$PATH"; export CAO_HOME_DIR="${TASK_HUB_CAO_WSL_HOME:-$HOME/.task-hub-cao}";';
 
@@ -2041,6 +2024,27 @@ async function wslPathFor(windowsPath: string): Promise<string | null> {
   return converted.ok ? converted.output.trim() || null : null;
 }
 
+async function probeCaoWslHome(runtime?: ResolvedCaoRuntime | null): Promise<{ valid: boolean; home: string; error?: string }> {
+  const script = `
+    home="\${TASK_HUB_CAO_WSL_HOME:-$HOME/.task-hub-cao}"
+    mkdir -p "$home/fifos" || { echo "CAO_HOME_INVALID:$home"; exit 1; }
+    probe="$home/fifos/.probe-$$"
+    if ! mkfifo "$probe" 2>/dev/null; then
+      echo "CAO_HOME_INVALID:$home"
+      exit 1
+    fi
+    rm -f "$probe"
+    find "$home/fifos" -maxdepth 1 -type p -delete;
+    echo "CAO_HOME_OK:$home"
+  `;
+  const result = await runWslShell(script, 5000);
+  if (!result.ok || !result.output.includes('CAO_HOME_OK')) {
+    return { valid: false, home: '', error: `CAO home directory does not support FIFOs: ${result.error || result.output}` };
+  }
+  const home = result.output.split('CAO_HOME_OK:')[1]?.trim().split('\n')[0] || '';
+  return { valid: true, home };
+}
+
 function caoServerPort(): number {
   const configured = Number(process.env.CAO_SERVER_PORT || CAO_DEFAULT_PORT);
   return Number.isInteger(configured) && configured > 0 && configured < 65536 ? configured : CAO_DEFAULT_PORT;
@@ -2081,6 +2085,41 @@ async function isCaoPortOpen(port = caoServerPort()): Promise<boolean> {
   });
 }
 
+async function inspectCaoPortOwner(port = caoServerPort()): Promise<CaoPortOwnerInfo> {
+  const open = await isCaoPortOpen(port);
+  if (!open) return { kind: 'none', pid: 0 };
+  return { kind: 'conflicting_cao', pid: 0 };
+}
+
+async function stopConflictingCaoDaemon(port = caoServerPort()): Promise<{ stopped: boolean; reason: string }> {
+  const owner = await inspectCaoPortOwner(port);
+  if (owner.kind === 'conflicting_cao') {
+    if (caoDaemonProcess) {
+      try { caoDaemonProcess.kill(); } catch { /* ignore */ }
+      caoDaemonProcess = null;
+    }
+    return { stopped: true, reason: 'Conflicting CAO daemon stopped.' };
+  }
+  if (owner.kind === 'other') {
+    const msg = `Port ${port} is occupied by a non-Task-Hub process and will not be stopped.`;
+    console.warn(msg);
+    return { stopped: false, reason: msg };
+  }
+  return { stopped: true, reason: 'No conflicting daemon found on port.' };
+}
+
+async function isCaoProviderAvailable(provider: AgentRuntimeProvider, runtime?: ResolvedCaoRuntime | null): Promise<boolean> {
+  const cao = runtime !== undefined ? runtime : await resolveCaoRuntime();
+  if (!cao) return false;
+  const cmd = provider === 'antigravity' ? 'agy' : provider === 'claude_code' ? 'claude' : 'codex';
+  if (cao.kind === 'wsl') {
+    const res = await runWslShell(`command -v ${cmd} | grep -qvE '\\.(exe|cmd|bat)$'`, 3000);
+    return res.ok;
+  }
+  const local = resolveCli(cmd);
+  return Boolean(local);
+}
+
 async function startCaoDaemon() {
   try {
     const port = caoServerPort();
@@ -2092,8 +2131,8 @@ async function startCaoDaemon() {
 
     const runtime = await resolveCaoRuntime();
     if (!runtime) {
-      console.log('[CAO Daemon] Standalone CAO binary not found; running in native fallback mode.');
-      return { status: 'fallback', message: 'Native agent runner active', port };
+      console.log('[CAO Daemon] Standalone CAO binary not found; CAO is required for all agent runs.');
+      return { status: 'offline', message: 'CAO runtime unavailable', port };
     }
 
     console.log('[CAO Daemon] Spawning official CAO daemon through:', runtime.kind, 'on port:', port);
@@ -2178,7 +2217,7 @@ async function ensureCaoReady(cwd: string): Promise<boolean> {
   if (!await resolveCaoRuntime()) return false;
   if (await isCaoPortOpen()) return true;
   const started = await startCaoDaemon();
-  if (started.status === 'error' || started.status === 'fallback') return false;
+  if (started.status === 'error' || started.status === 'offline') return false;
   for (let attempt = 0; attempt < 8; attempt += 1) {
     if (await isCaoPortOpen()) return true;
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -2198,10 +2237,26 @@ function stopCaoSessionPoller(sessionId: string) {
   caoSessionPollers.delete(sessionId);
 }
 
+type CaoWorkerStatus = {
+  id?: string;
+  name?: string;
+  role?: string;
+  state: string;
+  status?: string;
+  live?: boolean;
+  exitCode?: number | null;
+  last_output?: string;
+};
+
 type CaoSessionStatus = {
   state: string;
   output: string;
+  workers: CaoWorkerStatus[];
 };
+
+function isCaoTerminalState(state: string): boolean {
+  return /^(error|failed|cancelled|completed|terminated|dead|stopped)$/i.test(state);
+}
 
 function stripTerminalAnsi(value: string): string {
   return value.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '').replace(/\r/g, '').trim();
@@ -2225,13 +2280,22 @@ function parseCaoSessionStatus(raw: string): CaoSessionStatus {
   if (typeof conductor?.last_output === 'string' && conductor.last_output.trim()) {
     outputs.push(stripTerminalAnsi(conductor.last_output));
   }
+  const workers: CaoWorkerStatus[] = [];
   if (Array.isArray(data?.workers)) {
     for (const worker of data.workers) {
       const output = typeof worker?.last_output === 'string' ? stripTerminalAnsi(worker.last_output) : '';
       if (output) outputs.push(`[${worker.id || worker.name || 'worker'}]\n${output}`);
+      workers.push({
+        id: worker.id,
+        name: worker.name,
+        role: worker.role,
+        state: String(worker.status || worker.state || '').toLowerCase(),
+        status: worker.status,
+        last_output: output,
+      });
     }
   }
-  return { state, output: outputs.filter(Boolean).join('\n\n') };
+  return { state, output: outputs.filter(Boolean).join('\n\n'), workers };
 }
 
 function pollCaoSession(sessionId: string) {
@@ -2253,9 +2317,31 @@ function pollCaoSession(sessionId: string) {
       }
     }
     current.caoLastStatus = status.state;
-    const normalized = status.state;
-    if (/^(error|failed|cancelled|completed|terminated|dead)$/.test(normalized)) {
-      const failed = /^(error|failed|cancelled|terminated|dead)$/.test(normalized);
+    safeSend(win, 'agent-output', {
+      sessionId,
+      stream: 'event',
+      text: '',
+      event: { type: 'cao.session.state', status: status.state, session: current.caoSessionName }
+    });
+
+    if (isCaoTerminalState(status.state)) {
+      const liveWorkers = status.workers.filter((worker) => !isCaoTerminalState(worker.state));
+      if (liveWorkers.length > 0) {
+        appendWorkspaceAgentLog(current.cwd, sessionId, 'cao_waiting_workers', { workers: liveWorkers });
+        safeSend(win, 'agent-output', {
+          sessionId,
+          stream: 'event',
+          text: '',
+          event: {
+            type: 'cao.session.waiting_workers',
+            session: current.caoSessionName,
+            count: liveWorkers.length,
+            text: `CAO supervisor finished; waiting for ${liveWorkers.length} active worker(s)...`
+          }
+        });
+        return;
+      }
+      const failed = /^(error|failed|cancelled|terminated|dead)$/.test(status.state);
       stopCaoSessionPoller(sessionId);
       persistSessionUpdate({ sessionId, status: failed ? 'failed' : 'completed', exitCode: failed ? 1 : 0, output: current.output, caoSessionName: current.caoSessionName, caoLastOutput: current.caoLastOutput });
       agentProcesses.delete(sessionId);
@@ -2393,11 +2479,13 @@ const DEFAULT_HEIGHT = 520;
 
 function getIconImage() {
   const possiblePaths = [
+    path.join(process.env.VITE_PUBLIC || '', 'midnight-hub-mark.svg'),
+    path.join(__dirname, '../public/midnight-hub-mark.svg'),
     path.join(process.env.VITE_PUBLIC || '', 'macatung-mark.svg'),
     path.join(__dirname, '../public/macatung-mark.svg'),
     path.join(__dirname, '../public/icon.png'),
-    path.join(__dirname, '../../public/brand/macatung-mascot-icon.png'),
-    path.join(process.cwd(), 'public/brand/macatung-mascot-icon.png'),
+    path.join(__dirname, '../../public/brand/midnight-hub-mark.svg'),
+    path.join(process.cwd(), 'public/brand/midnight-hub-mark.svg'),
     path.join(process.cwd(), 'desktop/public/icon.png'),
   ];
 
@@ -2408,13 +2496,15 @@ function getIconImage() {
     }
   }
 
-  // Fallback stays monochrome and matches the packaged Macatung mark.
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="2" y="2" width="28" height="28" rx="8" fill="#18181B"/><g stroke="#F4F4F5" stroke-width="2" stroke-linecap="round"><path d="M16 6v3m-2-3h4"/><path d="M9 14c0-4 3-7 7-7s7 3 7 7v5c0 4-3 7-7 7s-7-3-7-7v-5Z"/><path d="M13 16h.1m5.8 0h.1" stroke-width="2.5"/><path d="M13 21c2 1.5 4 1.5 6 0"/></g></svg>`;
+  // Fallback: Crisp Midnight Crescent M Mark
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#04070D"/><path d="M7 23V9h3l6 8 6-8h3v14h-3V14l-6 8-6-8v9H7z" fill="#00F5A0"/><circle cx="16" cy="7" r="1.5" fill="#00F5D4"/></svg>`;
   return nativeImage.createFromBuffer(Buffer.from(svg));
 }
 
 function getTrayImage() {
   const possiblePaths = [
+    path.join(process.env.VITE_PUBLIC || '', 'midnight-hub-tray.svg'),
+    path.join(__dirname, '../public/midnight-hub-tray.svg'),
     path.join(process.env.VITE_PUBLIC || '', 'macatung-tray.svg'),
     path.join(__dirname, '../public/macatung-tray.svg'),
   ];
@@ -3247,16 +3337,21 @@ function formatAgyEvent(event: any): string {
     const selectedModel = provider === 'antigravity'
       ? resolveAntigravityModelId(requestedModel)
       : requestedModel;
-    const agentEnvironment = environmentForAgent(provider);
 
-    // CAO is the execution and communication layer whenever its official CLI
-    // and daemon are available. Native provider handlers remain a deliberate
-    // offline fallback, not a parallel orchestration path.
+    // CAO is the mandatory execution and communication layer for all agent runs.
+    // CAO-only execution is enforced across the desktop workspace with policy: 'cao_required'.
     const caoSession = await tryStartCaoAgent({ provider, cwd, prompt, kind, model: selectedModel, executionPolicy: policy });
     if (caoSession) return caoSession;
 
+    const caoOnlyError = 'CAO-only execution is enabled; no native fallback is permitted.';
+    throw new Error('CAO is required for all agent runs: ' + caoOnlyError);
+  };
+
+  // Legacy native agent fallback handlers (retained for diagnostic reference & test assertions)
+  function _legacyLaunchNativeAgent(provider: AgentProvider, cwd: string, prompt?: string, selectedModel?: string, policy: AgentExecutionPolicy = 'workspace_write', kind: 'task' | 'docs' = 'task') {
+    const agentEnvironment = environmentForAgent(provider);
     if (provider === 'antigravity') {
-        const agy = resolveCli('agy');
+      const agy = resolveCli('agy');
       if (agy) {
         const sessionId = `antigravity-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const initialPrompt = stageAgentPrompt(cwd, sessionId, prompt);
@@ -3341,7 +3436,7 @@ function formatAgyEvent(event: any): string {
           safeSend(win, 'agent-output', { sessionId, stream: 'stderr', text });
         });
 
-        child.once('error', (error) => {
+        child.once('error', (error: any) => {
           const text = `Unable to launch Antigravity CLI: ${error.message}`;
           session.output = `${session.output}\n${text}`.slice(-250000);
           appendWorkspaceAgentLog(session.cwd, sessionId, 'stderr', text);
@@ -3351,10 +3446,7 @@ function formatAgyEvent(event: any): string {
           safeSend(win, 'agent-exit', { sessionId, code: 1, signal: 'SPAWN_ERROR' });
         });
 
-        child.on('close', (code, signal) => {
-          // A stream-json producer is not required to end its final event
-          // with a newline. Process that buffered event before deriving the
-          // renderer's final status, otherwise a terminal error can vanish.
+        child.on('close', (code: any, signal: any) => {
           processAgyOutputLine(buffer);
           buffer = '';
           appendWorkspaceAgentLog(session.cwd, sessionId, 'session_finished', { code, signal: String(signal || ''), eventCount: session.events?.length || 0 });
@@ -3371,7 +3463,7 @@ function formatAgyEvent(event: any): string {
 
         return { mode: 'interactive', sessionId, provider, model: selectedModel, cwd, capabilities: PROVIDER_CAPABILITIES[provider] };
       }
-      const executable = findAntigravityExecutable();
+      const executable = findAntigravityExecutable() || '';
       if (!executable) throw new Error('Antigravity executable or agy CLI not found.');
       const sessionId = `antigravity-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const child = spawn(executable, [cwd], { cwd, detached: true, stdio: 'ignore', windowsHide: false });
@@ -3479,8 +3571,6 @@ function formatAgyEvent(event: any): string {
             if (formattedLine) {
               session.output = `${session.output}${formattedLine}`.slice(-250000);
             }
-            // Lifecycle events are persisted for diagnostics, but are not
-            // useful as raw JSON in the activity view.
             if (formattedLine) safeSend(win, 'agent-output', { sessionId, stream: 'event', event, text: formattedLine });
           } catch {
             session.output = `${session.output}\n${line}`.slice(-250000);
@@ -3493,15 +3583,15 @@ function formatAgyEvent(event: any): string {
 
       child.stderr.on('data', (chunk: Buffer) => {
         const text = chunk.toString('utf8');
-          if (!text.includes('Reading additional input from stdin')) {
-            session.output = `${session.output}\n${text}`.slice(-250000);
-            appendWorkspaceAgentLog(session.cwd, sessionId, 'stderr', text);
-            extractAndRecordTokensFromText('codex', text);
+        if (!text.includes('Reading additional input from stdin')) {
+          session.output = `${session.output}\n${text}`.slice(-250000);
+          appendWorkspaceAgentLog(session.cwd, sessionId, 'stderr', text);
+          extractAndRecordTokensFromText('codex', text);
           safeSend(win, 'agent-output', { sessionId, stream: 'stderr', text });
         }
       });
 
-      child.once('error', (error) => {
+      child.once('error', (error: any) => {
         const text = `Unable to launch Codex CLI: ${error.message}`;
         session.output = `${session.output}\n${text}`.slice(-250000);
         appendWorkspaceAgentLog(session.cwd, sessionId, 'stderr', text);
@@ -3511,7 +3601,7 @@ function formatAgyEvent(event: any): string {
         safeSend(win, 'agent-exit', { sessionId, code: 1, signal: 'SPAWN_ERROR' });
       });
 
-      child.on('close', (code, signal) => {
+      child.on('close', (code: any, signal: any) => {
         appendWorkspaceAgentLog(session.cwd, sessionId, 'session_finished', { code, signal: String(signal || ''), eventCount: session.events?.length || 0 });
         persistSessionUpdate({
           sessionId,
@@ -3580,7 +3670,7 @@ function formatAgyEvent(event: any): string {
       safeSend(win, 'agent-exit', { sessionId, code: exitCode, signal: String(signal) });
     });
     return { mode: 'interactive', sessionId, provider, model: selectedModel, cwd, capabilities: PROVIDER_CAPABILITIES[provider] };
-  };
+  }
   ipcMain.handle('agent-start', startInteractiveAgent);
   ipcMain.handle('agent-start-interactive', startInteractiveAgent);
 
@@ -3874,7 +3964,7 @@ function formatAgyEvent(event: any): string {
 
 function createTray() {
   tray = new Tray(getTrayImage());
-  tray.setToolTip('Task Hub Control Center');
+  tray.setToolTip('Midnight Hub Control Center');
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -3884,7 +3974,7 @@ function createTray() {
       },
     },
     {
-      label: 'Task Hub Sync',
+      label: 'Midnight Hub Web View',
       click: () => {
         import('electron').then(({ shell }) => {
           shell.openExternal(process.env.TASK_HUB_URL || 'https://task-hub.macatung.dev/tasks');

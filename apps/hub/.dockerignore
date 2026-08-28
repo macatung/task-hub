@@ -1,43 +1,11 @@
-# Version control
-.git
-.gitignore
+﻿.git
 .github
-
-# Node & Frontend dependencies
 node_modules
-npm-debug.log
-yarn-error.log
-.vite
+public/build
 public/hot
-
-# PHP & Backend dependencies
 vendor
-.phpunit.result.cache
-.phpunit.cache
-bootstrap/cache/*.php
-
-# Environment & Local secrets
+storage/logs/*.log
+database/*.sqlite
 .env
 .env.backup
-.env.production
-.env.local
-
-# Storage caches and logs
-storage/logs/*.log
-storage/framework/cache/data/*
-storage/framework/sessions/*
-storage/framework/views/*
-
-# Database files
-*.sqlite-journal
-
-# Desktop Electron App
-desktop
-
-# Temporary files & IDE
-.idea
-.vscode
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
+.phpunit.result.cache

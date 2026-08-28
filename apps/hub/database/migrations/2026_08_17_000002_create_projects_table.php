@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
             $table->string('slug')->unique();
             $table->string('title');
-            $table->string('tagline');
-            $table->text('description');
+            $table->string('tagline')->nullable();
+            $table->text('description')->nullable();
             $table->string('category')->default('fullstack'); // fullstack, creative, ai-web3, tools
             $table->string('cover_gradient')->default('from-emerald-950 via-teal-900 to-slate-950');
             $table->json('tags')->nullable();

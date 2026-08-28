@@ -5,24 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     
-    <title inertia>{{ config('app.name', 'Task Hub — AI agent execution workspace') }}</title>
-    <meta name="description" content="An open-source workspace for project delivery, GitHub context, and supervised AI agent handoffs.">
-    <meta name="author" content="Task Hub contributors">
+    <title inertia>{{ config('app.name', 'Midnight Hub') }}</title>
+    <meta name="description" content="Autonomous AI Agent Orchestrator & Developer Studio. Code at midnight. Deploy at dawn.">
+    <meta name="author" content="Midnight Hub contributors">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
-    <meta name="theme-color" content="#070b14">
+    <meta name="theme-color" content="#04070d">
 
     <!-- Open Graph / Facebook / Zalo -->
     <meta property="og:type" content="website">
-    <meta property="og:site_name" content="Task Hub">
+    <meta property="og:site_name" content="Midnight Hub">
     <meta property="og:locale" content="en_US">
-    <meta property="og:title" content="Task Hub — AI agent execution workspace">
-    <meta property="og:description" content="Build with context. Review with evidence.">
+    <meta property="og:title" content="Midnight Hub — Autonomous AI Agent Orchestrator">
+    <meta property="og:description" content="Code at midnight. Deploy at dawn.">
 
     <!-- Twitter Cards -->
     <meta name="twitter:card" content="summary_large_image">
 
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="/brand/macatung-mascot-icon.svg">
+    <link rel="icon" type="image/svg+xml" href="/brand/midnight-hub-mark.svg">
 
     <!-- Google Fonts with full Vietnamese & Pāḷi diacritics support -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

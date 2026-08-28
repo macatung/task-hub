@@ -67,7 +67,21 @@ const idleCount = computed(() =>
   Math.max(0, onlineCount.value - busyCount.value)
 );
 
-const fetchRunners = async () => {
+let lastFetchTime = 0;
+let fetchTimeout: number | null = null;
+
+const fetchRunners = async (force = false) => {
+  const now = Date.now();
+  if (!force && now - lastFetchTime < 6000) {
+    if (!fetchTimeout) {
+      fetchTimeout = window.setTimeout(() => {
+        fetchTimeout = null;
+        void fetchRunners(true);
+      }, 6000 - (now - lastFetchTime));
+    }
+    return;
+  }
+  lastFetchTime = now;
   isRefreshing.value = true;
   try {
     const res = await axios.get('/api/v1/desktop/agents');
@@ -98,8 +112,16 @@ const setupEventSource = () => {
     eventSource.onerror = () => {
       isConnected.value = false;
     };
-    eventSource.addEventListener('agent-run', () => {
-      void fetchRunners();
+    eventSource.addEventListener('agent-run', (event) => {
+      try {
+        const parsed = JSON.parse((event as MessageEvent).data);
+        // Only re-fetch runners list if status actually changed or a run started/finished
+        if (['queued', 'running', 'verified', 'failed', 'cancelled'].includes(parsed.status)) {
+          void fetchRunners();
+        }
+      } catch {
+        void fetchRunners();
+      }
     });
     eventSource.addEventListener('agent-log', (event) => {
       try {
@@ -157,14 +179,18 @@ const handleDispatchClick = (runner: DesktopAgentItem) => {
 };
 
 onMounted(() => {
-  void fetchRunners();
+  void fetchRunners(true);
   setupEventSource();
   pollTimer = window.setInterval(() => {
     void fetchRunners();
-  }, 10000);
+  }, 30000);
 });
 
 onBeforeUnmount(() => {
+  if (fetchTimeout) {
+    window.clearTimeout(fetchTimeout);
+    fetchTimeout = null;
+  }
   if (eventSource) {
     eventSource.close();
     eventSource = null;

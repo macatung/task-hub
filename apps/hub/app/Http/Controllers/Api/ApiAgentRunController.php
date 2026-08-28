@@ -51,28 +51,57 @@ class ApiAgentRunController extends Controller
         $afterLog = max(0, $request->integer('after_log', 0));
         $runId = $request->integer('run_id');
         return response()->stream(function () use ($workspace, $after, $afterLog, $runId) {
-            $events = AgentRunEvent::query()->where('id', '>', $after)
-                ->whereHas('agentRun', fn ($q) => $q->where('workspace_id', $workspace->id))
-                ->when($runId, fn ($q) => $q->where('agent_run_id', $runId))
-                ->orderBy('id')->limit(100)->get();
-            foreach ($events as $event) {
-                echo 'id: ' . $event->id . "\n";
-                echo "event: agent-run\n";
-                echo 'data: ' . json_encode(['id' => $event->id, 'run_id' => $event->agent_run_id, 'type' => $event->event_type, 'status' => $event->status, 'payload' => $event->payload, 'occurred_at' => $event->occurred_at?->toIso8601String()], JSON_UNESCAPED_UNICODE) . "\n\n";
-            }
-            $logs = AgentRunLog::query()->where('id', '>', $afterLog)
-                ->whereHas('agentRun', fn ($q) => $q->where('workspace_id', $workspace->id))
-                ->when($runId, fn ($q) => $q->where('agent_run_id', $runId))
-                ->orderBy('id')->limit(100)->get();
-            foreach ($logs as $log) {
-                echo 'id: log-' . $log->id . "\n";
-                echo "event: agent-log\n";
-                echo 'data: ' . json_encode(['id' => $log->id, 'run_id' => $log->agent_run_id, 'stream' => $log->stream, 'content' => $log->content, 'occurred_at' => $log->occurred_at?->toIso8601String()], JSON_UNESCAPED_UNICODE) . "\n\n";
-            }
-            echo ": keepalive\n\n";
+            // Instruct EventSource client to wait 5 seconds before reconnecting
+            echo "retry: 5000\n\n";
             if (function_exists('ob_flush')) @ob_flush();
             flush();
-        }, 200, ['Content-Type' => 'text/event-stream', 'Cache-Control' => 'no-cache, no-transform', 'X-Accel-Buffering' => 'no']);
+
+            $startTime = time();
+            $currentAfter = $after;
+            $currentAfterLog = $afterLog;
+
+            // Stream for up to 25 seconds to minimize reconnect frequency while staying within FastCGI timeout
+            while (time() - $startTime < 25) {
+                if (connection_aborted()) {
+                    break;
+                }
+
+                $events = AgentRunEvent::query()->where('id', '>', $currentAfter)
+                    ->whereHas('agentRun', fn ($q) => $q->where('workspace_id', $workspace->id))
+                    ->when($runId, fn ($q) => $q->where('agent_run_id', $runId))
+                    ->orderBy('id')->limit(50)->get();
+
+                foreach ($events as $event) {
+                    $currentAfter = max($currentAfter, $event->id);
+                    echo 'id: ' . $event->id . "\n";
+                    echo "event: agent-run\n";
+                    echo 'data: ' . json_encode(['id' => $event->id, 'run_id' => $event->agent_run_id, 'type' => $event->event_type, 'status' => $event->status, 'payload' => $event->payload, 'occurred_at' => $event->occurred_at?->toIso8601String()], JSON_UNESCAPED_UNICODE) . "\n\n";
+                }
+
+                $logs = AgentRunLog::query()->where('id', '>', $currentAfterLog)
+                    ->whereHas('agentRun', fn ($q) => $q->where('workspace_id', $workspace->id))
+                    ->when($runId, fn ($q) => $q->where('agent_run_id', $runId))
+                    ->orderBy('id')->limit(50)->get();
+
+                foreach ($logs as $log) {
+                    $currentAfterLog = max($currentAfterLog, $log->id);
+                    echo 'id: log-' . $log->id . "\n";
+                    echo "event: agent-log\n";
+                    echo 'data: ' . json_encode(['id' => $log->id, 'run_id' => $log->agent_run_id, 'stream' => $log->stream, 'content' => $log->content, 'occurred_at' => $log->occurred_at?->toIso8601String()], JSON_UNESCAPED_UNICODE) . "\n\n";
+                }
+
+                echo ": keepalive\n\n";
+                if (function_exists('ob_flush')) @ob_flush();
+                flush();
+
+                sleep(2);
+            }
+        }, 200, [
+            'Content-Type' => 'text/event-stream',
+            'Cache-Control' => 'no-cache, no-transform',
+            'X-Accel-Buffering' => 'no',
+            'Connection' => 'keep-alive',
+        ]);
     }
 
     public function store(Request $request, TaskHubContextPackService $contextService)
@@ -657,7 +686,11 @@ class ApiAgentRunController extends Controller
 
         $task->update(['status' => 'done', 'completed_at' => now()]);
         if ($latest->status !== 'verified') $latest->update(['status' => 'verified', 'finished_at' => now()]);
-        $this->recordEvent($latest, 'human_approved', 'verified', ['task_id' => $task->id]);
+        $this->recordEvent($latest, 'human_approved', 'verified', [
+            'task_id' => $task->id,
+            'approved_by_user_id' => auth()->id(),
+            'approved_by_name' => auth()->user()?->name,
+        ]);
         if (is_array($sequence) && !empty($sequence['task_ids'])) {
             $remaining = collect($sequence['task_ids'])->map(fn ($id) => Task::find($id))->filter(fn ($candidate) => $candidate && $candidate->status !== 'done');
             $next = $remaining->first(fn (Task $candidate) => in_array($candidate->status, ['todo', 'backlog'], true) && !$candidate->hasIncompleteDependencies());

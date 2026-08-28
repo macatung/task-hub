@@ -231,7 +231,12 @@ class TaskAiAndDelayWarningTest extends TestCase
 
     public function test_api_sprints_excludes_epic_points_and_tasks(): void
     {
+        $user = \App\Models\User::factory()->create();
+        $workspace = \App\Models\Workspace::create(['owner_id' => $user->id, 'name' => 'Default Workspace', 'slug' => 'workspace-' . \Illuminate\Support\Str::random(6)]);
+        $workspace->members()->attach($user->id, ['role' => 'owner']);
+
         $project = Project::create([
+            'workspace_id' => $workspace->id,
             'slug' => 'sprint-stats-proj',
             'title' => 'Sprint Stats Proj',
             'tagline' => 'Testing stats rollup',
@@ -251,7 +256,7 @@ class TaskAiAndDelayWarningTest extends TestCase
         // Legacy / stray epic with sprint_id
         Task::create(['project_id' => $project->id, 'sprint_id' => $sprint->id, 'title' => 'Legacy Epic', 'issue_type' => 'epic', 'status' => 'done', 'story_points' => 13]);
 
-        $res = $this->getJson("/api/sprints?project_id={$project->id}")->assertOk();
+        $res = $this->actingAs($user)->withHeaders(['X-Workspace-Id' => $workspace->id])->getJson("/api/sprints?project_id={$project->id}")->assertOk();
         $sprintData = $res->json('data.0');
 
         // Total points should be 5 + 3 = 8 (Epic 13 excluded)
@@ -263,7 +268,12 @@ class TaskAiAndDelayWarningTest extends TestCase
 
     public function test_api_sprints_move_tasks_guards_epics(): void
     {
+        $user = \App\Models\User::factory()->create();
+        $workspace = \App\Models\Workspace::create(['owner_id' => $user->id, 'name' => 'Default Workspace', 'slug' => 'workspace-' . \Illuminate\Support\Str::random(6)]);
+        $workspace->members()->attach($user->id, ['role' => 'owner']);
+
         $project = Project::create([
+            'workspace_id' => $workspace->id,
             'slug' => 'sprint-move-proj',
             'title' => 'Sprint Move Proj',
             'tagline' => 'Testing move tasks guard',
@@ -279,7 +289,7 @@ class TaskAiAndDelayWarningTest extends TestCase
         $epic = Task::create(['project_id' => $project->id, 'sprint_id' => null, 'title' => 'Main Epic', 'issue_type' => 'epic', 'story_points' => 13]);
         $task = Task::create(['project_id' => $project->id, 'sprint_id' => null, 'title' => 'Sub Task', 'issue_type' => 'task', 'story_points' => 3]);
 
-        $this->postJson('/api/sprints/move-tasks', [
+        $this->actingAs($user)->withHeaders(['X-Workspace-Id' => $workspace->id])->postJson('/api/sprints/move-tasks', [
             'task_ids' => [$epic->id, $task->id],
             'sprint_id' => $sprint->id,
         ])->assertOk();
@@ -297,8 +307,8 @@ class TaskAiAndDelayWarningTest extends TestCase
             'sprint_duration_weeks' => 2,
         ]);
 
+        $epics = collect($plan['epics'] ?? []);
         $allTasks = collect($plan['sprints'])->flatMap(fn ($s) => $s['tasks']);
-        $epics = $allTasks->where('issue_type', 'epic');
         $workTasks = $allTasks->where('issue_type', '!=', 'epic');
 
         $this->assertGreaterThanOrEqual(1, $epics->count());
@@ -309,7 +319,12 @@ class TaskAiAndDelayWarningTest extends TestCase
 
     public function test_sprint_complete_guards_incomplete_epics_from_target_sprint(): void
     {
+        $user = \App\Models\User::factory()->create();
+        $workspace = \App\Models\Workspace::create(['owner_id' => $user->id, 'name' => 'Default Workspace', 'slug' => 'workspace-' . \Illuminate\Support\Str::random(6)]);
+        $workspace->members()->attach($user->id, ['role' => 'owner']);
+
         $project = Project::create([
+            'workspace_id' => $workspace->id,
             'slug' => 'sprint-complete-guard-proj',
             'title' => 'Sprint Complete Guard Proj',
             'tagline' => 'Testing sprint completion',
@@ -331,7 +346,7 @@ class TaskAiAndDelayWarningTest extends TestCase
         $epic = Task::create(['project_id' => $project->id, 'sprint_id' => $sprintCurrent->id, 'title' => 'Incomplete Epic', 'issue_type' => 'epic', 'status' => 'in_progress', 'story_points' => 13]);
         $task = Task::create(['project_id' => $project->id, 'sprint_id' => $sprintCurrent->id, 'title' => 'Incomplete Task', 'issue_type' => 'task', 'status' => 'todo', 'story_points' => 5]);
 
-        $this->postJson("/api/sprints/{$sprintCurrent->id}/complete", [
+        $this->actingAs($user)->withHeaders(['X-Workspace-Id' => $workspace->id])->postJson("/api/sprints/{$sprintCurrent->id}/complete", [
             'move_incomplete_to' => (string) $sprintNext->id,
         ])->assertOk();
 

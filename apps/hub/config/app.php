@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Facade;
 
 return [
 
-    'name' => env('APP_NAME', 'Task Hub'),
+    'name' => env('APP_NAME', 'Midnight Hub'),
 
     'env' => env('APP_ENV', 'production'),
 

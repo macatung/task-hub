@@ -41,6 +41,7 @@ class Task extends Model
 
     protected $casts = [
         'project_id' => 'integer',
+        'workspace_id' => 'integer',
         'sprint_id' => 'integer',
         'epic_id' => 'integer',
         'story_points' => 'integer',
@@ -80,6 +81,9 @@ class Task extends Model
         });
 
         static::saving(function ($task) {
+            if (!$task->workspace_id && $task->project_id) {
+                $task->workspace_id = $task->project?->workspace_id;
+            }
             if ($task->issue_type === 'epic') {
                 $task->sprint_id = null;
                 $task->epic_id = null;

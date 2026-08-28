@@ -36,7 +36,7 @@ class FoundationChallengeTest extends TestCase
         $content = $response->getContent();
         $this->assertStringContainsString('<div id="app" data-page="', $content);
         $this->assertStringContainsString('<!DOCTYPE html>', $content);
-        $this->assertStringContainsString('<title inertia>Macatung Portfolio</title>', $content);
+        $this->assertStringContainsString('<title inertia>Task Hub</title>', $content);
         $this->assertStringContainsString('fonts.googleapis.com', $content);
         $this->assertMatchesRegularExpression('/<link[^>]+href="[^"]*build\/assets\/app-[^"]+\.css"|<link[^>]+href="[^"]*resources\/css\/app\.css"/', $content);
         $this->assertMatchesRegularExpression('/<script[^>]+src="[^"]*build\/assets\/app-[^"]+\.js"|<script[^>]+src="[^"]*resources\/js\/app\.ts"/', $content);
@@ -61,11 +61,10 @@ class FoundationChallengeTest extends TestCase
         $response->assertHeader('Vary', 'X-Inertia');
         
         $response->assertJson([
-            'component' => 'Home',
+            'component' => 'Hub/Index',
             'url' => '/',
             'props' => [
-                'title' => 'Code at midnight',
-                'appName' => config('app.name', 'Macatung Portfolio'),
+                'appName' => config('app.name', 'Task Hub'),
                 'flash' => [
                     'success' => null,
                     'error' => null,
@@ -131,11 +130,10 @@ class FoundationChallengeTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertInertia(fn (Assert $page) => $page
-            ->component('Home')
+            ->component('Hub/Index')
             ->where('flash.success', 'Bùa chú kích hoạt thành công!')
             ->where('flash.error', null)
             ->where('flash.reference_id', 'SUMMON-BETA-888')
-            ->has('title')
             ->has('appName')
         );
     }
@@ -145,19 +143,19 @@ class FoundationChallengeTest extends TestCase
      */
     public function test_inertia_shares_authenticated_user_safely(): void
     {
-        $user = new User([
+        $user = User::factory()->create([
+            'id' => 42,
             'name' => 'Midnight Sorcerer',
             'email' => 'sorcerer@macatung.dev',
             'password' => bcrypt('supersecret'),
         ]);
-        $user->id = 42;
 
         $headers = ['X-Inertia' => 'true'];
         if ($version = $this->getInertiaVersion()) {
             $headers['X-Inertia-Version'] = $version;
         }
 
-        $response = $this->actingAs($user)->get('/', $headers);
+        $response = $this->actingAs($user)->get('/tasks', $headers);
 
         $response->assertStatus(200);
         $response->assertJsonPath('props.auth.user.id', 42);
@@ -177,8 +175,8 @@ class FoundationChallengeTest extends TestCase
     {
         $headers = [
             'X-Inertia' => 'true',
-            'X-Inertia-Partial-Component' => 'Home',
-            'X-Inertia-Partial-Data' => 'title',
+            'X-Inertia-Partial-Component' => 'Hub/Index',
+            'X-Inertia-Partial-Data' => 'appName',
         ];
         if ($version = $this->getInertiaVersion()) {
             $headers['X-Inertia-Version'] = $version;
@@ -187,7 +185,7 @@ class FoundationChallengeTest extends TestCase
         $response = $this->get('/', $headers);
 
         $response->assertStatus(200);
-        $response->assertJsonPath('props.title', 'Code at midnight');
+        $response->assertJsonPath('props.appName', config('app.name', 'Task Hub'));
     }
 
     /**

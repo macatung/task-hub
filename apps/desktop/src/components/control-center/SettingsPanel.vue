@@ -17,7 +17,16 @@ const props = defineProps<{
   autoReviewEnabled: boolean;
   reviewerProvider: 'codex' | 'claude_code' | 'antigravity';
   autoReviewMaxIterations: number;
-  caoStatus: { running: boolean; available: boolean; port: number; cli: string | null; source: 'embedded' | 'external' | 'offline' } | null;
+  caoStatus: {
+    running: boolean;
+    available: boolean;
+    port: number;
+    cli: string | null;
+    source: 'embedded' | 'external' | 'offline';
+    reconnecting?: boolean;
+    error?: string;
+  } | null;
+  caoReconnecting?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -157,16 +166,59 @@ const saveAutoReview = () => emit('updateAutoReview', { enabled: reviewEnabled.v
 
         <section class="border-t border-[#263244] pt-6">
           <div class="flex items-start justify-between gap-4">
-            <div><h3 class="text-sm font-semibold text-white">CAO Multi-Agent Orchestrator</h3><p class="mt-1 text-xs leading-5 text-[#8b9bb0]">Điều phối tác nhân đa luồng (Supervisor - Worker) qua AWS Labs CLI Agent Orchestrator. Mọi phiên agent đều bắt buộc chạy qua CAO.</p></div>
-              <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" :class="caoStatus?.available ? 'bg-emerald-950/60 text-emerald-300' : 'bg-rose-950/60 text-rose-300'">{{ caoStatus?.available ? 'Active (CAO required)' : 'Blocked (CAO unavailable)' }}</span>
+            <div>
+              <h3 class="text-sm font-semibold text-white">CAO Multi-Agent Orchestrator</h3>
+              <p class="mt-1 text-xs leading-5 text-[#8b9bb0]">Điều phối tác nhân đa luồng (Supervisor - Worker) qua AWS Labs CLI Agent Orchestrator. Mọi phiên agent đều bắt buộc chạy qua CAO.</p>
+            </div>
+            <span
+              class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+              :class="
+                (caoReconnecting || caoStatus?.reconnecting)
+                  ? 'bg-amber-950/60 text-amber-300'
+                  : caoStatus?.available
+                    ? 'bg-emerald-950/60 text-emerald-300'
+                    : 'bg-rose-950/60 text-rose-300'
+              "
+            >
+              {{
+                (caoReconnecting || caoStatus?.reconnecting)
+                  ? 'Reconnecting…'
+                  : caoStatus?.available
+                    ? 'Active (CAO required)'
+                    : 'Blocked (CAO unavailable)'
+              }}
+            </span>
           </div>
-          <div class="mt-3 rounded-md border border-[#263244] bg-black/20 px-3 py-2 text-xs">
+          <div class="mt-3 rounded-md border border-[#263244] bg-black/20 px-3 py-3 text-xs space-y-2">
             <div class="flex items-center justify-between text-zinc-300">
               <span class="font-medium text-white">Orchestrator Backend:</span>
-              <span class="font-mono" :class="caoStatus?.available ? 'text-emerald-400' : 'text-amber-300'">{{ caoStatus?.available ? `CAO CLI + daemon / Port ${caoStatus.port}` : 'CAO CLI or daemon unavailable' }}</span>
+              <span class="font-mono" :class="caoStatus?.available ? 'text-emerald-400' : 'text-amber-300'">
+                {{ (caoReconnecting || caoStatus?.reconnecting) ? 'Reconnecting to CAO daemon…' : caoStatus?.available ? `CAO CLI + daemon / Port ${caoStatus.port || 9889}` : 'CAO CLI or daemon unavailable' }}
+              </span>
             </div>
-            <p v-if="!caoStatus?.available" class="mt-2 text-[11px] text-[#d7a5a5]">Agent runs are blocked until CAO CLI and its local daemon are available in the selected runtime.</p>
-            <button class="cc-button mt-3" @click="emit('restartCao')">Restart CAO daemon</button>
+            <div v-if="caoStatus?.source" class="flex items-center justify-between text-zinc-400 text-[11px]">
+              <span>Daemon Source:</span>
+              <span class="font-mono uppercase">{{ caoStatus.source }}</span>
+            </div>
+            <div v-if="caoStatus?.cli" class="flex items-center justify-between text-zinc-400 text-[11px]">
+              <span>CLI Executable:</span>
+              <span class="font-mono truncate max-w-xs" :title="caoStatus.cli">{{ caoStatus.cli }}</span>
+            </div>
+            <div v-if="!caoStatus?.available && !(caoReconnecting || caoStatus?.reconnecting)" class="rounded bg-rose-950/30 border border-rose-900/50 p-2 text-[11px] text-[#d7a5a5] space-y-1">
+              <p class="font-semibold text-rose-300">Hướng dẫn khắc phục sự cố CAO (Troubleshooting):</p>
+              <ul class="list-disc pl-4 space-y-0.5 text-zinc-400">
+                <li>Đảm bảo WSL2 hoặc môi trường Python của CAO đã được cài đặt và kích hoạt.</li>
+                <li>Khởi động daemon thủ công nếu cần: <code class="font-mono text-zinc-200">cao-server --port 9889</code></li>
+                <li>Nhấn nút <b>Restart CAO daemon</b> bên dưới để tự động khởi tạo lại tiến trình.</li>
+              </ul>
+            </div>
+            <button
+              class="cc-button mt-3"
+              :disabled="caoReconnecting || caoStatus?.reconnecting"
+              @click="emit('restartCao')"
+            >
+              {{ (caoReconnecting || caoStatus?.reconnecting) ? 'Restarting…' : 'Restart CAO daemon' }}
+            </button>
           </div>
         </section>
 

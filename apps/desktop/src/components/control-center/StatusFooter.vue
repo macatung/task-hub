@@ -10,9 +10,16 @@ const props = defineProps<{
   phase: string;
   runStatus: 'idle' | 'running' | 'completed' | 'failed' | 'cancelled';
   appVersion: string;
+  caoStatus?: {
+    running: boolean;
+    available: boolean;
+    reconnecting?: boolean;
+    port?: number;
+  } | null;
+  caoReconnecting?: boolean;
 }>();
 
-const connectionLabel = () => props.online ? 'Hub connected' : props.connected ? 'Hub offline' : 'Hub not connected';
+const connectionLabel = () => props.online ? 'Midnight Hub connected' : props.connected ? 'Midnight Hub offline' : 'Midnight Hub not connected';
 const runLabel = () => ({ idle: 'Ready', running: 'Running', completed: 'Completed', failed: 'Failed', cancelled: 'Cancelled' }[props.runStatus]);
 const locationLabel = () => props.worktree || props.workspace || 'No workspace selected';
 </script>
@@ -29,6 +36,45 @@ const locationLabel = () => props.worktree || props.workspace || 'No workspace s
       >
         <span class="h-1.5 w-1.5 rounded-full" :class="online ? 'bg-emerald-400 animate-pulse' : connected ? 'bg-amber-400' : 'bg-zinc-600'"></span>
         <span class="text-[10px] font-bold tracking-wider uppercase">{{ connectionLabel() }}</span>
+      </div>
+
+      <!-- CAO Daemon Status Pill -->
+      <div
+        class="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 border"
+        :class="
+          (caoReconnecting || caoStatus?.reconnecting)
+            ? 'bg-amber-950/40 border-amber-600/40 text-amber-300'
+            : caoStatus?.available
+              ? 'bg-emerald-950/40 border-emerald-600/40 text-emerald-300'
+              : 'bg-[#1c1713] border-[#2b221a] text-zinc-500'
+        "
+        :title="
+          (caoReconnecting || caoStatus?.reconnecting)
+            ? 'CAO Daemon: Reconnecting'
+            : caoStatus?.available
+              ? `CAO Daemon: Connected on port ${caoStatus.port || 9889}`
+              : 'CAO Daemon: Offline'
+        "
+      >
+        <span
+          class="h-1.5 w-1.5 rounded-full"
+          :class="
+            (caoReconnecting || caoStatus?.reconnecting)
+              ? 'bg-amber-400 animate-pulse'
+              : caoStatus?.available
+                ? 'bg-emerald-400'
+                : 'bg-zinc-600'
+          "
+        ></span>
+        <span class="text-[10px] font-bold tracking-wider uppercase">
+          {{
+            (caoReconnecting || caoStatus?.reconnecting)
+              ? 'CAO: RECONNECTING'
+              : caoStatus?.available
+                ? 'CAO: CONNECTED'
+                : 'CAO: OFFLINE'
+          }}
+        </span>
       </div>
 
       <!-- AI Provider Pill -->

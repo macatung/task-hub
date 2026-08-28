@@ -127,6 +127,30 @@ export function formatQuotaTelemetry(quota: any): any {
   };
 }
 
+interface TaskMemoryCacheEntry {
+  tasks: TaskItem[];
+  agentTasks: TaskItem[];
+  fetchedAt: number;
+}
+
+const memoryTaskCache = new Map<string, TaskMemoryCacheEntry>();
+const inFlightTaskFetches = new Map<string, Promise<boolean>>();
+export const TASK_CACHE_STALE_TTL_MS = 8_000;
+
+export function invalidateTaskMemoryCache(projectId?: string) {
+  if (projectId) {
+    memoryTaskCache.delete(projectId);
+    inFlightTaskFetches.delete(projectId);
+  } else {
+    memoryTaskCache.clear();
+    inFlightTaskFetches.clear();
+  }
+}
+
+export function getTaskMemoryCacheSnapshot(projectId: string): TaskMemoryCacheEntry | null {
+  return memoryTaskCache.get(projectId) || null;
+}
+
 export function useTaskSync() {
   const tasks = ref<TaskItem[]>([]);
   const agentTasks = ref<TaskItem[]>([]);
@@ -137,8 +161,9 @@ export function useTaskSync() {
   const credential = ref<DesktopCredential | null>(null);
   const connectionError = ref('');
 
-  const cacheKey = () => `task_hub_desktop_synced_tasks:${credential.value?.projectId || 'offline'}`;
-  const outboxKey = () => `task_hub_desktop_outbox:${credential.value?.projectId || 'offline'}`;
+  const currentProjectId = () => credential.value?.projectId || 'offline';
+  const cacheKey = () => `task_hub_desktop_synced_tasks:${currentProjectId()}`;
+  const outboxKey = () => `task_hub_desktop_outbox:${currentProjectId()}`;
   const apiUrl = (suffix = '') => `${(credential.value?.taskHubUrl || DEFAULT_TASK_HUB_URL).replace(/\/$/, '')}/api/v1/desktop/tasks${suffix}`;
   const projectsUrl = () => `${(credential.value?.taskHubUrl || DEFAULT_TASK_HUB_URL).replace(/\/$/, '')}/api/v1/desktop/projects`;
   const authHeaders = (): Record<string, string> => credential.value ? {
@@ -147,12 +172,53 @@ export function useTaskSync() {
     'X-Task-Hub-Project': credential.value.projectId,
   } : { 'Content-Type': 'application/json' };
 
-  // Load from local storage cache initially
-  const loadLocalCache = () => {
+  const fetchWithTimeout = async (url: string, init?: RequestInit, timeoutMs = 6000): Promise<Response> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const saved = localStorage.getItem(cacheKey());
+      const res = await fetch(url, {
+        ...init,
+        signal: init?.signal || controller.signal,
+      });
+      return res;
+    } catch (e: any) {
+      if (e?.name === 'AbortError' || controller.signal.aborted) {
+        throw new Error(`Task Hub request timed out after ${timeoutMs}ms.`);
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  const getLocalStorage = () => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) return window.localStorage;
+      if (typeof localStorage !== 'undefined') return localStorage;
+    } catch {}
+    return null;
+  };
+
+  // Load from in-memory or local storage cache initially
+  const loadLocalCache = () => {
+    const key = currentProjectId();
+    const mem = memoryTaskCache.get(key);
+    if (mem && Array.isArray(mem.tasks)) {
+      tasks.value = mem.tasks;
+      agentTasks.value = mem.agentTasks;
+      return;
+    }
+    try {
+      const storage = getLocalStorage();
+      const saved = storage?.getItem(cacheKey());
       if (saved) {
-        tasks.value = JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          tasks.value = parsed;
+          const filtered = parsed.filter((task: TaskItem) => task.status !== 'done' || needsDependencyReview(task, parsed));
+          agentTasks.value = filtered;
+          memoryTaskCache.set(key, { tasks: parsed, agentTasks: filtered, fetchedAt: Date.now() });
+        }
       }
     } catch (e) {
       console.warn('Local task cache error:', e);
@@ -160,8 +226,13 @@ export function useTaskSync() {
   };
 
   const saveLocalCache = () => {
+    const key = currentProjectId();
+    const filtered = tasks.value.filter((task: TaskItem) => task.status !== 'done' || needsDependencyReview(task, tasks.value));
+    agentTasks.value = filtered;
+    memoryTaskCache.set(key, { tasks: tasks.value, agentTasks: filtered, fetchedAt: Date.now() });
     try {
-      localStorage.setItem(cacheKey(), JSON.stringify(tasks.value));
+      const storage = getLocalStorage();
+      storage?.setItem(cacheKey(), JSON.stringify(tasks.value));
     } catch (e) {
       console.warn('Local task save error:', e);
     }
@@ -169,13 +240,15 @@ export function useTaskSync() {
 
   const readOutbox = (): PendingSyncOperation[] => {
     try {
-      const value = JSON.parse(localStorage.getItem(outboxKey()) || '[]');
+      const storage = getLocalStorage();
+      const value = JSON.parse(storage?.getItem(outboxKey()) || '[]');
       return Array.isArray(value) ? value : [];
     } catch { return []; }
   };
 
   const writeOutbox = (operations: PendingSyncOperation[]) => {
-    localStorage.setItem(outboxKey(), JSON.stringify(operations));
+    const storage = getLocalStorage();
+    storage?.setItem(outboxKey(), JSON.stringify(operations));
   };
 
   const enqueueSync = (operation: PendingSyncOperation) => {
@@ -194,7 +267,7 @@ export function useTaskSync() {
     while (operations.length) {
       const operation = operations[0];
       try {
-        const response = await fetch(`${apiUrl()}${operation.path}`, {
+        const response = await fetchWithTimeout(`${apiUrl()}${operation.path}`, {
           method: operation.method,
           headers: { ...authHeaders(), 'X-Idempotency-Key': operation.id },
           body: JSON.stringify(operation.body),
@@ -305,11 +378,13 @@ export function useTaskSync() {
       const electronCred = await window.desktopApi?.taskHub?.getCredential?.();
       if (electronCred?.token) {
         credential.value = electronCred;
+        loadLocalCache();
         void syncHeartbeatService(electronCred);
         return credential.value;
       }
     } catch {}
     credential.value = null;
+    loadLocalCache();
     void syncHeartbeatService(null);
     return null;
   };
@@ -320,15 +395,17 @@ export function useTaskSync() {
     } catch {}
     credential.value = next;
     connectionError.value = '';
+    loadLocalCache();
     void syncHeartbeatService(next);
     await fetchProjects();
     await fetchTasks();
   };
 
   const fetchProjects = async () => {
+    if (!credential.value) await loadCredential();
     if (!credential.value) return false;
     try {
-      const response = await fetch(projectsUrl(), { headers: authHeaders() });
+      const response = await fetchWithTimeout(projectsUrl(), { headers: authHeaders() });
       const json = await response.json();
       if (!response.ok || !json.success) throw new Error(json?.message || `Task Hub returned HTTP ${response.status}.`);
       projects.value = json.data || [];
@@ -358,7 +435,7 @@ export function useTaskSync() {
     if (!credential.value) await loadCredential();
     if (!credential.value) { loadLocalCache(); isOnline.value = false; isLoading.value = false; return; }
     try {
-      const res = await fetch(`${apiUrl()}?today=1&project_id=${encodeURIComponent(credential.value.projectId)}`, { headers: authHeaders() });
+      const res = await fetchWithTimeout(`${apiUrl()}?today=1&project_id=${encodeURIComponent(credential.value.projectId)}`, { headers: authHeaders() });
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -379,32 +456,58 @@ export function useTaskSync() {
     loadLocalCache();
   };
 
-  const fetchAgentTasks = async () => {
-    if (!credential.value) return false;
-    try {
-      // Fetch the complete selected-project backlog once.  The old three
-      // status requests were brittle with scoped desktop credentials and
-      // could leave the queue empty although the project had work items.
-      const response = await fetch(`${apiUrl()}?project_id=${encodeURIComponent(credential.value.projectId)}`, { headers: authHeaders() });
-      const payload = response.ok ? await response.json() : null;
-      if (!payload?.success || !Array.isArray(payload.data)) throw new Error('Task Hub did not return a project backlog.');
-      tasks.value = payload.data;
-      // Keep Epics in the local queue so the desktop can launch a supervised
-      // dependency-aware sequence. Completed items normally stay hidden, but
-      // a completed task with a regressed prerequisite remains visible for
-      // human reconsideration.
-      agentTasks.value = payload.data.filter((task: TaskItem) => task.status !== 'done' || needsDependencyReview(task, payload.data));
-      saveLocalCache();
-      isOnline.value = true;
-      connectionError.value = '';
-      return true;
-    } catch (e) {
-      console.warn('Cannot load agent tasks:', e);
-      agentTasks.value = tasks.value.filter(task => task.status !== 'done' || needsDependencyReview(task, tasks.value));
-      isOnline.value = false;
-      connectionError.value = e instanceof Error ? e.message : 'Unable to load the Task Hub backlog.';
-      return false;
+  const fetchAgentTasks = async (options?: { forceRefresh?: boolean }) => {
+    if (!credential.value) await loadCredential();
+    if (!credential.value) {
+      loadLocalCache();
+      return tasks.value.length > 0;
     }
+    const key = currentProjectId();
+
+    // SWR: If fresh in memory cache and not forced, return cached state immediately (0ms latency, 0 requests)
+    if (!options?.forceRefresh) {
+      const cached = memoryTaskCache.get(key);
+      if (cached && Date.now() - cached.fetchedAt < TASK_CACHE_STALE_TTL_MS && Array.isArray(cached.tasks)) {
+        tasks.value = cached.tasks;
+        agentTasks.value = cached.agentTasks;
+        isOnline.value = true;
+        connectionError.value = '';
+        return true;
+      }
+    }
+
+    // In-flight request deduplication: reuse ongoing fetch promise if exists
+    if (inFlightTaskFetches.has(key)) {
+      return await inFlightTaskFetches.get(key)!;
+    }
+
+    const fetchPromise = (async () => {
+      try {
+        const response = await fetchWithTimeout(`${apiUrl()}?project_id=${encodeURIComponent(credential.value!.projectId)}`, { headers: authHeaders() });
+        const payload = response.ok ? await response.json() : null;
+        if (!payload?.success || !Array.isArray(payload.data)) throw new Error('Task Hub did not return a project backlog.');
+        tasks.value = payload.data;
+        const filtered = payload.data.filter((task: TaskItem) => task.status !== 'done' || needsDependencyReview(task, payload.data));
+        agentTasks.value = filtered;
+        memoryTaskCache.set(key, { tasks: payload.data, agentTasks: filtered, fetchedAt: Date.now() });
+        saveLocalCache();
+        isOnline.value = true;
+        connectionError.value = '';
+        return true;
+      } catch (e) {
+        console.warn('Cannot load agent tasks:', e);
+        loadLocalCache();
+        agentTasks.value = tasks.value.filter(task => task.status !== 'done' || needsDependencyReview(task, tasks.value));
+        isOnline.value = false;
+        connectionError.value = e instanceof Error ? e.message : 'Unable to load the Task Hub backlog.';
+        return tasks.value.length > 0;
+      } finally {
+        inFlightTaskFetches.delete(key);
+      }
+    })();
+
+    inFlightTaskFetches.set(key, fetchPromise);
+    return await fetchPromise;
   };
 
   // Create task
@@ -435,7 +538,7 @@ export function useTaskSync() {
       id: crypto.randomUUID(), method: 'POST', path: '', body: { ...newTask }, temporaryTaskId: newTask.id,
     };
     try {
-      const res = await fetch(apiUrl(), {
+      const res = await fetchWithTimeout(apiUrl(), {
         method: 'POST',
         headers: { ...authHeaders(), 'X-Idempotency-Key': operation.id },
         body: JSON.stringify(newTask),
@@ -465,7 +568,7 @@ export function useTaskSync() {
 
     try {
       if (!credential.value) throw new Error('Connect Task Hub before changing task status.');
-      const response = await fetch(`${apiUrl()}/${task.id}`, {
+      const response = await fetchWithTimeout(`${apiUrl()}/${task.id}`, {
         method: 'PATCH',
         headers: authHeaders(),
         body: JSON.stringify({ status: newStatus }),
@@ -510,7 +613,7 @@ export function useTaskSync() {
 
     try {
       if (!credential.value) return;
-      const response = await fetch(`${apiUrl()}/${task.id}`, {
+      const response = await fetchWithTimeout(`${apiUrl()}/${task.id}`, {
         method: 'PATCH',
         headers: authHeaders(),
         body: JSON.stringify({ completed_pomodoros: task.completed_pomodoros }),
@@ -526,7 +629,7 @@ export function useTaskSync() {
   };
 
   onMounted(() => {
-    void loadCredential().then(() => fetchProjects()).then(() => fetchTasks()).then(() => fetchAgentTasks()).then(() => replayOutbox());
+    void loadCredential().then(() => Promise.all([fetchProjects(), fetchAgentTasks()])).then(() => replayOutbox());
   });
 
   return {
@@ -549,5 +652,9 @@ export function useTaskSync() {
     toggleTaskComplete,
     incrementPomodoro,
     replayOutbox,
+    loadLocalCache,
+    saveLocalCache,
+    invalidateCache: (projectId?: string) => invalidateTaskMemoryCache(projectId || credential.value?.projectId),
+    getCacheSnapshot: (projectId?: string) => getTaskMemoryCacheSnapshot(projectId || credential.value?.projectId || 'offline'),
   };
 }

@@ -85,7 +85,7 @@ class WorkspaceBillingTest extends TestCase
 
         $response->assertJsonPath('success', true);
         $response->assertJsonPath('data.subscription.plan_slug', 'pro');
-        $response->assertJsonPath('data.invoice.amount', 19.00);
+        $this->assertEquals(19.00, $response->json('data.invoice.amount'));
         $response->assertJsonPath('data.invoice.status', 'paid');
 
         $this->assertDatabaseHas('workspaces', [

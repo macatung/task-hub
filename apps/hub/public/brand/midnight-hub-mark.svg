@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#070B14"/>
+      <stop offset="50%" stop-color="#04070D"/>
+      <stop offset="100%" stop-color="#020408"/>
+    </linearGradient>
+
+    <!-- Border Glow Gradient -->
+    <linearGradient id="borderGlow" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00F5A0" stop-opacity="0.8"/>
+      <stop offset="50%" stop-color="#00F5D4" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#9D4EDD" stop-opacity="0.6"/>
+    </linearGradient>
+
+    <!-- Hero Monogram M Gradient -->
+    <linearGradient id="monogramGradient" x1="120" y1="120" x2="392" y2="392" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="25%" stop-color="#00F5D4"/>
+      <stop offset="75%" stop-color="#00F5A0"/>
+      <stop offset="100%" stop-color="#00D287"/>
+    </linearGradient>
+
+    <!-- Crescent Moon Gradient -->
+    <linearGradient id="crescentGradient" x1="380" y1="130" x2="160" y2="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00F5D4" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#00F5A0" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#9D4EDD" stop-opacity="0.8"/>
+    </linearGradient>
+
+    <!-- Inner Ambient Core Glow -->
+    <radialGradient id="coreGlow" cx="256" cy="256" r="180" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00F5A0" stop-opacity="0.25"/>
+      <stop offset="50%" stop-color="#00F5D4" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Drop Shadow Filter for Monogram -->
+    <filter id="neonShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#00F5A0" flood-opacity="0.35"/>
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#00F5D4" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- 1. Squircle Container Background -->
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bgGradient)"/>
+  <rect x="16" y="16" width="480" height="480" rx="112" stroke="url(#borderGlow)" stroke-width="3" stroke-opacity="0.6"/>
+
+  <!-- 2. Ambient Core Glow -->
+  <circle cx="256" cy="256" r="180" fill="url(#coreGlow)"/>
+
+  <!-- 3. Midnight Crescent Moon Arc (Atmospheric Backdrop) -->
+  <path d="M356 128 C388 160 404 204 404 256 C404 337.7 337.7 404 256 404 C204 404 160 388 128 356 C168 396 228 416 288 400 C352 384 396 328 396 256 C396 196 376 152 356 128 Z" 
+        fill="url(#crescentGradient)" opacity="0.85"/>
+
+  <!-- 4. Hero "M" Monogram & Midnight Nodes -->
+  <g filter="url(#neonShadow)">
+    <!-- Left Wing of M -->
+    <path d="M144 360 L144 168 C144 159.2 151.2 152 160 152 L180 152 C186.4 152 192.2 155.8 194.8 161.6 L256 296 L317.2 161.6 C319.8 155.8 325.6 152 332 152 L352 152 C360.8 152 368 159.2 368 168 L368 360 C368 366.6 362.6 372 356 372 L336 372 C329.4 372 324 366.6 324 360 L324 228 L272.8 340.8 C269.6 347.8 262.8 352 256 352 C249.2 352 242.4 347.8 239.2 340.8 L188 228 L188 360 C188 366.6 182.6 372 176 372 L156 372 C149.4 372 144 366.6 144 360 Z" 
+          fill="url(#monogramGradient)"/>
+
+    <!-- Midnight North Star / Convergence Node -->
+    <circle cx="256" cy="132" r="10" fill="#00F5A0"/>
+    <path d="M256 112 L256 152 M236 132 L276 132" stroke="#00F5D4" stroke-width="2.5" stroke-linecap="round"/>
+
+    <!-- Bottom Pulse Ring -->
+    <circle cx="256" cy="380" r="4" fill="#00F5A0"/>
+  </g>
+</svg>

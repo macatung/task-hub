@@ -42,10 +42,15 @@ mkdir -p /var/www/html/storage/framework/cache/data \
 # Clear stale dev caches
 rm -f /var/www/html/bootstrap/cache/*.php
 
-# 5. Database Migration & Seeding
+# 5. Database Migration (seeding only if RUN_SEEDER=true)
 php artisan package:discover --ansi || true
-echo "⚡ Running database migrations and seeders..."
-php artisan migrate --force --seed || php artisan migrate --force || true
+echo "⚡ Running database migrations..."
+if [ "$RUN_SEEDER" = "true" ]; then
+    echo "🌱 Seeding database..."
+    php artisan migrate --force --seed || php artisan migrate --force || true
+else
+    php artisan migrate --force || true
+fi
 
 # 6. Cache Optimization
 echo "🚀 Caching Laravel configurations for production..."

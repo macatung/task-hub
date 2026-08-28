@@ -45,7 +45,7 @@ export class CaoBridgeService {
   private activeSessions: Map<string, CaoAgentSession> = new Map();
 
   constructor(endpoint = 'http://127.0.0.1:9889') {
-    this.endpoint = endpoint.replace(/\/$/, '');
+    this.endpoint = endpoint.replace(/\/+$/, '');
   }
 
   public getEndpoint(): string {
@@ -53,7 +53,7 @@ export class CaoBridgeService {
   }
 
   public setEndpoint(endpoint: string): void {
-    this.endpoint = endpoint.replace(/\/$/, '');
+    this.endpoint = endpoint.replace(/\/+$/, '');
   }
 
   /**
@@ -130,12 +130,12 @@ export class CaoBridgeService {
    * Normalizes raw event text from CAO or agent CLI stream into Task Hub standard format
    */
   public normalizeStreamEvent(rawEvent: any, sessionId: string): CaoNormalizedEvent {
-    if (typeof rawEvent === 'string') {
+    if (typeof rawEvent === 'string' || !rawEvent || typeof rawEvent !== 'object') {
       return {
         type: 'text',
         sessionId,
         provider: 'cao',
-        content: rawEvent,
+        content: rawEvent != null ? String(rawEvent) : '',
         timestamp: new Date().toISOString(),
       };
     }

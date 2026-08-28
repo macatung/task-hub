@@ -4,6 +4,7 @@
 /apps/hub/public/storage
 /apps/hub/public/build
 /apps/hub/storage/*.key
+/apps/hub/storage/framework/
 /apps/hub/vendor
 .env
 .env.backup

@@ -185,7 +185,7 @@ class ApiProjectController extends Controller
         }
         $userToken = $integration->secret($request->user()->github_access_token);
         $projectToken = $integration->secret($project->github_token);
-        if (!$userToken && !$projectToken) {
+        if (!$userToken && !$projectToken && empty($request->input('task_hub_mcp_token')) && empty($project->task_hub_mcp_token)) {
             return response()->json(['success' => false, 'message' => 'GitHub access is not available. Please sign in with GitHub again.'], 422);
         }
         $validated = $request->validate([

@@ -254,6 +254,7 @@ class TaskHistoryService
 
         // 1. Run Dispatch Event
         if ($run->queued_at) {
+            $dispatcherName = data_get($run->metadata, 'dispatched_by_name') ?: ($task->project?->workspace?->owner?->name ?: 'Developer / Dispatcher');
             $events->push([
                 'id' => 'run-dispatch-' . $run->id,
                 'event_type' => 'task_dispatched',
@@ -264,7 +265,7 @@ class TaskHistoryService
                 'tone' => 'active',
                 'actor' => [
                     'type' => 'user',
-                    'name' => 'Developer / Dispatcher',
+                    'name' => $dispatcherName,
                     'role' => 'Dispatcher',
                     'details' => "Session ID: {$run->agent_session_id}",
                     'avatar_icon' => 'send',
@@ -391,6 +392,39 @@ class TaskHistoryService
                     'failure_reason' => $run->failure_reason,
                 ],
                 'occurred_at' => ($run->finished_at ?: now())->toIso8601String(),
+            ]);
+        }
+
+        // 6. Human Approvals / Rejections on Agent Run
+        foreach ($run->events->whereIn('event_type', ['human_approved', 'epic_human_approved', 'human_rejected']) as $approvalEvt) {
+            $isApproved = $approvalEvt->event_type !== 'human_rejected';
+            $approverUserId = data_get($approvalEvt->payload, 'approved_by_user_id') ?: data_get($approvalEvt->payload, 'user_id');
+            $approverName = data_get($approvalEvt->payload, 'approved_by_name');
+            if (!$approverName && $approverUserId) {
+                $approverUser = \App\Models\User::find($approverUserId);
+                $approverName = $approverUser?->name;
+            }
+            if (!$approverName) {
+                $approverName = auth()->user()?->name ?: 'Lead Reviewer / Admin';
+            }
+            $events->push([
+                'id' => 'run-approval-' . $approvalEvt->id,
+                'event_type' => $approvalEvt->event_type,
+                'title' => $isApproved ? 'Phê duyệt bàn giao (Human Approved)' : 'Yêu cầu chỉnh sửa (Human Changes Requested)',
+                'description' => $isApproved ? "Đã xác nhận kết quả kiểm thử và chuyển task sang Done." : "Từ chối bàn giao, yêu cầu thực hiện lại.",
+                'from_status' => 'review',
+                'to_status' => $isApproved ? 'done' : 'in_progress',
+                'tone' => $isApproved ? 'ok' : 'error',
+                'actor' => [
+                    'type' => 'user',
+                    'name' => $approverName,
+                    'role' => 'Reviewer / Approver',
+                    'details' => 'Human in the loop approval',
+                    'avatar_icon' => 'user-check',
+                ],
+                'evidence' => [],
+                'metadata' => $approvalEvt->payload ?: [],
+                'occurred_at' => $approvalEvt->occurred_at->toIso8601String(),
             ]);
         }
 

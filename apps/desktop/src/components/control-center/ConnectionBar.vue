@@ -9,7 +9,17 @@ const props = defineProps<{
   lastSynced: string | null;
   isMaximized: boolean;
   attentionCount?: number;
+  pendingOutboxCount?: number;
   projects?: ProjectItem[];
+  caoStatus?: {
+    running: boolean;
+    available: boolean;
+    reconnecting?: boolean;
+    port?: number;
+    source?: 'embedded' | 'external' | 'offline';
+    cli?: string | null;
+  } | null;
+  caoReconnecting?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -24,6 +34,7 @@ const emit = defineEmits<{
   minimize: [];
   maximize: [];
   close: [];
+  restartCao: [];
 }>();
 
 const overflowMenu = ref<HTMLDetailsElement | null>(null);
@@ -41,24 +52,21 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
 </script>
 
 <template>
-  <header class="cc-connectionbar drag-region flex min-h-[3.75rem] items-center justify-between border-b border-[#2a241f] bg-[#141210] px-3.5 py-1.5 text-zinc-100 select-none">
+  <header class="cc-connectionbar drag-region flex min-h-[3.75rem] items-center justify-between border-b border-[#141b2d] bg-[#070b14] px-3.5 py-1.5 text-zinc-100 select-none">
     <!-- Brand & Workspace Identity -->
     <div class="cc-connectionbar__identity flex items-center gap-3 min-w-0 flex-1">
       <!-- Logo & Workspace Name -->
-      <div class="flex items-center gap-2 pr-1">
-        <div class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-tr from-orange-600 via-amber-500 to-orange-400 shadow-[0_0_12px_rgba(249,115,22,0.35)]">
-          <svg class="h-4.5 w-4.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3"></circle>
-            <circle cx="19" cy="5" r="2"></circle>
-            <circle cx="5" cy="19" r="2"></circle>
-            <path d="M10.5 10.5 6.5 17.5"></path>
-            <path d="m13.5 13.5 4-7"></path>
+      <div class="flex items-center gap-2.5 pr-1">
+        <div class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-tr from-[#00f5a0] via-[#00f5d4] to-[#9d4edd] shadow-[0_0_14px_rgba(0,245,160,0.35)]">
+          <svg class="h-5 w-5 text-black" viewBox="0 0 32 32" fill="none">
+            <path d="M7 23V9h3l6 8 6-8h3v14h-3V14l-6 8-6-8v9H7z" fill="currentColor"/>
+            <circle cx="16" cy="7" r="1.5" fill="currentColor"/>
           </svg>
         </div>
         <div class="flex flex-col">
-          <span class="text-xs font-black tracking-wider uppercase text-zinc-100 flex items-center gap-1.5">
-            Task Hub
-            <span class="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30">DESKTOP</span>
+          <span class="text-xs font-black tracking-wider uppercase text-zinc-100 flex items-center gap-1.5 font-['Space_Grotesk']">
+            Midnight Hub
+            <span class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-[#00f5a0] border border-emerald-500/30 tracking-widest font-mono">MDNT</span>
           </span>
           <span class="text-[10px] text-zinc-400 truncate max-w-[140px]" :title="credential?.workspaceName || 'Không gian làm việc cục bộ'">
             {{ credential?.workspaceName || 'Local Workspace' }}
@@ -166,6 +174,57 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
       >
         <i class="h-1.5 w-1.5 rounded-full" :class="online ? 'bg-emerald-400' : 'bg-zinc-500'" />
         <span>{{ syncing ? 'Đang đồng bộ…' : online ? 'Đã kết nối' : 'Ngoại tuyến' }}</span>
+      </button>
+
+      <!-- Pending Offline Outbox Sync Badge -->
+      <button
+        v-if="pendingOutboxCount && pendingOutboxCount > 0"
+        class="cc-connectionbar__outbox hidden md:inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs bg-amber-950/50 border border-amber-500/50 text-amber-300 hover:bg-amber-900/50 transition cursor-pointer"
+        :title="`${pendingOutboxCount} mục đã lưu offline đang chờ sync lên server. Bấm để đồng bộ ngay.`"
+        @click="emit('sync')"
+      >
+        <span class="text-amber-400">⚡</span>
+        <span class="font-medium">{{ pendingOutboxCount }} chờ sync</span>
+      </button>
+
+      <!-- CAO Daemon Status Badge -->
+      <button
+        class="cc-connectionbar__cao hidden lg:inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition"
+        :class="
+          (caoReconnecting || caoStatus?.reconnecting)
+            ? 'bg-amber-950/40 border border-amber-600/40 text-amber-300'
+            : caoStatus?.available
+              ? 'bg-emerald-950/40 border border-emerald-600/40 text-emerald-300'
+              : 'bg-rose-950/30 border border-rose-800/40 text-rose-300'
+        "
+        :title="
+          (caoReconnecting || caoStatus?.reconnecting)
+            ? 'CAO Daemon đang kết nối lại...'
+            : caoStatus?.available
+              ? `CAO Orchestrator hoạt động trên cổng ${caoStatus.port || 9889}`
+              : 'CAO Orchestrator chưa khả dụng. Nhấp để mở cài đặt.'
+        "
+        @click="emit('settings')"
+      >
+        <span
+          class="h-1.5 w-1.5 rounded-full"
+          :class="
+            (caoReconnecting || caoStatus?.reconnecting)
+              ? 'bg-amber-400 animate-pulse'
+              : caoStatus?.available
+                ? 'bg-emerald-400'
+                : 'bg-rose-400'
+          "
+        ></span>
+        <span>
+          {{
+            (caoReconnecting || caoStatus?.reconnecting)
+              ? 'CAO Reconnecting…'
+              : caoStatus?.available
+                ? `CAO ${caoStatus.port || 9889}`
+                : 'CAO Offline'
+          }}
+        </span>
       </button>
 
       <!-- Overflow Menu -->

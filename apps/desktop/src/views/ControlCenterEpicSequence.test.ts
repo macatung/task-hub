@@ -44,4 +44,14 @@ describe('Control Center Epic sequence orchestration', () => {
     expect(controlCenter).toContain('await failEpicSequence(error.value);');
     expect(controlCenter).toContain('Automatic review failed for an Epic child');
   });
+
+  it('provides recovery controls to skip review or skip task when an Epic child encounters an issue', () => {
+    expect(controlCenter).toContain('skipReviewAndContinueEpic');
+    expect(controlCenter).toContain('retryEpicChildTask');
+    expect(controlCenter).toContain('skipEpicChildTask');
+    expect(runWorkspace).toContain('Bỏ qua review & Tiếp tục Epic');
+    expect(runWorkspace).toContain('Bỏ qua review & Chạy tiếp Epic');
+    expect(runWorkspace).toContain('Thử lại task này (Giữ worktree)');
+    expect(runWorkspace).toContain('Bỏ qua & Tiếp tục Epic (DAG)');
+  });
 });

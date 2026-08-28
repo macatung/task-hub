@@ -28,6 +28,29 @@ Route::get('/pricing', [PricingController::class, 'index'])->name('pricing');
 Route::get('/tasks', [TaskController::class, 'index'])->name('tasks.index');
 Route::get('/workspace', [TaskController::class, 'index'])->name('tasks.workspace');
 Route::get('/workspaces/{workspace}/billing', [WorkspaceBillingController::class, 'show'])->name('workspaces.billing');
+Route::post('/contact', [\App\Http\Controllers\ContactController::class, 'store'])->name('contact.store');
+Route::post('/summon', [\App\Http\Controllers\ContactController::class, 'store'])->name('contact.summon');
+
+// Admin CMS Authentication
+Route::get('/admin/login', [\App\Http\Controllers\Admin\AdminAuthController::class, 'showLogin'])->name('admin.login');
+Route::post('/admin/login', [\App\Http\Controllers\Admin\AdminAuthController::class, 'login'])->name('admin.login.post');
+Route::post('/admin/logout', [\App\Http\Controllers\Admin\AdminAuthController::class, 'logout'])->name('admin.logout');
+
+// Public Analytics Beacon API
+Route::post('/api/analytics/event', [\App\Http\Controllers\Admin\AdminAnalyticsController::class, 'recordEvent'])->name('api.analytics.event');
+
+// Admin CMS Protected Area
+Route::middleware('admin.auth')->prefix('admin')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Admin\AdminDashboardController::class, 'index'])->name('admin.dashboard');
+    Route::get('/analytics', [\App\Http\Controllers\Admin\AdminAnalyticsController::class, 'index'])->name('admin.analytics');
+    Route::resource('skills', \App\Http\Controllers\Admin\AdminSkillController::class)->names('admin.skills');
+    Route::resource('experiences', \App\Http\Controllers\Admin\AdminExperienceController::class)->names('admin.experiences');
+    Route::resource('articles', \App\Http\Controllers\Admin\AdminArticleController::class)->names('admin.articles');
+    Route::resource('contacts', \App\Http\Controllers\Admin\AdminContactController::class)->names('admin.contacts');
+    Route::resource('projects', \App\Http\Controllers\Admin\AdminProjectController::class)->names('admin.projects');
+    Route::get('/settings', [\App\Http\Controllers\Admin\AdminSettingController::class, 'index'])->name('admin.settings.index');
+    Route::match(['post', 'put', 'patch'], '/settings', [\App\Http\Controllers\Admin\AdminSettingController::class, 'update'])->name('admin.settings.update');
+});
 
 // GitHub OAuth identity and authorization
 Route::get('/auth/github', [GithubAuthController::class, 'redirect'])->name('auth.github');

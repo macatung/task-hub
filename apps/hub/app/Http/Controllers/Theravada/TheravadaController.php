@@ -47,11 +47,30 @@ class TheravadaController extends Controller
     ];
 
     /**
+     * Summary columns to avoid overfetching massive markdown content
+     */
+    protected array $summaryColumns = [
+        'id',
+        'title',
+        'slug',
+        'category',
+        'pali_title',
+        'excerpt',
+        'reading_time_min',
+        'author_name',
+        'cover_image_url',
+        'is_published',
+        'site_domain',
+        'published_at',
+    ];
+
+    /**
      * Theravada Home
      */
     public function index(): Response
     {
         $articles = Article::query()
+            ->select($this->summaryColumns)
             ->where('site_domain', 'theravada')
             ->where('is_published', true)
             ->orderBy('published_at', 'desc')
@@ -108,6 +127,7 @@ class TheravadaController extends Controller
             ->firstOrFail();
 
         $related = Article::query()
+            ->select($this->summaryColumns)
             ->where('site_domain', 'theravada')
             ->where('is_published', true)
             ->where('id', '!=', $article->id)
@@ -128,6 +148,7 @@ class TheravadaController extends Controller
     public function category(string $category): Response
     {
         $articles = Article::query()
+            ->select($this->summaryColumns)
             ->where('site_domain', 'theravada')
             ->where('category', $category)
             ->where('is_published', true)

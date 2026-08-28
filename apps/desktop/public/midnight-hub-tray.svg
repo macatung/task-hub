@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Midnight Hub: System Tray Indicator (Optimized for 16-32px dark/light taskbars) -->
+  <rect width="32" height="32" rx="7" fill="#04070D"/>
+  <rect width="32" height="32" rx="7" stroke="#00F5A0" stroke-width="1.2" stroke-opacity="0.8"/>
+  
+  <!-- Stylized M with Crescent -->
+  <path d="M7 23V9h3l6 8 6-8h3v14h-3V14l-6 8-6-8v9H7z" fill="#00F5A0"/>
+  <circle cx="16" cy="7" r="1.5" fill="#00F5D4"/>
+</svg>

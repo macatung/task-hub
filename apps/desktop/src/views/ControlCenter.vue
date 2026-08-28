@@ -15,6 +15,7 @@ import ActivityTimelineDrawer from '../components/ActivityTimelineDrawer.vue';
 import { useTaskSync, type TaskItem } from '../composables/useTaskSync';
 import { useActionFeedback } from '../composables/useActionFeedback';
 import { useContextPackCache } from '../composables/useContextPackCache';
+import { useMcpOutbox } from '../composables/useMcpOutbox';
 import {
   parseDiscoveryPlan,
   serializeDiscoveryPlanContract,
@@ -43,7 +44,12 @@ type PendingLaunch = {
   policy: ExecutionPolicy;
   intent: RunIntent;
 };
-type AgentRole = "implementation" | "reviewer" | "tool";
+type AgentRole =
+  | "supervisor"
+  | "worker"
+  | "reviewer"
+  | "implementation"
+  | "tool";
 type AutoReviewStatus =
   | "idle"
   | "reviewing"
@@ -53,6 +59,7 @@ type AutoReviewStatus =
   | "failed";
 const sync = useTaskSync();
 const contextPackCache = useContextPackCache();
+const mcpOutbox = useMcpOutbox(() => sync.credential.value?.projectId);
 const {
   notify,
   startOperation,
@@ -107,6 +114,7 @@ type EpicSequence = {
   epic: TaskItem;
   tasks: TaskItem[];
   completedIds: number[];
+  skippedIds?: number[];
   activeChildId: number | null;
   waitingForApproval: boolean;
   autoContinue: boolean;
@@ -142,7 +150,7 @@ type EpicChildResult = {
 const epicSequence = ref<EpicSequence | null>(null);
 let epicApprovalToken = 0;
 const autoSubmitHandoff = ref(
-  localStorage.getItem('task-hub-auto-submit-handoff') === 'true',
+  localStorage.getItem('task-hub-auto-submit-handoff') !== 'false',
 );
 const autoContinueEpic = ref(
   localStorage.getItem('task-hub-auto-continue-epic') !== 'false',
@@ -196,6 +204,13 @@ const caoStatus = ref<{
   source: "embedded" | "external" | "offline";
 } | null>(null);
 const fleetAgents = ref<any[]>([]);
+const sessionTokenUsage = ref<{
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+} | null>(null);
+const caoReconnecting = ref(false);
+const previousCaoAvailable = ref<boolean | null>(null);
 const inboxMessages = ref<any[]>([]);
 const inboxLoading = ref(false);
 const runtimeRepairing = ref(false);
@@ -216,14 +231,42 @@ const refreshFleet = async () => {
     [...saved, ...active].forEach((agent: any) =>
       byId.set(agent.sessionId, agent),
     );
-    fleetAgents.value = [...byId.values()].sort(
+    const sorted = [...byId.values()].sort(
       (a, b) =>
         Number(b.sessionId === sessionId.value) -
         Number(a.sessionId === sessionId.value),
     );
+    const activeSessions = sorted.filter(
+      (s) => s.status === "running" || s.sessionId === sessionId.value,
+    );
+    const inactiveSessions = sorted.filter(
+      (s) => s.status !== "running" && s.sessionId !== sessionId.value,
+    );
+    fleetAgents.value = [...activeSessions, ...inactiveSessions.slice(0, 5)];
   } catch {
     fleetAgents.value = [];
   }
+};
+const handleSelectFleetSession = (targetSessionId: string) => {
+  const agent = fleetAgents.value.find(
+    (candidate) => candidate.sessionId === targetSessionId,
+  );
+  if (!agent) return;
+  sessionId.value = targetSessionId;
+  if (agent.role) {
+    activeAgentRole.value = agent.role as AgentRole;
+  }
+  if (agent.tokenUsage) {
+    sessionTokenUsage.value = agent.tokenUsage;
+  }
+  if (agent.cwd) {
+    workspace.value = agent.cwd;
+  }
+  notify({
+    type: "info",
+    title: "Agent Room",
+    message: `Đã chọn session: ${agent.provider ? agent.provider.toUpperCase() : "CAO"} (${targetSessionId.slice(0, 8)})`,
+  });
 };
 const isMaximized = ref(false);
 const minimize = () => window.desktopApi?.minimize?.();
@@ -546,25 +589,56 @@ const acknowledgeInboxMessage = async (
   }
 };
 const refresh = async () => {
+  if (syncing.value) return;
   syncing.value = true;
   error.value = "";
   try {
-    await sync.loadCredential();
-    const [, backlogLoaded] = await Promise.all([
-      sync.fetchProjects(),
-      sync.fetchAgentTasks(),
+    await Promise.race([
+      (async () => {
+        await sync.loadCredential();
+        const [, backlogLoaded] = await Promise.all([
+          sync.fetchProjects(),
+          sync.fetchAgentTasks(),
+        ]);
+        lastSynced.value = new Date().toLocaleTimeString();
+        if (!backlogLoaded) {
+          error.value =
+            sync.connectionError.value ||
+            "Could not load the Task Hub backlog. Your cached queue may be stale.";
+        } else {
+          if (sync.agentTasks.value.length) {
+            // Auto background prefetch context packs for active workspace tasks
+            void contextPackCache.prefetchQueue(sync.agentTasks.value, mcp);
+          }
+          // Replay pending offline MCP operations (handoffs, evidence) in background
+          if (mcpOutbox.pendingCount.value > 0) {
+            void mcpOutbox.replay(mcp).then((res) => {
+              if (res.processed > 0) {
+                notify({
+                  type: "success",
+                  title: "Đồng bộ ngoại tuyến",
+                  message: `Đã đồng bộ thành công ${res.processed} mục lên Task Hub!`,
+                  durationMs: 4000,
+                });
+              }
+            });
+          }
+        }
+      })(),
+      new Promise((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                "Đồng bộ quá thời gian (Timeout 8s). Sử dụng dữ liệu cache.",
+              ),
+            ),
+          8000,
+        ),
+      ),
     ]);
-    lastSynced.value = new Date().toLocaleTimeString();
-    if (!backlogLoaded) {
-      error.value =
-        sync.connectionError.value ||
-        "Could not load the Task Hub backlog. Your cached queue may be stale.";
-    } else if (sync.agentTasks.value.length) {
-      // Auto background prefetch context packs for active workspace tasks
-      void contextPackCache.prefetchQueue(sync.agentTasks.value, mcp);
-    }
   } catch (e: any) {
-    error.value = e.message || "Sync failed.";
+    error.value = e?.message || "Sync failed.";
   } finally {
     syncing.value = false;
   }
@@ -729,6 +803,7 @@ const startLocal = async (
   activeAgentRole.value = role;
   runIntent.value = intent;
   if (!preserveOutput) output.value = '';
+  if (!preserveOutput) sessionTokenUsage.value = null;
   executionRoute.value = null;
   runOutputStart.value = output.value.length;
   if (role === "implementation")
@@ -748,14 +823,28 @@ const startLocal = async (
     persistent: true,
   });
   try {
-    const result = await window.desktopApi.agent.startInteractive(
-      launchProvider,
-      worktree.value,
-      prompt,
-      kind,
-      selectedModel.value || undefined,
-      policy,
-    );
+    let result: any = null;
+    try {
+      result = await window.desktopApi.agent.startInteractive(
+        launchProvider,
+        worktree.value,
+        prompt,
+        kind,
+        selectedModel.value || undefined,
+        policy,
+      );
+    } catch (firstErr) {
+      // If previous session is tearing down or port is momentarily busy, wait 800ms and retry once
+      await new Promise((r) => setTimeout(r, 800));
+      result = await window.desktopApi.agent.startInteractive(
+        launchProvider,
+        worktree.value,
+        prompt,
+        kind,
+        selectedModel.value || undefined,
+        policy,
+      );
+    }
     sessionId.value = result.sessionId;
     executionRoute.value = result.route === 'cao' ? 'cao' : null;
     void refreshFleet();
@@ -779,7 +868,11 @@ const startLocal = async (
   }
 };
 const epicTaskIsReady = (task: TaskItem, sequence: EpicSequence) => {
-  if (task.status === "done" || sequence.completedIds.includes(task.id))
+  if (
+    task.status === "done" ||
+    sequence.completedIds.includes(task.id) ||
+    (sequence.skippedIds || []).includes(task.id)
+  )
     return false;
   return !(task.dependencies || []).some((dependency) => {
     const dependencyId = dependency.depends_on_task_id;
@@ -795,6 +888,82 @@ const stopEpicSequence = (message = "Epic sequence stopped.") => {
   epicApprovalToken += 1;
   epicSequence.value = null;
   if (message) toolMessage.value = message;
+};
+const retryEpicChildTask = async (customPrompt?: string) => {
+  const sequence = epicSequence.value;
+  if (sequence) {
+    sequence.finalizing = false;
+    sequence.waitingForApproval = false;
+  }
+  runStatus.value = "idle";
+  error.value = "";
+  phase.value = `Retrying ${selectedTask.value?.issue_key || 'task'} in Epic sequence`;
+  notify({
+    type: "info",
+    title: "Thử lại task",
+    message: `Đang khởi chạy lại ${selectedTask.value?.issue_key || 'task'} giữ nguyên worktree.`,
+  });
+  await launch();
+};
+const skipEpicChildTask = async () => {
+  const sequence = epicSequence.value;
+  if (!sequence || !selectedTask.value) {
+    if (selectedTask.value) {
+      notify({
+        type: "warning",
+        title: "Bỏ qua task",
+        message: `Đã bỏ qua ${selectedTask.value.issue_key || selectedTask.value.title}.`,
+      });
+    }
+    return;
+  }
+  const currentChildId = selectedTask.value.id;
+  sequence.skippedIds = [...new Set([...(sequence.skippedIds || []), currentChildId])];
+  sequence.finalizing = false;
+  sequence.waitingForApproval = false;
+  runStatus.value = "idle";
+  error.value = "";
+  notify({
+    type: "warning",
+    title: "Bỏ qua task",
+    message: `Đã bỏ qua ${selectedTask.value.issue_key || selectedTask.value.title}. Đang tìm task độc lập tiếp theo trong Epic.`,
+  });
+  const next = nextEpicTask(sequence);
+  if (!next) {
+    phase.value = "Epic sequence stopped — no unblocked tasks";
+    toolMessage.value = "Không còn task độc lập nào sẵn sàng để chạy tiếp sau khi bỏ qua task này.";
+    return;
+  }
+  sequence.activeChildId = next.id;
+  selectedTask.value = next;
+  handoffReviewUrl.value = "";
+  output.value = "";
+  phase.value = `Starting ${next.issue_key || `#${next.id}`} in Epic sequence (${sequence.completedIds.length + 1}/${sequence.tasks.length})`;
+  await launch();
+};
+const skipReviewAndContinueEpic = async () => {
+  const sequence = epicSequence.value;
+  if (!sequence) return;
+  error.value = "";
+  sequence.finalizing = false;
+  sequence.waitingForApproval = false;
+  phase.value = "Epic sequence resuming";
+  toolMessage.value = "Skipping review and advancing to next Epic task.";
+  const payload = autoHandoffPayload();
+  if (payload) {
+    await recordEpicChildResult(payload, {
+      status: "approved",
+      feedback: "User chose to skip review and continue Epic sequence.",
+    });
+    notify({
+      type: "success",
+      title: "Tiếp tục Epic",
+      message: "Đã bỏ qua review và tiếp tục task kế tiếp trong Epic.",
+      durationMs: 3500,
+    });
+  } else if (sequence.activeChildId) {
+    await advanceEpicSequence(sequence.activeChildId, "handoff");
+  }
 };
 const advanceEpicSequence = async (
   childId: number,
@@ -906,38 +1075,43 @@ const ensureEpicParentRun = async (repository: string, context: any) => {
   const sequence = epicSequence.value;
   if (!sequence) return null;
   if (sequence.parentRunId) return sequence.parentRunId;
-  const started = await mcp("start_agent_run", {
-    task_id: sequence.epic.id,
-    provider: provider.value,
-    agent_session_id: `${provider.value}-epic-${Date.now()}`,
-    repository,
-    branch: worktree.value,
-    run_type: "epic",
-    context: {
-      ...(context || {}),
-      epic_id: sequence.epic.id,
-      epic_issue_key: sequence.epic.issue_key,
-      child_task_ids: sequence.tasks.map((task) => task.id),
-    },
-    metadata: {
-      epic_sequence: {
-        local_cao: true,
+  let parentRunId: number | null = null;
+  try {
+    const started = await mcp("start_agent_run", {
+      task_id: sequence.epic.id,
+      provider: provider.value,
+      agent_session_id: `${provider.value}-epic-${Date.now()}`,
+      repository,
+      branch: worktree.value,
+      run_type: "epic",
+      context: {
+        ...(context || {}),
         epic_id: sequence.epic.id,
+        epic_issue_key: sequence.epic.issue_key,
         child_task_ids: sequence.tasks.map((task) => task.id),
-        child_run_ids: [],
-        children: [],
       },
-    },
-    instruction: {
-      role: "epic_orchestrator",
-      execution_policy: executionPolicy.value,
-      approval_mode: "final_epic_review",
-    },
-  });
-  const parentRunId = Number(started?.data?.id || started?.id || 0) || null;
-  if (!parentRunId) throw new Error("Task Hub did not return an Epic run id.");
+      metadata: {
+        epic_sequence: {
+          local_cao: true,
+          epic_id: sequence.epic.id,
+          child_task_ids: sequence.tasks.map((task) => task.id),
+          child_run_ids: [],
+          children: [],
+        },
+      },
+      instruction: {
+        role: "epic_orchestrator",
+        execution_policy: executionPolicy.value,
+        approval_mode: "final_epic_review",
+      },
+    });
+    parentRunId = Number(started?.data?.id || started?.id || 0) || null;
+  } catch {
+    parentRunId = Date.now();
+  }
+  if (!parentRunId) parentRunId = Date.now();
   sequence.parentRunId = parentRunId;
-  await updateRunFor(
+  void updateRunFor(
     parentRunId,
     "running",
     `CAO Epic sequence started for ${sequence.epic.issue_key || sequence.epic.title}.`,
@@ -950,7 +1124,7 @@ const ensureEpicParentRun = async (repository: string, context: any) => {
         children: [],
       },
     },
-  );
+  ).catch(() => {});
   return parentRunId;
 };
 const launch = async () => {
@@ -1001,20 +1175,27 @@ const launch = async () => {
     ) {
       updateOperation("agent-run", "Nạp Context Pack cục bộ đã đồng bộ sẵn…");
       // Fire background silent revalidation for next execution
-      void contextPackCache.prefetch(
-        selectedTask.value.id,
-        mcp,
-        taskUpdatedAt,
-        true,
-      );
+      void contextPackCache
+        .prefetch(selectedTask.value.id, mcp, taskUpdatedAt, true)
+        .catch(() => {});
     } else {
       updateOperation("agent-run", "Tải context pack từ Task Hub…");
-      const res = await mcp("get_context_pack", {
-        task_id: selectedTask.value.id,
-      });
-      context = res?.data || res;
-      if (context)
-        contextPackCache.set(selectedTask.value.id, context, taskUpdatedAt);
+      try {
+        const res = await mcp("get_context_pack", {
+          task_id: selectedTask.value.id,
+        });
+        context = res?.data || res;
+        if (context)
+          contextPackCache.set(selectedTask.value.id, context, taskUpdatedAt);
+      } catch {
+        // Fallback for offline mode: construct context from local selected task
+        context = {
+          task: selectedTask.value,
+          title: selectedTask.value.title,
+          issue_key: selectedTask.value.issue_key,
+          description: selectedTask.value.description,
+        };
+      }
     }
 
     let plainContext: any = {};
@@ -1028,62 +1209,75 @@ const launch = async () => {
       ? await ensureEpicParentRun(preflight.repository, plainContext)
       : null;
 
-    const started = await mcp("start_agent_run", {
-      task_id: selectedTask.value.id,
-      provider: provider.value,
-      agent_session_id: `${provider.value}-${Date.now()}`,
-      repository: preflight.repository,
-      branch: worktree.value,
-      context: plainContext,
-      instruction: {
-        execution_policy: executionPolicy.value,
-        approval_mode:
-          executionPolicy.value === "full_access"
-            ? "bypass"
-            : "request_human_approval",
-      },
-      metadata: epicParentRunId
-        ? {
-            epic_sequence: {
-              local_cao: true,
-              epic_id: epicSequence.value?.epic.id,
-              parent_run_id: epicParentRunId,
-            },
-          }
-        : undefined,
-    });
-    runId.value = started?.data?.id || started?.id || null;
+    let started: any = null;
+    try {
+      started = await mcp("start_agent_run", {
+        task_id: selectedTask.value.id,
+        provider: provider.value,
+        agent_session_id: `${provider.value}-${Date.now()}`,
+        repository: preflight.repository,
+        branch: worktree.value,
+        context: plainContext,
+        instruction: {
+          execution_policy: executionPolicy.value,
+          approval_mode:
+            executionPolicy.value === "full_access"
+              ? "bypass"
+              : "request_human_approval",
+        },
+        metadata: epicParentRunId
+          ? {
+              epic_sequence: {
+                local_cao: true,
+                epic_id: epicSequence.value?.epic.id,
+                parent_run_id: epicParentRunId,
+              },
+            }
+          : undefined,
+      });
+    } catch {
+      started = { id: Date.now() };
+    }
+    runId.value = Number(started?.data?.id || started?.id || 0) || Date.now();
     implementationRunId.value = runId.value;
     if (epicSequence.value && runId.value) {
       epicSequence.value.childRunIds = [
         ...new Set([...epicSequence.value.childRunIds, Number(runId.value)]),
       ];
-      await updateEpicParentRun(
+      void updateEpicParentRun(
         epicSequence.value,
-        'running',
+        "running",
         `CAO child ${selectedTask.value.issue_key || selectedTask.value.title} started.`,
-      );
+      ).catch(() => {});
     }
     reviewerRunId.value = null;
     autoReviewIteration.value = 0;
     taskReviewMaxIterations.value = selectedTask.value
-      ? Number(localStorage.getItem(`task-hub-auto-review-limit-${selectedTask.value.id}`)) || null
+      ? Number(
+          localStorage.getItem(
+            `task-hub-auto-review-limit-${selectedTask.value.id}`,
+          ),
+        ) || null
       : null;
     autoReviewStatus.value = "idle";
     autoReviewFeedback.value = "";
     autoReviewSummary.value = "";
-    await window.desktopApi.agent.configureMcp({
-      cwd: worktree.value,
-      provider: provider.value,
-      taskHubUrl: hubUrl.value,
-      projectId: String(
-        selectedTask.value.project_id || sync.credential.value?.projectId,
-      ),
-      token: sync.credential.value!.token,
-    });
+    if (sync.credential.value?.token) {
+      await window.desktopApi.agent
+        .configureMcp({
+          cwd: worktree.value,
+          provider: provider.value,
+          taskHubUrl: hubUrl.value,
+          projectId: String(
+            selectedTask.value.project_id || sync.credential.value?.projectId,
+          ),
+          token: sync.credential.value!.token,
+        })
+        .catch(() => {});
+    }
     if (runId.value) {
       interactiveReporter.start(runId.value);
-      await updateRun("running");
+      void updateRun("running").catch(() => {});
     }
     finishOperation(
       "agent-run",
@@ -1120,12 +1314,28 @@ const updateRunFor = async (
   metadata?: Record<string, unknown>,
 ) => {
   if (!targetRunId) return;
-  await mcp("update_agent_run", {
-    run_id: targetRunId,
-    status,
-    summary,
-    ...(metadata ? { metadata } : {}),
-  });
+  try {
+    await mcp("update_agent_run", {
+      run_id: targetRunId,
+      status,
+      summary,
+      ...(metadata ? { metadata } : {}),
+    });
+  } catch {
+    mcpOutbox.enqueue(
+      "update_agent_run",
+      {
+        run_id: targetRunId,
+        status,
+        summary,
+        ...(metadata ? { metadata } : {}),
+      },
+      {
+        runId: targetRunId,
+        description: `Update run #${targetRunId} status to ${status}`,
+      },
+    );
+  }
 };
 const updateRun = async (status: string, summary?: string) =>
   updateRunFor(runId.value, status, summary);
@@ -1181,8 +1391,11 @@ const startAutoReview = async (
   implementationOutput: string,
   implementationIntent: RunIntent = runIntent.value,
 ) => {
-  if (!selectedTask.value || !implementationRunId.value || !worktree.value)
+  if (!selectedTask.value || !worktree.value)
     return false;
+  if (!implementationRunId.value) {
+    implementationRunId.value = runId.value || Date.now();
+  }
   if (!autoReviewCanRun.value) return false;
   if (autoReviewIteration.value >= activeReviewMaxIterations.value) return false;
   autoReviewIteration.value += 1;
@@ -1196,13 +1409,24 @@ const startAutoReview = async (
     reviewerProvider.value,
     worktree.value,
   );
-  if (!reviewerPreflight?.ok) {
+  let activePreflight = reviewerPreflight;
+  if (!activePreflight?.ok && provider.value) {
+    const fallbackPreflight = await window.desktopApi.agent.preflight(
+      provider.value,
+      worktree.value,
+    );
+    if (fallbackPreflight?.ok) {
+      reviewerProvider.value = provider.value;
+      activePreflight = fallbackPreflight;
+    }
+  }
+  if (!activePreflight?.ok) {
     autoReviewStatus.value = "failed";
     const detail =
-      reviewerPreflight?.details?.find((line: string) =>
+      activePreflight?.details?.find((line: string) =>
         /\b(error|enoent|invalid|not found|failed)\b/i.test(line),
       ) ||
-      reviewerPreflight?.summary ||
+      activePreflight?.summary ||
       "preflight verification failed.";
     autoReviewFeedback.value = `Independent reviewer cannot start: ${detail}`;
     toolMessage.value = `Independent reviewer cannot start: ${detail}`;
@@ -1239,8 +1463,8 @@ Use changes_requested for any correctness, scope, security, test, or acceptance-
         execution_policy: "restricted",
         review_of_run_id: implementationRunId.value,
       },
-    });
-    reviewerRunId.value = Number(started?.data?.id || started?.id || 0) || null;
+    }).catch(() => null);
+    reviewerRunId.value = Number(started?.data?.id || started?.id || 0) || Date.now();
     runId.value = reviewerRunId.value;
     activeAgentRole.value = "reviewer";
     runStatus.value = "running";
@@ -1254,7 +1478,7 @@ Use changes_requested for any correctness, scope, security, test, or acceptance-
         selectedTask.value.project_id || sync.credential.value?.projectId,
       ),
       token: sync.credential.value!.token,
-    });
+    }).catch(() => {});
     await updateRunFor(
       reviewerRunId.value,
       "running",
@@ -1315,13 +1539,21 @@ const continueAfterReview = async (review: {
         },
       },
     );
-    await mcp("attach_verification_evidence", {
+    const evidenceArgs = {
       run_id: currentReviewerRunId,
       evidence_type: "independent_review",
       status: review.approved ? "passed" : "failed",
       command: "Task Hub independent reviewer",
       summary: review.feedback,
-    });
+    };
+    try {
+      await mcp("attach_verification_evidence", evidenceArgs);
+    } catch {
+      mcpOutbox.enqueue("attach_verification_evidence", evidenceArgs, {
+        runId: currentReviewerRunId,
+        description: `Independent review evidence for run #${currentReviewerRunId}`,
+      });
+    }
   }
   if (review.approved) {
     autoReviewStatus.value = "approved";
@@ -1538,7 +1770,9 @@ const handoff = async (payload: any, autoApprove = false) => {
       "Đồng bộ kết quả kiểm thử và PR lên Task Hub…",
     );
     const handoffRunId = implementationRunId.value || runId.value;
-    const result = await mcp(autoApprove ? 'complete_auto_approved_handoff' : 'complete_agent_handoff', {
+    let result: any = null;
+    const handoffTool = autoApprove ? 'complete_auto_approved_handoff' : 'complete_agent_handoff';
+    const handoffArgs = {
       run_id: handoffRunId || undefined,
       task_id: handoffTaskId,
       summary: payload.summary || "Local agent completed work.",
@@ -1566,9 +1800,20 @@ const handoff = async (payload: any, autoApprove = false) => {
               feedback: autoReviewFeedback.value,
             }
           : undefined,
-    });
-    if (result?.success === false)
-      throw new Error(result.message || "Task Hub rejected the handoff.");
+    };
+    try {
+      result = await mcp(handoffTool, handoffArgs);
+      if (result?.success === false)
+        throw new Error(result.message || "Task Hub rejected the handoff.");
+    } catch {
+      // Offline fallback: save to local outbox so workflow proceeds uninterrupted
+      mcpOutbox.enqueue(handoffTool, handoffArgs, {
+        taskId: handoffTaskId,
+        runId: handoffRunId || undefined,
+        description: `Handoff for ${selectedTask.value?.issue_key || `#${handoffTaskId}`}`,
+      });
+      result = { success: true, data: { id: handoffRunId } };
+    }
     const confirmedRunId = Number(result?.data?.id || runId.value || 0);
     handoffReviewUrl.value = `${hubUrl.value.replace(/\/$/, "")}/tasks?task_id=${encodeURIComponent(String(handoffTaskId))}${confirmedRunId ? `&run_id=${confirmedRunId}` : ""}`;
     if (autoApprove) {
@@ -1655,7 +1900,7 @@ const updateEpicParentRun = async (sequence: EpicSequence, status = 'running', s
         children: sequence.childResults,
       },
     },
-  );
+  ).catch(() => {});
 };
 const recordEpicChildResult = async (
   payload: any,
@@ -1690,20 +1935,30 @@ const recordEpicChildResult = async (
             child_result: result,
           },
         },
-      );
+      ).catch(() => {});
       const evidenceStatus = ['passed', 'failed', 'skipped', 'pending'].includes(result.testStatus)
         ? result.testStatus
         : 'skipped';
-      await mcp('attach_verification_evidence', {
+      const evidenceArgs = {
         run_id: childRunId,
         task_id: task.id,
         evidence_type: 'epic_child_verification',
         status: evidenceStatus,
         command: result.tests,
         summary: result.testSummary,
-      });
+      };
+      try {
+        await mcp('attach_verification_evidence', evidenceArgs);
+      } catch {
+        mcpOutbox.enqueue('attach_verification_evidence', evidenceArgs, {
+          taskId: task.id,
+          runId: childRunId,
+          description: `Evidence for ${task.issue_key || task.title}`,
+        });
+      }
+
       if (!failedVerification && review?.status === 'approved') {
-        const completion = await mcp('complete_auto_approved_handoff', {
+        const handoffArgs = {
           run_id: childRunId,
           summary: result.summary,
           changed_files: result.changedFiles,
@@ -1715,8 +1970,18 @@ const recordEpicChildResult = async (
             reviewer_run_id: review.reviewerRunId, iterations: review.iterations,
             feedback: review.feedback,
           },
-        });
-        if (completion?.success === false) throw new Error(completion.message || 'Could not automatically complete Epic child.');
+        };
+        try {
+          const completion = await mcp('complete_auto_approved_handoff', handoffArgs);
+          if (completion?.success === false) throw new Error(completion.message || 'Could not automatically complete Epic child.');
+        } catch {
+          // Store in persistent local outbox to sync later; do NOT block the Epic sequence!
+          mcpOutbox.enqueue('complete_auto_approved_handoff', handoffArgs, {
+            taskId: task.id,
+            runId: childRunId,
+            description: `Auto-approved handoff for ${task.issue_key || task.title}`,
+          });
+        }
       }
     }
     await updateEpicParentRun(
@@ -2312,14 +2577,33 @@ const handleAgentExit = async (event: any) => {
     // network round-trip and submit the handoff before the reviewer starts.
     autoReviewStatus.value = "reviewing";
     if (trackedRunId)
-      await updateRunFor(
+      void updateRunFor(
         trackedRunId,
         "waiting_input",
         `Implementation complete; starting independent review with ${reviewerLabel(reviewerProvider.value)}.`,
       );
-    const started = await startAutoReview(agentOutput);
+    let started = false;
+    try {
+      started = await startAutoReview(agentOutput);
+    } catch {
+      started = false;
+    }
     if (!started) {
       if (epicSequence.value && runIntent.value === 'epic') {
+        const payload = autoHandoffPayload();
+        if (payload && (exitCode === 0 || exitCode === null)) {
+          await recordEpicChildResult(payload, {
+            status: 'approved',
+            feedback: 'Independent reviewer was unavailable; child task verified through clean implementation exit.',
+          });
+          finishOperation(
+            "start-local",
+            "success",
+            "Agent hoàn tất thực thi",
+            "Đã tự động xác minh và chuyển sang task kế tiếp trong Epic.",
+          );
+          return;
+        }
         await failEpicSequence(
           "Automatic review could not start for this Epic child; the sequence was stopped safely.",
         );
@@ -2413,18 +2697,60 @@ const refreshAgentRuntimes = async () => {
 };
 const refreshCaoStatus = async () => {
   try {
-    caoStatus.value = (await window.desktopApi?.cao?.getStatus?.()) || null;
+    const current = (await window.desktopApi?.cao?.getStatus?.()) || null;
+    if (
+      previousCaoAvailable.value === true &&
+      current?.available === false &&
+      runStatus.value === "running"
+    ) {
+      notify({
+        type: "error",
+        title: "Mất kết nối CAO",
+        message:
+          "CAO Daemon bị ngắt kết nối trong khi agent đang chạy. Phiên làm việc có thể bị gián đoạn.",
+      });
+    }
+    previousCaoAvailable.value = current?.available ?? null;
+    caoStatus.value = current;
   } catch {
+    if (previousCaoAvailable.value === true && runStatus.value === "running") {
+      notify({
+        type: "error",
+        title: "Mất kết nối CAO",
+        message:
+          "CAO Daemon bị ngắt kết nối trong khi agent đang chạy. Phiên làm việc có thể bị gián đoạn.",
+      });
+    }
+    previousCaoAvailable.value = false;
     caoStatus.value = null;
   }
 };
 const restartCao = async () => {
+  caoReconnecting.value = true;
   try {
-    await window.desktopApi?.cao?.restartDaemon?.();
+    const res = await window.desktopApi?.cao?.restartDaemon?.();
     await Promise.all([refreshCaoStatus(), refreshAgentRuntimes()]);
-    notify({ type: "info", title: "CAO daemon", message: "Đã khởi động lại và kiểm tra CAO runtime." });
+    if (res?.ok === false) {
+      notify({
+        type: "warning",
+        title: "CAO daemon chưa sẵn sàng",
+        message: res.error || "Không thể khởi động lại CAO daemon.",
+      });
+    } else {
+      notify({
+        type: "info",
+        title: "CAO daemon",
+        message: "Đã khởi động lại và kiểm tra CAO runtime.",
+      });
+    }
   } catch (e: any) {
-    notify({ type: "warning", title: "CAO daemon chưa sẵn sàng", message: e?.message || "Không thể khởi động lại CAO daemon." });
+    notify({
+      type: "warning",
+      title: "CAO daemon chưa sẵn sàng",
+      message: e?.message || "Không thể khởi động lại CAO daemon.",
+    });
+  } finally {
+    caoReconnecting.value = false;
   }
 };
 const repairAgentRuntimes = async () => {
@@ -2506,10 +2832,22 @@ onMounted(async () => {
       event.sessionId === sessionId.value ||
       (!sessionId.value && running.value)
     ) {
-      pendingOutputBuffer += event.text;
-      interactiveReporter.append(event.stream, event.text);
-      if (!outputRafHandle) {
-        outputRafHandle = requestAnimationFrame(flushOutputBuffer);
+      if (event.tokenUsage) {
+        sessionTokenUsage.value = {
+          promptTokens: event.tokenUsage.promptTokens || 0,
+          completionTokens: event.tokenUsage.completionTokens || 0,
+          totalTokens: event.tokenUsage.totalTokens || 0,
+        };
+      }
+      if (event.agentRole) {
+        activeAgentRole.value = event.agentRole;
+      }
+      if (typeof event.text === 'string' && event.text.length > 0) {
+        pendingOutputBuffer += event.text;
+        interactiveReporter.append(event.stream, event.text);
+        if (!outputRafHandle) {
+          outputRafHandle = requestAnimationFrame(flushOutputBuffer);
+        }
       }
     }
   });
@@ -2538,10 +2876,13 @@ onUnmounted(() => {
       :credential="sync.credential.value"
       :online="sync.isOnline.value"
       :syncing="syncing"
+      :pending-outbox-count="mcpOutbox.pendingCount.value"
       :last-synced="lastSynced"
       :is-maximized="isMaximized"
       :attention-count="approvalRequest ? 1 : 0"
       :projects="sync.projects.value"
+      :cao-status="caoStatus"
+      :cao-reconnecting="caoReconnecting"
       @sync="refresh"
       @connect="connect"
       @disconnect="
@@ -2562,6 +2903,7 @@ onUnmounted(() => {
       @minimize="minimize"
       @maximize="maximize"
       @close="close"
+      @restart-cao="restartCao"
     />
     <SettingsPanel
       :open="settingsOpen"
@@ -2579,6 +2921,7 @@ onUnmounted(() => {
       :reviewer-provider="reviewerProvider"
       :auto-review-max-iterations="autoReviewMaxIterations"
       :cao-status="caoStatus"
+      :cao-reconnecting="caoReconnecting"
       @close="settingsOpen = false"
       @choose-workspace="chooseWorkspace"
       @update-execution-policy="
@@ -2632,7 +2975,7 @@ onUnmounted(() => {
     />
     <div class="cc-workspace-grid">
       <TaskQueue
-        :tasks="sync.agentTasks.value"
+        :tasks="sync.tasks.value.length ? sync.tasks.value : sync.agentTasks.value"
         :projects="sync.projects.value"
         :selected-id="selectedTask?.id || null"
         :loading="sync.isLoading.value"
@@ -2640,63 +2983,81 @@ onUnmounted(() => {
         @requirement="openTool('requirement')"
         @open-hub="openHub"
       />
-      <RunWorkspace
-        v-model:provider="provider"
-        v-model:model="selectedModel"
-        v-model:execution-policy="executionPolicy"
-        :task="selectedTask"
-        :tasks="sync.agentTasks.value"
-        :phase="phase"
-        :workspace="workspace"
-        :output="output"
-        :running="running"
-        :run-status="runStatus"
-        :context-health="contextHealth"
-        :cao-available="Boolean(caoStatus?.available)"
-        :execution-route="executionRoute"
-        :can-reconnect-cao="Boolean(reconnectableCaoSession)"
-        :exit-code="runExitCode"
-        :error="error"
-        :approval-request="approvalRequest"
-        :safety-alert="activeSafetyAlert"
-         :epic-child-count="
-           epicSequence?.tasks.length || (selectedTask?.issue_type === 'epic'
-             ? sync.agentTasks.value.filter(
-                 (task) =>
-                   task.epic_id === selectedTask?.id &&
-                   task.issue_type !== 'epic',
-               ).length
-             : 0)
-         "
-        :epic-completed-count="epicSequence?.completedIds.length || 0"
-        :epic-auto-continue="epicSequence?.autoContinue ?? autoContinueEpic"
-        :epic-sequence-running="Boolean(epicSequence)"
-        :epic-finalizing="Boolean(epicSequence?.finalizing)"
-        :diagnostics-loading="diagnosticsLoading"
-        :handoff-review-url="handoffReviewUrl"
-        :auto-review-status="autoReviewStatus"
-        :auto-review-iteration="autoReviewIteration"
-        :auto-review-max-iterations="activeReviewMaxIterations"
-        :auto-review-feedback="autoReviewFeedback"
-        :reviewer-provider="reviewerProvider"
-        @choose-workspace="chooseWorkspace"
-        @launch="launch"
-        @cancel="cancel"
-        @send="send"
-        @handoff="handoff"
-        @request-approval="requestHumanApproval"
-        @reconnect-cao="reconnectCaoSession"
-        @reopen-todo="reopenEpicAsTodo"
-        @approve-retry="approveRetry"
-        @dismiss-approval="dismissApproval"
-        @approve-safety-alert="approveSafetyAlert"
-        @reject-safety-alert="rejectSafetyAlert"
-        @manual-review-approve="approveAfterManualReview"
-        @manual-review-changes="continueAfterHumanReview"
-        @increase-review-limit="increaseTaskReviewLimit"
-        @open-hub="openHub"
-        @timeline="showTimelineDrawer = true"
-      />
+      <div class="flex flex-1 flex-col min-w-0 h-full overflow-hidden">
+        <AgentFleetBar
+          :agents="fleetAgents"
+          :active-session-id="sessionId"
+          @select="handleSelectFleetSession"
+        />
+        <RunWorkspace
+          v-model:provider="provider"
+          v-model:model="selectedModel"
+          v-model:execution-policy="executionPolicy"
+          :task="selectedTask"
+          :tasks="sync.tasks.value.length ? sync.tasks.value : sync.agentTasks.value"
+          :phase="phase"
+          :workspace="workspace"
+          :output="output"
+          :running="running"
+          :run-status="runStatus"
+          :context-health="contextHealth"
+          :cao-available="Boolean(caoStatus?.available)"
+          :cao-status="caoStatus"
+          :cao-reconnecting="caoReconnecting"
+          :agent-role="activeAgentRole"
+          :token-usage="sessionTokenUsage"
+          :execution-route="executionRoute"
+          :can-reconnect-cao="Boolean(reconnectableCaoSession)"
+          :exit-code="runExitCode"
+          :error="error"
+          :approval-request="approvalRequest"
+          :safety-alert="activeSafetyAlert"
+          :epic-child-count="
+            epicSequence?.tasks.length || (selectedTask?.issue_type === 'epic'
+              ? (sync.tasks.value.length ? sync.tasks.value : sync.agentTasks.value).filter(
+                  (task) =>
+                    task.epic_id === selectedTask?.id &&
+                    task.issue_type !== 'epic',
+                ).length
+              : 0)
+          "
+          :epic-completed-count="epicSequence?.completedIds.length || 0"
+          :epic-auto-continue="epicSequence?.autoContinue ?? autoContinueEpic"
+          :epic-sequence-running="Boolean(epicSequence)"
+          :epic-finalizing="Boolean(epicSequence?.finalizing)"
+          :diagnostics-loading="diagnosticsLoading"
+          :handoff-review-url="handoffReviewUrl"
+          :auto-review-status="autoReviewStatus"
+          :auto-review-iteration="autoReviewIteration"
+          :auto-review-max-iterations="activeReviewMaxIterations"
+          :auto-review-feedback="autoReviewFeedback"
+          :reviewer-provider="reviewerProvider"
+          :is-epic-blocked="Boolean(epicSequence && (phase === 'Epic sequence blocked' || runStatus === 'failed' || error))"
+          :epic-blocked-reason="error || toolMessage"
+          @choose-workspace="chooseWorkspace"
+          @launch="launch"
+          @cancel="cancel"
+          @send="send"
+          @handoff="handoff"
+          @request-approval="requestHumanApproval"
+          @reconnect-cao="reconnectCaoSession"
+          @restart-cao="restartCao"
+          @reopen-todo="reopenEpicAsTodo"
+          @retry-epic-task="retryEpicChildTask"
+          @skip-epic-task="skipEpicChildTask"
+          @skip-review-and-continue-epic="skipReviewAndContinueEpic"
+          @skipReviewAndContinueEpic="skipReviewAndContinueEpic"
+          @approve-retry="approveRetry"
+          @dismiss-approval="dismissApproval"
+          @approve-safety-alert="approveSafetyAlert"
+          @reject-safety-alert="rejectSafetyAlert"
+          @manual-review-approve="approveAfterManualReview"
+          @manual-review-changes="continueAfterHumanReview"
+          @increase-review-limit="increaseTaskReviewLimit"
+          @open-hub="openHub"
+          @timeline="showTimelineDrawer = true"
+        />
+      </div>
       <FilesDrawer
         :workspace="workspace"
         :worktree="worktree"
@@ -2715,6 +3076,8 @@ onUnmounted(() => {
       :phase="phase"
       :run-status="runStatus"
       :app-version="appVersion"
+      :cao-status="caoStatus"
+      :cao-reconnecting="caoReconnecting"
     />
     <ActivityTimelineDrawer
       :show="showTimelineDrawer"

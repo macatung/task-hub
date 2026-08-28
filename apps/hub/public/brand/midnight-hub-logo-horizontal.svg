@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 140" fill="none">
+  <defs>
+    <!-- Background Squircle Gradient -->
+    <linearGradient id="hBgGradient" x1="0" y1="0" x2="110" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#070B14"/>
+      <stop offset="100%" stop-color="#020408"/>
+    </linearGradient>
+
+    <!-- Border Glow Gradient -->
+    <linearGradient id="hBorderGlow" x1="0" y1="0" x2="110" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00F5A0" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#00F5D4" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#9D4EDD" stop-opacity="0.6"/>
+    </linearGradient>
+
+    <!-- Hero Monogram Gradient -->
+    <linearGradient id="hMonogramGrad" x1="20" y1="20" x2="90" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="40%" stop-color="#00F5D4"/>
+      <stop offset="100%" stop-color="#00F5A0"/>
+    </linearGradient>
+
+    <!-- Wordmark Hub Gradient -->
+    <linearGradient id="hubTextGrad" x1="0" y1="0" x2="100%" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00F5D4"/>
+      <stop offset="100%" stop-color="#00F5A0"/>
+    </linearGradient>
+
+    <!-- Crescent Moon Gradient -->
+    <linearGradient id="hCrescentGrad" x1="90" y1="20" x2="30" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00F5D4" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#9D4EDD" stop-opacity="0.8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Group: Left Icon Badge (110x110) positioned at x=15, y=15 -->
+  <g transform="translate(15, 15)">
+    <!-- Squircle Container -->
+    <rect width="110" height="110" rx="28" fill="url(#hBgGradient)"/>
+    <rect width="110" height="110" rx="28" stroke="url(#hBorderGlow)" stroke-width="1.8"/>
+
+    <!-- Scaled Mark Contents (Scale 110/512 = ~0.215) -->
+    <g transform="scale(0.2148)">
+      <!-- Crescent -->
+      <path d="M356 128 C388 160 404 204 404 256 C404 337.7 337.7 404 256 404 C204 404 160 388 128 356 C168 396 228 416 288 400 C352 384 396 328 396 256 C396 196 376 152 356 128 Z" 
+            fill="url(#hCrescentGrad)" opacity="0.85"/>
+
+      <!-- M Monogram -->
+      <path d="M144 360 L144 168 C144 159.2 151.2 152 160 152 L180 152 C186.4 152 192.2 155.8 194.8 161.6 L256 296 L317.2 161.6 C319.8 155.8 325.6 152 332 152 L352 152 C360.8 152 368 159.2 368 168 L368 360 C368 366.6 362.6 372 356 372 L336 372 C329.4 372 324 366.6 324 360 L324 228 L272.8 340.8 C269.6 347.8 262.8 352 256 352 C249.2 352 242.4 347.8 239.2 340.8 L188 228 L188 360 C188 366.6 182.6 372 176 372 L156 372 C149.4 372 144 366.6 144 360 Z" 
+            fill="url(#hMonogramGrad)"/>
+
+      <!-- Star Node -->
+      <circle cx="256" cy="132" r="12" fill="#00F5A0"/>
+      <path d="M256 108 L256 156 M232 132 L280 132" stroke="#00F5D4" stroke-width="3" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <!-- Group: Right Typography & Branding -->
+  <g transform="translate(145, 20)">
+    <!-- Primary Title: MIDNIGHT HUB -->
+    <text x="0" y="44" font-family="'Space Grotesk', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" font-weight="800" font-size="38" letter-spacing="1.5">
+      <tspan fill="#FFFFFF">MIDNIGHT </tspan>
+      <tspan fill="url(#hubTextGrad)">HUB</tspan>
+    </text>
+
+    <!-- Monogram Pill Badge: MDNT -->
+    <g transform="translate(325, 16)">
+      <rect width="64" height="24" rx="6" fill="#070B14" stroke="#00F5A0" stroke-width="1" stroke-opacity="0.6"/>
+      <text x="32" y="16.5" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" fill="#00F5D4" text-anchor="middle" letter-spacing="1">MDNT</text>
+    </g>
+
+    <!-- Subtitle / Meta Tagline -->
+    <text x="0" y="70" font-family="'JetBrains Mono', monospace" font-size="12" font-weight="500" fill="#94A3B8" letter-spacing="0.5">
+      AUTONOMOUS AGENT ORCHESTRATOR &amp; DEVELOPER STUDIO
+    </text>
+
+    <!-- Slogan Line with Glowing Pulse Indicator -->
+    <g transform="translate(0, 92)">
+      <circle cx="4" cy="-4" r="3" fill="#00F5A0"/>
+      <circle cx="4" cy="-4" r="6" fill="#00F5A0" opacity="0.25"/>
+      <text x="16" y="0" font-family="'Space Grotesk', 'Plus Jakarta Sans', sans-serif" font-style="italic" font-size="13" font-weight="500" fill="#00F5A0" opacity="0.95">
+        "Code at midnight. Deploy at dawn."
+      </text>
+    </g>
+  </g>
+</svg>
