@@ -50,6 +50,10 @@ type AgentSession = {
   caoSessionName?: string;
   caoLastStatus?: string;
   caoLastOutput?: string;
+  lastOutputChangeTime?: number;
+  idlePingsCount?: number;
+  promptAutoFed?: boolean;
+  stagedPromptContent?: string;
 };
 const agentProcesses = new Map<string, AgentSession>();
 const caoSessionPollers = new Map<string, NodeJS.Timeout>();
@@ -2312,10 +2316,13 @@ function pollCaoSession(sessionId: string) {
     const current = agentProcesses.get(sessionId);
     if (!current || !result.ok) return;
     const status = parseCaoSessionStatus(result.output);
+    const now = Date.now();
+
     if (status.output && status.output !== current.caoLastOutput) {
       const previous = current.caoLastOutput || '';
       const delta = previous && status.output.startsWith(previous) ? status.output.slice(previous.length).trim() : status.output;
       current.caoLastOutput = status.output;
+      current.lastOutputChangeTime = now;
       if (delta) {
         current.output = `${current.output}\n${delta}`.slice(-250000);
         appendWorkspaceAgentLog(current.cwd, sessionId, 'cao_output', delta);
@@ -2331,9 +2338,29 @@ function pollCaoSession(sessionId: string) {
       event: { type: 'cao.session.state', status: status.state, session: current.caoSessionName }
     });
 
-    if (isCaoTerminalState(status.state)) {
+    const cleanOutput = stripTerminalAnsi(current.output || '');
+
+    // Layer 1: REPL Auto-Feed Prompt if CLI waiting at prompt on initial startup
+    const caoTargetSession = current.caoSessionName || sessionId;
+    if (!current.promptAutoFed && current.stagedPromptContent && /Ask Codex to do anything|Ask Claude to do anything|openai-codex >/i.test(cleanOutput)) {
+      current.promptAutoFed = true;
+      appendWorkspaceAgentLog(current.cwd, sessionId, 'cao_auto_feed_prompt', { session: caoTargetSession });
+      void runCaoCommand(['session', 'send', caoTargetSession, current.stagedPromptContent, '--async'], current.cwd, 15_000);
+    }
+
+    // Layer 2: Intelligent Turn Completion Detection
+    const hasReviewVerdict = /"verdict":\s*"(approved|changes_requested)"|<TASK_HUB_REVIEW>|TASK_HUB_HANDOFF/i.test(cleanOutput);
+    const hasReplIdlePrompt = />\s*(Ask Codex|Ask Claude|openai-codex)/i.test(cleanOutput.slice(-300)) || /gpt-[\w.-]+\s+default\s+-/i.test(cleanOutput.slice(-200));
+    const isTerminalState = isCaoTerminalState(status.state);
+    const silentDurationMs = now - (current.lastOutputChangeTime || now);
+
+    const isTurnCompleted = isTerminalState ||
+      (hasReviewVerdict && silentDurationMs > 3_000) ||
+      (cleanOutput.length > 400 && hasReplIdlePrompt && silentDurationMs > 8_000);
+
+    if (isTurnCompleted) {
       const liveWorkers = status.workers.filter((worker) => !isCaoTerminalState(worker.state));
-      if (liveWorkers.length > 0) {
+      if (liveWorkers.length > 0 && !hasReviewVerdict && silentDurationMs < 30_000) {
         appendWorkspaceAgentLog(current.cwd, sessionId, 'cao_waiting_workers', { workers: liveWorkers });
         safeSend(win, 'agent-output', {
           sessionId,
@@ -2341,18 +2368,38 @@ function pollCaoSession(sessionId: string) {
           text: '',
           event: {
             type: 'cao.session.waiting_workers',
-            session: current.caoSessionName,
+            session: caoTargetSession,
             count: liveWorkers.length,
             text: `CAO supervisor finished; waiting for ${liveWorkers.length} active worker(s)...`
           }
         });
         return;
       }
+
       const failed = /^(error|failed|cancelled|terminated|dead)$/.test(status.state);
       stopCaoSessionPoller(sessionId);
-      persistSessionUpdate({ sessionId, status: failed ? 'failed' : 'completed', exitCode: failed ? 1 : 0, output: current.output, caoSessionName: current.caoSessionName, caoLastOutput: current.caoLastOutput });
+      persistSessionUpdate({ sessionId, status: failed ? 'failed' : 'completed', exitCode: failed ? 1 : 0, output: current.output, caoSessionName: caoTargetSession, caoLastOutput: current.caoLastOutput });
       agentProcesses.delete(sessionId);
-      safeSend(win, 'agent-exit', { sessionId, code: failed ? 1 : 0, signal: failed ? 'CAO_STATUS' : '' });
+      safeSend(win, 'agent-exit', { sessionId, code: failed ? 1 : 0, signal: hasReviewVerdict ? 'AUTO_REVIEW_COMPLETED' : 'CAO_TURN_COMPLETED' });
+      return;
+    }
+
+    // Layer 3: Watchdog Ping if silent for >60 seconds without completing
+    if (silentDurationMs > 60_000 && (current.idlePingsCount || 0) < 3 && cleanOutput.length > 100) {
+      current.idlePingsCount = (current.idlePingsCount || 0) + 1;
+      current.lastOutputChangeTime = now;
+      appendWorkspaceAgentLog(current.cwd, sessionId, 'cao_watchdog_ping', { pingCount: current.idlePingsCount });
+      void runCaoCommand([
+        'session', 'send', caoTargetSession,
+        'Tiếp tục hoàn thiện các thay đổi của task này và xuất kết quả theo Task Hub Protocol để bàn giao.',
+        '--async'
+      ], current.cwd, 15_000);
+      safeSend(win, 'agent-output', {
+        sessionId,
+        stream: 'event',
+        text: `[Watchdog] Tiến trình im lặng >60s. Đang tự động ping nhắc nhở lượt #${current.idlePingsCount}...\n`,
+        event: { type: 'cao.watchdog.ping', ping: current.idlePingsCount }
+      });
     }
   });
 }
@@ -2407,6 +2454,10 @@ async function tryStartCaoAgent(payload: { provider: AgentProvider; cwd: string;
     route: 'cao',
     executionPolicy: payload.executionPolicy,
     caoSessionName: sessionId,
+    lastOutputChangeTime: Date.now(),
+    idlePingsCount: 0,
+    promptAutoFed: false,
+    stagedPromptContent: payload.prompt,
   };
   agentProcesses.set(sessionId, session);
   persistSessionUpdate({
@@ -2436,7 +2487,7 @@ async function reconnectCaoSession(sessionId: string) {
 
   const statusResult = await runCaoCommand(['session', 'status', caoSessionName, '--workers', '--json'], cwd, 10_000);
   if (!statusResult.ok) {
-    saveSavedSession({ ...saved, status: 'completed' });
+    persistSessionUpdate({ sessionId: saved.sessionId, status: 'completed' });
     throw new Error(`CAO session ${caoSessionName} is not active: ${statusResult.error || 'No active terminals'}`);
   }
 
