@@ -2352,15 +2352,19 @@ function pollCaoSession(sessionId: string) {
     const hasReviewVerdict = /"verdict":\s*"(approved|changes_requested)"|<TASK_HUB_REVIEW>|TASK_HUB_HANDOFF/i.test(cleanOutput);
     const hasReplIdlePrompt = />\s*(Ask Codex|Ask Claude|openai-codex)/i.test(cleanOutput.slice(-300)) || /gpt-[\w.-]+\s+default\s+-/i.test(cleanOutput.slice(-200));
     const isTerminalState = isCaoTerminalState(status.state);
+    const isCaoSession = current.route === 'cao';
     const silentDurationMs = now - (current.lastOutputChangeTime || now);
 
     const isTurnCompleted = isTerminalState ||
       (hasReviewVerdict && silentDurationMs > 3_000) ||
-      (cleanOutput.length > 400 && hasReplIdlePrompt && silentDurationMs > 8_000);
+      (!isCaoSession && cleanOutput.length > 400 && hasReplIdlePrompt && silentDurationMs > 8_000);
 
     if (isTurnCompleted) {
       const liveWorkers = status.workers.filter((worker) => !isCaoTerminalState(worker.state));
-      if (liveWorkers.length > 0 && !hasReviewVerdict && silentDurationMs < 30_000) {
+      // A detached CAO supervisor can become idle while its worker terminals
+      // are still running. Keep polling until every worker is terminal,
+      // including workers whose status is temporarily unknown (state "").
+      if (liveWorkers.length > 0) {
         appendWorkspaceAgentLog(current.cwd, sessionId, 'cao_waiting_workers', { workers: liveWorkers });
         safeSend(win, 'agent-output', {
           sessionId,
@@ -2376,7 +2380,8 @@ function pollCaoSession(sessionId: string) {
         return;
       }
 
-      const failed = /^(error|failed|cancelled|terminated|dead)$/.test(status.state);
+      const failed = /^(error|failed|cancelled|terminated|dead|stopped)$/.test(status.state) ||
+        status.workers.some((worker) => /^(error|failed|cancelled|terminated|dead|stopped)$/.test(worker.state));
       stopCaoSessionPoller(sessionId);
       persistSessionUpdate({ sessionId, status: failed ? 'failed' : 'completed', exitCode: failed ? 1 : 0, output: current.output, caoSessionName: caoTargetSession, caoLastOutput: current.caoLastOutput });
       agentProcesses.delete(sessionId);

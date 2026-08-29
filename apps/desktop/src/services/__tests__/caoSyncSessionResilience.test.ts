@@ -150,9 +150,27 @@ describe('CAO Bridge Session Sync & Resilience Test Suite (Requirement R1)', () 
       expect(electronMainSource).toContain('function pollCaoSession(sessionId: string)');
       expect(electronMainSource).toContain('function parseCaoSessionStatus(raw: string)');
       expect(electronMainSource).toContain('function isCaoTerminalState(state: string)');
+      expect(electronMainSource).toContain("const isCaoSession = current.route === 'cao';");
+      expect(electronMainSource).toContain('!isCaoSession && cleanOutput.length > 400');
       expect(electronMainSource).toContain("type: 'cao.session.waiting_workers'");
       expect(electronMainSource).toContain('CAO supervisor finished; waiting for');
       expect(electronMainSource).toContain('const liveWorkers = status.workers.filter');
+    });
+
+    it('does not treat a CAO supervisor REPL prompt as a completed run', () => {
+      const isCaoSession = true;
+      const supervisorState = 'running';
+      const output = `${'x'.repeat(500)}\n> Ask Codex to do anything`;
+      const silentDurationMs = 12_000;
+      const isTerminalState = /^(error|failed|cancelled|completed|terminated|dead|stopped)$/i.test(supervisorState);
+      const hasReviewVerdict = false;
+      const hasReplIdlePrompt = />\s*(Ask Codex|Ask Claude|openai-codex)/i.test(output.slice(-300));
+      const isTurnCompleted = isTerminalState ||
+        (hasReviewVerdict && silentDurationMs > 3_000) ||
+        (!isCaoSession && output.length > 400 && hasReplIdlePrompt && silentDurationMs > 8_000);
+
+      expect(hasReplIdlePrompt).toBe(true);
+      expect(isTurnCompleted).toBe(false);
     });
   });
 
