@@ -1020,7 +1020,7 @@ function discoverSkills(workspacePath?: string): SkillItem[] {
 }
 
 async function discoverRemoteModels(taskHubUrl?: string): Promise<Record<AgentProvider, DiscoveredModel[]> | null> {
-  const url = taskHubUrl || process.env.TASK_HUB_URL || 'https://task-hub.macatung.dev';
+  const url = taskHubUrl || process.env.TASK_HUB_URL || 'https://midnight.macatung.dev';
   try {
     const res = await fetch(`${url.replace(/\/$/, '')}/api/agent/models`, { signal: AbortSignal.timeout(4000) });
     if (res.ok) {
@@ -1345,7 +1345,7 @@ function extractAndRecordTokensFromText(provider: AgentProvider, text: string): 
 }
 
 async function syncQuotaToTaskHub(quota: QuotaUsageState, taskHubUrl?: string): Promise<boolean> {
-  const url = taskHubUrl || process.env.TASK_HUB_URL || 'https://task-hub.macatung.dev';
+  const url = taskHubUrl || process.env.TASK_HUB_URL || 'https://midnight.macatung.dev';
   try {
     const res = await fetch(`${url.replace(/\/$/, '')}/api/agent/quota`, {
       method: 'POST',
@@ -4046,7 +4046,7 @@ function createTray() {
       label: 'Midnight Hub Web View',
       click: () => {
         import('electron').then(({ shell }) => {
-          shell.openExternal(process.env.TASK_HUB_URL || 'https://task-hub.macatung.dev/tasks');
+          shell.openExternal(process.env.TASK_HUB_URL || 'https://midnight.macatung.dev/tasks');
         });
       },
     },

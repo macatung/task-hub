@@ -148,7 +148,7 @@ const mobileMenuOpen = ref(false);
       <!-- Top Announcement Pill -->
       <div class="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-300 shadow-inner">
         <span>🚀</span>
-        <span>Task Hub 1.0 — Supervised AI-Native Execution Engine</span>
+        <span>Midnight Hub — Supervised AI-Native Execution Engine</span>
       </div>
 
       <!-- Main Headline -->
@@ -203,7 +203,7 @@ const mobileMenuOpen = ref(false);
             <div class="h-3 w-3 rounded-full bg-red-500/80"></div>
             <div class="h-3 w-3 rounded-full bg-yellow-500/80"></div>
             <div class="h-3 w-3 rounded-full bg-emerald-500/80"></div>
-            <span class="ml-2 text-xs font-mono text-slate-500">task-hub.macatung.dev/tasks</span>
+            <span class="ml-2 text-xs font-mono text-slate-500">midnight.macatung.dev/tasks</span>
           </div>
           <div class="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-400">
             <span class="relative flex h-2 w-2">
@@ -314,7 +314,7 @@ const mobileMenuOpen = ref(false);
             Everything your team needs to supervise AI coding agents
           </h2>
           <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base text-slate-400 leading-relaxed">
-            Eliminate loose prompts and unverified PRs. Task Hub provides the deterministic contract between humans and autonomous coding agents.
+            Eliminate loose prompts and unverified PRs. Midnight Hub provides the deterministic contract between humans and autonomous coding agents.
           </p>
         </div>
 
@@ -394,7 +394,7 @@ const mobileMenuOpen = ref(false);
         <div class="text-center">
           <p class="text-xs font-bold tracking-wider uppercase text-emerald-400">Deterministic Pipeline</p>
           <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            How Task Hub coordinates human intent & AI execution
+            How Midnight Hub coordinates human intent & AI execution
           </h2>
         </div>
 
@@ -433,7 +433,7 @@ const mobileMenuOpen = ref(false);
           Ready to supervise AI coding agents with total confidence?
         </h2>
         <p class="mt-4 text-base sm:text-lg text-slate-400">
-          Join engineers using Task Hub to coordinate AI agent handoffs and ship clean, verified code.
+          Join engineers using Midnight Hub to coordinate AI agent handoffs and ship clean, verified code.
         </p>
 
         <div class="mt-8 flex justify-center">
@@ -454,8 +454,8 @@ const mobileMenuOpen = ref(false);
     <footer class="border-t border-slate-800/80 bg-slate-950 px-6 py-12 text-xs text-slate-500">
       <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-6">
         <div class="flex items-center gap-2.5">
-          <img src="/brand/macatung-mascot-icon.svg" alt="Ma Cà Tưng" class="h-6 w-6 rounded-lg object-contain" />
-          <span class="font-bold text-slate-300">Task Hub</span>
+          <img src="/brand/midnight-hub-mark.svg" alt="Midnight Hub" class="h-6 w-6 rounded-lg object-contain" />
+          <span class="font-bold text-slate-300">Midnight Hub</span>
           <span>· Open Source & Supervised AI Workspace</span>
         </div>
         <div class="flex items-center gap-6 text-slate-400">

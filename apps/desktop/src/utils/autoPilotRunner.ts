@@ -637,7 +637,7 @@ export class AutoPilotRunner {
         workspace: this.worktreePath,
       };
 
-      const taskHubUrl = this.config.taskHubUrl || 'https://task-hub.macatung.dev';
+      const taskHubUrl = this.config.taskHubUrl || 'https://midnight.macatung.dev';
       const token = this.config.token || 'auto-pilot-token';
       const projectId = String(task.project_id || this.config.projectId || '1');
 

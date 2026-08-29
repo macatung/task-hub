@@ -2561,7 +2561,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <Head title="Task Hub — Delivery workspace" />
+  <Head title="Midnight Hub — Delivery workspace" />
 
   <div
     :class="[
@@ -5931,11 +5931,11 @@ onUnmounted(() => {
                   <input
                     type="text"
                     readonly
-                    :value="mcpData?.server_url || 'https://task-hub.macatung.dev/mcp'"
+                    :value="mcpData?.server_url || 'https://midnight.macatung.dev/mcp'"
                     :class="['flex-1 p-2 rounded-xl font-mono text-xs border select-all', isDarkMode ? 'bg-slate-950 border-slate-800 text-indigo-300' : 'bg-white border-slate-300 text-indigo-900']"
                   />
                   <button
-                    @click="copyMcpSnippet('url', mcpData?.server_url || 'https://task-hub.macatung.dev/mcp')"
+                    @click="copyMcpSnippet('url', mcpData?.server_url || 'https://midnight.macatung.dev/mcp')"
                     class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold cursor-pointer transition-colors shrink-0"
                   >
                     {{ copiedSnippetType === 'url' ? '✓ Copied' : 'Copy' }}
@@ -6128,7 +6128,7 @@ onUnmounted(() => {
                 <pre :class="['p-4 rounded-xl border font-mono text-xs overflow-x-auto select-all leading-relaxed', isDarkMode ? 'bg-[#060913] border-slate-800 text-emerald-400' : 'bg-slate-900 border-slate-700 text-emerald-300']"><code>{{ JSON.stringify(mcpData?.configs?.antigravity || {
   "mcpServers": {
     "task-hub": {
-      "serverUrl": mcpData?.server_url || "https://task-hub.macatung.dev/mcp",
+      "serverUrl": mcpData?.server_url || "https://midnight.macatung.dev/mcp",
       "headers": {
         "Authorization": `Bearer ${mcpData?.token || 'YOUR_TASK_HUB_MCP_TOKEN'}`
       }
@@ -6140,7 +6140,7 @@ onUnmounted(() => {
                   @click="copyMcpSnippet('antigravity', JSON.stringify(mcpData?.configs?.antigravity || {
                     'mcpServers': {
                       'task-hub': {
-                        'serverUrl': mcpData?.server_url || 'https://task-hub.macatung.dev/mcp',
+                        'serverUrl': mcpData?.server_url || 'https://midnight.macatung.dev/mcp',
                         'headers': {
                           'Authorization': `Bearer ${mcpData?.token || 'YOUR_TASK_HUB_MCP_TOKEN'}`
                         }
@@ -6165,7 +6165,7 @@ onUnmounted(() => {
                 <pre :class="['p-4 rounded-xl border font-mono text-xs overflow-x-auto select-all leading-relaxed', isDarkMode ? 'bg-[#060913] border-slate-800 text-emerald-400' : 'bg-slate-900 border-slate-700 text-emerald-300']"><code>{{ JSON.stringify(mcpData?.configs?.cursor || {
   "mcpServers": {
     "task-hub": {
-      "url": mcpData?.server_url || "https://task-hub.macatung.dev/mcp",
+      "url": mcpData?.server_url || "https://midnight.macatung.dev/mcp",
       "headers": {
         "Authorization": `Bearer ${mcpData?.token || 'YOUR_TASK_HUB_MCP_TOKEN'}`
       }
@@ -6177,7 +6177,7 @@ onUnmounted(() => {
                   @click="copyMcpSnippet('cursor', JSON.stringify(mcpData?.configs?.cursor || {
                     'mcpServers': {
                       'task-hub': {
-                        'url': mcpData?.server_url || 'https://task-hub.macatung.dev/mcp',
+                        'url': mcpData?.server_url || 'https://midnight.macatung.dev/mcp',
                         'headers': {
                           'Authorization': `Bearer ${mcpData?.token || 'YOUR_TASK_HUB_MCP_TOKEN'}`
                         }
@@ -6202,7 +6202,7 @@ onUnmounted(() => {
                 <pre :class="['p-4 rounded-xl border font-mono text-xs overflow-x-auto select-all leading-relaxed', isDarkMode ? 'bg-[#060913] border-slate-800 text-emerald-400' : 'bg-slate-900 border-slate-700 text-emerald-300']"><code>{{ JSON.stringify(mcpData?.configs?.claude_desktop || {
   "mcpServers": {
     "task-hub": {
-      "url": mcpData?.server_url || "https://task-hub.macatung.dev/mcp",
+      "url": mcpData?.server_url || "https://midnight.macatung.dev/mcp",
       "headers": {
         "Authorization": `Bearer ${mcpData?.token || 'YOUR_TASK_HUB_MCP_TOKEN'}`
       }
@@ -6214,7 +6214,7 @@ onUnmounted(() => {
                   @click="copyMcpSnippet('claude', JSON.stringify(mcpData?.configs?.claude_desktop || {
                     'mcpServers': {
                       'task-hub': {
-                        'url': mcpData?.server_url || 'https://task-hub.macatung.dev/mcp',
+                        'url': mcpData?.server_url || 'https://midnight.macatung.dev/mcp',
                         'headers': {
                           'Authorization': `Bearer ${mcpData?.token || 'YOUR_TASK_HUB_MCP_TOKEN'}`
                         }
@@ -6231,7 +6231,7 @@ onUnmounted(() => {
             <!-- Tab Content: Tools Directory -->
             <div v-else-if="activeMcpTab === 'tools'" class="space-y-2.5">
               <p class="text-xs text-slate-400">
-                The Task Hub MCP server automatically exposes these 14 tools to the AI agent:
+                The Midnight Hub MCP server automatically exposes these 14 tools to the AI agent:
               </p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
@@ -6308,7 +6308,7 @@ onUnmounted(() => {
           </div>
 
           <h2 :class="['text-lg sm:text-xl font-bold font-display', isDarkMode ? 'text-white' : 'text-slate-950']">
-            TASK HUB WORKSPACE SECURITY
+            MIDNIGHT HUB WORKSPACE SECURITY
           </h2>
           <p :class="['text-xs mt-1 font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
             Enter the <strong class="text-blue-600 dark:text-blue-400 font-mono font-bold">6-digit PIN</strong> to unlock the workspace.

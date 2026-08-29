@@ -57,7 +57,7 @@ const billingUrl = computed(() => {
   const base = (
     props.taskHubUrl ||
     (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_TASK_HUB_URL) ||
-    'https://task-hub.macatung.dev'
+    'https://midnight.macatung.dev'
   ).replace(/\/$/, '');
 
   if (props.workspaceSlug && props.workspaceSlug.trim()) {

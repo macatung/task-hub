@@ -212,7 +212,7 @@ const handleEnvironmentRepaired = (result: any) => {
   }
 };
 
-const taskHubUrl = ref(localStorage.getItem('task_hub_base_url') || 'https://task-hub.macatung.dev');
+const taskHubUrl = ref(localStorage.getItem('task_hub_base_url') || 'https://midnight.macatung.dev');
 const credential = ref<{ token: string; projectId: string; taskHubUrl?: string } | null>(null);
 
 const ensureCredential = async (): Promise<boolean> => {
@@ -782,7 +782,7 @@ const copyTaskContextPrompt = (task: any) => {
 
 const openTaskInWebHub = (task: any) => {
   if (!task) return;
-  const hubUrl = taskHubUrl.value || 'https://task-hub.macatung.dev';
+  const hubUrl = taskHubUrl.value || 'https://midnight.macatung.dev';
   const url = `${hubUrl.replace(/\/$/, '')}/tasks?task=${task.id}`;
   if (window.desktopApi?.openExternal) {
     window.desktopApi.openExternal(url);
@@ -797,7 +797,7 @@ const phaseLabel = computed(() => {
   const map: Record<Phase, string> = {
     select: 'Prepare',
     preflight: 'Preflight',
-    pairing: 'Task Hub Pairing',
+    pairing: 'Midnight Hub Pairing',
     context: 'Context & MCP Load',
     ready: 'Ready to Launch',
     running: workflowMode.value === 'discovery' ? 'Analyzing Requirements' : docsOnly.value ? 'Generating Docs' : 'Agent Running',
@@ -3165,7 +3165,7 @@ onUnmounted(() => {
       <div class="flex items-center gap-3 min-w-0">
         <div class="flex items-center gap-1.5 text-white font-bold font-mono">
           <MacatungIcon name="agent" :size="16" />
-          <span class="hidden sm:inline text-zinc-200 font-semibold">Task Hub IDE</span>
+        <span class="hidden sm:inline text-zinc-200 font-semibold">Midnight Hub IDE</span>
         </div>
 
         <!-- VS Code Top Menus -->
@@ -3782,7 +3782,7 @@ onUnmounted(() => {
               @click="!credential && startPairing()"
             >
               <i class="codicon" :class="credential ? 'codicon-plug' : 'codicon-debug-disconnect'" />
-              <span>Task Hub {{ credential ? 'ready' : 'connect' }}</span>
+              <span>Midnight Hub {{ credential ? 'ready' : 'connect' }}</span>
             </button>
           </div>
           <button class="w-full flex items-center justify-between rounded-lg border border-[#333333] bg-[#252526] px-2.5 py-2 text-left hover:border-[#4b5563] cursor-pointer" @click="showAgentSettings = true">
@@ -4064,7 +4064,7 @@ onUnmounted(() => {
               @click="collapsed.tasks = !collapsed.tasks"
             >
               <i class="codicon text-xs text-zinc-400" :class="collapsed.tasks ? 'codicon-chevron-right' : 'codicon-chevron-down'" />
-              <span>Task Hub Work Items</span>
+              <span>Midnight Hub Work Items</span>
             </button>
             <div class="flex items-center gap-1.5">
               <button
@@ -4155,7 +4155,7 @@ onUnmounted(() => {
             <div v-if="!credential && !isConnected" class="p-3 rounded-lg border border-amber-900/60 bg-amber-950/20 text-[11px] text-zinc-300 flex flex-col gap-2">
               <div class="flex items-center gap-1.5 text-amber-400 font-semibold">
                 <i class="codicon codicon-warning" />
-                <span>Task Hub Not Connected</span>
+                <span>Midnight Hub Not Connected</span>
               </div>
               <p class="text-[10px] text-zinc-400 leading-tight">Pair with Task Hub to synchronize tasks, active sprint, and AI context packs.</p>
               <button
@@ -4164,7 +4164,7 @@ onUnmounted(() => {
                 @click="startPairing"
               >
                 <i class="codicon" :class="phase === 'pairing' ? 'codicon-loading animate-spin' : 'codicon-link'" />
-                <span>{{ phase === 'pairing' ? 'Awaiting Approval...' : 'Connect Task Hub' }}</span>
+                <span>{{ phase === 'pairing' ? 'Awaiting Approval...' : 'Connect Midnight Hub' }}</span>
               </button>
             </div>
 
@@ -5779,7 +5779,7 @@ onUnmounted(() => {
           :disabled="!handoff.summary || !handoff.changedFiles"
           @click="submitHandoff"
         >
-          Submit Handoff to Task Hub
+          Submit Handoff to Midnight Hub
         </button>
 
         <button
@@ -5827,7 +5827,7 @@ onUnmounted(() => {
           class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-xs transition-all cursor-pointer"
           @click="syncGeneratedDocs"
         >
-          ✓ Sync Docs to Task Hub
+          ✓ Sync Docs to Midnight Hub
         </button>
 
         <button

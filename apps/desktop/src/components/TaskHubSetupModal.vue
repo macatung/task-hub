@@ -6,7 +6,7 @@ import MacatungIcon from './MacatungIcon.vue';
 const props = defineProps<{ credential: DesktopCredential | null }>();
 const emit = defineEmits<{ (e: 'close'): void; (e: 'connected', credential: DesktopCredential): void; (e: 'disconnect'): void }>();
 
-const taskHubUrl = 'https://task-hub.macatung.dev';
+const taskHubUrl = 'https://midnight.macatung.dev';
 const status = ref<'idle' | 'pairing' | 'connected' | 'error'>('idle');
 const message = ref('');
 let pollTimer: ReturnType<typeof setInterval> | undefined;

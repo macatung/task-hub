@@ -274,7 +274,7 @@ const minimize = () => window.desktopApi?.minimize?.();
 const maximize = async () => {
   isMaximized.value = Boolean(await window.desktopApi?.toggleMaximize?.());
 };
-const appVersion = ref("Task Hub Desktop");
+const appVersion = ref("Midnight Hub Desktop");
 const running = computed(() => runStatus.value === "running");
 const reconnectableCaoSession = computed(() => {
   const directories = new Set([workspace.value, worktree.value].filter(Boolean));
@@ -310,7 +310,7 @@ const reconnectCaoSession = async () => {
   }
 };
 const hubUrl = computed(
-  () => sync.credential.value?.taskHubUrl || "https://task-hub.macatung.dev",
+  () => sync.credential.value?.taskHubUrl || "https://midnight.macatung.dev",
 );
 const openHub = () =>
   window.desktopApi?.openExternal?.(`${hubUrl.value}/tasks`);

@@ -513,12 +513,12 @@ const faqs = [
   {
     question: 'How is our codebase and private credential data secured?',
     answer:
-      'Task Hub operates on a zero-knowledge architecture: your proprietary source code never leaves your local repository or private runner environment. Only task specs, Acceptance Criteria, and execution logs are relayed via TLS 1.3 encrypted endpoints.',
+      'Midnight Hub operates on a zero-knowledge architecture: your proprietary source code never leaves your local repository or private runner environment. Only task specs, Acceptance Criteria, and execution logs are relayed via TLS 1.3 encrypted endpoints.',
   },
   {
     question: 'What happens if our team hits a quota limit?',
     answer:
-      'When your team reaches runner concurrency or project limits, Task Hub displays a friendly in-app Upgrade prompt. Your existing runs are never interrupted, and you can upgrade instantly with prorated billing.',
+      'When your team reaches runner concurrency or project limits, Midnight Hub displays a friendly in-app Upgrade prompt. Your existing runs are never interrupted, and you can upgrade instantly with prorated billing.',
   },
 ];
 
@@ -530,7 +530,7 @@ const toggleFaq = (index: number) => {
 </script>
 
 <template>
-  <Head title="Pricing & Plans — Task Hub Supervised AI Execution" />
+  <Head title="Pricing & Plans — Midnight Hub" />
 
   <div class="pricing-page min-h-screen bg-midnight-950 text-slate-100 font-sans selection:bg-phantom-mint selection:text-midnight-950 overflow-x-hidden">
     <!-- Ambient Background Lighting -->
@@ -545,10 +545,10 @@ const toggleFaq = (index: number) => {
       <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <a href="/" class="flex items-center gap-3 group">
           <div class="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-phantom-cyan/20 border border-emerald-500/40 p-1 shadow-md shadow-emerald-500/10 group-hover:border-emerald-400 group-hover:scale-105 transition-all">
-            <img src="/brand/macatung-mascot-icon.svg" alt="Task Hub" class="h-full w-full object-contain drop-shadow-sm" />
+            <img src="/brand/midnight-hub-mark.svg" alt="Midnight Hub" class="h-full w-full object-contain drop-shadow-sm" />
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-xl font-bold tracking-tight text-white group-hover:text-phantom-mint transition-colors">Task Hub</span>
+            <span class="text-xl font-bold tracking-tight text-white group-hover:text-phantom-mint transition-colors">Midnight Hub</span>
             <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">Pricing</span>
           </div>
         </a>
@@ -1112,8 +1112,8 @@ const toggleFaq = (index: number) => {
     <footer class="border-t border-midnight-800/80 bg-midnight-950 px-6 py-12 text-xs text-slate-500">
       <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6">
         <div class="flex items-center gap-3">
-          <img src="/brand/macatung-mascot-icon.svg" alt="Task Hub" class="h-6 w-6 rounded-lg object-contain" />
-          <span class="font-bold text-slate-300">Task Hub</span>
+          <img src="/brand/midnight-hub-mark.svg" alt="Midnight Hub" class="h-6 w-6 rounded-lg object-contain" />
+          <span class="font-bold text-slate-300">Midnight Hub</span>
           <span>· Supervised AI Agent Execution Engine</span>
         </div>
 

@@ -474,7 +474,7 @@ onBeforeUnmount(() => {
         <Icons name="Desktop" :size="32" class="mx-auto text-slate-500" />
         <h4 class="font-bold text-xs" :class="isDarkMode ? 'text-slate-200' : 'text-slate-800'">No Desktop Agents Connected</h4>
         <p class="text-[11px] text-slate-400 max-w-md mx-auto leading-relaxed">
-          Open Task Hub Desktop App on your workstation to automatically connect and receive remote task dispatches in under 2 seconds.
+          Open Midnight Hub Desktop on your workstation to automatically connect and receive remote task dispatches in under 2 seconds.
         </p>
       </div>
 

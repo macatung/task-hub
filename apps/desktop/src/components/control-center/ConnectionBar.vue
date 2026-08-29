@@ -183,7 +183,7 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
         class="cc-connectionbar__sync hidden xl:inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition"
         :class="online ? 'bg-emerald-950/40 border border-emerald-600/40 text-emerald-300' : 'bg-[#1c1815] border border-[#2d2620] text-zinc-400'"
         :disabled="syncing"
-        :title="online ? 'Đã kết nối với Task Hub API' : 'Đang ở chế độ ngoại tuyến'"
+        :title="online ? 'Đã kết nối với Midnight Hub API' : 'Đang ở chế độ ngoại tuyến'"
         @click="emit('sync')"
       >
         <i class="h-1.5 w-1.5 rounded-full" :class="online ? 'bg-emerald-400' : 'bg-zinc-500'" />

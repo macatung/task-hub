@@ -112,7 +112,7 @@ const locationLabel = () => props.worktree || props.workspace || 'No workspace s
 
     <!-- Right: App Version Badge -->
     <div class="flex items-center gap-2">
-      <span class="flex items-center gap-1 rounded-full bg-[#1a1511] border border-[#2b221a] px-2.5 py-0.5 font-mono text-[10px] text-zinc-400" :title="`Task Hub Desktop ${appVersion}`">
+      <span class="flex items-center gap-1 rounded-full bg-[#1a1511] border border-[#2b221a] px-2.5 py-0.5 font-mono text-[10px] text-zinc-400" :title="`Midnight Hub Desktop ${appVersion}`">
         <i class="codicon codicon-zap text-xs text-orange-400"></i>
         <span>{{ appVersion.startsWith('v') ? appVersion : `v${appVersion}` }}</span>
       </span>

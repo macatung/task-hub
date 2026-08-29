@@ -93,7 +93,7 @@ const needsDependencyReview = (task: TaskItem, allTasks: TaskItem[]) => {
 };
 
 declare global { interface Window { desktopApi?: any; } }
-const DEFAULT_TASK_HUB_URL = (import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev';
+const DEFAULT_TASK_HUB_URL = (import.meta as any).env?.VITE_TASK_HUB_URL || 'https://midnight.macatung.dev';
 let unsubQuotaListener: (() => void) | undefined;
 
 export function formatQuotaTelemetry(quota: any): any {

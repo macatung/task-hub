@@ -50,7 +50,7 @@ const allCommands: CommandItem[] = [
   {
     id: 'open-tasks',
     title: "View today's work items",
-    subtitle: 'Direct sync with task-hub.macatung.dev',
+    subtitle: 'Direct sync with midnight.macatung.dev',
     icon: '📋',
     category: 'Productivity',
     keywords: ['task', 'tasks', 'todo', 'work item', 'dispatch', 'hub'],
@@ -85,13 +85,13 @@ const allCommands: CommandItem[] = [
   },
   {
     id: 'open-web',
-    title: 'Open Task Hub on Web',
-    subtitle: 'Manage full Kanban board (task-hub.macatung.dev)',
+    title: 'Open Midnight Hub on Web',
+    subtitle: 'Manage full Kanban board (midnight.macatung.dev)',
     icon: '🌐',
     category: 'Links',
     keywords: ['web', 'kanban', 'browser', 'macatung', 'link'],
     action: () => {
-      const url = `${(import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev'}/tasks`;
+      const url = `${(import.meta as any).env?.VITE_TASK_HUB_URL || 'https://midnight.macatung.dev'}/tasks`;
       if ((window as any).desktopApi?.openExternal) (window as any).desktopApi.openExternal(url);
       else window.open(url, '_blank');
     },

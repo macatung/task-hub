@@ -14,7 +14,7 @@ const productJsonLd = {
   name: 'Task Companion',
   applicationCategory: 'ProductivityApplication',
   operatingSystem: 'Windows 10, Windows 11',
-  description: 'Mascot desktop hỗ trợ quản lý Task Hub và kết nối Codex, Antigravity, Claude Code.',
+  description: 'Ứng dụng desktop Midnight Hub hỗ trợ quản lý công việc và kết nối Codex, Antigravity, Claude Code.',
   downloadUrl,
   softwareVersion: '1.0.1',
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
@@ -23,9 +23,9 @@ const productJsonLd = {
 
 <template>
   <SeoHead
-    title="Task Companion — Mascot Desktop cho Task Hub"
-    description="Tải Task Companion cho Windows: quản lý task, chọn task cho AI agent, tự cấu hình MCP và đồng bộ lifecycle với Task Hub."
-    keywords="Task Companion, Macatung Desktop, Task Hub, Codex, Antigravity, Claude Code, MCP"
+    title="Midnight Hub Desktop — AI Agent Workspace"
+    description="Tải Midnight Hub Desktop cho Windows: quản lý task, chọn task cho AI agent, tự cấu hình MCP và đồng bộ lifecycle với Midnight Hub."
+    keywords="Midnight Hub Desktop, Codex, Antigravity, Claude Code, MCP"
     canonical="https://macatung.dev/desktop"
     :json-ld="productJsonLd"
   />
@@ -45,14 +45,14 @@ const productJsonLd = {
               Giải quyết task nhanh hơn,<br /><span class="text-phantom-mint">ngay trên desktop.</span>
             </h1>
             <p class="mt-6 max-w-2xl text-base sm:text-lg leading-8 text-slate-300">
-              Task Companion là mascot desktop kết nối trực tiếp với Task Hub. Chọn một task, mở đúng workspace và giao context pack cho Codex, Antigravity hoặc Claude Code.
+              Midnight Hub Desktop kết nối trực tiếp với workspace của bạn. Chọn một task, mở đúng workspace và giao context pack cho Codex, Antigravity hoặc Claude Code.
             </p>
             <div class="mt-8 flex flex-wrap gap-3">
               <a :href="downloadUrl" class="inline-flex items-center gap-2 rounded-xl bg-phantom-mint px-5 py-3 font-bold text-midnight-950 shadow-glow-mint transition hover:-translate-y-0.5">
                 ⬇ Tải cho Windows
               </a>
               <Link href="/tasks" class="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3 font-bold text-white transition hover:border-phantom-mint/50 hover:bg-white/10">
-                Mở Task Hub →
+                Mở Midnight Hub →
               </Link>
             </div>
             <p class="mt-4 text-xs text-slate-500">Windows 10/11 · Miễn phí · Cập nhật tự động qua GitHub Releases</p>
@@ -75,7 +75,7 @@ const productJsonLd = {
       <section class="border-y border-white/5 bg-black/20">
         <div class="max-w-7xl mx-auto grid gap-4 px-4 py-12 sm:grid-cols-2 lg:grid-cols-4 sm:px-6 lg:px-8">
           <article v-for="item in [
-            { icon: '🎯', title: 'Task-bound', text: 'Agent luôn làm đúng task bạn chọn từ Task Hub.' },
+            { icon: '🎯', title: 'Task-bound', text: 'Agent luôn làm đúng task bạn chọn từ Midnight Hub.' },
             { icon: '🔐', title: 'MCP auto-auth', text: 'Device pairing và GitHub approval, không nhập token thủ công.' },
             { icon: '🧠', title: 'Context đầy đủ', text: 'Acceptance criteria, DoD, risk, repo và sprint được truyền vào agent.' },
             { icon: '✅', title: 'Có kiểm chứng', text: 'Lifecycle, test và evidence được ghi lại để review.' },

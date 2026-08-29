@@ -35,7 +35,7 @@ const emit = defineEmits<{
 
 const isHovered = ref(false);
 const zenMascotRef = ref<InstanceType<typeof ZenMascotStage> | null>(null);
-const TASK_HUB_URL = (import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev';
+const TASK_HUB_URL = (import.meta as any).env?.VITE_TASK_HUB_URL || 'https://midnight.macatung.dev';
 
 export type ActiveMascotModal = 'palette' | 'dispatch' | 'review' | 'pomodoro' | 'duck' | 'notes' | 'taskhub' | null;
 const activeModal = ref<ActiveMascotModal>(null);

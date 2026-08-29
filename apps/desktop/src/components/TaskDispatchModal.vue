@@ -45,9 +45,9 @@ const handleSelectForPomodoro = (task: TaskItem) => {
 
 const openWebHub = () => {
   if ((window as any).electron?.shell?.openExternal) {
-      (window as any).desktopApi?.openExternal?.(`${(import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev'}/tasks`);
+      (window as any).desktopApi?.openExternal?.(`${(import.meta as any).env?.VITE_TASK_HUB_URL || 'https://midnight.macatung.dev'}/tasks`);
   } else {
-    window.open(`${(import.meta as any).env?.VITE_TASK_HUB_URL || 'https://task-hub.macatung.dev'}/tasks`, '_blank');
+    window.open(`${(import.meta as any).env?.VITE_TASK_HUB_URL || 'https://midnight.macatung.dev'}/tasks`, '_blank');
   }
 };
 </script>

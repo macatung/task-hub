@@ -353,7 +353,7 @@ onMounted(() => {
               <span>No Desktop Companion Online</span>
             </div>
             <p class="text-[11px] opacity-85 leading-relaxed">
-              Launch Task Hub Desktop App on your workstation. It will automatically pair and show up here.
+              Launch Midnight Hub Desktop on your workstation. It will automatically pair and show up here.
             </p>
           </div>
         </div>
