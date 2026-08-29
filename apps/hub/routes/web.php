@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\ApiTaskController;
 use App\Http\Controllers\Api\TaskHubMcpController;
 use App\Http\Controllers\DesktopPairingController;
 use App\Http\Controllers\GithubAuthController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PricingController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\WorkspaceBillingController;
@@ -25,6 +26,7 @@ use Illuminate\Support\Facades\Route;
 // Hub SaaS Web Views
 Route::get('/', [TaskController::class, 'landing'])->name('hub.landing');
 Route::get('/pricing', [PricingController::class, 'index'])->name('pricing');
+Route::get('/desktop', [HomeController::class, 'desktop'])->name('desktop');
 Route::get('/tasks', [TaskController::class, 'index'])->name('tasks.index');
 Route::get('/workspace', [TaskController::class, 'index'])->name('tasks.workspace');
 Route::get('/workspaces/{workspace}/billing', [WorkspaceBillingController::class, 'show'])->name('workspaces.billing');
