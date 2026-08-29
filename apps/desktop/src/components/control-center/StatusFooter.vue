@@ -31,11 +31,11 @@ const locationLabel = () => props.worktree || props.workspace || 'No workspace s
       <!-- Hub Connection State Pill -->
       <div
         class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full px-2.5 py-0.5 border"
-        :class="online ? 'bg-emerald-950/40 border-emerald-600/40 text-emerald-300' : connected ? 'bg-amber-950/40 border-amber-600/40 text-amber-300' : 'bg-[#0c1220] border-[#141b2d] text-zinc-500'"
+        :class="online ? 'bg-zinc-800/80 border-zinc-700 text-zinc-300' : connected ? 'bg-amber-950/30 border-amber-600/40 text-amber-300' : 'bg-[#0c1220] border-[#141b2d] text-zinc-500'"
         :title="connectionLabel()"
       >
-        <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="online ? 'bg-[#00f5a0] animate-pulse' : connected ? 'bg-amber-400' : 'bg-zinc-600'"></span>
-        <span class="text-[10px] font-bold tracking-wider uppercase leading-none font-mono">{{ connectionLabel() }}</span>
+        <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="online ? 'bg-emerald-400' : connected ? 'bg-amber-400' : 'bg-zinc-600'"></span>
+        <span class="text-[10px] font-semibold tracking-wider uppercase leading-none font-mono">{{ connectionLabel() }}</span>
       </div>
 
       <!-- CAO Daemon Status Pill -->
@@ -43,9 +43,9 @@ const locationLabel = () => props.worktree || props.workspace || 'No workspace s
         class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full px-2.5 py-0.5 border"
         :class="
           (caoReconnecting || caoStatus?.reconnecting)
-            ? 'bg-amber-950/40 border-amber-600/40 text-amber-300'
+            ? 'bg-amber-950/30 border-amber-600/40 text-amber-300'
             : caoStatus?.available
-              ? 'bg-emerald-950/40 border-emerald-600/40 text-emerald-300'
+              ? 'bg-zinc-800/80 border-zinc-700 text-zinc-300'
               : 'bg-[#0c1220] border-[#141b2d] text-zinc-500'
         "
         :title="
@@ -62,11 +62,11 @@ const locationLabel = () => props.worktree || props.workspace || 'No workspace s
             (caoReconnecting || caoStatus?.reconnecting)
               ? 'bg-amber-400 animate-pulse'
               : caoStatus?.available
-                ? 'bg-[#00f5a0]'
+                ? 'bg-emerald-400'
                 : 'bg-zinc-600'
           "
         ></span>
-        <span class="text-[10px] font-bold tracking-wider uppercase leading-none font-mono">
+        <span class="text-[10px] font-semibold tracking-wider uppercase leading-none font-mono">
           {{
             (caoReconnecting || caoStatus?.reconnecting)
               ? 'CAO: RECONNECTING'
@@ -79,8 +79,8 @@ const locationLabel = () => props.worktree || props.workspace || 'No workspace s
 
       <!-- AI Provider Pill -->
       <div class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full bg-[#0c1220] border border-[#141b2d] px-2.5 py-0.5 text-zinc-300" :title="`AI Engine: ${provider}`">
-        <i class="codicon codicon-hubot text-xs text-[#00f5a0] shrink-0"></i>
-        <span class="text-[10px] font-bold tracking-wider uppercase font-mono leading-none">{{ provider.toUpperCase() }}</span>
+        <i class="codicon codicon-hubot text-xs text-indigo-400 shrink-0"></i>
+        <span class="text-[10px] font-semibold tracking-wider uppercase font-mono leading-none">{{ provider.toUpperCase() }}</span>
       </div>
 
       <!-- Worktree / Workspace Location Pill -->
@@ -96,24 +96,24 @@ const locationLabel = () => props.worktree || props.workspace || 'No workspace s
         class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full px-3 py-0.5 border"
         :class="
           runStatus === 'running'
-            ? 'bg-emerald-950/40 border-emerald-600/40 text-[#00f5a0]'
+            ? 'bg-zinc-800/90 border-zinc-700 text-zinc-200'
             : runStatus === 'failed'
-              ? 'bg-rose-950/40 border-rose-600/40 text-rose-400'
+              ? 'bg-rose-950/40 border-rose-600/40 text-rose-300'
               : runStatus === 'completed'
-                ? 'bg-sky-950/40 border-sky-600/40 text-[#00f5d4]'
+                ? 'bg-zinc-800/90 border-zinc-700 text-emerald-300'
                 : 'bg-[#11182c] border-[#141b2d] text-zinc-400'
         "
         :title="`${runLabel()} · ${phase}`"
       >
-        <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="runStatus === 'running' ? 'bg-[#00f5a0] animate-pulse' : runStatus === 'failed' ? 'bg-rose-400' : 'bg-zinc-500'"></span>
-        <span class="text-[10px] font-bold tracking-wider uppercase leading-none font-mono">{{ runLabel() }} · {{ phase }}</span>
+        <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="runStatus === 'running' ? 'bg-amber-400 animate-pulse' : runStatus === 'failed' ? 'bg-rose-400' : runStatus === 'completed' ? 'bg-emerald-400' : 'bg-zinc-500'"></span>
+        <span class="text-[10px] font-semibold tracking-wider uppercase leading-none font-mono">{{ runLabel() }} · {{ phase }}</span>
       </div>
     </div>
 
     <!-- Right: App Version Badge -->
     <div class="flex items-center gap-2 shrink-0">
       <span class="inline-flex items-center justify-center shrink-0 gap-1 rounded-full bg-[#0c1220] border border-[#141b2d] px-2.5 py-0.5 font-mono text-[10px] text-zinc-400" :title="`Midnight Hub Desktop ${appVersion}`">
-        <i class="codicon codicon-zap text-xs text-[#00f5a0] shrink-0"></i>
+        <i class="codicon codicon-zap text-xs text-zinc-500 shrink-0"></i>
         <span class="leading-none">{{ appVersion.startsWith('v') ? appVersion : `v${appVersion}` }}</span>
       </span>
     </div>

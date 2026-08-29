@@ -48,7 +48,7 @@ const filteredDocuments = computed(() => { const normalizedQuery = query.value.t
           <label class="sr-only" for="manifest-path">Document manifest path</label>
           <input id="manifest-path" v-model="path" class="min-w-0 flex-1 bg-transparent text-xs font-mono outline-none placeholder:text-slate-500" placeholder="docs/PROJECT_DOCUMENTS.md" />
         </div>
-        <button class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/40 bg-gradient-to-r from-emerald-500 to-teal-500 px-3 py-1.5 text-xs font-bold text-midnight-950 transition hover:from-emerald-400 hover:to-teal-400 disabled:cursor-not-allowed disabled:opacity-50 shrink-0" :disabled="syncing || loading" @click="sync">
+        <button class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-phantom-mint bg-phantom-mint px-3 py-1.5 text-xs font-bold text-midnight-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50 shrink-0" :disabled="syncing || loading" @click="sync">
           <Icons v-if="syncing" name="LoaderCircle" :size="14" class="animate-spin text-midnight-950" />
           <Icons v-else name="FolderSync" :size="14" class="text-midnight-950" />
           <span class="leading-none">{{ syncing ? 'Syncing' : 'Sync from GitHub' }}</span>

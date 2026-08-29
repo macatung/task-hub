@@ -741,8 +741,8 @@ onBeforeUnmount(() => {
       :class="isDarkMode ? 'bg-midnight-900/90 border-midnight-800/80 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-900'"
     >
       <div class="flex items-center gap-3 min-w-0">
-        <div class="p-2.5 rounded-xl bg-gradient-to-br from-indigo-500/20 via-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-emerald-400 inline-flex items-center justify-center shrink-0 shadow-inner">
-          <Icons name="Zap" :size="18" class="text-amber-300 animate-pulse" />
+        <div class="p-2.5 rounded-xl bg-midnight-950 border border-midnight-700 text-phantom-mint inline-flex items-center justify-center shrink-0 shadow-xs">
+          <Icons name="Zap" :size="18" class="text-phantom-mint" />
         </div>
         <div class="min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
@@ -753,68 +753,59 @@ onBeforeUnmount(() => {
               :status="activeRun?.status || 'idle'"
               variant="status"
               size="xs"
-              :dark="isDarkMode"
             />
             <span
-              class="px-2 py-0.5 rounded-full font-mono text-[9px] font-bold uppercase tracking-wide border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 inline-flex items-center justify-center shrink-0"
+              v-if="activeRun?.provider"
+              class="px-2 py-0.2 rounded font-mono text-[9px] font-bold uppercase bg-midnight-950 border border-midnight-800 text-slate-300"
             >
-              4-Phase Pipeline
+              {{ activeRun.provider }}
             </span>
           </div>
-          <p class="font-mono text-[10px] text-slate-400 truncate mt-0.5">
-            Run #{{ activeRun?.id }} · {{ activeRun?.provider?.toUpperCase() }} ({{ activeRun?.metadata?.model || 'gemini-3.7-flash' }})
-            <span v-if="activeRun?.runner">· {{ activeRun.runner.name }}</span>
+          <p class="text-[10px] text-slate-400 font-mono mt-0.5">
+            {{ activeRun?.id ? `Run #${activeRun.id}` : 'No active session' }}
+            <span v-if="activeRun?.model"> · {{ activeRun.model }}</span>
+            <span v-if="activeRun?.cost_usd"> · ${{ activeRun.cost_usd.toFixed(4) }}</span>
           </p>
         </div>
       </div>
 
       <!-- Header Action Controls -->
       <div class="flex items-center gap-2 flex-wrap">
-        <!-- Pause Action -->
-        <button
-          v-if="['running', 'preparing', 'testing'].includes(activeRun?.status || '')"
-          @click="pauseActiveRun"
-          :disabled="isPausing"
-          class="px-2.5 py-1 rounded-xl text-[10px] font-bold border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 transition-all cursor-pointer inline-flex items-center gap-1.5 shrink-0"
-          title="Pause active execution"
+        <!-- Live SSE Connection Pill -->
+        <div
+          class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border"
+          :class="[
+            isSseConnected
+              ? 'bg-midnight-950 text-emerald-400 border-emerald-500/30'
+              : 'bg-midnight-950 text-amber-400 border-amber-500/30'
+          ]"
         >
-          <Icons name="Pause" :size="11" />
-          <span class="leading-none">{{ isPausing ? 'Pausing…' : 'Pause' }}</span>
-        </button>
+          <span
+            class="w-1.5 h-1.5 rounded-full"
+            :class="isSseConnected ? 'bg-phantom-mint animate-pulse' : 'bg-amber-400'"
+          ></span>
+          <span>{{ isSseConnected ? 'SSE Live' : 'Polling' }}</span>
+        </div>
 
-        <!-- Resume Action -->
+        <!-- Cancel Active Run Button -->
         <button
-          v-if="['waiting_input'].includes(activeRun?.status || '')"
-          @click="resumeActiveRun"
-          :disabled="isResuming"
-          class="px-2.5 py-1 rounded-xl text-[10px] font-bold border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 transition-all cursor-pointer inline-flex items-center gap-1.5 shrink-0"
-          title="Resume execution"
-        >
-          <Icons name="Play" :size="11" />
-          <span class="leading-none">{{ isResuming ? 'Resuming…' : 'Resume' }}</span>
-        </button>
-
-        <!-- Cancel Action -->
-        <button
-          v-if="['queued', 'claimed', 'preparing', 'running', 'waiting_input', 'testing'].includes(activeRun?.status || '')"
+          v-if="activeRun && isRunningStatus(activeRun.status)"
           @click="cancelActiveRun"
           :disabled="isCancelling"
-          class="px-2.5 py-1 rounded-xl text-[10px] font-bold border border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 transition-all cursor-pointer inline-flex items-center gap-1.5 shrink-0"
-          title="Cancel active agent execution"
+          class="px-3 py-1 rounded-xl bg-rose-950/60 hover:bg-rose-900 border border-rose-800 text-rose-300 text-[11px] font-bold cursor-pointer transition-colors inline-flex items-center gap-1 shrink-0"
         >
-          <Icons name="X" :size="11" />
-          <span class="leading-none">{{ isCancelling ? 'Stopping…' : 'Cancel' }}</span>
+          <Icons name="X" :size="12" />
+          <span>{{ isCancelling ? 'Cancelling...' : 'Cancel Run' }}</span>
         </button>
 
-        <!-- Sync Action -->
+        <!-- Refresh Manual Trigger -->
         <button
-          @click="activeRun?.id && loadRunDetails(activeRun.id)"
-          class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer inline-flex items-center gap-1.5 shrink-0"
-          :class="isDarkMode ? 'border-midnight-800 bg-midnight-850 text-slate-300 hover:text-white' : 'border-slate-300 bg-white text-slate-700 hover:text-slate-950'"
-          title="Refresh streamback logs and status"
+          @click="handleManualRefresh"
+          :disabled="isRefreshing"
+          class="p-1.5 rounded-xl border border-midnight-800 hover:bg-midnight-850 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer shrink-0"
+          title="Refresh Run State"
         >
-          <Icons name="Refresh" :size="12" />
-          <span class="leading-none">Sync</span>
+          <Icons name="Refresh" :size="13" :class="isRefreshing ? 'animate-spin' : ''" />
         </button>
       </div>
     </div>
@@ -822,7 +813,7 @@ onBeforeUnmount(() => {
     <!-- 1. SAFETY INTERCEPTION BANNER (waiting_input state) -->
     <div
       v-if="safetyIntercept"
-      class="p-4 rounded-2xl border border-amber-500/60 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent space-y-3 animate-pulse shadow-lg"
+      class="p-4 rounded-2xl border border-amber-500/60 bg-midnight-900 space-y-3 shadow-sm"
     >
       <div class="flex items-start justify-between gap-2">
         <div class="flex items-center gap-2">
@@ -854,7 +845,7 @@ onBeforeUnmount(() => {
         <button
           @click="approveSafetyOrHandoff"
           :disabled="isApproving"
-          class="px-4 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 font-bold text-xs transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm active:scale-95 shrink-0"
+          class="px-4 py-1.5 rounded-lg bg-phantom-mint hover:bg-emerald-400 text-midnight-950 font-bold text-xs transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0"
         >
           <Icons name="Check" :size="12" />
           <span class="leading-none">{{ isApproving ? 'Approving...' : 'Authorize & Continue Execution' }}</span>
@@ -863,7 +854,7 @@ onBeforeUnmount(() => {
         <button
           @click="rejectSafetyOrHandoff"
           :disabled="isRejecting"
-          class="px-4 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 font-bold text-xs transition-all cursor-pointer inline-flex items-center gap-1.5 active:scale-95 shrink-0"
+          class="px-4 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 font-bold text-xs transition-all cursor-pointer inline-flex items-center gap-1.5 active:scale-95 shrink-0"
         >
           <Icons name="X" :size="12" />
           <span class="leading-none">{{ isRejecting ? 'Rejecting...' : 'Reject Action' }}</span>
@@ -1372,7 +1363,7 @@ onBeforeUnmount(() => {
         <button
           @click="approveSafetyOrHandoff"
           :disabled="isApproving"
-          class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 font-bold text-xs transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-lg active:scale-95 shrink-0"
+          class="px-5 py-2 rounded-lg bg-phantom-mint hover:bg-emerald-400 text-midnight-950 font-bold text-xs transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0"
         >
           <Icons name="Check" :size="13" />
           <span class="leading-none">{{ isApproving ? 'Approving...' : isEpicAggregate ? 'Approve Epic & Mark All Done' : 'Approve & Mark Done' }}</span>

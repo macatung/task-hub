@@ -209,8 +209,8 @@ onMounted(() => {
         :class="isDarkMode ? 'bg-midnight-950/80 border-midnight-800' : 'bg-slate-50 border-slate-200'"
       >
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-500/20 via-teal-500/15 to-cyan-500/20 border border-emerald-500/40 text-emerald-400 inline-flex items-center justify-center shrink-0 shadow-inner">
-            <Icons name="Zap" :size="18" class="text-amber-300 animate-pulse" />
+          <div class="w-9 h-9 rounded-xl bg-midnight-900 border border-midnight-700 text-phantom-mint inline-flex items-center justify-center shrink-0 shadow-xs">
+            <Icons name="Zap" :size="18" class="text-phantom-mint" />
           </div>
           <div>
             <h3 class="font-bold text-sm sm:text-base font-display tracking-tight">
@@ -366,7 +366,7 @@ onMounted(() => {
               class="p-2.5 rounded-xl border font-bold text-center transition-all cursor-pointer flex flex-col items-center gap-0.5"
               :class="[
                 selectedProvider === p
-                  ? 'bg-gradient-to-r from-emerald-500/15 to-cyan-500/15 border-phantom-mint text-phantom-mint ring-1 ring-phantom-mint/30'
+                  ? 'bg-midnight-950 border-phantom-mint text-phantom-mint ring-1 ring-phantom-mint/30'
                   : (isDarkMode ? 'bg-midnight-850 border-midnight-800 text-slate-300 hover:border-midnight-700' : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300')
               ]"
             >
@@ -541,11 +541,11 @@ onMounted(() => {
           type="button"
           @click="dispatchTask"
           :disabled="isDispatching || !activeTask || !selectedRunnerId"
-          class="px-6 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer inline-flex items-center gap-2 shadow-lg border shrink-0"
+          class="px-6 py-2.5 rounded-lg font-bold text-xs transition-all cursor-pointer inline-flex items-center gap-2 shadow-xs border shrink-0"
           :class="[
             isDispatching || !activeTask || !selectedRunnerId
               ? 'bg-midnight-850 text-slate-500 border-midnight-800 cursor-not-allowed'
-              : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 font-extrabold border-emerald-400/40 shadow-emerald-950/40 active:scale-95'
+              : 'bg-phantom-mint hover:bg-emerald-400 text-midnight-950 border-phantom-mint active:scale-95'
           ]"
         >
           <Icons :name="isDispatching ? 'Refresh' : 'Zap'" :size="14" :class="[isDispatching ? 'animate-spin text-midnight-950' : 'text-midnight-950']" />

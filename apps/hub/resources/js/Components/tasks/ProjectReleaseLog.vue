@@ -40,7 +40,7 @@ watch(() => props.projectId, load); onMounted(load);
 
     <div class="mt-2 flex gap-2 font-mono">
       <input v-model="form.commit_sha" class="min-w-0 flex-1 rounded-xl border border-midnight-800 bg-midnight-950 px-2.5 py-1 text-xs outline-none focus:border-phantom-mint/60" placeholder="Commit SHA (optional)" />
-      <button class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-3.5 py-1 text-xs font-bold text-midnight-950 transition hover:from-emerald-400 hover:to-teal-400 disabled:opacity-50 shrink-0" :disabled="loading" @click="create">
+      <button class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-phantom-mint hover:bg-emerald-400 px-3.5 py-1 text-xs font-bold text-midnight-950 transition disabled:opacity-50 shrink-0" :disabled="loading" @click="create">
         <span class="leading-none">Save release</span>
       </button>
     </div>

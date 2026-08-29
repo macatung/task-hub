@@ -2333,7 +2333,9 @@ async function getCaoStatusPayload() {
     isRunning = started.status === 'running' && await isCaoPortOpen(port);
   }
   const sessionApi = isRunning ? await probeCaoSessionApi(process.cwd()) : false;
-  const provider = runtime ? await isCaoProviderAvailable('codex', runtime) : false;
+  const provider = runtime
+    ? (await isCaoProviderAvailable('antigravity', runtime) || await isCaoProviderAvailable('codex', runtime) || await isCaoProviderAvailable('claude_code', runtime))
+    : false;
   if (runtime?.kind === 'native' && caoRuntimeStatus.fifo === 'unknown') caoRuntimeStatus.fifo = 'ok';
   caoRuntimeStatus.health = isRunning ? 'ok' : 'failed';
   caoRuntimeStatus.sessionApi = sessionApi ? 'ok' : 'failed';

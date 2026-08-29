@@ -60,13 +60,13 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
     <div class="cc-connectionbar__identity flex items-center gap-3 min-w-0 flex-1">
       <!-- Logo & Workspace Name -->
       <div class="flex items-center gap-2.5 pr-1">
-        <div class="relative h-8 w-8 shrink-0 rounded-xl overflow-hidden shadow-[0_0_14px_rgba(0,245,160,0.35)] flex items-center justify-center">
+        <div class="relative h-8 w-8 shrink-0 rounded-xl overflow-hidden border border-zinc-800 flex items-center justify-center bg-[#0c1220]">
           <img src="/midnight-hub-mark.svg" alt="Midnight Hub" class="h-full w-full object-cover shrink-0" />
         </div>
         <div class="flex flex-col">
-          <span class="text-xs font-black tracking-wider uppercase text-zinc-100 flex items-center gap-1.5 font-['Space_Grotesk'] leading-none">
+          <span class="text-xs font-bold tracking-wider uppercase text-zinc-100 flex items-center gap-1.5 font-['Space_Grotesk'] leading-none">
             Midnight Hub
-            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-[#00f5a0] border border-emerald-500/30 tracking-widest font-mono inline-flex items-center justify-center shrink-0">MDNT</span>
+            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700 tracking-widest font-mono inline-flex items-center justify-center shrink-0">MDNT</span>
           </span>
           <span class="text-[10px] text-zinc-400 truncate max-w-[140px] mt-1" :title="credential?.workspaceName || 'Không gian làm việc cục bộ'">
             {{ credential?.workspaceName || 'Local Workspace' }}
@@ -79,14 +79,14 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
         <button
           v-for="p in projects.slice(0, 3)"
           :key="p.id"
-          class="inline-flex items-center justify-center shrink-0 h-6 px-2.5 rounded-full bg-[#11182c] text-[10px] font-bold font-mono text-zinc-200 border border-[#141b2d] hover:border-[#00f5a0]/60 hover:text-[#00f5a0] transition"
+          class="inline-flex items-center justify-center shrink-0 h-6 px-2.5 rounded-full bg-[#11182c] text-[10px] font-bold font-mono text-zinc-300 border border-[#141b2d] hover:border-zinc-500 hover:text-white transition"
           :title="p.title"
           @click="emit('sync')"
         >
           {{ p.key || p.title.slice(0, 3).toUpperCase() }}
         </button>
         <button
-          class="inline-flex items-center justify-center shrink-0 h-5 w-5 rounded-full border border-dashed border-zinc-600 text-zinc-400 hover:text-[#00f5a0] hover:border-[#00f5a0] text-xs transition"
+          class="inline-flex items-center justify-center shrink-0 h-5 w-5 rounded-full border border-dashed border-zinc-600 text-zinc-400 hover:text-white hover:border-zinc-400 text-xs transition"
           title="Tạo yêu cầu mới vào dự án (New requirement)"
           @click="emit('requirement')"
         >
@@ -100,7 +100,7 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
       <!-- Attention / Need Input Pill (Only shown if real attention items exist) -->
       <button 
         v-if="attentionCount && attentionCount > 0" 
-        class="cc-connectionbar__attention hidden md:inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full bg-amber-950/40 border border-amber-600/40 px-3 py-1 text-xs font-semibold text-amber-400 hover:bg-amber-900/50 transition shadow-[0_0_10px_rgba(245,158,11,0.15)]"
+        class="cc-connectionbar__attention hidden md:inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full bg-amber-950/30 border border-amber-600/40 px-3 py-1 text-xs font-semibold text-amber-300 hover:bg-amber-900/40 transition"
         title="Các yêu cầu phê duyệt hoặc phản hồi đang chờ bạn xử lý"
         @click="emit('timeline')"
       >
@@ -110,13 +110,13 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
 
       <!-- Agent Room Drawer Trigger Button -->
       <button 
-        class="cc-connectionbar__fleet inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full bg-[#0c1220] border border-[#141b2d] px-3 py-1 text-xs font-semibold text-zinc-200 hover:border-[#00f5a0]/60 hover:text-[#00f5a0] transition shadow-sm"
+        class="cc-connectionbar__fleet inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full bg-[#0c1220] border border-[#141b2d] px-3 py-1 text-xs font-semibold text-zinc-300 hover:border-zinc-600 hover:text-white transition"
         title="Mở phòng trực chiến Agent (Agent Room Local Fleet)"
         @click="emit('agentRoom')"
       >
         <span class="relative flex h-2 w-2 shrink-0">
-          <span v-if="activeFleetCount && activeFleetCount > 0" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00f5a0] opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-2 w-2" :class="activeFleetCount && activeFleetCount > 0 ? 'bg-[#00f5a0]' : 'bg-zinc-500'"></span>
+          <span v-if="activeFleetCount && activeFleetCount > 0" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2" :class="activeFleetCount && activeFleetCount > 0 ? 'bg-emerald-400' : 'bg-zinc-500'"></span>
         </span>
         <span class="leading-none">Agent Room</span>
         <span v-if="fleetCount !== undefined && fleetCount > 0" class="rounded-full bg-[#11182c] border border-[#141b2d] px-1.5 py-0.2 text-[10px] font-mono text-zinc-300 inline-flex items-center justify-center shrink-0">{{ fleetCount }}</span>
@@ -124,21 +124,21 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
 
       <!-- AI Requirement Wizard Action Pill -->
       <button 
-        class="cc-connectionbar__requirement hidden lg:inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full bg-[#0c1220] border border-[#141b2d] px-2.5 py-1 text-xs text-zinc-300 hover:text-[#00f5a0] hover:border-[#00f5a0]/40 transition"
+        class="cc-connectionbar__requirement hidden lg:inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full bg-[#0c1220] border border-[#141b2d] px-2.5 py-1 text-xs text-zinc-300 hover:text-white hover:border-zinc-600 transition"
         title="Khám phá và tạo backlog yêu cầu bằng AI"
         @click="emit('requirement')"
       >
-        <i class="codicon codicon-sparkle text-xs text-[#00f5a0] shrink-0"></i>
+        <i class="codicon codicon-sparkle text-xs text-indigo-400 shrink-0"></i>
         <span class="leading-none">Yêu cầu mới</span>
       </button>
 
       <!-- Repo Docs Scanner Pill -->
       <button 
-        class="cc-connectionbar__docs hidden xl:inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full bg-[#0c1220] border border-[#141b2d] px-2.5 py-1 text-xs text-zinc-300 hover:text-[#00f5d4] hover:border-[#00f5d4]/40 transition"
+        class="cc-connectionbar__docs hidden xl:inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full bg-[#0c1220] border border-[#141b2d] px-2.5 py-1 text-xs text-zinc-300 hover:text-white hover:border-zinc-600 transition"
         title="Quét mã nguồn và cập nhật tài liệu kiến trúc docs/"
         @click="emit('docs')"
       >
-        <i class="codicon codicon-book text-xs text-[#00f5d4] shrink-0"></i>
+        <i class="codicon codicon-book text-xs text-zinc-400 shrink-0"></i>
         <span class="leading-none">Quét tài liệu</span>
       </button>
 
@@ -164,15 +164,15 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
 
       <!-- Real User Profile Pill -->
       <div class="cc-connectionbar__profile flex items-center gap-2 rounded-full bg-[#0c1220] border border-[#141b2d] pl-1 pr-2.5 py-1 shrink-0">
-        <span class="grid h-5 w-5 place-items-center rounded-full bg-gradient-to-tr from-[#00f5a0] to-[#00f5d4] text-[9px] font-black text-black shrink-0">
+        <span class="grid h-5 w-5 place-items-center rounded-full bg-zinc-800 border border-zinc-700 text-[9px] font-bold text-zinc-200 shrink-0">
           {{ (credential?.userName || 'OP').slice(0, 2).toUpperCase() }}
         </span>
         <span class="cc-connectionbar__profile-name text-xs font-semibold text-zinc-200 truncate max-w-[90px] leading-none">
           {{ credential?.userName || 'Operator' }}
         </span>
         <span
-          class="rounded px-1.5 py-0.2 text-[9px] font-black tracking-wider font-mono inline-flex items-center justify-center shrink-0"
-          :class="credential ? 'bg-gradient-to-r from-[#00f5a0] to-[#00f5d4] text-black' : 'bg-zinc-700 text-zinc-300'"
+          class="rounded px-1.5 py-0.2 text-[9px] font-bold tracking-wider font-mono inline-flex items-center justify-center shrink-0"
+          :class="credential ? 'bg-zinc-800 text-zinc-200 border border-zinc-700' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'"
         >
           {{ credential ? 'PRO' : 'LOCAL' }}
         </span>

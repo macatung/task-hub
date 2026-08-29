@@ -8,13 +8,13 @@
     --accent-primary: #00f5a0;
     --accent-secondary: #00f5d4;
 
-    /* Deep Midnight Obsidian Design Tokens */
-    --color-midnight-obsidian: #04070d;
-    --color-midnight-canvas: #070b14;
-    --color-midnight-panel: #0c1220;
-    --color-midnight-surface: #11182c;
-    --color-midnight-border: #141b2d;
-    --color-midnight-border-subtle: rgba(20, 27, 45, 0.6);
+    /* GitHub / Monokai Pro Enterprise Charcoal Tokens */
+    --color-midnight-obsidian: #0d1117;
+    --color-midnight-canvas: #0d1117;
+    --color-midnight-panel: #161b22;
+    --color-midnight-surface: #21262d;
+    --color-midnight-border: #30363d;
+    --color-midnight-border-subtle: rgba(48, 54, 61, 0.6);
     --color-midnight-border-glow: rgba(0, 245, 160, 0.3);
 
     /* Phantom Neon Accents */
@@ -26,7 +26,7 @@
   }
 
   body {
-    background-color: #04070d;
+    background-color: #0d1117;
     color: #e2e8f0;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }

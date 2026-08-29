@@ -450,13 +450,13 @@ onBeforeUnmount(() => {
             <button
               @click="handleDispatchClick(runner)"
               :disabled="runner.health === 'offline'"
-              class="px-2.5 py-1 rounded-xl text-[10px] font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 border shadow-xs shrink-0"
+              class="px-2.5 py-1 rounded-md text-[10px] font-bold font-mono transition-all cursor-pointer inline-flex items-center gap-1.5 border shadow-xs shrink-0"
               :class="[
                 runner.health === 'offline'
-                  ? 'bg-midnight-900 text-slate-500 border-midnight-800 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 font-extrabold border-emerald-400/50 shadow-emerald-950/40 active:scale-95'
+                  ? 'bg-midnight-950 text-slate-500 border-midnight-800 cursor-not-allowed'
+                  : 'bg-phantom-mint hover:bg-emerald-400 text-midnight-950 border-phantom-mint active:scale-95'
               ]"
-              title="⚡ Dispatch Task"
+              title="Dispatch Task"
             >
               <Icons name="Zap" :size="12" class="text-midnight-950" />
               <span class="leading-none">Dispatch Task</span>

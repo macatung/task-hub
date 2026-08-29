@@ -239,16 +239,16 @@ const standaloneTasks = computed(() => {
     <!-- Top Mini-Dock Navigation (AgentsRoom style) -->
     <div class="px-3 pt-3 pb-2 border-b border-[#141b2d]">
       <div class="flex items-center gap-2 rounded-2xl bg-[#0c1220] p-1.5 border border-[#141b2d]">
-        <button class="grid h-8 w-8 place-items-center rounded-xl bg-[#11182c] text-zinc-400 hover:text-zinc-200 transition shrink-0" title="Trang chủ">
+        <button class="grid h-8 w-8 place-items-center rounded-xl bg-[#11182c] text-zinc-300 hover:text-white transition shrink-0" title="Trang chủ">
           <i class="codicon codicon-home text-sm shrink-0"></i>
         </button>
-        <button class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md hover:scale-105 transition shrink-0" title="Tác nhân đang chạy">
+        <button class="grid h-8 w-8 place-items-center rounded-xl bg-zinc-800 text-zinc-300 border border-zinc-700 hover:text-white transition shrink-0" title="Tác nhân đang chạy">
           <i class="codicon codicon-layers text-sm shrink-0"></i>
         </button>
-        <button class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-[#00f5a0] to-[#00f5d4] text-black shadow-md hover:scale-105 transition shrink-0" title="Tính năng AI">
+        <button class="grid h-8 w-8 place-items-center rounded-xl bg-zinc-800 text-zinc-300 border border-zinc-700 hover:text-white transition shrink-0" title="Tính năng AI">
           <i class="codicon codicon-sparkle text-sm shrink-0"></i>
         </button>
-        <button class="grid h-8 w-8 place-items-center rounded-xl border border-dashed border-zinc-600 text-zinc-400 hover:text-[#00f5a0] hover:border-[#00f5a0] transition ml-auto shrink-0" title="Thêm mới" @click="emit('requirement')">
+        <button class="grid h-8 w-8 place-items-center rounded-xl border border-dashed border-zinc-600 text-zinc-400 hover:text-white hover:border-zinc-400 transition ml-auto shrink-0" title="Thêm mới" @click="emit('requirement')">
           <i class="codicon codicon-add text-sm shrink-0"></i>
         </button>
       </div>
@@ -256,7 +256,7 @@ const standaloneTasks = computed(() => {
       <!-- Project Filter Dropdown -->
       <div class="mt-2.5 flex items-center justify-between">
         <div class="flex items-center gap-1.5 rounded-lg px-1.5 py-1 bg-[#0c1220] border border-[#141b2d] w-full">
-          <i class="codicon codicon-project text-xs text-[#00f5a0] shrink-0"></i>
+          <i class="codicon codicon-project text-xs text-zinc-400 shrink-0"></i>
           <select
             v-model="project"
             class="bg-transparent text-xs font-bold text-zinc-100 focus:outline-none w-full cursor-pointer truncate"
@@ -274,18 +274,18 @@ const standaloneTasks = computed(() => {
         <div class="flex items-center gap-1">
           <button 
             class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition"
-            :class="status === 'all' ? 'bg-[#11182c] text-[#00f5a0] border border-[#00f5a0]/40 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+            :class="status === 'all' ? 'bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
             @click="status = 'all'"
           >
-            <span class="h-1.5 w-1.5 rounded-full bg-[#00f5a0] shrink-0"></span>
+            <span class="h-1.5 w-1.5 rounded-full bg-zinc-400 shrink-0"></span>
             <span class="leading-none">Tất cả ({{ filteredTasks.length }})</span>
           </button>
           <button 
             class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition"
-            :class="status === 'in_progress' ? 'bg-[#11182c] text-[#00f5d4] border border-[#00f5d4]/40 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+            :class="status === 'in_progress' ? 'bg-zinc-800 text-amber-300 border border-amber-600/40 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
             @click="status = status === 'in_progress' ? 'all' : 'in_progress'"
           >
-            <span class="h-1.5 w-1.5 rounded-full bg-[#00f5d4] shrink-0"></span>
+            <span class="h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0"></span>
             <span class="leading-none">Đang chạy</span>
           </button>
         </div>
@@ -293,8 +293,8 @@ const standaloneTasks = computed(() => {
         <!-- View Mode Switcher -->
         <div class="flex items-center bg-[#0c1220] border border-[#141b2d] rounded-lg p-0.5 shrink-0">
           <button
-            class="px-1.5 py-0.5 rounded text-[10px] font-semibold transition inline-flex items-center justify-center gap-1 shrink-0"
-            :class="viewMode === 'tree' ? 'bg-[#00f5a0] text-black font-bold shadow-xs' : 'text-zinc-400 hover:text-zinc-200'"
+            class="px-2 py-0.5 rounded text-[10px] font-semibold transition inline-flex items-center justify-center gap-1 shrink-0"
+            :class="viewMode === 'tree' ? 'bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-xs' : 'text-zinc-400 hover:text-zinc-200'"
             title="Xem dạng cây phân cấp Epic"
             @click="viewMode = 'tree'"
           >
@@ -302,8 +302,8 @@ const standaloneTasks = computed(() => {
             <span class="leading-none">Cây</span>
           </button>
           <button
-            class="px-1.5 py-0.5 rounded text-[10px] font-semibold transition inline-flex items-center justify-center gap-1 shrink-0"
-            :class="viewMode === 'flat' ? 'bg-[#00f5a0] text-black font-bold shadow-xs' : 'text-zinc-400 hover:text-zinc-200'"
+            class="px-2 py-0.5 rounded text-[10px] font-semibold transition inline-flex items-center justify-center gap-1 shrink-0"
+            :class="viewMode === 'flat' ? 'bg-zinc-800 text-zinc-100 border border-zinc-700 shadow-xs' : 'text-zinc-400 hover:text-zinc-200'"
             title="Xem dạng danh sách phẳng"
             @click="viewMode = 'flat'"
           >
@@ -320,7 +320,7 @@ const standaloneTasks = computed(() => {
           v-model="searchQuery" 
           type="text" 
           placeholder="Tìm kiếm tác vụ / issue…"
-          class="w-full rounded-xl bg-[#0c1220] border border-[#141b2d] pl-8 pr-7 py-1.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-[#00f5a0]/80 focus:ring-1 focus:ring-[#00f5a0]/40"
+          class="w-full rounded-xl bg-[#0c1220] border border-[#141b2d] pl-8 pr-7 py-1.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-600"
         />
         <i class="codicon codicon-sparkle absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-500 shrink-0"></i>
       </div>
@@ -876,11 +876,11 @@ const standaloneTasks = computed(() => {
         >
           <div class="relative flex items-center justify-center">
             <i class="codicon codicon-checklist text-sm shrink-0"></i>
-            <span class="absolute -top-1.5 -right-2 inline-flex items-center justify-center shrink-0 h-3.5 min-w-3.5 rounded-full bg-[#00f5a0] px-1 text-[8px] font-bold text-black font-mono">
+            <span class="absolute -top-1.5 -right-2 inline-flex items-center justify-center shrink-0 h-3.5 min-w-3.5 rounded-full bg-zinc-800 border border-zinc-700 px-1 text-[8px] font-bold text-zinc-200 font-mono">
               {{ tasks.filter(t => t.status === 'todo').length }}
             </span>
           </div>
-          <span class="text-[9px] font-bold tracking-wider mt-1 text-[#00f5a0]">CẦN LÀM</span>
+          <span class="text-[9px] font-semibold tracking-wider mt-1 text-zinc-400">CẦN LÀM</span>
         </button>
 
         <!-- Tạo Backlog (Requirement) -->
@@ -891,11 +891,11 @@ const standaloneTasks = computed(() => {
         >
           <div class="relative flex items-center justify-center">
             <i class="codicon codicon-sparkle text-sm shrink-0"></i>
-            <span class="absolute -top-1.5 -right-2 inline-flex items-center justify-center shrink-0 h-3.5 min-w-3.5 rounded-full bg-[#00f5d4] px-1 text-[8px] font-bold text-black font-mono">
+            <span class="absolute -top-1.5 -right-2 inline-flex items-center justify-center shrink-0 h-3.5 min-w-3.5 rounded-full bg-zinc-800 border border-zinc-700 px-1 text-[8px] font-bold text-zinc-200 font-mono">
               AI
             </span>
           </div>
-          <span class="text-[9px] font-bold tracking-wider mt-1 text-zinc-400">YÊU CẦU</span>
+          <span class="text-[9px] font-semibold tracking-wider mt-1 text-zinc-400">YÊU CẦU</span>
         </button>
 
         <!-- Web Hub -->
@@ -906,11 +906,11 @@ const standaloneTasks = computed(() => {
         >
           <div class="relative flex items-center justify-center">
             <i class="codicon codicon-globe text-sm shrink-0"></i>
-            <span class="absolute -top-1.5 -right-2 inline-flex items-center justify-center shrink-0 h-3.5 min-w-3.5 rounded-full bg-[#9d4edd] px-1 text-[8px] font-bold text-white font-mono">
+            <span class="absolute -top-1.5 -right-2 inline-flex items-center justify-center shrink-0 h-3.5 min-w-3.5 rounded-full bg-zinc-800 border border-zinc-700 px-1 text-[8px] font-bold text-zinc-200 font-mono">
               {{ projects.length }}
             </span>
           </div>
-          <span class="text-[9px] font-bold tracking-wider mt-1 text-zinc-400">WEB HUB</span>
+          <span class="text-[9px] font-semibold tracking-wider mt-1 text-zinc-400">WEB HUB</span>
         </button>
       </div>
     </div>

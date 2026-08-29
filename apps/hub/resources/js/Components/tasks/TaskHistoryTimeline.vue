@@ -293,8 +293,8 @@ const copyMarkdownAudit = async () => {
           v-for="f in [{ id: 'all', label: 'Tất cả' }, { id: 'transitions', label: 'Chuyển trạng thái' }, { id: 'agents', label: 'Agent Runs' }, { id: 'reviews', label: 'Review / Phê duyệt' }]"
           :key="f.id"
           @click="selectedFilter = (f.id as any)"
-          class="px-2.5 py-1 rounded-xl font-bold border transition-colors cursor-pointer inline-flex items-center justify-center shrink-0"
-          :class="selectedFilter === f.id ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-midnight-950 border-emerald-400 shadow-sm' : (isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-400 hover:text-slate-200' : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200')"
+          class="px-2.5 py-1 rounded-md font-bold border transition-colors cursor-pointer inline-flex items-center justify-center shrink-0"
+          :class="selectedFilter === f.id ? 'bg-phantom-mint text-midnight-950 border-phantom-mint shadow-xs' : (isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-400 hover:text-slate-200' : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200')"
         >
           <span class="leading-none">{{ f.label }}</span>
         </button>

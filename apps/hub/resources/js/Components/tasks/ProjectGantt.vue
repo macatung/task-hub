@@ -37,10 +37,10 @@ const styleFor = (item: GanttTask) => {
   return { left: `${left}%`, width: `${Math.min(100 - left, width)}%` };
 };
 const toneFor = (status: Status) => ({
-  todo: 'bg-slate-600 text-slate-200',
-  in_progress: 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-[0_0_8px_rgba(0,245,212,0.3)]',
-  review: 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-[0_0_8px_rgba(157,78,221,0.3)]',
-  done: 'bg-gradient-to-r from-emerald-500 to-teal-500 text-midnight-950 font-extrabold shadow-[0_0_8px_rgba(0,245,160,0.3)]',
+  todo: 'bg-slate-700 text-slate-200 border border-slate-600',
+  in_progress: 'bg-cyan-500 text-midnight-950 font-bold',
+  review: 'bg-purple-500 text-white font-bold',
+  done: 'bg-phantom-mint text-midnight-950 font-bold',
 }[status]);
 const unscheduledItems = computed(() => [...props.epics, ...props.tasks].filter(item => !item.start_date || !item.due_date));
 </script>

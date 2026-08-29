@@ -1030,7 +1030,7 @@ const submit = () => {
             </button>
             <button
               type="button"
-              class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg bg-[#00f5a0] hover:bg-[#00f5d4] px-3 py-1 font-bold text-black shadow transition text-xs"
+              class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 px-3 py-1 font-semibold text-zinc-100 shadow-sm transition text-xs"
               @click="$emit('retry-epic-task'); $emit('retryEpicTask')"
             >
               <i class="codicon codicon-debug-restart shrink-0"></i>
@@ -1214,7 +1214,7 @@ const submit = () => {
             </button>
             <button
               type="button"
-              class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg bg-[#00f5a0] hover:bg-[#00f5d4] px-3.5 py-1.5 font-bold text-black shadow transition text-xs"
+              class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 px-3.5 py-1.5 font-semibold text-zinc-100 shadow-sm transition text-xs"
               @click="$emit('retry-epic-task'); $emit('retryEpicTask')"
             >
               <i class="codicon codicon-debug-restart shrink-0"></i>

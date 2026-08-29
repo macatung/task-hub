@@ -36,7 +36,6 @@ describe('Milestone 4: Web Hub Remote Dispatch UI & Live Streamback Integration'
       expect(registryVueSrc).toContain('weekly_percent');
       expect(registryVueSrc).toContain('five_hour_percent');
       expect(registryVueSrc).toContain('ping_latency_ms');
-      expect(registryVueSrc).toContain('⚡');
       expect(registryVueSrc).toContain('Dispatch Task');
     });
 
@@ -49,13 +48,13 @@ describe('Milestone 4: Web Hub Remote Dispatch UI & Live Streamback Integration'
   describe('2. Kanban Board & Backlog Dispatch Triggers (Tasks/Index.vue)', () => {
     it('embeds ⚡ Dispatch action buttons on Kanban cards across TO DO, IN PROGRESS, and REVIEW columns', () => {
       expect(tasksIndexVueSrc).toContain("openRemoteDispatch(task)");
-      expect(tasksIndexVueSrc).toContain("⚡ Dispatch to Connected Desktop Agent");
-      expect(tasksIndexVueSrc).toContain("⚡ Re-dispatch / Run on Connected Desktop Agent");
-      expect(tasksIndexVueSrc).toContain("⚡ Re-test / Dispatch to Connected Desktop Agent");
+      expect(tasksIndexVueSrc).toContain("Dispatch Agent");
+      expect(tasksIndexVueSrc).toContain("Run Agent");
+      expect(tasksIndexVueSrc).toContain("Re-test Agent");
     });
 
     it('embeds 🚀 Dispatch action buttons on Backlog items in Sprint containers and Backlog pool', () => {
-      expect(tasksIndexVueSrc).toContain("🚀 Run on Connected Desktop Agent");
+      expect(tasksIndexVueSrc).toContain("Dispatch Agent");
       expect(tasksIndexVueSrc).toContain("@click.stop=\"openRemoteDispatch(task)\"");
     });
   });
@@ -182,7 +181,7 @@ describe('Milestone 4: Web Hub Remote Dispatch UI & Live Streamback Integration'
     it('embeds StreambackConsole in Task Detail Drawer for real-time monitoring', () => {
       expect(tasksIndexVueSrc).toContain('<StreambackConsole');
       expect(tasksIndexVueSrc).toContain(':active-run="selectedAgentRuns[0]');
-      expect(tasksIndexVueSrc).toContain('Dispatch to Connected Desktop Agent (Auto-Pilot)');
+      expect(tasksIndexVueSrc).toContain('Dispatch to Connected Desktop Agent');
     });
 
     it('mounts RemoteDispatchModal in the Modals container', () => {

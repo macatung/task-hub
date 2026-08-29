@@ -200,10 +200,10 @@ const getRoleTheme = (role: AgentRoleType) => {
         badgeBg: 'bg-indigo-950/60',
         badgeText: 'text-indigo-300',
         accentColor: '#818cf8',
-        cardBorderActive: 'border-indigo-500/80 shadow-[0_0_24px_rgba(99,102,241,0.25)]',
-        cardBorderIdle: 'border-indigo-950/70 hover:border-indigo-800/60',
-        cardBg: 'bg-gradient-to-b from-[#0c0f24] to-[#070914]',
-        iconBg: 'bg-indigo-950/80 border-indigo-600/50 text-indigo-300',
+        cardBorderActive: 'border-indigo-500/80 shadow-[0_0_16px_rgba(99,102,241,0.15)]',
+        cardBorderIdle: 'border-[#141b2d] hover:border-zinc-700',
+        cardBg: 'bg-[#0c1220]',
+        iconBg: 'bg-zinc-800 border-zinc-700 text-zinc-300',
         dotColor: 'bg-indigo-400',
         label: 'Architect / Planner',
         stepNumber: '1',
@@ -213,11 +213,11 @@ const getRoleTheme = (role: AgentRoleType) => {
         badgeBorder: 'border-emerald-500/40',
         badgeBg: 'bg-emerald-950/60',
         badgeText: 'text-emerald-300',
-        accentColor: '#34d399',
-        cardBorderActive: 'border-emerald-500/80 shadow-[0_0_24px_rgba(16,185,129,0.25)]',
-        cardBorderIdle: 'border-emerald-950/70 hover:border-emerald-800/60',
-        cardBg: 'bg-gradient-to-b from-[#081f18] to-[#05110d]',
-        iconBg: 'bg-emerald-950/80 border-emerald-600/50 text-emerald-300',
+        accentColor: '#10b981',
+        cardBorderActive: 'border-emerald-500/80 shadow-[0_0_16px_rgba(16,185,129,0.15)]',
+        cardBorderIdle: 'border-[#141b2d] hover:border-zinc-700',
+        cardBg: 'bg-[#0c1220]',
+        iconBg: 'bg-zinc-800 border-zinc-700 text-zinc-300',
         dotColor: 'bg-emerald-400',
         label: 'Core Implementer',
         stepNumber: '2',
@@ -227,11 +227,11 @@ const getRoleTheme = (role: AgentRoleType) => {
         badgeBorder: 'border-amber-500/40',
         badgeBg: 'bg-amber-950/60',
         badgeText: 'text-amber-300',
-        accentColor: '#fbbf24',
-        cardBorderActive: 'border-amber-500/80 shadow-[0_0_24px_rgba(245,158,11,0.25)]',
-        cardBorderIdle: 'border-amber-950/70 hover:border-amber-800/60',
-        cardBg: 'bg-gradient-to-b from-[#1c1409] to-[#0d0904]',
-        iconBg: 'bg-amber-950/80 border-amber-600/50 text-amber-300',
+        accentColor: '#f59e0b',
+        cardBorderActive: 'border-amber-500/80 shadow-[0_0_16px_rgba(245,158,11,0.15)]',
+        cardBorderIdle: 'border-[#141b2d] hover:border-zinc-700',
+        cardBg: 'bg-[#0c1220]',
+        iconBg: 'bg-zinc-800 border-zinc-700 text-zinc-300',
         dotColor: 'bg-amber-400',
         label: 'Test Engineer',
         stepNumber: '3',
@@ -241,11 +241,11 @@ const getRoleTheme = (role: AgentRoleType) => {
         badgeBorder: 'border-cyan-500/40',
         badgeBg: 'bg-cyan-950/60',
         badgeText: 'text-cyan-300',
-        accentColor: '#22d3ee',
-        cardBorderActive: 'border-cyan-500/80 shadow-[0_0_24px_rgba(6,182,212,0.25)]',
-        cardBorderIdle: 'border-cyan-950/70 hover:border-cyan-800/60',
-        cardBg: 'bg-gradient-to-b from-[#071922] to-[#040e13]',
-        iconBg: 'bg-cyan-950/80 border-cyan-600/50 text-cyan-300',
+        accentColor: '#06b6d4',
+        cardBorderActive: 'border-cyan-500/80 shadow-[0_0_16px_rgba(6,182,212,0.15)]',
+        cardBorderIdle: 'border-[#141b2d] hover:border-zinc-700',
+        cardBg: 'bg-[#0c1220]',
+        iconBg: 'bg-zinc-800 border-zinc-700 text-zinc-300',
         dotColor: 'bg-cyan-400',
         label: 'Evidence Auditor / Reviewer',
         stepNumber: '4',
@@ -310,15 +310,15 @@ const latestStageProgress = (role: AgentRoleType) => {
     <!-- Stream Cards Header Bar -->
     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#17253b] bg-[#080e1a]/95 px-5 py-3 shrink-0 backdrop-blur-md">
       <div class="flex items-center gap-3 min-w-0">
-        <div class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-tr from-indigo-500/20 via-emerald-500/20 to-cyan-500/20 border border-indigo-500/30 text-white shadow-inner">
-          <i class="codicon codicon-layers text-sm text-[#00f5a0]"></i>
+        <div class="grid h-8 w-8 place-items-center rounded-xl bg-[#0c1220] border border-zinc-700 text-zinc-200">
+          <i class="codicon codicon-layers text-sm text-indigo-400"></i>
         </div>
         <div class="min-w-0">
           <div class="flex items-center gap-2">
             <h3 class="text-sm font-bold tracking-tight text-white font-['Space_Grotesk']">
               Quy trình 4 Bước Multi-Agent Role Pipeline
             </h3>
-            <span class="rounded-full bg-emerald-950/60 border border-emerald-500/40 px-2 py-0.2 text-[10px] font-bold text-emerald-300 font-mono">
+            <span class="rounded-full bg-zinc-800 border border-zinc-700 px-2 py-0.2 text-[10px] font-bold text-zinc-300 font-mono">
               {{ completedStepsCount }}/4 HOÀN TẤT
             </span>
           </div>

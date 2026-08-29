@@ -18,11 +18,11 @@ const tasksIndex = fs.readFileSync(path.join(hubRoot, 'resources/js/Pages/Tasks/
 
 describe('Hub Midnight Obsidian Design System & Codebase Hygiene [Tier 1, Tier 2]', () => {
   describe('[Tier 1] Deep Midnight Obsidian Tokens in Tailwind Config', () => {
-    it('[T1_01] defines Midnight Obsidian palette in tailwind.config.js (950: #04070d, 900: #070b14, 850: #0c1220)', () => {
-      expect(tailwindConfig).toContain("950: '#04070d'");
-      expect(tailwindConfig).toContain("900: '#070b14'");
-      expect(tailwindConfig).toContain("850: '#0c1220'");
-      expect(tailwindConfig).toContain("800: '#11182c'");
+    it('[T1_01] defines Midnight Obsidian palette in tailwind.config.js (950: #0d1117, 900: #161b22, 850: #21262d, 800: #30363d)', () => {
+      expect(tailwindConfig).toContain("950: '#0d1117'");
+      expect(tailwindConfig).toContain("900: '#161b22'");
+      expect(tailwindConfig).toContain("850: '#21262d'");
+      expect(tailwindConfig).toContain("800: '#30363d'");
     });
 
     it('[T1_02] defines neon accent colors in tailwind.config.js (mint: #00f5a0, cyan: #00f5d4, purple: #9d4edd)', () => {
