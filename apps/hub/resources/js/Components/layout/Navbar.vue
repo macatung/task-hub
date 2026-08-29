@@ -112,7 +112,7 @@ onUnmounted(() => {
         <!-- Animated Mini Vector Mascot Badge -->
         <img
           v-if="isMidnightVariant"
-          src="/brand/midnight-hub-mark.svg"
+          src="/brand/midnight-hub-mark.svg?v=20260829"
           alt="Midnight Hub"
           class="h-10 w-10 rounded-xl object-contain shadow-glow-mint transition-transform duration-150 group-hover:scale-105"
         />

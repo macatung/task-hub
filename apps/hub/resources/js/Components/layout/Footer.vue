@@ -52,7 +52,7 @@ const triggerHeartEasterEgg = (e: MouseEvent) => {
       <div class="flex items-center gap-3">
         <img
           v-if="isMidnightVariant"
-          src="/brand/midnight-hub-mark.svg"
+          src="/brand/midnight-hub-mark.svg?v=20260829"
           alt="Midnight Hub"
           class="h-8 w-8 rounded-lg object-contain shadow-glow-mint"
         />

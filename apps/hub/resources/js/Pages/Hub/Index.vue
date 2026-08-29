@@ -44,7 +44,7 @@ const mobileMenuOpen = ref(false);
       <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <a href="/" class="flex items-center gap-3 group">
           <div class="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-cyan-500/20 border border-emerald-500/40 p-1 shadow-md shadow-emerald-500/10 group-hover:border-emerald-400 group-hover:scale-105 transition-all">
-            <img src="/brand/midnight-hub-mark.svg" alt="Midnight Hub" class="h-full w-full object-contain drop-shadow-sm" />
+            <img src="/brand/midnight-hub-mark.svg?v=20260829" alt="Midnight Hub" class="h-full w-full object-contain drop-shadow-sm" />
           </div>
           <div class="flex items-center gap-2">
             <span class="text-xl font-extrabold tracking-tight text-white group-hover:text-emerald-400 transition-colors font-['Space_Grotesk']">Midnight Hub</span>
@@ -454,7 +454,7 @@ const mobileMenuOpen = ref(false);
     <footer class="border-t border-slate-800/80 bg-slate-950 px-6 py-12 text-xs text-slate-500">
       <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-6">
         <div class="flex items-center gap-2.5">
-          <img src="/brand/midnight-hub-mark.svg" alt="Midnight Hub" class="h-6 w-6 rounded-lg object-contain" />
+          <img src="/brand/midnight-hub-mark.svg?v=20260829" alt="Midnight Hub" class="h-6 w-6 rounded-lg object-contain" />
           <span class="font-bold text-slate-300">Midnight Hub</span>
           <span>· Open Source & Supervised AI Workspace</span>
         </div>

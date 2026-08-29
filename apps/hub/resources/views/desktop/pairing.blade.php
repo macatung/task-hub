@@ -16,7 +16,7 @@
     <div class="glow"></div>
     <main class="card">
         <div class="brand">
-            <img class="brand-mark" src="/brand/midnight-hub-mark.svg" alt="Midnight Hub">
+            <img class="brand-mark" src="/brand/midnight-hub-mark.svg?v=20260829" alt="Midnight Hub">
             <span class="eyebrow">Midnight Hub</span>
             <span>·</span>
             <span>Desktop Pairing</span>

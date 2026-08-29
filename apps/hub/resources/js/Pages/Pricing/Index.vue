@@ -545,7 +545,7 @@ const toggleFaq = (index: number) => {
       <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <a href="/" class="flex items-center gap-3 group">
           <div class="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-phantom-cyan/20 border border-emerald-500/40 p-1 shadow-md shadow-emerald-500/10 group-hover:border-emerald-400 group-hover:scale-105 transition-all">
-            <img src="/brand/midnight-hub-mark.svg" alt="Midnight Hub" class="h-full w-full object-contain drop-shadow-sm" />
+            <img src="/brand/midnight-hub-mark.svg?v=20260829" alt="Midnight Hub" class="h-full w-full object-contain drop-shadow-sm" />
           </div>
           <div class="flex items-center gap-2">
             <span class="text-xl font-bold tracking-tight text-white group-hover:text-phantom-mint transition-colors">Midnight Hub</span>
@@ -1112,7 +1112,7 @@ const toggleFaq = (index: number) => {
     <footer class="border-t border-midnight-800/80 bg-midnight-950 px-6 py-12 text-xs text-slate-500">
       <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6">
         <div class="flex items-center gap-3">
-          <img src="/brand/midnight-hub-mark.svg" alt="Midnight Hub" class="h-6 w-6 rounded-lg object-contain" />
+          <img src="/brand/midnight-hub-mark.svg?v=20260829" alt="Midnight Hub" class="h-6 w-6 rounded-lg object-contain" />
           <span class="font-bold text-slate-300">Midnight Hub</span>
           <span>· Supervised AI Agent Execution Engine</span>
         </div>

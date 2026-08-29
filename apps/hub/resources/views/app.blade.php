@@ -22,7 +22,7 @@
     <meta name="twitter:card" content="summary_large_image">
 
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="/brand/midnight-hub-mark.svg">
+    <link rel="icon" type="image/svg+xml" href="/brand/midnight-hub-mark.svg?v=20260829">
 
     <!-- Google Fonts with full Vietnamese & Pāḷi diacritics support -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
