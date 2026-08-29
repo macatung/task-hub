@@ -35,9 +35,12 @@ export interface ThreadMessage {
 
 const STORAGE_PREFIX = 'task_hub_conversation_thread:';
 
+const sharedMessages = ref<ThreadMessage[]>([]);
+const sharedCurrentTaskId = ref<string | number | null>(null);
+
 export function useConversationThread() {
-  const messages = ref<ThreadMessage[]>([]);
-  const currentTaskId = ref<string | number | null>(null);
+  const messages = sharedMessages;
+  const currentTaskId = sharedCurrentTaskId;
 
   const getStorage = () => {
     try {

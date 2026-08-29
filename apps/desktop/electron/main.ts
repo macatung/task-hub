@@ -2007,7 +2007,15 @@ let caoRuntime: CaoRuntime | null | undefined;
 // TASK_HUB_CAO_WSL_HOME override is intentionally ignored (kept in this note
 // for backwards-compatible diagnostics and migration guidance).
 const CAO_WSL_HOME = '/home/rss/.task-hub-cao';
-const CAO_WSL_BOOTSTRAP = `export PATH="$HOME/.local/bin:$PATH"; export CAO_HOME_DIR=${shellQuote(CAO_WSL_HOME)};`;
+const CAO_WSL_BOOTSTRAP = `export HOME="$(getent passwd $(whoami) 2>/dev/null | cut -d: -f6 || echo /home/$(whoami))"; export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"; export CAO_HOME_DIR=${shellQuote(CAO_WSL_HOME)};`;
+
+function getWslDistro(): string {
+  return process.env.TASK_HUB_CAO_WSL_DISTRO || 'Ubuntu-24.04';
+}
+
+function getWslUser(): string {
+  return process.env.TASK_HUB_CAO_WSL_USER || 'rss';
+}
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'"'"'`)}'`;
@@ -2022,8 +2030,11 @@ function wslExecutable(): string | null {
 function runWslShell(script: string, timeoutMs = 5_000): Promise<CaoCommandResult> {
   const executable = wslExecutable();
   if (!executable) return Promise.resolve({ ok: false, output: '', error: 'WSL is unavailable.' });
-  const distro = process.env.TASK_HUB_CAO_WSL_DISTRO;
-  const args = [...(distro ? ['-d', distro] : []), '--', '/bin/bash', '-lc', `${CAO_WSL_BOOTSTRAP} ${script}`];
+  const distro = getWslDistro();
+  const user = getWslUser();
+  const fullScript = `${CAO_WSL_BOOTSTRAP}\n${script}\n`;
+  const b64 = Buffer.from(fullScript, 'utf8').toString('base64');
+  const args = ['-d', distro, '-u', user, '--', '/bin/bash', '-lc', `echo ${b64} | base64 -d | bash`];
   return new Promise((resolve) => {
     let output = '';
     let settled = false;
@@ -2044,7 +2055,7 @@ async function resolveCaoRuntime(): Promise<CaoRuntime | null> {
   // native binary remains a fallback only when WSL is unavailable.
   if (wslExecutable()) {
     const probe = await runWslShell('command -v cao >/dev/null && command -v cao-server >/dev/null', 8_000);
-    if (probe.ok) return (caoRuntime = { kind: 'wsl', executable: wslExecutable()!, distro: process.env.TASK_HUB_CAO_WSL_DISTRO });
+    if (probe.ok) return (caoRuntime = { kind: 'wsl', executable: wslExecutable()!, distro: getWslDistro() });
   }
   const native = resolveCli('cao');
   if (native) return (caoRuntime = { kind: 'native', executable: native });
@@ -2059,6 +2070,9 @@ async function wslPathFor(windowsPath: string): Promise<string | null> {
 async function probeCaoWslHome(runtime?: ResolvedCaoRuntime | null): Promise<{ valid: boolean; home: string; error?: string }> {
   const script = `
     home="${CAO_WSL_HOME}"
+    if [ -z "$home" ] || [ "$home" = "/.task-hub-cao" ]; then
+      home="$HOME/.task-hub-cao"
+    fi
     mkdir -p "$home/fifos" || { echo "CAO_HOME_INVALID:$home"; exit 1; }
     probe="$home/fifos/.probe-$$"
     if ! mkfifo "$probe" 2>/dev/null; then
@@ -2246,8 +2260,12 @@ async function startCaoDaemonInternal() {
     // bridge: this starts the official `cao-server` process used by `cao`.
     const isWsl = runtime.kind === 'wsl';
     const executable = isWsl ? runtime.executable : (resolveCaoExecutable() || runtime.executable);
+    const distro = isWsl ? (runtime.distro || getWslDistro()) : undefined;
+    const user = isWsl ? getWslUser() : undefined;
+    const daemonScript = `${CAO_WSL_BOOTSTRAP}\nexec cao-server --host 0.0.0.0 --port ${port}\n`;
+    const b64Daemon = Buffer.from(daemonScript, 'utf8').toString('base64');
     const args = isWsl
-      ? [...(runtime.distro ? ['-d', runtime.distro] : []), '--', '/bin/bash', '-lc', `${CAO_WSL_BOOTSTRAP} exec cao-server --host 0.0.0.0 --port ${port}`]
+      ? ['-d', distro!, '-u', user!, '--', '/bin/bash', '-lc', `echo ${b64Daemon} | base64 -d | bash`]
       : ['--host', '0.0.0.0', '--port', String(port)];
     caoDaemonProcess = spawn(executable, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -2379,8 +2397,12 @@ async function runCaoCommand(args: string[], cwd: string, timeoutMs = 15_000): P
     };
     try {
       const isWsl = runtime.kind === 'wsl';
+      const distro = isWsl ? (runtime.distro || getWslDistro()) : undefined;
+      const user = isWsl ? getWslUser() : undefined;
+      const cmdScript = `${CAO_WSL_BOOTSTRAP}\ncd -- ${shellQuote(workingDirectory)}\nexec cao ${caoArgs.map(shellQuote).join(' ')}\n`;
+      const b64Cmd = Buffer.from(cmdScript, 'utf8').toString('base64');
       const commandArgs = isWsl
-        ? [...(runtime.distro ? ['-d', runtime.distro] : []), '--', '/bin/bash', '-lc', `${CAO_WSL_BOOTSTRAP} cd -- ${shellQuote(workingDirectory)}; exec cao ${caoArgs.map(shellQuote).join(' ')}`]
+        ? ['-d', distro!, '-u', user!, '--', '/bin/bash', '-lc', `echo ${b64Cmd} | base64 -d | bash`]
         : caoArgs;
       const child = spawn(executable, commandArgs, {
         cwd: isWsl ? undefined : workingDirectory,

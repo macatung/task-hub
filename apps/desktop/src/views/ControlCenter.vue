@@ -16,6 +16,7 @@ import { useTaskSync, type TaskItem } from '../composables/useTaskSync';
 import { useActionFeedback } from '../composables/useActionFeedback';
 import { useContextPackCache } from '../composables/useContextPackCache';
 import { useMcpOutbox } from '../composables/useMcpOutbox';
+import { useConversationThread } from '../composables/useConversationThread';
 import {
   parseDiscoveryPlan,
   serializeDiscoveryPlanContract,
@@ -1041,9 +1042,9 @@ const waitForEpicApproval = async (childId: number) => {
     return;
   }
 };
-const launchEpic = async () => {
-  const epic = selectedTask.value;
-  if (!epic || epic.issue_type !== "epic") return;
+const launchEpic = async (resetFromStart = false) => {
+  const epic = selectedTask.value?.issue_type === 'epic' ? selectedTask.value : (epicSequence.value?.epic || selectedTask.value);
+  if (!epic) return;
   const tasks = sync.agentTasks.value
     .filter(task => task.epic_id === epic.id && task.issue_type !== 'epic')
     .sort((a, b) => a.id - b.id);
@@ -1055,7 +1056,7 @@ const launchEpic = async () => {
   const sequence: EpicSequence = {
     epic,
     tasks,
-    completedIds: tasks
+    completedIds: resetFromStart ? [] : tasks
       .filter((task) => task.status === "done")
       .map((task) => task.id),
     activeChildId: null,
@@ -1064,12 +1065,12 @@ const launchEpic = async () => {
     parentRunId: null,
     childRunIds: [],
     childResults: [],
-  transitionToken: ++epicApprovalToken,
+    transitionToken: ++epicApprovalToken,
     processingChildId: null,
     finalizing: false,
     worktreePath: null,
   };
-  const first = nextEpicTask(sequence);
+  const first = nextEpicTask(sequence) || (resetFromStart ? tasks[0] : null);
   if (!first) {
     error.value = "No dependency-ready child task is available for this Epic.";
     phase.value = "Epic is blocked by dependencies";
@@ -1780,11 +1781,125 @@ const cancel = async () => {
     message: "Tiến trình Agent đã dừng an toàn.",
   });
 };
+const thread = useConversationThread();
+
 const send = (message: string) => {
-  if (sessionId.value && message.trim()) {
+  const raw = message.trim();
+  if (!raw) return;
+
+  // 1. If an agent process is actively running, pipe input directly to stdin
+  if (sessionId.value && runStatus.value === 'running') {
     window.desktopApi.agent.send(sessionId.value, message.trim());
     notify({ type: 'info', title: 'Đã gửi tin nhắn đến Agent', message: message.trim() });
+    return;
   }
+
+  void (async () => {
+
+  // 2. Parse Natural Language Commands / Triggers
+  const lower = raw.toLowerCase();
+  const isRunCommand =
+    lower.startsWith('/run') ||
+    lower.startsWith('/rerun') ||
+    lower.startsWith('/restart') ||
+    lower.startsWith('/start') ||
+    lower.startsWith('/reset') ||
+    /\b(run|chạy|thực thi|bắt đầu|rerun|restart|khởi chạy|thực hiện)\b/i.test(lower);
+
+  const isResetOrRerunFromStart =
+    /\b(từ đầu|tất cả|lại từ đầu|reset|start over|from start)\b/i.test(lower) ||
+    lower.includes('run lại') ||
+    lower.includes('chạy lại');
+
+  // Extract targeted task key if present (e.g. "TH-01", "TH-1", "TH-2", "#1", "#01")
+  const keyMatch = raw.match(/(?:TH|TASK|EPIC)[-_]?0*(\d+)/i) || raw.match(/#0*(\d+)/i);
+  let targetTask: any = null;
+
+  if (keyMatch) {
+    const num = parseInt(keyMatch[1], 10);
+    const keyCandidates = [
+      `TH-${num}`,
+      `TH-0${num}`,
+      `TASK-${num}`,
+      `TASK-0${num}`,
+      `EPIC-${num}`,
+    ];
+    targetTask = sync.agentTasks.value.find((t) =>
+      keyCandidates.some((k) => t.issue_key?.toUpperCase() === k) ||
+      t.id === num ||
+      t.issue_key?.toUpperCase() === `TH-${keyMatch[1]}`
+    );
+  }
+
+  // If no specific key found in text, default to currently selected task or active epic
+  if (!targetTask) {
+    targetTask = selectedTask.value || (epicSequence.value ? epicSequence.value.epic : null);
+  }
+
+  if (isRunCommand && targetTask) {
+    selectedTask.value = targetTask;
+
+    if (targetTask.issue_type === 'epic' || (epicSequence.value && epicSequence.value.epic.id === targetTask.id)) {
+      thread.addAgentMessage({
+        text: `⚡ **Đã nhận lệnh:** Khởi chạy ${isResetOrRerunFromStart ? 'lại từ đầu ' : ''}chuỗi Epic **${targetTask.issue_key || targetTask.title}** (${targetTask.title}).`,
+        role: 'supervisor',
+        provider: provider.value,
+        model: selectedModel.value || undefined,
+      });
+      notify({
+        type: 'info',
+        title: '🚀 Khởi chạy Epic Sequence',
+        message: `Bắt đầu thực thi ${targetTask.issue_key || targetTask.title}${isResetOrRerunFromStart ? ' từ đầu' : ''}…`,
+      });
+      await launchEpic(isResetOrRerunFromStart);
+      return;
+    }
+
+    // Standard task execution
+    thread.addAgentMessage({
+      text: `⚡ **Đã nhận lệnh:** Bắt đầu thực thi tác vụ **${targetTask.issue_key || `#${targetTask.id}`}**: ${targetTask.title}.`,
+      role: 'worker',
+      provider: provider.value,
+      model: selectedModel.value || undefined,
+    });
+    notify({
+      type: 'info',
+      title: '🚀 Khởi chạy tác vụ',
+      message: `Bắt đầu thực thi ${targetTask.issue_key || targetTask.title}…`,
+    });
+    await launch();
+    return;
+  }
+
+  // 3. If user entered a custom prompt / instruction when no agent is active
+  if (selectedTask.value) {
+    pendingLaunch.value = {
+      prompt: raw,
+      kind: 'task',
+      policy: executionPolicy.value,
+      intent: epicSequence.value ? 'epic' : 'task',
+    };
+    thread.addAgentMessage({
+      text: `🚀 **Đã nhận chỉ thị:** Áp dụng yêu cầu và bắt đầu thực thi **${selectedTask.value.issue_key || selectedTask.value.title}**.\n\n> ${raw}`,
+      role: 'worker',
+      provider: provider.value,
+      model: selectedModel.value || undefined,
+    });
+    notify({
+      type: 'info',
+      title: '🚀 Khởi chạy theo chỉ thị mới',
+      message: `Thực thi ${selectedTask.value.issue_key || selectedTask.value.title}…`,
+    });
+    await launch();
+    return;
+  }
+
+    notify({
+      type: 'warning',
+      title: 'Chưa chọn tác vụ',
+      message: 'Vui lòng chọn một tác vụ hoặc chỉ định mã tác vụ (ví dụ: "chạy TH-1") để bắt đầu.',
+    });
+  })();
 };
 const handoff = async (payload: any, autoApprove = false) => {
   try {
