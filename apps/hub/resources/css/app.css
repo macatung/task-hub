@@ -116,80 +116,26 @@
   animation: squashStretch 0.45s cubic-bezier(0.28, 0.84, 0.42, 1) forwards;
 }
 
-/* Hub SaaS design language. Scoped so the product workspace can evolve without
-   changing the editorial, Theravada, and playful brand surfaces. */
+/* Midnight Hub public landing design language. Keep this scoped so the
+   editorial, Theravada, and playful brand surfaces remain unchanged. */
 .hub-landing {
-  --hub-ink: #172033;
-  --hub-muted: #61708a;
-  --hub-line: #dce3ee;
-  --hub-canvas: #f7f9fc;
-  --hub-surface: #ffffff;
-  --hub-primary: #2563eb;
-  background: var(--hub-canvas) !important;
-  color: var(--hub-ink) !important;
+  --hub-ink: #f8fafc;
+  --hub-muted: #94a3b8;
+  --hub-line: rgba(148, 163, 184, 0.18);
+  --hub-canvas: #04070d;
+  --hub-surface: #0b1220;
+  --hub-primary: #00f5a0;
+  background: var(--hub-canvas);
+  color: var(--hub-ink);
 }
 
 .hub-landing .fixed.inset-0 {
-  display: none;
-}
-
-.hub-landing header,
-.hub-landing footer,
-.hub-landing .bg-slate-950,
-.hub-landing .bg-slate-900,
-.hub-landing .bg-slate-900\/30,
-.hub-landing .bg-slate-900\/40,
-.hub-landing .bg-slate-900\/60,
-.hub-landing .bg-slate-900\/80,
-.hub-landing .bg-slate-950\/50,
-.hub-landing .bg-slate-950\/80 {
-  background-color: var(--hub-surface) !important;
-}
-
-.hub-landing [class*="border-slate-"] {
-  border-color: var(--hub-line) !important;
-}
-
-.hub-landing .text-white,
-.hub-landing .text-slate-100,
-.hub-landing .text-slate-200,
-.hub-landing .text-slate-300 {
-  color: var(--hub-ink) !important;
-}
-
-.hub-landing .text-slate-400,
-.hub-landing .text-slate-500 {
-  color: var(--hub-muted) !important;
-}
-
-.hub-landing .bg-gradient-to-r,
-.hub-landing .bg-gradient-to-tr,
-.hub-landing .bg-gradient-to-br,
-.hub-landing .bg-gradient-to-b {
-  background-image: none !important;
-}
-
-.hub-landing .bg-emerald-500,
-.hub-landing .from-emerald-500,
-.hub-landing .to-teal-500 {
-  background-color: var(--hub-primary) !important;
-  color: #fff !important;
-}
-
-.hub-landing .bg-clip-text {
-  -webkit-text-fill-color: var(--hub-primary);
-  color: var(--hub-primary) !important;
-}
-
-.hub-landing .shadow-2xl,
-.hub-landing .shadow-xl,
-.hub-landing .shadow-lg {
-  box-shadow: 0 16px 36px rgba(23, 32, 51, 0.08) !important;
+  display: block;
 }
 
 .hub-landing a:focus-visible,
 .hub-landing button:focus-visible {
-  outline: 3px solid rgba(37, 99, 235, 0.35);
+  outline: 2px solid rgba(0, 245, 160, 0.55);
   outline-offset: 3px;
 }
 

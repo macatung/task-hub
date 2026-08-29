@@ -22,10 +22,11 @@ describe('SaaS workspace redesign', () => {
     expect(tasksPage).toContain('Agent activity & evidence');
   });
 
-  it('scopes the new SaaS visual system to the public product landing', () => {
+  it('scopes the Midnight visual system to the public product landing', () => {
     expect(landingPage).toContain('hub-landing');
     expect(appCss).toContain('.hub-landing');
-    expect(appCss).toContain('--hub-primary: #2563eb');
+    expect(appCss).toContain('--hub-primary: #00f5a0');
+    expect(appCss).toContain('--hub-canvas: #04070d');
     expect(appCss).toContain('@media (prefers-reduced-motion: reduce)');
   });
 
