@@ -32,7 +32,7 @@ const productJsonLd = {
 
   <div class="min-h-screen bg-midnight-950 text-slate-100 selection:bg-phantom-mint selection:text-midnight-950 flex flex-col relative overflow-x-hidden bg-grid-pattern">
     <TalismanCanvas />
-    <Navbar />
+    <Navbar variant="midnight" />
 
     <main class="relative z-10 flex-1">
       <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-20 lg:pt-24 lg:pb-28">
@@ -58,7 +58,7 @@ const productJsonLd = {
             <p class="mt-4 text-xs text-slate-500">Windows 10/11 · Miễn phí · Cập nhật tự động qua GitHub Releases</p>
           </div>
 
-          <div class="relative rounded-3xl border border-phantom-mint/20 bg-slate-900/70 p-5 shadow-2xl shadow-black/40 backdrop-blur-xl">
+          <div class="relative rounded-3xl border border-phantom-mint/20 bg-midnight-900/70 p-5 shadow-2xl shadow-black/40 backdrop-blur-xl">
             <div class="absolute -inset-8 -z-10 rounded-full bg-phantom-mint/10 blur-3xl" />
             <div class="rounded-2xl border border-white/10 bg-midnight-950/90 p-5 font-mono text-sm shadow-inner">
               <div class="flex items-center justify-between border-b border-white/10 pb-4 text-slate-400"><span>AGENT WORKSPACE</span><span class="text-phantom-mint">● CONNECTED</span></div>
@@ -93,6 +93,6 @@ const productJsonLd = {
         <div class="mt-10 text-center"><a :href="releaseUrl" class="text-sm text-slate-400 underline decoration-phantom-mint/50 underline-offset-4 hover:text-phantom-mint">Xem changelog và các bản phát hành trên GitHub →</a></div>
       </section>
     </main>
-    <Footer />
+    <Footer variant="midnight" />
   </div>
 </template>

@@ -6,6 +6,10 @@ import Icons from '@/Components/ui/Icons.vue';
 import MiniMascotLogo from '@/Components/mascot/MiniMascotLogo.vue';
 
 const heartClicks = ref(0);
+const props = withDefaults(defineProps<{ variant?: 'portfolio' | 'midnight' }>(), {
+  variant: 'portfolio',
+});
+const isMidnightVariant = props.variant === 'midnight';
 
 const scrollToTop = () => {
   sound.playHop(1.2);
@@ -46,11 +50,18 @@ const triggerHeartEasterEgg = (e: MouseEvent) => {
     <!-- Top Bar with Hop-to-Top Trigger -->
     <div class="flex flex-col sm:flex-row items-center justify-between pb-8 border-b border-white/5 gap-4">
       <div class="flex items-center gap-3">
-        <MiniMascotLogo size="sm" :animated="true" />
+        <img
+          v-if="isMidnightVariant"
+          src="/brand/midnight-hub-mark.svg"
+          alt="Midnight Hub"
+          class="h-8 w-8 rounded-lg object-contain shadow-glow-mint"
+        />
+        <MiniMascotLogo v-else size="sm" :animated="true" />
         <span class="font-display font-bold text-base sm:text-lg text-white">
-          macatung<span class="text-phantom-mint">.dev</span>
+          <template v-if="isMidnightVariant">Midnight Hub</template>
+          <template v-else>macatung<span class="text-phantom-mint">.dev</span></template>
         </span>
-        <span class="text-xs font-mono text-slate-500 hidden sm:inline">— Code at midnight.</span>
+        <span class="text-xs font-mono text-slate-500 hidden sm:inline">— {{ isMidnightVariant ? 'Code at midnight. Deploy at dawn.' : 'Code at midnight.' }}</span>
       </div>
 
       <!-- Hop-to-Top Button -->

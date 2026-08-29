@@ -31,16 +31,16 @@ const mobileMenuOpen = ref(false);
 <template>
   <Head title="Midnight Hub — Autonomous AI Agent Orchestrator & Developer Studio" />
 
-  <div class="hub-landing min-h-screen bg-[#04070d] text-slate-100 font-sans selection:bg-[#00f5a0] selection:text-slate-950 overflow-x-hidden">
+  <div class="hub-landing min-h-screen bg-midnight-950 text-slate-100 font-sans selection:bg-phantom-mint selection:text-midnight-950 overflow-x-hidden">
     <!-- Ambient Background Glows -->
     <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-      <div class="absolute -top-40 left-1/2 -translate-x-1/2 h-[500px] w-[900px] rounded-full bg-gradient-to-tr from-emerald-600/20 via-teal-500/15 to-blue-600/10 blur-[130px]" />
-      <div class="absolute top-[600px] -left-40 h-[400px] w-[600px] rounded-full bg-gradient-to-br from-blue-600/15 to-purple-600/10 blur-[120px]" />
-      <div class="absolute bottom-10 -right-40 h-[500px] w-[700px] rounded-full bg-gradient-to-tl from-emerald-600/15 to-cyan-500/10 blur-[140px]" />
+      <div class="absolute -top-40 left-1/2 -translate-x-1/2 h-[550px] w-[1000px] rounded-full bg-gradient-to-tr from-emerald-600/15 via-phantom-cyan/15 to-phantom-purple/10 blur-[140px]" />
+      <div class="absolute top-[600px] -left-40 h-[500px] w-[700px] rounded-full bg-gradient-to-br from-phantom-blue/10 via-phantom-purple/15 to-transparent blur-[130px]" />
+      <div class="absolute bottom-10 -right-40 h-[600px] w-[800px] rounded-full bg-gradient-to-tl from-talisman-gold/10 via-emerald-600/15 to-transparent blur-[150px]" />
     </div>
 
     <!-- Sticky Navigation Header -->
-    <header class="sticky top-0 z-50 border-b border-slate-800/80 bg-[#04070d]/85 backdrop-blur-md">
+    <header class="sticky top-0 z-50 border-b border-midnight-800/80 bg-midnight-950/85 backdrop-blur-md">
       <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <a href="/" class="flex items-center gap-3 group">
           <div class="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-cyan-500/20 border border-emerald-500/40 p-1 shadow-md shadow-emerald-500/10 group-hover:border-emerald-400 group-hover:scale-105 transition-all">
@@ -196,7 +196,7 @@ const mobileMenuOpen = ref(false);
       </p>
 
       <!-- Interactive SaaS Workspace Preview Mockup -->
-      <div class="mt-16 overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900/60 p-2 sm:p-4 shadow-2xl backdrop-blur-xl ring-1 ring-white/10">
+      <div class="mt-16 overflow-hidden rounded-2xl border border-midnight-800/80 bg-midnight-900/60 p-2 sm:p-4 shadow-2xl backdrop-blur-xl ring-1 ring-white/10">
         <!-- Mockup Header Bar -->
         <div class="flex items-center justify-between rounded-xl border border-slate-800/60 bg-slate-950/80 px-4 py-3">
           <div class="flex items-center gap-2">
