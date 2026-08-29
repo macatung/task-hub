@@ -28,6 +28,9 @@ Route::get('/pricing', [PricingController::class, 'index'])->name('pricing');
 Route::get('/tasks', [TaskController::class, 'index'])->name('tasks.index');
 Route::get('/workspace', [TaskController::class, 'index'])->name('tasks.workspace');
 Route::get('/workspaces/{workspace}/billing', [WorkspaceBillingController::class, 'show'])->name('workspaces.billing');
+Route::get('/workspaces/{workspace}/members', [\App\Http\Controllers\WorkspaceMemberWebController::class, 'index'])->name('workspaces.members');
+Route::get('/workspaces/{workspace}/secrets', [\App\Http\Controllers\WorkspaceSecretWebController::class, 'index'])->name('workspaces.secrets');
+Route::get('/workspaces/{workspace}/analytics', [\App\Http\Controllers\WorkspaceAnalyticsWebController::class, 'index'])->name('workspaces.analytics');
 Route::post('/contact', [\App\Http\Controllers\ContactController::class, 'store'])->name('contact.store');
 Route::post('/summon', [\App\Http\Controllers\ContactController::class, 'store'])->name('contact.summon');
 
@@ -85,11 +88,16 @@ $registerApiRoutes = function () {
     Route::get('/workspaces', [WorkspaceController::class, 'index'])->middleware('auth');
     Route::post('/workspaces', [WorkspaceController::class, 'store'])->middleware('auth');
     Route::post('/workspaces/{workspace}/switch', [WorkspaceController::class, 'switch'])->middleware('auth');
-    Route::post('/workspaces/{workspace}/members', [WorkspaceController::class, 'addMember'])->middleware('auth');
-    Route::patch('/workspaces/{workspace}/members/{user}', [WorkspaceController::class, 'updateMember'])->middleware('auth');
+    Route::get('/workspaces/{workspace}/members', [\App\Http\Controllers\Api\WorkspaceMemberController::class, 'index'])->middleware('auth');
+    Route::post('/workspaces/{workspace}/members', [\App\Http\Controllers\Api\WorkspaceMemberController::class, 'store'])->middleware('auth');
+    Route::put('/workspaces/{workspace}/members/{user}', [\App\Http\Controllers\Api\WorkspaceMemberController::class, 'update'])->middleware('auth');
+    Route::patch('/workspaces/{workspace}/members/{user}', [\App\Http\Controllers\Api\WorkspaceMemberController::class, 'update'])->middleware('auth');
+    Route::delete('/workspaces/{workspace}/members/{user}', [\App\Http\Controllers\Api\WorkspaceMemberController::class, 'destroy'])->middleware('auth');
     Route::get('/workspaces/{workspace}/credentials', [WorkspaceCredentialController::class, 'index'])->middleware('auth');
     Route::post('/workspaces/{workspace}/credentials', [WorkspaceCredentialController::class, 'store'])->middleware('auth');
+    Route::post('/workspaces/{workspace}/credentials/{credential}/reveal', [WorkspaceCredentialController::class, 'reveal'])->middleware('auth');
     Route::delete('/workspaces/{workspace}/credentials/{credential}', [WorkspaceCredentialController::class, 'destroy'])->middleware('auth');
+    Route::get('/workspaces/{workspace}/analytics', [\App\Http\Controllers\Api\WorkspaceAnalyticsController::class, 'show'])->middleware('auth');
     Route::post('/runners/register', [ApiAgentRunnerController::class, 'register']);
     Route::get('/runners', [ApiAgentRunnerController::class, 'index']);
     Route::get('/runners/dashboard', [ApiAgentRunnerController::class, 'dashboard'])->middleware('auth');
@@ -208,6 +216,14 @@ $registerApiRoutes = function () {
         Route::post('/agent-runs', [ApiAgentRunController::class, 'store']);
         Route::get('/credentials', [WorkspaceCredentialController::class, 'index']);
         Route::post('/credentials', [WorkspaceCredentialController::class, 'store']);
+        Route::post('/credentials/{credential}/reveal', [WorkspaceCredentialController::class, 'reveal']);
+        Route::delete('/credentials/{credential}', [WorkspaceCredentialController::class, 'destroy']);
+        Route::get('/members', [\App\Http\Controllers\Api\WorkspaceMemberController::class, 'index']);
+        Route::post('/members', [\App\Http\Controllers\Api\WorkspaceMemberController::class, 'store']);
+        Route::put('/members/{user}', [\App\Http\Controllers\Api\WorkspaceMemberController::class, 'update']);
+        Route::patch('/members/{user}', [\App\Http\Controllers\Api\WorkspaceMemberController::class, 'update']);
+        Route::delete('/members/{user}', [\App\Http\Controllers\Api\WorkspaceMemberController::class, 'destroy']);
+        Route::get('/analytics', [\App\Http\Controllers\Api\WorkspaceAnalyticsController::class, 'show']);
     });
 
     // Desktop Pairing API

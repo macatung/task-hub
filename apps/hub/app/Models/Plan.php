@@ -68,4 +68,19 @@ class Plan extends Model
     {
         return $cycle === 'yearly' ? (float) $this->price_yearly : (float) $this->price_monthly;
     }
+
+    public function getRetentionDays(): int
+    {
+        if (isset($this->limits['history_retention_days'])) {
+            return (int) $this->limits['history_retention_days'];
+        }
+
+        return match ($this->slug) {
+            'enterprise' => 730,
+            'team' => 365,
+            'pro' => 90,
+            default => 7,
+        };
+    }
 }
+

@@ -28,6 +28,11 @@ class Workspace extends Model
         return $this->hasMany(Project::class);
     }
 
+    public function credentials(): HasMany
+    {
+        return $this->hasMany(WorkspaceCredential::class);
+    }
+
     public function subscription(): HasOne
     {
         return $this->hasOne(WorkspaceSubscription::class)->latestOfMany();
@@ -129,4 +134,11 @@ class Workspace extends Model
         $plan = $this->activePlan();
         return $plan->isUnlimitedProjects() ? null : (int) $plan->max_projects;
     }
+
+    public function effectiveRetentionDays(): int
+    {
+        $plan = $this->activePlan();
+        return $plan->getRetentionDays();
+    }
 }
+

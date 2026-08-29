@@ -15,6 +15,7 @@
     "mobile:typecheck": "npm --workspace apps/mobile run typecheck",
     "mobile:test": "npm --workspace apps/mobile test",
     "contracts:validate": "node packages/contracts/validate.mjs",
-    "runner:test": "npm --workspace apps/runner test"
+    "runner:test": "npm --workspace apps/runner test",
+    "test": "node tests/run_all_tests.js"
   }
 }

@@ -10,3 +10,7 @@ Artisan::command('inspire', function () {
 
 // Weekly Task & Project Progress Report Schedule (Checked hourly)
 Schedule::command('report:weekly-tasks')->hourly()->withoutOverlapping();
+
+// Daily Workspace Task History Retention Pruning Schedule
+Schedule::command('task-history:prune')->daily()->withoutOverlapping();
+
