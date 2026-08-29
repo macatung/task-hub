@@ -155,6 +155,22 @@ paths:
           schema: { type: integer }
       responses:
         '200': { description: Run moved to needs_review }
+  /api/v1/agent-runs/{run_id}/events:
+    post:
+      summary: Append an idempotent CAO workflow or supervisor event
+      parameters:
+        - in: path
+          name: run_id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentRunEvent'
+      responses:
+        '200': { description: Event accepted or reported as a duplicate }
   /mcp:
     post:
       summary: Versioned Model Context Protocol endpoint
@@ -213,3 +229,36 @@ components:
             properties:
               path: { type: string, maxLength: 500 }
               content: { type: string, maxLength: 300000 }
+    WorkflowRunStatus:
+      type: object
+      required: [parentRunId, caoRunId, kind, state, totalSteps, completedSteps, steps]
+      properties:
+        parentRunId: { type: integer }
+        caoRunId: { type: string }
+        kind: { type: string, enum: [task, epic] }
+        state: { type: string, enum: [validating, running, waiting_input, blocked, completed, failed, interrupted, cancelled] }
+        currentStep: { type: string, nullable: true }
+        totalSteps: { type: integer, minimum: 0 }
+        completedSteps: { type: array, items: { type: string } }
+        failedStep: { type: string, nullable: true }
+        steps: { type: array, items: { $ref: '#/components/schemas/WorkflowStepStatus' } }
+    WorkflowStepStatus:
+      type: object
+      required: [id, state]
+      properties:
+        id: { type: string }
+        taskId: { type: integer, nullable: true }
+        taskKey: { type: string, nullable: true }
+        label: { type: string, nullable: true }
+        state: { type: string, enum: [pending, running, waiting_input, completed, failed, blocked, skipped] }
+        output: { type: object, nullable: true }
+        error: { type: string, nullable: true }
+    AgentRunEvent:
+      type: object
+      required: [event_id, event_type]
+      properties:
+        event_id: { type: string, maxLength: 128 }
+        event_type: { type: string, maxLength: 60 }
+        status: { type: string, maxLength: 40 }
+        stage: { type: string, maxLength: 60 }
+        payload: { type: object }

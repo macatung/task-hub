@@ -181,6 +181,16 @@ flowchart TD
 
 Electron main có guardrail worktree và hook chặn push; `antigravity` là external session trên desktop.
 
+#### 4.3.1. Hybrid CAO orchestration runtime
+
+Control Center chọn strategy thật trước khi launch. Task/Story/Bug và Epic đi qua strict CAO workflow; requirement discovery/research đi qua `code_supervisor`. Strict task workflow là YAML `implement → review → evidence → handoff`. Epic tạo một YAML tuần tự chứa child pipelines và `epic-finalize` sau khi kiểm tra dependency cycle/missing dependency và deterministic topological order.
+
+Workflow không còn là command blocking một lần: Electron main lưu spec trong app data, validate trước run, chạy `cao workflow run --run-id`, poll status, phát step events, persist registry và dùng `cao workflow resume` sau restart. Renderer dùng `CaoWorkflowRunPanel` riêng với step động; `WorkflowPanel.vue`/Stream Cards không được dùng để giả lập CAO stage.
+
+Hub lưu parent `AgentRun`, `metadata.workflow` và `AgentRunEvent`. Event/result dùng idempotency key để reconnect/retry không tạo duplicate evidence. Handoff chỉ chuyển run sang `needs_review`; human approve mới chuyển task/Epic sang `done`.
+
+Supervisor requirement discovery được hiển thị bằng Agent Room tree với parent session và worker thật từ CAO (`assign`, `handoff`, `send_message`). Supervisor chỉ đọc context/repository và trả structured discovery result; không ghi backlog trước human approval.
+
 ### 4.4. Agent run — server mode (để dành cho giai đoạn sau)
 
 Luồng này hiện không được cung cấp cho người dùng và không có trong `infra/docker/compose.yml`. Code/API contract vẫn được giữ để tránh mất hướng mở rộng sau này; `TASK_HUB_SERVER_RUNNER_ENABLED` mặc định là `false`.

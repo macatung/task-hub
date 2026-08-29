@@ -1,6 +1,7 @@
 ﻿import { describe, it, expect } from 'vitest';
 import controlCenterSource from './ControlCenter.vue?raw';
 import workflowPanelSource from '../components/control-center/WorkflowPanel.vue?raw';
+import supervisorPromptSource from '../services/caoBridgeService.ts?raw';
 
 describe('Living Functional Specification (FSD) AI Workflow - Desktop Control Center', () => {
   describe('1. Continuous AI Documentation Prompting', () => {
@@ -11,9 +12,9 @@ describe('Living Functional Specification (FSD) AI Workflow - Desktop Control Ce
 
   describe('2. AI Requirement Discovery Living Spec Evolution', () => {
     it('guides AI to inspect existing repository context and generate structured backlog proposals', () => {
-      expect(controlCenterSource).toContain('You are Task Hub\'s Requirement Discovery agent.');
-      expect(controlCenterSource).toContain('Inspect the repository and its docs.');
-      expect(controlCenterSource).toContain('Return a concise Vietnamese plan with one Epic, Stories and implementation Tasks');
+      expect(supervisorPromptSource).toContain('CAO Requirement Discovery Supervisor');
+      expect(supervisorPromptSource).toContain('inspect the repository and project documents');
+      expect(supervisorPromptSource).toContain('Synthesize the worker findings into a Vietnamese discovery proposal');
     });
 
     it('enables seamless review, editing, and 1-click sync to Hub', () => {

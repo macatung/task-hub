@@ -76,11 +76,10 @@ Truy cập Hub tại `http://localhost:8080`.
 npm install
 
 # Khởi chạy chế độ phát triển Desktop
-npm --workspace apps/desktop run dev
+npm run dev
 
 # Đóng gói bộ cài đặt Windows (.exe)
-npm --workspace apps/desktop run build:vue
-npm --workspace apps/desktop run build
+npm run desktop:package
 ```
 
 ---
@@ -97,8 +96,12 @@ cao install code_supervisor
 cao-server
 ```
 
+`npm run dev` có preflight CAO tự động: kiểm tra `cao`/`cao-server` trong WSL trước khi mở Electron, tự bootstrap bằng `uv` nếu thiếu và để Electron main quản lý daemon. Nếu đổi distro/user, đặt `TASK_HUB_CAO_WSL_DISTRO` và `TASK_HUB_CAO_WSL_USER`; đặt `TASK_HUB_CAO_AUTO_INSTALL=false` để tắt tự cài.
+
 2. Mở Task Companion. Khi `cao` và `cao-server` hoạt động tại `localhost:9889`, mọi lần chạy mới được khởi tạo bằng `cao launch --agents code_supervisor`; follow-up và cancel được chuyển lần lượt qua `cao session send` và `cao shutdown`.
 3. Các provider được map qua CAO: `codex` → `codex`, `claude_code` → `claude_code`, `antigravity` → `antigravity_cli`. Đặt `TASK_HUB_CAO_PROFILE` nếu dùng profile supervisor khác, hoặc `CAO_SERVER_PORT` khi chạy daemon ở port khác.
+
+Task Hub có hai mode CAO. Task/Story/Bug/Epic mặc định chạy **Strict Workflow**: Desktop sinh YAML, gọi `cao workflow validate`, sau đó chạy bất đồng bộ `cao workflow run`; UI theo dõi từng step và hỗ trợ status/resume/retry/cancel. Requirement discovery, research và architecture exploration mặc định chạy **Supervisor** với `code_supervisor`, nơi CAO có thể dùng `assign()`, `handoff()` và `send_message()` để phối hợp worker. Có thể override mode trước khi bấm Run. Workflow hoàn tất vẫn phải qua human approval trên Hub và không tự merge/push. Chi tiết ở [`docs/CAO-ORCHESTRATION.md`](docs/CAO-ORCHESTRATION.md).
 
 CAO cần một runtime có `tmux` theo yêu cầu của dự án CAO. Trên Windows, Desktop tự phát hiện `cao` trong WSL và chuyển đường dẫn worktree sang định dạng WSL; có thể chọn distro bằng `TASK_HUB_CAO_WSL_DISTRO` (mặc định là distro WSL mặc định). Cài CAO và các provider CLI trong cùng distro đó. Desktop không tự cài hoặc cấp quyền `--yolo`; cờ này chỉ được gửi sau khi người dùng đã chọn **Full access** trong Task Companion.
 

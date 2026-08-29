@@ -60,6 +60,24 @@ type AgentSession = {
 };
 const agentProcesses = new Map<string, AgentSession>();
 const caoSessionPollers = new Map<string, NodeJS.Timeout>();
+type CaoWorkflowProcess = {
+  runId: string;
+  cwd: string;
+  specPath: string;
+  runtimeSpecPath?: string;
+  workflowName?: string;
+  inputs?: Record<string, any>;
+  output: string;
+  state: string;
+  action?: 'run' | 'resume';
+  metadata?: { kind?: 'task' | 'epic'; parentRunId?: number; workflowName?: string; steps?: Array<Record<string, any>> };
+  lastStatus?: CaoWorkflowRuntimeStatus;
+  child?: ReturnType<typeof spawn>;
+  childExited?: boolean;
+  childExitCode?: number | null;
+  poller?: NodeJS.Timeout;
+};
+const caoWorkflowProcesses = new Map<string, CaoWorkflowProcess>();
 type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error';
 let updateState: { status: UpdateStatus; version?: string; percent?: number; message?: string } = { status: 'idle' };
 let updateTimer: NodeJS.Timeout | undefined;
@@ -1781,8 +1799,17 @@ function normalizeWorktreeGitMetadata(root: string, target: string) {
     fs.writeFileSync(worktreeGitFile, `gitdir: ${relativeAdmin}\n`, 'utf8');
     fs.writeFileSync(adminGitFile, `${relativeWorktree}\n`, 'utf8');
     return true;
-  } catch (error) {
-    console.warn('[normalizeWorktreeGitMetadata] Non-fatal metadata normalization notice:', error);
+  } catch (error: any) {
+    const code = String(error?.code || '').toUpperCase();
+    if (code === 'EPERM' || code === 'EACCES') {
+      // A running Git/WSL process can temporarily hold the linked-worktree
+      // pointer open on Windows. This metadata repair is best effort; the
+      // existing pointer remains usable by native Git, so do not surface an
+      // alarming stack trace or turn it into an agent/workflow failure.
+      console.info('[normalizeWorktreeGitMetadata] Metadata normalization deferred because the worktree pointer is locked.');
+    } else {
+      console.warn('[normalizeWorktreeGitMetadata] Non-fatal metadata normalization notice:', error);
+    }
     return false;
   }
 }
@@ -1804,6 +1831,20 @@ function createAgentWorktree(repository: string, issueKey: string) {
   const branch = `codex/${key}`;
   const target = path.join(path.dirname(root), '.task-companion-worktrees', key);
   let reused = false;
+
+  const assertWorktreeReady = (worktreePath: string) => {
+    if (!fs.existsSync(worktreePath) || !fs.statSync(worktreePath).isDirectory()) {
+      throw new Error(`Agent worktree is not ready: ${worktreePath}`);
+    }
+    try {
+      const gitDir = git(worktreePath, ['rev-parse', '--git-dir']);
+      if (!gitDir || !fs.existsSync(path.join(worktreePath, '.git'))) {
+        throw new Error('Git worktree metadata is missing.');
+      }
+    } catch (error: any) {
+      throw new Error(`Agent worktree is not ready: ${worktreePath}. ${error?.message || error}`);
+    }
+  };
 
   // 1. Dọn dẹp lock files rác và metadata worktree cũ (Auto-prune)
   try { pruneGitLocks(root); } catch { /* ignore */ }
@@ -1830,6 +1871,7 @@ function createAgentWorktree(repository: string, issueKey: string) {
         const failures = setup.checks.filter((check) => check.status === 'failed').map((check) => check.message).join(' ');
         throw new Error(`Worktree environment setup failed. ${failures || 'Use Fix environment and retry.'}`);
       }
+      assertWorktreeReady(target);
       return { path: target, branch, reused, baseCommit: git(target, ['rev-parse', 'HEAD']), environmentChecks: setup.checks };
     }
 
@@ -1930,6 +1972,7 @@ function createAgentWorktree(repository: string, issueKey: string) {
     const failures = setup.checks.filter((check) => check.status === 'failed').map((check) => check.message).join(' ');
     throw new Error(`Worktree environment setup failed. ${failures || 'Use Fix environment and retry.'}`);
   }
+  assertWorktreeReady(target);
   return { path: target, branch, reused, baseCommit: git(target, ['rev-parse', 'HEAD']), environmentChecks: setup.checks };
 }
 
@@ -1977,6 +2020,7 @@ function setupAutoUpdater() {
 const CAO_DEFAULT_PORT = 9889;
 let caoDaemonProcess: ChildProcess | null = null;
 let caoRuntimeOperation: Promise<any> | null = null;
+const caoSupervisorStaleLogLastSeen = new Map<string, number>();
 let caoRuntimeStatus: {
   runtimeHome?: string;
   serverPid?: number;
@@ -1998,6 +2042,36 @@ type CaoPortOwnerInfo =
   | { kind: 'self'; pid: number }
   | { kind: 'conflicting_cao'; pid: number }
   | { kind: 'other'; pid: number };
+
+function isStaleCaoSupervisorTerminalLog(line: string): boolean {
+  return /Failed to get (?:history|output) from (?:terminal\s+)?cao-task-hub-[^\s:]+(?::code_supervisor-[^\s]+)?/i.test(line)
+    || /Failed to get output from terminal [a-f0-9]+/i.test(line);
+}
+
+function logCaoDaemonStderr(text: string): void {
+  const lines = String(text || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  for (const line of lines) {
+    if (!isStaleCaoSupervisorTerminalLog(line)) {
+      console.warn('[CAO Daemon stderr]', line);
+      continue;
+    }
+
+    // This is a recoverable stale Supervisor record, not a workflow failure.
+    // Keep one classified diagnostic per session/terminal per minute so a
+    // detached old session cannot flood the Desktop terminal or be mistaken
+    // for a strict-workflow validation/run error.
+    const key = line
+      .replace(/^\[[^\]]+\]\s*/, '')
+      .replace(/^\d{4}-\d{2}-\d{2}\s+[^-]+-\s*/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const now = Date.now();
+    const previous = caoSupervisorStaleLogLastSeen.get(key) || 0;
+    if (now - previous < 60_000) continue;
+    caoSupervisorStaleLogLastSeen.set(key, now);
+    console.info('[CAO Supervisor stale terminal]', line);
+  }
+}
 
 let caoRuntime: CaoRuntime | null | undefined;
 // CAO must run from Linux ext4.  `$HOME/.aws` and other Windows-mounted
@@ -2048,18 +2122,76 @@ function runWslShell(script: string, timeoutMs = 5_000): Promise<CaoCommandResul
   });
 }
 
+function runWslShellWithStdin(script: string, input: string, timeoutMs = 10_000): Promise<CaoCommandResult> {
+  const executable = wslExecutable();
+  if (!executable) return Promise.resolve({ ok: false, output: '', error: 'WSL is unavailable.' });
+  const distro = getWslDistro();
+  const user = getWslUser();
+  const fullScript = `${CAO_WSL_BOOTSTRAP}\n${script}\n`;
+  const b64 = Buffer.from(fullScript, 'utf8').toString('base64');
+  // Keep the workflow payload on stdin. Decode the short command into a
+  // temporary Linux-side script and execute it as a file so its stdin remains
+  // available to `cat > runtimePath`. Piping script+payload through `bash -s`
+  // is unsafe because bash can consume the payload while parsing the script.
+  // Embedding the YAML in `-lc` also exceeds Windows' command-line limit.
+  const args = ['-d', distro, '-u', user, '--', '/bin/bash', '-lc', `script=/tmp/task-hub-stdin-$$.sh; echo ${b64} | base64 -d > "$script" && bash "$script"; status=$?; rm -f "$script"; exit $status`];
+  return new Promise((resolve) => {
+    let output = '';
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    const finish = (result: CaoCommandResult) => { if (!settled) { settled = true; resolve(result); } };
+    const child = spawn(executable, args, { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+    const timeout = setTimeout(() => {
+      try { child.kill(); } catch { /* ignore */ }
+      finish({ ok: false, output, stdout, stderr, exitCode: null, error: 'WSL command timed out.' });
+    }, timeoutMs);
+    child.stdout?.on('data', (chunk) => { stdout += String(chunk); output += String(chunk); });
+    child.stderr?.on('data', (chunk) => { stderr += String(chunk); output += String(chunk); });
+    child.once('error', (error) => { clearTimeout(timeout); finish({ ok: false, output, stdout, stderr, exitCode: null, error: error.message }); });
+    child.once('close', (code) => {
+      clearTimeout(timeout);
+      finish({ ok: code === 0, output, stdout, stderr, exitCode: code, error: code === 0 ? undefined : (stderr.trim() || stdout.trim()).slice(-1000) || `WSL exited with code ${code}.` });
+    });
+    child.stdin?.end(input, 'utf8');
+  });
+}
+
 async function resolveCaoRuntime(): Promise<CaoRuntime | null> {
+  // A WSL distro may still be waking up when Electron starts. Never cache a
+  // transient "not found" result for the lifetime of the app.
+  if (caoRuntime === null) caoRuntime = undefined;
   if (caoRuntime !== undefined) return caoRuntime;
   // On Windows, always prefer the WSL runtime so cao-server, provider CLIs
   // and FIFO-backed session state live in the same ext4 environment.  A
   // native binary remains a fallback only when WSL is unavailable.
   if (wslExecutable()) {
-    const probe = await runWslShell('command -v cao >/dev/null && command -v cao-server >/dev/null', 8_000);
-    if (probe.ok) return (caoRuntime = { kind: 'wsl', executable: wslExecutable()!, distro: getWslDistro() });
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const probe = await runWslShell('command -v cao >/dev/null && command -v cao-server >/dev/null', 8_000);
+      if (probe.ok) return (caoRuntime = { kind: 'wsl', executable: wslExecutable()!, distro: getWslDistro() });
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 750));
+    }
   }
   const native = resolveCli('cao');
   if (native) return (caoRuntime = { kind: 'native', executable: native });
   return (caoRuntime = null);
+}
+
+async function ensureCaoWslInstallation(): Promise<boolean> {
+  if (process.platform !== 'win32' || !wslExecutable() || process.env.TASK_HUB_CAO_AUTO_INSTALL === 'false') return false;
+  const installScript = `
+    required="2.5.0"
+    current="$(cao --version 2>/dev/null | sed -n 's/.*version //p' || true)"
+    if command -v cao >/dev/null && command -v cao-server >/dev/null && [ -n "$current" ] && [ "$(printf '%s\\n' "$current" "$required" | sort -V | head -n 1)" = "$required" ]; then exit 0; fi
+    command -v uv >/dev/null || { echo "CAO_BOOTSTRAP_MISSING_UV"; exit 2; }
+    if command -v cao >/dev/null; then uv tool upgrade cli-agent-orchestrator; else uv tool install cli-agent-orchestrator; fi
+    export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+    command -v cao >/dev/null && command -v cao-server >/dev/null || { echo "CAO_BOOTSTRAP_INSTALL_FAILED"; exit 3; }
+    cao install code_supervisor >/dev/null 2>&1 || true
+  `;
+  const result = await runWslShell(installScript, 120_000);
+  caoRuntime = undefined;
+  return result.ok;
 }
 
 async function wslPathFor(windowsPath: string): Promise<string | null> {
@@ -2220,12 +2352,24 @@ async function probeCaoSessionApi(cwd: string): Promise<boolean> {
 async function startCaoDaemonInternal() {
   try {
     const port = caoServerPort();
-    const runtime = await resolveCaoRuntime();
+    // CAO 2.5.0 contains the Codex workflow lifecycle fix required for strict
+    // workflows: older runtimes can report the startup TUI as idle/completed
+    // and tear down a step before workflow_return is emitted.  Run the small,
+    // version-gated WSL bootstrap before probing the cached runtime so an
+    // already-installed 2.4.x runtime is upgraded too.
+    if (process.platform === 'win32' && wslExecutable() && process.env.TASK_HUB_CAO_AUTO_INSTALL !== 'false') {
+      await ensureCaoWslInstallation();
+    }
+    let runtime = await resolveCaoRuntime();
+    if (!runtime) {
+      await ensureCaoWslInstallation();
+      runtime = await resolveCaoRuntime();
+    }
     if (!runtime) {
       caoRuntimeStatus.health = 'failed';
-      caoRuntimeStatus.lastError = 'CAO CLI/server runtime was not found.';
-      console.log('[CAO Daemon] Standalone CAO binary not found; CAO is required for all agent runs.');
-      return { status: 'offline', message: 'CAO runtime unavailable', port };
+      caoRuntimeStatus.lastError = 'CAO CLI/server runtime was not found. Install uv and cli-agent-orchestrator in the configured WSL distro, or set TASK_HUB_CAO_AUTO_INSTALL=false to disable bootstrap.';
+      console.log('[CAO Daemon] CAO runtime was not found after retry/bootstrap.');
+      return { status: 'offline', message: caoRuntimeStatus.lastError, port };
     }
 
     caoRuntimeStatus.restarting = true;
@@ -2260,7 +2404,7 @@ async function startCaoDaemonInternal() {
     // bridge: this starts the official `cao-server` process used by `cao`.
     const isWsl = runtime.kind === 'wsl';
     const executable = isWsl ? runtime.executable : (resolveCaoExecutable() || runtime.executable);
-    const distro = isWsl ? (runtime.distro || getWslDistro()) : undefined;
+    const distro = runtime.kind === 'wsl' ? (runtime.distro || getWslDistro()) : undefined;
     const user = isWsl ? getWslUser() : undefined;
     const daemonScript = `${CAO_WSL_BOOTSTRAP}\nexec cao-server --host 0.0.0.0 --port ${port}\n`;
     const b64Daemon = Buffer.from(daemonScript, 'utf8').toString('base64');
@@ -2275,10 +2419,14 @@ async function startCaoDaemonInternal() {
     });
 
     let stderrBuffer = '';
+    let stderrLogBuffer = '';
     caoDaemonProcess.stderr?.on('data', (chunk) => {
       const text = String(chunk);
       stderrBuffer = (stderrBuffer + text).slice(-2000);
-      console.warn('[CAO Daemon stderr]', text.trim());
+      stderrLogBuffer += text;
+      const completeLines = stderrLogBuffer.split(/\r?\n/);
+      stderrLogBuffer = completeLines.pop() || '';
+      logCaoDaemonStderr(completeLines.join('\n'));
     });
 
     caoDaemonProcess.on('error', (err: Error) => {
@@ -2378,12 +2526,226 @@ async function getCaoStatusPayload() {
   };
 }
 
-type CaoCommandResult = { ok: boolean; output: string; error?: string };
+type CaoCommandResult = {
+  ok: boolean;
+  output: string;
+  stdout?: string;
+  stderr?: string;
+  exitCode?: number | null;
+  error?: string;
+};
 
-async function runCaoCommand(args: string[], cwd: string, timeoutMs = 15_000): Promise<CaoCommandResult> {
+type CaoWorkflowRuntimeStatus = {
+  runId: string;
+  state: string;
+  currentStep?: string;
+  completedSteps: string[];
+  totalSteps?: number;
+  steps?: Array<Record<string, any>>;
+  error?: string;
+};
+
+function parseCaoWorkflowRuntimeStatus(output: string, runId: string): CaoWorkflowRuntimeStatus {
+  const fallback: CaoWorkflowRuntimeStatus = { runId, state: 'running', completedSteps: [] };
+  const trimmed = String(output || '').trim();
+  if (!trimmed) return fallback;
+  try {
+    const parsed = JSON.parse(trimmed);
+    const data = parsed?.data || parsed?.status || parsed;
+    const rawState = String(data?.state || data?.status || data?.overall_status || 'running').toLowerCase();
+    const state = rawState === 'success' ? 'completed' : rawState === 'aborted' ? 'interrupted' : rawState;
+    const completed = Array.isArray(data?.completed_steps) ? data.completed_steps.map(String) : [];
+    const steps = Array.isArray(data?.steps) ? data.steps : undefined;
+    return {
+      runId: String(data?.run_id || data?.id || runId),
+      state,
+      currentStep: data?.current_step || data?.step,
+      completedSteps: completed,
+      totalSteps: Number(data?.total_steps || steps?.length || 0) || undefined,
+      steps,
+      error: data?.error || data?.message,
+    };
+  } catch {
+    const result: CaoWorkflowRuntimeStatus = { ...fallback };
+    const id = trimmed.match(/run[-_ ]?(?:id)?[:= ]+([a-zA-Z0-9_-]+)/i)?.[1];
+    if (id) result.runId = id;
+    const state = trimmed.match(/(?:overall\s+)?status[:=\s]+(RUNNING|COMPLETED|SUCCESS|INTERRUPTED|ABORTED|FAILED|ERROR)/i)?.[1]?.toLowerCase();
+    if (state) result.state = state === 'success' ? 'completed' : state === 'aborted' ? 'interrupted' : state;
+    const current = trimmed.match(/executing step[:\s]+([a-zA-Z0-9_-]+)/i)?.[1];
+    if (current) result.currentStep = current;
+    for (const match of trimmed.matchAll(/step[:\s]+([a-zA-Z0-9_-]+)\s+completed/gi)) {
+      if (!result.completedSteps.includes(match[1])) result.completedSteps.push(match[1]);
+    }
+    return result;
+  }
+}
+
+function isCaoUnknownRunFailure(value: string): boolean {
+  return /unknown\s+run|run\s+not\s+found|workflow(?:\s+run)?\s+not\s+found|could\s+not\s+read\s+spec|working\s+directory\s+does\s+not\s+exist/i.test(String(value || ''));
+}
+
+function workflowStateFile(): string {
+  const directory = path.join(app.getPath('userData'), 'workflows');
+  fs.mkdirSync(directory, { recursive: true });
+  return path.join(directory, 'runs.json');
+}
+
+function readWorkflowRegistry(): Record<string, any> {
+  try {
+    const raw = fs.readFileSync(workflowStateFile(), 'utf8');
+    return JSON.parse(raw) || {};
+  } catch {
+    return {};
+  }
+}
+
+function writeWorkflowRegistry(registry: Record<string, any>): void {
+  fs.writeFileSync(workflowStateFile(), JSON.stringify(registry, null, 2), 'utf8');
+}
+
+function nativeCaoWorkflowDirectory(): string {
+  return process.env.CAO_WORKFLOW_DIR || path.join(os.homedir(), '.aws', 'cli-agent-orchestrator', 'workflows');
+}
+
+function wslCaoWorkflowDirectory(): string {
+  return `${CAO_WSL_HOME}/workflows`;
+}
+
+function sanitizeWorkflowName(value: string): string {
+  return String(value || 'task-hub-workflow').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 120) || 'task-hub-workflow';
+}
+
+function workflowNameFromYaml(yaml: string): string | null {
+  const match = String(yaml || '').match(/^name:\s*(?:"([^"]+)"|'([^']+)'|([^\s#]+))/m);
+  return match?.[1] || match?.[2] || match?.[3] || null;
+}
+
+function setWorkflowName(yaml: string, name: string): string {
+  const replacement = `name: ${JSON.stringify(sanitizeWorkflowName(name))}`;
+  return /^name:\s*.*$/m.test(yaml) ? yaml.replace(/^name:\s*.*$/m, replacement) : `${replacement}\n${yaml}`;
+}
+
+function runtimeWorkflowPath(runtime: ResolvedCaoRuntime, workflowRunId: string): string {
+  const filename = `${sanitizeWorkflowName(workflowRunId)}.yaml`;
+  return runtime.kind === 'wsl'
+    ? `${wslCaoWorkflowDirectory()}/${filename}`
+    : path.join(nativeCaoWorkflowDirectory(), filename);
+}
+
+async function mirrorWorkflowSpec(runtime: ResolvedCaoRuntime, runtimePath: string, yaml: string, canonicalPath?: string, workflowName?: string): Promise<CaoCommandResult> {
+  if (runtime.kind === 'native') {
+    try {
+      fs.mkdirSync(path.dirname(runtimePath), { recursive: true });
+      fs.writeFileSync(runtimePath, yaml, 'utf8');
+      return { ok: true, output: '' };
+    } catch (error: any) {
+      return { ok: false, output: '', error: `Could not write CAO runtime workflow spec: ${error?.message || error}` };
+    }
+  }
+
+  // The workflow can be much larger than Windows' command-line limit. Copy
+  // the canonical AppData file directly into the Linux ext4 runtime, then
+  // change only its name to the unique run name. This avoids a race between a
+  // Windows staging file and the separate WSL process reading that file.
+  if (canonicalPath && fs.existsSync(canonicalPath)) {
+    const wslSourcePath = await wslPathFor(canonicalPath);
+    if (!wslSourcePath) return { ok: false, output: '', error: `Could not map the canonical workflow spec into WSL: ${canonicalPath}` };
+    const nameReplacement = workflowName ? ` && sed -i ${shellQuote(`1s/^name:.*/name: ${JSON.stringify(sanitizeWorkflowName(workflowName))}/`)} ${shellQuote(runtimePath)}` : '';
+    return runWslShell(
+      `mkdir -p ${shellQuote(path.posix.dirname(runtimePath))} && cp -- ${shellQuote(wslSourcePath)} ${shellQuote(runtimePath)}${nameReplacement} && test -s ${shellQuote(runtimePath)}`,
+      10_000,
+    );
+  }
+
+  return runWslShellWithStdin(
+    `mkdir -p ${shellQuote(path.posix.dirname(runtimePath))} && cat > ${shellQuote(runtimePath)} && test -s ${shellQuote(runtimePath)}`,
+    yaml,
+    10_000,
+  );
+}
+
+async function removeRuntimeWorkflowSpec(runtime: CaoWorkflowProcess): Promise<void> {
+  const runtimePath = runtime.runtimeSpecPath;
+  if (!runtimePath) return;
+  if (runtimePath.startsWith('/')) {
+    await runWslShell(`rm -f ${shellQuote(runtimePath)}`, 5_000);
+    return;
+  }
+  try { fs.rmSync(runtimePath, { force: true }); } catch { /* best effort cleanup */ }
+}
+
+function persistWorkflowRun(run: CaoWorkflowProcess, status?: CaoWorkflowRuntimeStatus): void {
+  const registry = readWorkflowRegistry();
+  registry[run.runId] = {
+    runId: run.runId,
+    cwd: run.cwd,
+    specPath: run.specPath,
+    canonicalSpecPath: run.specPath,
+    runtimeSpecPath: run.runtimeSpecPath,
+    workflowName: run.workflowName,
+    inputs: run.inputs,
+    output: run.output.slice(-20000),
+    state: status?.state || run.state,
+    currentStep: status?.currentStep,
+    completedSteps: status?.completedSteps || [],
+    totalSteps: status?.totalSteps,
+    steps: status?.steps,
+    error: status?.error,
+    kind: run.metadata?.kind,
+    parentRunId: run.metadata?.parentRunId,
+    metadata: run.metadata,
+    updatedAt: new Date().toISOString(),
+  };
+  writeWorkflowRegistry(registry);
+}
+
+async function mapWorkflowInputsToRuntime(runtime: ResolvedCaoRuntime, inputs?: Record<string, any>): Promise<Record<string, any> | undefined> {
+  if (!inputs || runtime.kind !== 'wsl') return inputs;
+  const mapped = { ...inputs };
+  for (const [key, value] of Object.entries(mapped)) {
+    // CAO resolves `type: path` values inside the Linux runtime. Keep the
+    // canonical Windows value in the registry, but pass a WSL path to CAO.
+    if (typeof value !== 'string' || !/(^|_)path$/i.test(key)) continue;
+    if (!/^[a-zA-Z]:[\\/]/.test(value) && !value.startsWith('\\\\')) continue;
+    const runtimePath = await wslPathFor(value);
+    if (!runtimePath) throw new Error(`Could not map workflow input ${key} into WSL: ${value}`);
+    mapped[key] = runtimePath;
+  }
+  return mapped;
+}
+
+function failCaoWorkflow(run: CaoWorkflowProcess, error: string, output?: string): CaoWorkflowRuntimeStatus {
+  const current = run.lastStatus;
+  const status: CaoWorkflowRuntimeStatus = {
+    runId: run.runId,
+    state: 'failed',
+    currentStep: current?.currentStep,
+    completedSteps: current?.completedSteps || [],
+    totalSteps: current?.totalSteps,
+    steps: current?.steps,
+    error,
+  };
+  run.state = 'failed';
+  if (output) run.output = `${run.output}\n${output}`.slice(-250000);
+  persistWorkflowRun(run, status);
+  safeSend(win, 'cao-workflow-event', {
+    type: 'workflow.step.failed',
+    runId: run.runId,
+    stepId: status.currentStep,
+    status,
+    error,
+    timestamp: new Date().toISOString(),
+  });
+  if (run.poller) clearInterval(run.poller);
+  caoWorkflowProcesses.delete(run.runId);
+  // Keep the runtime spec for failed runs so the user can resume/debug it.
+  return status;
+}
+
+async function runCaoCommand(args: string[], cwd: string, timeoutMs = 15_000, options?: { runtimeCwd?: string }): Promise<CaoCommandResult> {
   const runtime = await resolveCaoRuntime();
   if (!runtime) return { ok: false, output: '', error: 'CAO CLI was not found.' };
-  const workingDirectory = runtime.kind === 'wsl' ? await wslPathFor(cwd) : cwd;
+  const workingDirectory = runtime.kind === 'wsl' ? (options?.runtimeCwd || await wslPathFor(cwd)) : (options?.runtimeCwd || cwd);
   if (!workingDirectory) return { ok: false, output: '', error: `Could not map workspace into the CAO runtime: ${cwd}` };
   const executable = runtime.executable;
   const caoArgs = runtime.kind === 'wsl'
@@ -2391,6 +2753,8 @@ async function runCaoCommand(args: string[], cwd: string, timeoutMs = 15_000): P
     : args;
   return new Promise((resolve) => {
     let output = '';
+    let stdout = '';
+    let stderr = '';
     let settled = false;
     const finish = (result: CaoCommandResult) => {
       if (!settled) { settled = true; resolve(result); }
@@ -2413,19 +2777,155 @@ async function runCaoCommand(args: string[], cwd: string, timeoutMs = 15_000): P
       });
       const timeout = setTimeout(() => {
         try { child.kill(); } catch { /* ignore */ }
-        finish({ ok: false, output, error: `CAO command timed out after ${Math.round(timeoutMs / 1000)}s.` });
+        finish({ ok: false, output, stdout, stderr, exitCode: null, error: `CAO command timed out after ${Math.round(timeoutMs / 1000)}s.` });
       }, timeoutMs);
-      child.stdout?.on('data', (chunk) => { output += String(chunk); });
-      child.stderr?.on('data', (chunk) => { output += String(chunk); });
-      child.once('error', (error) => { clearTimeout(timeout); finish({ ok: false, output, error: error.message }); });
+      child.stdout?.on('data', (chunk) => { stdout += String(chunk); output += String(chunk); });
+      child.stderr?.on('data', (chunk) => { stderr += String(chunk); output += String(chunk); });
+      child.once('error', (error) => { clearTimeout(timeout); finish({ ok: false, output, stdout, stderr, exitCode: null, error: error.message }); });
       child.once('close', (code) => {
         clearTimeout(timeout);
-        finish({ ok: code === 0, output, error: code === 0 ? undefined : (output.trim().slice(-1000) || `CAO exited with code ${code}.`) });
+        finish({ ok: code === 0, output, stdout, stderr, exitCode: code, error: code === 0 ? undefined : (stderr.trim() || stdout.trim()).slice(-1000) || `CAO exited with code ${code}.` });
       });
     } catch (error: any) {
-      finish({ ok: false, output, error: error?.message || 'Unable to execute CAO command.' });
+      finish({ ok: false, output, stdout, stderr, exitCode: null, error: error?.message || 'Unable to execute CAO command.' });
     }
   });
+}
+
+async function startCaoWorkflowProcess(run: CaoWorkflowProcess, action: 'run' | 'resume' = 'run'): Promise<{ ok: boolean; error?: string; output?: string; runtimeSpecPath?: string }> {
+  const runtime = await resolveCaoRuntime();
+  if (!runtime) return { ok: false, error: 'CAO CLI was not found.' };
+  const workingDirectory = runtime.kind === 'wsl' ? await wslPathFor(run.cwd) : run.cwd;
+  const runtimeSpec = run.runtimeSpecPath || runtimeWorkflowPath(runtime, run.runId);
+  if (!workingDirectory || !runtimeSpec) return { ok: false, error: 'Could not map the workflow into the CAO runtime.' };
+  let runtimeInputs: Record<string, any> | undefined;
+  try {
+    runtimeInputs = await mapWorkflowInputsToRuntime(runtime, run.inputs);
+  } catch (error: any) {
+    return { ok: false, error: error?.message || 'Could not map workflow inputs into the CAO runtime.' };
+  }
+  const inputArgs = runtimeInputs ? Object.entries(runtimeInputs).flatMap(([key, value]) => ['--input', `${key}=${value}`]) : [];
+  const args = action === 'resume'
+    ? ['workflow', 'resume', run.runId]
+    : ['workflow', 'run', run.workflowName || path.basename(runtimeSpec, path.extname(runtimeSpec)), ...inputArgs, '--run-id', run.runId];
+  run.action = action;
+  const isWsl = runtime.kind === 'wsl';
+  const distro = isWsl ? (runtime.distro || getWslDistro()) : undefined;
+  const user = isWsl ? getWslUser() : undefined;
+  const commandArgs = isWsl
+    ? (() => {
+        const script = `${CAO_WSL_BOOTSTRAP}\ncd -- ${shellQuote(workingDirectory)}\nexec cao ${args.map(shellQuote).join(' ')}\n`;
+        const encoded = Buffer.from(script, 'utf8').toString('base64');
+        return ['-d', distro!, '-u', user!, '--', '/bin/bash', '-lc', `echo ${encoded} | base64 -d | bash`];
+      })()
+    : args;
+  try {
+    const child = spawn(runtime.executable, commandArgs, {
+      cwd: isWsl ? undefined : workingDirectory,
+      windowsHide: true,
+      detached: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...nativeAgentEnvironment(), CAO_API_PORT: String(caoServerPort()) },
+    });
+    run.child = child;
+    const append = (chunk: Buffer | string) => {
+      const text = String(chunk);
+      run.output = `${run.output}${text}`.slice(-250000);
+      safeSend(win, 'cao-workflow-event', {
+        type: 'workflow.output',
+        runId: run.runId,
+        output: text,
+        timestamp: new Date().toISOString(),
+      });
+      const violation = text.match(/\b(assign|handoff|send_message)\s*\(/i);
+      if (violation && run.state !== 'failed') {
+        const error = `Strict workflow orchestration violation: ${violation[1]}() is only allowed in Supervisor mode.`;
+        run.state = 'failed';
+        try { run.child?.kill(); } catch { /* ignore */ }
+        persistWorkflowRun(run, { runId: run.runId, state: 'failed', completedSteps: [], error });
+        safeSend(win, 'cao-workflow-event', { type: 'workflow.step.failed', runId: run.runId, error, timestamp: new Date().toISOString() });
+      }
+    };
+    child.stdout?.on('data', append);
+    child.stderr?.on('data', append);
+    child.once('error', (error) => {
+      run.childExited = true;
+      run.childExitCode = null;
+      if (!['failed', 'cancelled', 'waiting_input'].includes(run.state)) failCaoWorkflow(run, error.message, error.message);
+    });
+    child.once('close', (code) => {
+      run.childExited = true;
+      run.childExitCode = code;
+      if (code !== 0 && !['failed', 'cancelled', 'waiting_input'].includes(run.state)) {
+        const detail = run.output.trim().slice(-2000);
+        const error = `CAO workflow client exited with code ${code ?? 'unknown'}.${detail ? ` ${detail}` : ''}`;
+        failCaoWorkflow(run, error);
+        return;
+      }
+      void pollCaoWorkflow(run.runId);
+    });
+    return { ok: true, runtimeSpecPath: runtimeSpec };
+  } catch (error: any) {
+    return { ok: false, error: error?.message || 'Unable to start CAO workflow.' };
+  }
+}
+
+async function pollCaoWorkflow(runId: string, processError?: string): Promise<CaoWorkflowRuntimeStatus | null> {
+  const run = caoWorkflowProcesses.get(runId);
+  if (!run) return null;
+  const result = await runCaoCommand(['workflow', 'status', runId], run.cwd, 15_000);
+  if (!result.ok && run.childExited && !['failed', 'cancelled', 'waiting_input'].includes(run.state)) {
+    const detail = (result.error || result.output || '').trim();
+    return failCaoWorkflow(run, processError || `CAO workflow status failed for ${runId}.${detail ? ` ${detail}` : ''}`, result.output);
+  }
+  const status = parseCaoWorkflowRuntimeStatus(result.output, runId);
+  const previous = run.lastStatus;
+  if (processError) {
+    status.state = 'failed';
+    status.error = processError;
+  }
+  const rejectedReview = status.steps?.find((step) => /-review$/.test(String(step.id)) && String(step.output?.verdict || '').toUpperCase() === 'REJECTED');
+  if (rejectedReview && ['running', 'completed'].includes(status.state)) {
+    status.state = 'waiting_input';
+    status.currentStep = rejectedReview.id;
+    status.error = `Review rejected at ${rejectedReview.id}; workflow is waiting for feedback before evidence or handoff.`;
+    try { run.child?.kill(); } catch { /* ignore */ }
+  }
+  run.state = status.state;
+  run.output = `${run.output}${result.output}`.slice(-250000);
+  persistWorkflowRun(run, status);
+  const previousCompleted = new Set(previous?.completedSteps || []);
+  const newCompleted = status.completedSteps.filter((stepId) => !previousCompleted.has(stepId));
+  const eventType = status.state === 'completed'
+    ? 'workflow.completed'
+    : status.state === 'failed'
+      ? 'workflow.step.failed'
+      : status.state === 'interrupted'
+        ? 'workflow.interrupted'
+        : status.state === 'waiting_input' || status.state === 'blocked'
+          ? 'workflow.waiting_input'
+          : 'workflow.step.started';
+  if (newCompleted.length) {
+    for (const stepId of newCompleted) {
+      safeSend(win, 'cao-workflow-event', { type: 'workflow.step.completed', runId, stepId, status, timestamp: new Date().toISOString() });
+    }
+  } else {
+    safeSend(win, 'cao-workflow-event', {
+      type: eventType,
+      runId,
+      stepId: status.currentStep,
+      status,
+      error: status.error,
+      timestamp: new Date().toISOString(),
+    });
+  }
+  run.lastStatus = status;
+  if (['completed', 'failed', 'interrupted', 'cancelled'].includes(status.state)) {
+    if (run.poller) clearInterval(run.poller);
+    caoWorkflowProcesses.delete(runId);
+    if (['completed', 'cancelled'].includes(status.state)) void removeRuntimeWorkflowSpec(run);
+  }
+  return status;
 }
 
 async function ensureCaoReady(cwd: string, provider: AgentProvider = 'codex'): Promise<boolean> {
@@ -2605,7 +3105,7 @@ function pollCaoSession(sessionId: string) {
       sessionId,
       stream: 'event',
       text: '',
-      event: { type: 'cao.session.state', status: status.state, session: current.caoSessionName }
+      event: { type: 'cao.session.state', status: status.state, session: current.caoSessionName, workers: status.workers }
     });
 
     const cleanOutput = stripTerminalAnsi(current.output || '');
@@ -2825,8 +3325,82 @@ async function reconnectCaoSession(sessionId: string) {
   };
 }
 
+function parseCaoSessionNames(output: string): Set<string> | null {
+  const raw = String(output || '').trim();
+  if (!raw) return null;
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    // The CLI can prefix JSON with an informational line. Recover the last
+    // JSON array/object while keeping a parse failure distinguishable from a
+    // valid empty session registry.
+    const arrayStart = raw.indexOf('[');
+    const arrayEnd = raw.lastIndexOf(']');
+    if (arrayStart >= 0 && arrayEnd > arrayStart) {
+      try { parsed = JSON.parse(raw.slice(arrayStart, arrayEnd + 1)); } catch { /* fall through */ }
+    }
+    if (parsed === undefined) return null;
+  }
+
+  const entries = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed?.sessions)
+      ? parsed.sessions
+      : Array.isArray(parsed?.data)
+        ? parsed.data
+        : [];
+  const names = new Set<string>();
+  for (const entry of entries) {
+    const name = typeof entry === 'string' ? entry : entry?.session || entry?.session_name || entry?.name || entry?.id;
+    if (name) names.add(String(name));
+  }
+  return names;
+}
+
 async function rehydrateCaoSessions() {
-  const candidates = readAllSavedSessions().filter((session) => session.route === 'cao' && session.status === 'running');
+  const savedCandidates = readAllSavedSessions().filter((session) => session.route === 'cao' && session.status === 'running');
+  if (!savedCandidates.length) return;
+
+  // `agent-saved-sessions.json` survives Desktop restarts, while CAO may have
+  // already discarded the detached terminal. Reconnecting every saved entry
+  // unconditionally turns those records into an endless status poll and CAO
+  // logs repeated "Failed to get history/output" errors for old terminals.
+  // The live session registry is the source of truth. A valid empty array is
+  // intentionally different from a failed list command: only the former is
+  // safe to use for stale-session cleanup.
+  const liveResult = await runCaoCommand(['session', 'list', '--json'], process.cwd(), 10_000);
+  const liveNames = liveResult.ok ? parseCaoSessionNames(liveResult.output) : null;
+  if (liveNames) {
+    const liveCandidates = savedCandidates.filter((session) => liveNames.has(session.caoSessionName || session.sessionId));
+    for (const stale of savedCandidates.filter((session) => !liveNames.has(session.caoSessionName || session.sessionId))) {
+      persistSessionUpdate({
+        sessionId: stale.sessionId,
+        status: 'stale',
+        caoState: 'stale',
+        caoSessionName: stale.caoSessionName,
+      });
+      appendWorkspaceAgentLog(stale.cwd, stale.sessionId, 'cao_saved_session_not_live', {
+        session: stale.caoSessionName || stale.sessionId,
+        reason: 'Session was present in Desktop persistence but absent from cao session list.',
+      });
+    }
+    if (!liveCandidates.length) return;
+    for (const saved of liveCandidates.slice(0, 12)) {
+      try {
+        await reconnectCaoSession(saved.sessionId);
+      } catch (error: any) {
+        appendWorkspaceAgentLog(saved.cwd, saved.sessionId, 'cao_reconnect_failed', { error: error?.message || String(error) });
+      }
+    }
+    return;
+  }
+
+  appendWorkspaceAgentLog(process.cwd(), 'cao-runtime', 'cao_session_registry_unavailable', {
+    error: liveResult.error || 'Could not parse cao session list; preserving saved sessions for a later reconnect.',
+  });
+  const candidates = savedCandidates;
   for (const saved of candidates.slice(0, 12)) {
     try {
       await reconnectCaoSession(saved.sessionId);
@@ -3144,22 +3718,166 @@ function createWindow() {
     }
     return res;
   });
-  ipcMain.handle('cao-workflow-run', async (_event, { workflowSpecYaml, inputs, cwd }: { workflowSpecYaml: string; inputs?: Record<string, any>; cwd?: string }) => {
+  ipcMain.handle('cao-workflow-start', async (_event, { workflowSpecYaml, inputs, cwd, runId, metadata }: { workflowSpecYaml: string; inputs?: Record<string, any>; cwd?: string; runId?: string; metadata?: CaoWorkflowProcess['metadata'] }) => {
     const workingDir = cwd || process.cwd();
-    const tempWorkflowPath = path.join(os.tmpdir(), `cao-workflow-${Date.now()}.yaml`);
-    fs.writeFileSync(tempWorkflowPath, workflowSpecYaml, 'utf8');
-    const inputArgs = inputs ? Object.entries(inputs).flatMap(([k, v]) => ['--input', `${k}=${v}`]) : [];
-    const result = await runCaoCommand(['workflow', 'run', tempWorkflowPath, ...inputArgs], workingDir, 120_000);
-    try { fs.unlinkSync(tempWorkflowPath); } catch { /* ignore */ }
-    return result;
+    const workflowRunId = runId || `cao-workflow-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const directory = path.join(app.getPath('userData'), 'workflows');
+    fs.mkdirSync(directory, { recursive: true });
+    const specPath = path.join(directory, `${sanitizeWorkflowName(workflowRunId)}.yaml`);
+    fs.writeFileSync(specPath, workflowSpecYaml, 'utf8');
+    const runtime = await resolveCaoRuntime();
+    if (!runtime) {
+      return {
+        ok: false,
+        state: 'failed',
+        errorCode: 'cao_runtime_unavailable',
+        canonicalSpecPath: specPath,
+        error: 'CAO CLI was not found in the configured runtime.',
+      };
+    }
+    const baseWorkflowName = metadata?.workflowName || workflowNameFromYaml(workflowSpecYaml) || workflowRunId;
+    const workflowName = `${sanitizeWorkflowName(baseWorkflowName)}-${sanitizeWorkflowName(workflowRunId)}`;
+    const runtimeSpecPath = runtimeWorkflowPath(runtime, workflowRunId);
+    const runtimeYaml = setWorkflowName(workflowSpecYaml, workflowName);
+    const run: CaoWorkflowProcess = {
+      runId: workflowRunId,
+      cwd: workingDir,
+      specPath,
+      runtimeSpecPath,
+      workflowName,
+      inputs,
+      metadata: { ...(metadata || {}), workflowName },
+      output: '',
+      state: 'validating',
+    };
+    persistWorkflowRun(run, { runId: workflowRunId, state: 'validating', completedSteps: [] });
+    const mirrored = await mirrorWorkflowSpec(runtime, runtimeSpecPath, runtimeYaml, specPath, workflowName);
+    if (!mirrored.ok) {
+      const error = mirrored.error || mirrored.stderr || mirrored.output || 'Could not mirror workflow spec into the CAO runtime.';
+      run.state = 'failed';
+      run.output = mirrored.output || '';
+      persistWorkflowRun(run, { runId: workflowRunId, state: 'failed', completedSteps: [], error });
+      safeSend(win, 'cao-workflow-event', { type: 'workflow.step.failed', runId: workflowRunId, error, timestamp: new Date().toISOString() });
+      return { ok: false, state: 'failed', errorCode: 'workflow_spec_mirror_failed', canonicalSpecPath: specPath, runtimeSpecPath, workflowName, stdout: mirrored.stdout, stderr: mirrored.stderr, exitCode: mirrored.exitCode, error };
+    }
+    const runtimeWorkflowDir = runtime.kind === 'wsl' ? wslCaoWorkflowDirectory() : nativeCaoWorkflowDirectory();
+    const validation = await runCaoCommand(
+      ['workflow', 'validate', runtimeSpecPath],
+      workingDir,
+      30_000,
+      { runtimeCwd: runtimeWorkflowDir },
+    );
+    if (!validation.ok) {
+      const error = validation.error || validation.stderr || validation.output || 'CAO workflow validation failed.';
+      run.state = 'failed';
+      run.output = `${run.output}\n${validation.output}`.slice(-250000);
+      persistWorkflowRun(run, { runId: workflowRunId, state: 'failed', completedSteps: [], error });
+      safeSend(win, 'cao-workflow-event', { type: 'workflow.step.failed', runId: workflowRunId, error, timestamp: new Date().toISOString() });
+      return { ok: false, state: 'failed', errorCode: 'workflow_validation_failed', canonicalSpecPath: specPath, runtimeSpecPath, workflowName, stdout: validation.stdout, stderr: validation.stderr, exitCode: validation.exitCode, error };
+    }
+    run.output = validation.output;
+    caoWorkflowProcesses.set(workflowRunId, run);
+    safeSend(win, 'cao-workflow-event', { type: 'workflow.validated', runId: workflowRunId, timestamp: new Date().toISOString() });
+    const started = await startCaoWorkflowProcess(run);
+    if (!started.ok) {
+      caoWorkflowProcesses.delete(workflowRunId);
+      run.state = 'failed';
+      persistWorkflowRun(run, { runId: workflowRunId, state: 'failed', completedSteps: [], error: started.error });
+      return { ok: false, state: 'failed', errorCode: 'workflow_start_failed', canonicalSpecPath: specPath, runtimeSpecPath, workflowName, error: started.error };
+    }
+    // A CAO client can fail immediately (for example when a runtime path is
+    // invalid). Do not overwrite that terminal state with `running` below.
+    if (run.state === 'failed') {
+      return { ok: false, state: 'failed', errorCode: 'workflow_start_failed', canonicalSpecPath: specPath, runtimeSpecPath, workflowName, error: run.lastStatus?.error || run.output.trim().slice(-2000) || 'CAO workflow failed during startup.' };
+    }
+    run.state = 'running';
+    run.poller = setInterval(() => { void pollCaoWorkflow(workflowRunId); }, 3_000);
+    void pollCaoWorkflow(workflowRunId);
+    persistWorkflowRun(run, { runId: workflowRunId, state: 'running', completedSteps: [] });
+    safeSend(win, 'cao-workflow-event', { type: 'workflow.started', runId: workflowRunId, timestamp: new Date().toISOString() });
+    return { ok: true, runId: workflowRunId, state: 'running', specPath, canonicalSpecPath: specPath, runtimeSpecPath, workflowName };
+  });
+  ipcMain.handle('cao-workflow-run', async (_event, payload: { workflowSpecYaml: string; inputs?: Record<string, any>; cwd?: string; runId?: string }) => {
+    // Keep the legacy channel discoverable for older renderers; new builds use
+    // cao-workflow-start so the call returns immediately with a resumable run.
+    void payload;
+    return { ok: false, error: 'The legacy blocking workflow channel is retired; use cao-workflow-start.' };
   });
   ipcMain.handle('cao-workflow-resume', async (_event, { runId, cwd }: { runId: string; cwd?: string }) => {
-    const workingDir = cwd || process.cwd();
-    return await runCaoCommand(['workflow', 'resume', runId], workingDir, 120_000);
+    const existing = caoWorkflowProcesses.get(runId);
+    if (existing) return { ok: true, runId, state: existing.state };
+    const saved = readWorkflowRegistry()[runId];
+    if (!saved?.specPath && !saved?.canonicalSpecPath) return { ok: false, error: `Workflow ${runId} was not found.` };
+    const run: CaoWorkflowProcess = { runId, cwd: cwd || saved.cwd || process.cwd(), specPath: saved.canonicalSpecPath || saved.specPath, runtimeSpecPath: saved.runtimeSpecPath, workflowName: saved.workflowName, inputs: saved.inputs, metadata: saved.metadata, output: saved.output || '', state: 'interrupted', action: 'resume' };
+    const runtime = await resolveCaoRuntime();
+    if (!runtime) return { ok: false, errorCode: 'cao_runtime_unavailable', error: 'CAO CLI was not found in the configured runtime.' };
+    if (!run.runtimeSpecPath) run.runtimeSpecPath = runtimeWorkflowPath(runtime, runId);
+    if (run.specPath && fs.existsSync(run.specPath)) {
+      const sourceYaml = fs.readFileSync(run.specPath, 'utf8');
+      const workflowName = run.workflowName || `${sanitizeWorkflowName(workflowNameFromYaml(sourceYaml) || runId)}-${sanitizeWorkflowName(runId)}`;
+      run.workflowName = workflowName;
+      const mirrored = await mirrorWorkflowSpec(runtime, run.runtimeSpecPath, setWorkflowName(sourceYaml, workflowName), run.specPath, workflowName);
+      if (!mirrored.ok) return { ok: false, errorCode: 'workflow_spec_mirror_failed', error: mirrored.error || mirrored.output || 'Could not restore the CAO runtime workflow spec.' };
+    }
+    caoWorkflowProcesses.set(runId, run);
+    const resumed = await startCaoWorkflowProcess(run, 'resume');
+    if (!resumed.ok) { caoWorkflowProcesses.delete(runId); return resumed; }
+    if (run.state === 'failed') {
+      return { ok: false, state: 'failed', errorCode: 'workflow_resume_failed', error: run.lastStatus?.error || run.output.trim().slice(-2000) || 'CAO workflow failed during resume.' };
+    }
+    run.state = 'running';
+    run.poller = setInterval(() => { void pollCaoWorkflow(runId); }, 3_000);
+    void pollCaoWorkflow(runId);
+    safeSend(win, 'cao-workflow-event', { type: 'workflow.started', runId, timestamp: new Date().toISOString() });
+    return { ok: true, runId, state: 'running' };
   });
   ipcMain.handle('cao-workflow-status', async (_event, { runId, cwd }: { runId: string; cwd?: string }) => {
-    const workingDir = cwd || process.cwd();
-    return await runCaoCommand(['workflow', 'status', runId], workingDir, 15_000);
+    if (caoWorkflowProcesses.has(runId)) return { ok: true, status: await pollCaoWorkflow(runId) };
+    const saved = readWorkflowRegistry()[runId];
+    const workingDir = cwd || saved?.cwd || process.cwd();
+    const result = await runCaoCommand(['workflow', 'status', runId], workingDir, 15_000);
+    if (!result.ok && saved && ['running', 'validating'].includes(saved.state) && isCaoUnknownRunFailure(`${result.error || ''}\n${result.output || ''}`)) {
+      const error = result.error || result.output || `CAO workflow run ${runId} no longer exists.`;
+      const failed = { ...saved, state: 'failed', error, updatedAt: new Date().toISOString() };
+      writeWorkflowRegistry({ ...readWorkflowRegistry(), [runId]: failed });
+      return { ...result, status: { runId, state: 'failed', completedSteps: saved.completedSteps || [], totalSteps: saved.totalSteps, steps: saved.steps, error } };
+    }
+    return { ...result, status: parseCaoWorkflowRuntimeStatus(result.output, runId) };
+  });
+  ipcMain.handle('cao-workflow-list', async () => {
+    const registry = readWorkflowRegistry();
+    let changed = false;
+    for (const [runId, saved] of Object.entries(registry)) {
+      if (!saved || !['running', 'validating'].includes(saved.state)) continue;
+      const status = await runCaoCommand(['workflow', 'status', runId], saved.cwd || process.cwd(), 8_000);
+      if (status.ok || !isCaoUnknownRunFailure(`${status.error || ''}\n${status.output || ''}`)) continue;
+      registry[runId] = { ...saved, state: 'failed', error: status.error || status.output || `CAO workflow run ${runId} no longer exists.`, updatedAt: new Date().toISOString() };
+      changed = true;
+    }
+    if (changed) writeWorkflowRegistry(registry);
+    return Object.values(registry).sort((a: any, b: any) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+  });
+  ipcMain.handle('cao-workflow-cancel', async (_event, { runId }: { runId: string }) => {
+    const run = caoWorkflowProcesses.get(runId);
+    if (!run) {
+      const saved = readWorkflowRegistry()[runId];
+      if (!saved) return false;
+      const remoteCancel = await runCaoCommand(['workflow', 'cancel', runId], saved.cwd || process.cwd(), 15_000);
+      if (!remoteCancel.ok) return false;
+      writeWorkflowRegistry({ ...readWorkflowRegistry(), [runId]: { ...saved, state: 'cancelled', updatedAt: new Date().toISOString() } });
+      const runtimeRun: CaoWorkflowProcess = { runId, cwd: saved.cwd || process.cwd(), specPath: saved.canonicalSpecPath || saved.specPath || '', runtimeSpecPath: saved.runtimeSpecPath, output: '', state: 'cancelled' };
+      await removeRuntimeWorkflowSpec(runtimeRun);
+      safeSend(win, 'cao-workflow-event', { type: 'workflow.cancelled', runId, timestamp: new Date().toISOString() });
+      return true;
+    }
+    if (run.poller) clearInterval(run.poller);
+    try { run.child?.kill(); } catch { /* ignore */ }
+    run.state = 'cancelled';
+    persistWorkflowRun(run, { runId, state: 'cancelled', completedSteps: [] });
+    caoWorkflowProcesses.delete(runId);
+    await removeRuntimeWorkflowSpec(run);
+    safeSend(win, 'cao-workflow-event', { type: 'workflow.cancelled', runId, timestamp: new Date().toISOString() });
+    return true;
   });
   ipcMain.handle('cao-answer-user-prompt', async (_event, { terminalId, answer, sessionId }: { terminalId?: string; answer: string; sessionId?: string }) => {
     if (sessionId) {

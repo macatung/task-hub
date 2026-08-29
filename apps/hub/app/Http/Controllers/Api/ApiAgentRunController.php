@@ -585,7 +585,7 @@ class ApiAgentRunController extends Controller
             'artifact_url' => 'nullable|url|max:500',
             'commit_sha' => 'nullable|string|max:80',
             'metadata' => 'nullable|array',
-            'idempotency_key' => 'nullable|uuid',
+            'idempotency_key' => 'nullable|string|max:191',
         ]);
         $idempotencyKey = $validated['idempotency_key'] ?? $request->header('Idempotency-Key');
         if ($idempotencyKey) {

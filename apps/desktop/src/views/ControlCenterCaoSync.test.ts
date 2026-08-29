@@ -27,6 +27,13 @@ describe('ControlCenter CAO sync, AgentFleetBar mounting, and mid-flight resilie
     expect(controlCenterSource).toContain('CAO Daemon bị ngắt kết nối trong khi agent đang chạy. Phiên làm việc có thể bị gián đoạn.');
   });
 
+  it('keeps workflow event delivery compatible with older Hub MCP registries', () => {
+    expect(controlCenterSource).toContain("if (/unknown tool/i.test(String(eventError?.message || eventError)))");
+    expect(controlCenterSource).toContain("await mcp('update_agent_run'");
+    expect(controlCenterSource).toContain('workflow_event: { event_id: eventId');
+    expect(controlCenterSource).toContain('mcpOutbox.enqueue(\'record_agent_run_event\'');
+  });
+
   it('renders CAO daemon indicators in ConnectionBar and StatusFooter', () => {
     expect(connectionBarSource).toContain('cc-connectionbar__cao');
     expect(connectionBarSource).toContain('CAO Reconnecting…');

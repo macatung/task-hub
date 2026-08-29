@@ -6,6 +6,8 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
+    "predev": "node scripts/ensure-cao-runtime.mjs",
+    "prebuild": "node scripts/ensure-cao-runtime.mjs",
     "postinstall": "electron-rebuild -f -w node-pty",
     "typecheck": "vue-tsc --noEmit",
     "build": "vue-tsc --noEmit && vite build && electron-builder --win",

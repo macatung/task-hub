@@ -24,7 +24,20 @@ import {
 import { buildAutoHandoffPayload } from '../utils/autoHandoff';
 import { hasAgentReportedFailure } from '../utils/agentRunOutcome';
 import { InteractiveRunReporter } from '../services/interactiveRunReporter';
-import { buildCaoTaskOrchestrationPrompt, buildCaoEpicOrchestrationPrompt } from '../services/caoBridgeService';
+import {
+  buildCaoTaskOrchestrationPrompt,
+  buildCaoEpicOrchestrationPrompt,
+  buildCaoRequirementSupervisorPrompt,
+  generateCaoStandardWorkflowYaml,
+  generateCaoEpicWorkflowYaml,
+  topologicallySortEpicTasks,
+  selectCaoOrchestrationStrategy,
+  type CaoWorkflowRunStatus,
+  type CaoWorkflowStepStatus,
+  type OrchestrationMode,
+  type WorkflowKind,
+} from '../services/caoBridgeService';
+import CaoWorkflowRunPanel from '../components/control-center/CaoWorkflowRunPanel.vue';
 import type { SafetyInterceptEvent } from '../utils/safetyGuardrails';
 import { DEFAULT_PROVIDER_MODELS } from '../constants/models';
 type ToolMode = "requirement" | "docs" | null;
@@ -81,6 +94,10 @@ const phase = ref("Ready");
 const output = ref("");
 const sessionId = ref<string | null>(null);
 const executionRoute = ref<ExecutionRoute>(null);
+const orchestrationModeOverride = ref<OrchestrationMode | null>(null);
+const workflowKind = ref<WorkflowKind>('task');
+const workflowStatus = ref<CaoWorkflowRunStatus | null>(null);
+const workflowFinalized = ref(false);
 const runId = ref<number | null>(null);
 const implementationRunId = ref<number | null>(null);
 const reviewerRunId = ref<number | null>(null);
@@ -221,10 +238,26 @@ const sessionTokenUsage = ref<{
   totalTokens: number;
 } | null>(null);
 const caoReconnecting = ref(false);
+let unsubWorkflow: (() => void) | undefined;
 const previousCaoAvailable = ref<boolean | null>(null);
 const inboxMessages = ref<any[]>([]);
 const inboxLoading = ref(false);
 const runtimeRepairing = ref(false);
+const effectiveOrchestrationMode = computed<OrchestrationMode>(() => {
+  if (orchestrationModeOverride.value) return orchestrationModeOverride.value;
+  if (!selectedTask.value) return 'supervisor';
+  return selectCaoOrchestrationStrategy({
+    id: selectedTask.value.id,
+    title: selectedTask.value.title,
+    issue_type: selectedTask.value.issue_type,
+    description: selectedTask.value.description,
+  });
+});
+const workflowStepperSteps = computed(() => (workflowStatus.value?.steps || []).map((step, index) => ({
+  id: step.id,
+  label: step.label || step.id,
+  shortLabel: `${index + 1}. ${(step.label || step.id).slice(0, 18)}`,
+})));
 const cockpitAgentKey = (() => {
   const stored = localStorage.getItem("task-hub-cockpit-agent-key");
   if (stored) return stored;
@@ -1138,14 +1171,280 @@ const ensureEpicParentRun = async (repository: string, context: any) => {
   ).catch(() => {});
   return parentRunId;
 };
-const launch = async () => {
+const initialWorkflowSteps = (kind: WorkflowKind, task: TaskItem, epicTasks: TaskItem[] = []): CaoWorkflowStepStatus[] => {
+  if (kind === 'task') {
+    return ['implement', 'review', 'evidence', 'handoff'].map((id) => ({ id, taskId: task.id, taskKey: task.issue_key || `#${task.id}`, label: id, state: 'pending' }));
+  }
+  const ordered = topologicallySortEpicTasks(epicTasks as any).ordered;
+  return ordered.flatMap((child, index) => ['implement', 'review', 'evidence', 'handoff'].map((stage) => ({
+    id: `child-${index + 1}-${child.id}-${stage}`,
+    taskId: child.id,
+    taskKey: child.issue_key || `#${child.id}`,
+    label: `${child.issue_key || `#${child.id}`} · ${stage}`,
+    state: 'pending' as const,
+  }))).concat([{ id: 'epic-finalize', taskId: task.id, taskKey: task.issue_key || `#${task.id}`, label: 'Epic finalize', state: 'pending' }]);
+};
+
+const workflowResultHash = (value: unknown) => {
+  const text = JSON.stringify(value ?? '');
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
+};
+
+const syncWorkflowEventToHub = async (event: any, status?: CaoWorkflowRunStatus) => {
+  if (!runId.value || !event?.runId) return;
+  const stepId = event.stepId || status?.currentStep || event.type;
+  const result = event.output || status?.steps?.find((step) => step.id === stepId)?.output || status;
+  const eventId = `cao:${event.runId}:step:${stepId}:result:${workflowResultHash(result)}`;
+  const payload = {
+    cao_run_id: event.runId,
+    workflow_kind: workflowKind.value,
+    workflow_state: status?.state,
+    step_id: stepId,
+    result,
+    error: event.error || status?.error,
+  };
+  const step = status?.steps?.find((candidate) => candidate.id === stepId);
+  try {
+    await mcp('record_agent_run_event', {
+      run_id: runId.value,
+      event_id: eventId,
+      event_type: String(event.type || 'workflow.output').replace(/[^a-zA-Z0-9_.-]/g, '_').slice(0, 60),
+      status: status?.state,
+      stage: stepId,
+      payload,
+    });
+  } catch (eventError: any) {
+    // Older/self-hosted Hub instances may still advertise a stale MCP tool
+    // registry even though the new endpoint is present in the source. Keep the
+    // event auditable through update_agent_run instead of retrying a tool that
+    // can never succeed and eventually dropping it from the outbox.
+    if (/unknown tool/i.test(String(eventError?.message || eventError))) {
+      try {
+        await mcp('update_agent_run', {
+          run_id: runId.value,
+          status: status?.state,
+          summary: `CAO workflow event ${event.type || 'workflow.output'}: ${stepId}`,
+          metadata: { workflow_event: { event_id: eventId, event_type: event.type || 'workflow.output', stage: stepId, payload } },
+        });
+      } catch {
+        // Preserve the main workflow state even when a legacy Hub is offline.
+      }
+    } else {
+      mcpOutbox.enqueue('record_agent_run_event', {
+        run_id: runId.value,
+        event_id: eventId,
+        event_type: String(event.type || 'workflow.output').replace(/[^a-zA-Z0-9_.-]/g, '_').slice(0, 60),
+        status: status?.state,
+        stage: stepId,
+        payload,
+      }, { runId: runId.value, description: `Record CAO workflow event ${event.type}` });
+    }
+  }
+  if (event.type === 'workflow.step.completed' && /-evidence$/.test(String(stepId)) && step?.taskId) {
+    const evidence = (step.output || {}) as Record<string, any>;
+    const evidenceArgs = {
+      run_id: runId.value,
+      task_id: step.taskId,
+      evidence_type: 'cao_workflow',
+      status: evidence.status === 'failed' ? 'failed' : 'passed',
+      command: Array.isArray(evidence.tests) ? evidence.tests.map(String).join(' && ').slice(0, 500) : undefined,
+      summary: JSON.stringify(evidence).slice(0, 10000),
+      metadata: { cao_run_id: event.runId, step_id: stepId, result: evidence },
+      idempotency_key: eventId,
+    };
+    try {
+      await mcp('attach_verification_evidence', evidenceArgs);
+    } catch {
+      mcpOutbox.enqueue('attach_verification_evidence', evidenceArgs, { runId: runId.value, description: `Attach evidence for CAO step ${stepId}` });
+    }
+  }
+};
+
+const handleWorkflowEvent = (event: any) => {
+  if (!workflowStatus.value || event?.runId !== workflowStatus.value.runId) return;
+  if (typeof event.output === 'string' && event.output) output.value += event.output;
+  const status = event.status as CaoWorkflowRunStatus | undefined;
+  if (status) {
+    workflowStatus.value = {
+      ...workflowStatus.value,
+      ...status,
+      kind: workflowStatus.value.kind,
+      parentRunId: workflowStatus.value.parentRunId,
+      steps: status.steps?.length ? status.steps as CaoWorkflowStepStatus[] : workflowStatus.value.steps,
+    };
+    const current = workflowStatus.value;
+    phase.value = current.currentStep ? `Workflow: ${current.currentStep}` : `Workflow ${current.state}`;
+    runStatus.value = current.state === 'completed' ? 'completed' : ['failed', 'blocked', 'interrupted', 'cancelled'].includes(current.state) ? 'failed' : 'running';
+    if (current.state === 'completed' && !workflowFinalized.value) {
+      workflowFinalized.value = true;
+      void finalizeWorkflowRun();
+    }
+    const hubWorkflowState = current.state === 'completed'
+      ? 'waiting_input'
+      : ['waiting_input', 'blocked', 'interrupted'].includes(current.state)
+        ? 'waiting_input'
+        : current.state === 'cancelled' || current.state === 'failed'
+          ? current.state
+          : 'running';
+    void updateRunFor(runId.value, hubWorkflowState, `CAO workflow ${current.state}.`, {
+      workflow: {
+        mode: 'workflow',
+        kind: workflowKind.value,
+        cao_run_id: current.runId,
+        state: current.state,
+        current_step: current.currentStep,
+        total_steps: current.totalSteps || current.steps?.length || 0,
+        completed_steps: current.completedSteps,
+        failed_step: current.state === 'failed' ? current.currentStep : undefined,
+      },
+    });
+  }
+  void syncWorkflowEventToHub(event, status);
+};
+
+const finalizeWorkflowRun = async () => {
+  const currentRunId = runId.value;
+  if (!currentRunId || !selectedTask.value) return;
+  const handoffStep = workflowStatus.value?.steps?.find((step) => step.id === 'epic-finalize' || /-handoff$/.test(step.id));
+  const handoffOutput = (handoffStep?.output || {}) as Record<string, any>;
+  const evidenceStep = workflowStatus.value?.steps?.find((step) => /-evidence$/.test(step.id));
+  const evidenceOutput = (evidenceStep?.output || {}) as Record<string, any>;
+  const structuredPayload = handoffStep?.output
+    ? {
+        summary: String(handoffOutput.summary || `CAO workflow completed: ${selectedTask.value.title}`),
+        changedFiles: Array.isArray(handoffOutput.changed_files) ? handoffOutput.changed_files.join('\n') : String(handoffOutput.changed_files || ''),
+        tests: Array.isArray(handoffOutput.tests) ? JSON.stringify(handoffOutput.tests) : String(handoffOutput.tests || evidenceOutput.tests || 'CAO workflow evidence'),
+        testStatus: evidenceOutput.status === 'failed' ? 'skipped' as const : 'passed' as const,
+        testSummary: 'Evidence was produced by the strict CAO workflow.',
+        commitSha: String(handoffOutput.commit_sha || ''),
+        pullRequestUrl: String(handoffOutput.pull_request_url || ''),
+        blockers: String(handoffOutput.blockers || ''),
+      }
+    : null;
+  const payload = structuredPayload || buildAutoHandoffPayload({
+    output: output.value.slice(runOutputStart.value),
+    taskTitle: selectedTask.value.title,
+    exitCode: 0,
+  });
+  if (!payload) {
+    phase.value = 'Workflow completed — handoff review required';
+    runStatus.value = 'completed';
+    await updateRunFor(currentRunId, 'waiting_input', 'CAO workflow completed, but no structured handoff marker was found.');
+    return;
+  }
+  try {
+    await handoff(payload, false);
+    await updateRunFor(currentRunId, 'waiting_input', 'CAO workflow completed; awaiting human Hub approval.');
+  } catch (e: any) {
+    error.value = e?.message || 'Workflow handoff failed.';
+    phase.value = 'Workflow handoff failed';
+    runStatus.value = 'failed';
+    await updateRunFor(currentRunId, 'failed', error.value);
+  }
+};
+
+const launchStrictWorkflow = async () => {
+  const rootTask = selectedTask.value;
+  if (!rootTask || !['task', 'story', 'bug', 'epic'].includes(rootTask.issue_type || 'task')) throw new Error('Select a runnable task or Epic first.');
+  startOperation('workflow-run', 'Đang chuẩn bị Strict Workflow', 'Validate dependency graph và tạo workflow spec…');
+  const prepared = await prepareWorktree(rootTask.issue_key || `task-${rootTask.id}`);
+  worktree.value = prepared.result.path;
+  const allTasks = sync.agentTasks.value.length ? sync.agentTasks.value : sync.tasks.value;
+  const kind: WorkflowKind = rootTask.issue_type === 'epic' ? 'epic' : 'task';
+  let yaml = '';
+  let inputs: Record<string, any> = { workspace_path: worktree.value };
+  let steps: CaoWorkflowStepStatus[] = [];
+  if (kind === 'epic') {
+    const children = allTasks.filter((task) => task.epic_id === rootTask.id && task.issue_type !== 'epic' && task.status !== 'done');
+    const generated = generateCaoEpicWorkflowYaml({ epic: rootTask, childTasks: children as any, provider: provider.value });
+    if (!generated.yaml) throw new Error(generated.order.error || 'Epic dependency graph is invalid.');
+    yaml = generated.yaml;
+    for (const child of generated.order.ordered) {
+      inputs[`task_${child.id}_title`] = child.title;
+      inputs[`task_${child.id}_description`] = child.description || child.title;
+    }
+    inputs.epic_title = rootTask.title;
+    steps = initialWorkflowSteps(kind, rootTask, generated.order.ordered as any);
+  } else {
+    yaml = generateCaoStandardWorkflowYaml({ taskKey: rootTask.issue_key || `#${rootTask.id}`, taskTitle: rootTask.title, taskDescription: rootTask.description || '', implementProvider: provider.value, reviewProvider: provider.value, evidenceProvider: provider.value, handoffProvider: provider.value });
+    inputs.task_title = rootTask.title;
+    inputs.task_description = rootTask.description || rootTask.title;
+    steps = initialWorkflowSteps(kind, rootTask);
+  }
+  let context: any = contextPackCache.get(rootTask.id)?.data;
+  if (!context) {
+    try { context = await mcp('get_context_pack', { task_id: rootTask.id }); } catch { context = { task: rootTask, title: rootTask.title, description: rootTask.description }; }
+  }
+  const plainContext = context?.data || context || {};
+  const started = await mcp('start_agent_run', {
+    task_id: rootTask.id,
+    provider: provider.value,
+    agent_session_id: `${provider.value}-workflow-${Date.now()}`,
+    repository: prepared.preflight.repository,
+    branch: worktree.value,
+    run_type: 'workflow',
+    context: plainContext,
+    instruction: { execution_policy: executionPolicy.value, approval_mode: executionPolicy.value === 'full_access' ? 'bypass' : 'request_human_approval' },
+    metadata: { workflow: { kind, mode: 'workflow', workflow_name: kind === 'epic' ? `epic-${rootTask.id}-pipeline` : `task-${rootTask.id}-pipeline`, task_ids: kind === 'epic' ? steps.filter((step) => step.taskId && step.taskId !== rootTask.id).map((step) => step.taskId) : [rootTask.id], state: 'validating' } },
+  }).catch(() => ({ id: Date.now() }));
+  const parentRunId = Number(started?.data?.id || started?.id || 0) || Date.now();
+  runId.value = parentRunId;
+  implementationRunId.value = parentRunId;
+  workflowKind.value = kind;
+  workflowStatus.value = { runId: '', state: 'validating', kind, parentRunId, workflowName: kind === 'epic' ? `epic-${rootTask.id}-pipeline` : `task-${rootTask.id}-pipeline`, totalSteps: steps.length, completedSteps: [], steps };
+  workflowFinalized.value = false;
+  output.value = '';
+  error.value = '';
+  runIntent.value = kind;
+  runStatus.value = 'running';
+  executionRoute.value = 'cao';
+  phase.value = 'Validating CAO workflow';
+  if (sync.credential.value?.token) await window.desktopApi.agent.configureMcp({ cwd: worktree.value, provider: provider.value, taskHubUrl: hubUrl.value, projectId: String(rootTask.project_id || sync.credential.value.projectId), token: sync.credential.value.token }).catch(() => {});
+  const result = await window.desktopApi.cao.startWorkflow(yaml, inputs, worktree.value, undefined, {
+    kind,
+    parentRunId,
+    workflowName: kind === 'epic' ? `epic-${rootTask.id}-pipeline` : `task-${rootTask.id}-pipeline`,
+    steps,
+  });
+  if (!result?.ok) throw new Error(result?.error || 'CAO workflow could not start.');
+  workflowStatus.value.runId = result.runId;
+  workflowStatus.value.workflowName = result.workflowName || workflowStatus.value.workflowName;
+  await updateRunFor(parentRunId, 'running', `CAO strict ${kind} workflow started.`, { workflow: { kind, mode: 'workflow', cao_run_id: result.runId, step_count: steps.length, state: 'running' } });
+  finishOperation('workflow-run', 'success', 'Strict Workflow đã khởi chạy', `CAO run ${result.runId} đang thực thi theo step cố định.`);
+};
+
+const resumeWorkflowRun = async () => {
+  if (!workflowStatus.value?.runId) return;
+  const result = await window.desktopApi.cao.resumeWorkflow(workflowStatus.value.runId, worktree.value);
+  if (!result?.ok) { error.value = result?.error || 'Workflow resume failed.'; return; }
+  workflowStatus.value = { ...workflowStatus.value, state: 'running' };
+  runStatus.value = 'running';
+  phase.value = 'Workflow resumed';
+};
+
+const retryWorkflowStep = async (stepId?: string) => {
+  if (stepId) phase.value = `Retrying workflow from ${stepId}`;
+  if (!workflowStatus.value?.runId) return resumeWorkflowRun();
+  await resumeWorkflowRun();
+};
+
+const launch = async (resetFromStart = false) => {
   try {
     error.value = "";
     handoffReviewUrl.value = "";
     approvalRequest.value = null;
     if (!selectedTask.value) throw new Error("Select a task first.");
+    if (['task', 'epic'].includes(runIntent.value) && effectiveOrchestrationMode.value === 'workflow') {
+      await launchStrictWorkflow();
+      return;
+    }
     if (selectedTask.value.issue_type === "epic") {
-      await launchEpic();
+      await launchEpic(resetFromStart);
       return;
     }
     const launchIntent: RunIntent = epicSequence.value ? "epic" : "task";
@@ -1310,12 +1609,23 @@ const launch = async () => {
     );
   } catch (e: any) {
     interactiveReporter.finish("failed", { error: e?.message || String(e) });
+    const launchError = e?.message || "Could not launch local agent.";
+    const strictWorkflowLaunch = ['task', 'epic'].includes(runIntent.value) && effectiveOrchestrationMode.value === 'workflow';
     if (runId.value)
-      void updateRun("failed", e?.message || "Could not launch local agent.");
+      void updateRun("failed", launchError);
     runStatus.value = "failed";
-    const launchError = e?.message || "Could not launch agent.";
     phase.value = isCaoRuntimeFailure(launchError) ? 'CAO runtime needs repair' : "Run failed";
     error.value = launchError;
+    if (strictWorkflowLaunch) {
+      workflowStatus.value = {
+        ...(workflowStatus.value || { runId: '', kind: runIntent.value as WorkflowKind, parentRunId: runId.value || undefined, workflowName: 'CAO workflow', totalSteps: 0, completedSteps: [], steps: [] }),
+        state: 'failed',
+        error: launchError,
+      } as CaoWorkflowRunStatus;
+      phase.value = isCaoRuntimeFailure(launchError) ? 'CAO runtime needs repair' : 'Strict Workflow validation failed';
+      finishOperation('workflow-run', 'error', 'Strict Workflow thất bại', launchError);
+      return;
+    }
     finishOperation("agent-run", "error", "Lỗi khởi chạy", error.value);
     if (epicSequence.value) {
       await failEpicSequence(error.value);
@@ -1740,6 +2050,14 @@ const increaseTaskReviewLimit = async (limit: number) => {
   await continueAfterHumanReview('');
 };
 const cancel = async () => {
+  if (workflowStatus.value?.runId && ['validating', 'running', 'waiting_input'].includes(workflowStatus.value.state)) {
+    await window.desktopApi.cao.cancelWorkflow(workflowStatus.value.runId).catch(() => false);
+    runStatus.value = 'cancelled';
+    phase.value = 'Workflow cancelled';
+    await updateRunFor(runId.value, 'cancelled', 'CAO workflow cancelled by user.');
+    workflowStatus.value = { ...workflowStatus.value, state: 'cancelled' };
+    return;
+  }
   notify({
     type: "warning",
     title: "Đang hủy phiên chạy",
@@ -1851,7 +2169,7 @@ const send = (message: string) => {
         title: '🚀 Khởi chạy Epic Sequence',
         message: `Bắt đầu thực thi ${targetTask.issue_key || targetTask.title}${isResetOrRerunFromStart ? ' từ đầu' : ''}…`,
       });
-      await launchEpic(isResetOrRerunFromStart);
+      await launch(isResetOrRerunFromStart);
       return;
     }
 
@@ -2268,7 +2586,7 @@ const runRequirement = async ({
     toolMessage.value = "Preparing repository context…";
     updateOperation("req-run", "Agent đang khám phá mã nguồn và tài liệu…");
     await startLocal(
-      `You are Task Hub's Requirement Discovery agent. Analyze this requirement: ${text}\n\nInspect the repository and its docs. Do not create work items. Return a concise Vietnamese plan with one Epic, Stories and implementation Tasks, acceptance criteria, Fibonacci story points and explicit task dependencies.${serializeDiscoveryPlanContract()}`,
+      `${buildCaoRequirementSupervisorPrompt(text)}\n\n${serializeDiscoveryPlanContract()}`,
       "task",
       executionPolicy.value,
       'requirement');
@@ -2479,6 +2797,10 @@ const selectTask = (task: TaskItem) => {
   )
     stopEpicSequence("Epic sequence paused because another task was selected.");
   selectedTask.value = task;
+  workflowStatus.value = null;
+  workflowFinalized.value = false;
+  workflowKind.value = task.issue_type === 'epic' ? 'epic' : 'task';
+  orchestrationModeOverride.value = null;
   executionRoute.value = null;
   handoffReviewUrl.value = "";
   implementationRunId.value = null;
@@ -2951,10 +3273,31 @@ onMounted(async () => {
   if (saved?.[0]) workspace.value = saved[0];
   await refreshAgentRuntimes();
   await refreshCaoStatus();
-  if (caoStatus.value?.available !== true && caoStatus.value?.running !== true) {
-    // Auto-check and attempt startup if CAO daemon is not yet active during app launch
-    void restartCao();
+  const savedWorkflowRuns = await Promise.resolve(window.desktopApi?.cao?.listWorkflowRuns?.()).catch(() => []);
+  const recoverableWorkflow = Array.isArray(savedWorkflowRuns)
+    ? savedWorkflowRuns.find((run: any) => ['running', 'validating', 'interrupted', 'waiting_input', 'blocked'].includes(run.state))
+    : null;
+  if (recoverableWorkflow?.runId) {
+    runId.value = recoverableWorkflow.parentRunId || recoverableWorkflow.metadata?.parentRunId || null;
+    implementationRunId.value = runId.value;
+    workflowKind.value = recoverableWorkflow.kind || recoverableWorkflow.metadata?.kind || 'task';
+    workflowStatus.value = {
+      runId: recoverableWorkflow.runId,
+      state: recoverableWorkflow.state,
+      kind: workflowKind.value,
+      parentRunId: recoverableWorkflow.parentRunId || recoverableWorkflow.metadata?.parentRunId,
+      workflowName: recoverableWorkflow.workflowName || recoverableWorkflow.metadata?.workflowName,
+      currentStep: recoverableWorkflow.currentStep,
+      totalSteps: recoverableWorkflow.totalSteps || recoverableWorkflow.metadata?.steps?.length,
+      completedSteps: recoverableWorkflow.completedSteps || [],
+      steps: recoverableWorkflow.steps || recoverableWorkflow.metadata?.steps || [],
+      error: recoverableWorkflow.error,
+    };
+    phase.value = `Workflow recovered: ${recoverableWorkflow.runId}`;
   }
+  // Electron main owns CAO bootstrap. Do not restart from the renderer while
+  // the main process is still warming WSL; doing so creates a stop/start race
+  // and produces duplicate "CAO offline" notifications.
   unsubCaoStatus = window.desktopApi?.cao?.onStatusUpdated?.((status: any) => {
     if (status) {
       void refreshCaoStatus();
@@ -3000,8 +3343,27 @@ onMounted(async () => {
     }
   };
   document.addEventListener('visibilitychange', handleVisibilityChange);
+  unsubWorkflow = window.desktopApi?.cao?.onWorkflowEvent?.((event: any) => {
+    if (event?.runId && workflowStatus.value?.runId && event.runId === workflowStatus.value.runId) {
+      handleWorkflowEvent(event);
+    }
+  });
 
   unsubOutput = window.desktopApi?.agent?.onOutput?.((event: any) => {
+    const caoWorkers = event?.event?.workers;
+    if (Array.isArray(caoWorkers) && event.sessionId) {
+      const workerIds = new Set(caoWorkers.map((worker: any) => `${event.sessionId}:worker:${worker.id || worker.name || 'worker'}`));
+      const retained = fleetAgents.value.filter((agent: any) => !workerIds.has(agent.sessionId));
+      const workers = caoWorkers.map((worker: any) => ({
+        sessionId: `${event.sessionId}:worker:${worker.id || worker.name || Math.random()}`,
+        provider: worker.provider || 'cao',
+        role: 'worker',
+        status: worker.state || worker.status || 'running',
+        stepInfo: worker.name || worker.id || 'CAO worker',
+        cwd: workspace.value,
+      }));
+      fleetAgents.value = [...retained, ...workers];
+    }
     if (event.sessionId && !sessionId.value && running.value) {
       sessionId.value = event.sessionId;
     }
@@ -3041,6 +3403,7 @@ onUnmounted(() => {
   interactiveReporter.reset();
   unsubOutput?.();
   unsubExit?.();
+  unsubWorkflow?.();
   unsubUpdater?.();
   unsubCaoStatus?.();
   if (contextCanaryTimer) clearInterval(contextCanaryTimer);
@@ -3173,6 +3536,26 @@ onUnmounted(() => {
         @close="showAgentRoomDrawer = false"
       />
       <div class="flex flex-1 flex-col min-w-0 h-full overflow-hidden">
+        <div class="flex items-center justify-between gap-3 border-b border-[#141b2d] bg-[#070b14] px-4 py-2 text-[11px]">
+          <div class="min-w-0">
+            <span class="font-semibold text-zinc-200">Execution mode</span>
+            <span class="ml-2 text-zinc-500">{{ effectiveOrchestrationMode === 'workflow' ? 'Quy trình cố định, có validate/resume' : 'Supervisor tự phân rã và phối hợp worker' }}</span>
+          </div>
+          <select v-model="orchestrationModeOverride" class="cc-select w-auto min-w-36 py-1 text-[11px]" aria-label="Execution mode">
+            <option :value="null">Auto ({{ effectiveOrchestrationMode }})</option>
+            <option value="workflow">Strict Workflow</option>
+            <option value="supervisor">Supervisor</option>
+          </select>
+        </div>
+        <CaoWorkflowRunPanel
+          v-if="workflowStatus"
+          :status="workflowStatus"
+          :kind="workflowKind"
+          :epic-title="workflowKind === 'epic' ? selectedTask?.title : undefined"
+          @resume="resumeWorkflowRun"
+          @retry="retryWorkflowStep"
+          @cancel="cancel"
+        />
         <RunWorkspace
           v-model:provider="provider"
           v-model:model="selectedModel"
@@ -3191,6 +3574,9 @@ onUnmounted(() => {
           :agent-role="activeAgentRole"
           :token-usage="sessionTokenUsage"
           :execution-route="executionRoute"
+          :orchestration-mode="effectiveOrchestrationMode"
+          :workflow-steps="workflowStepperSteps"
+          :workflow-current-step="workflowStatus?.currentStep"
           :can-reconnect-cao="Boolean(reconnectableCaoSession)"
           :exit-code="runExitCode"
           :error="error"

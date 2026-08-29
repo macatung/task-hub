@@ -26,6 +26,6 @@ Lộ trình phát triển công khai của nền tảng **Task Hub** và ứng d
 
 ## 🔮 Tương lai (Future Milestones)
 
-- [ ] Hỗ trợ Multi-Agent Collaboration (hợp tác nhiều agent cùng phân chia và giải quyết một Epic).
+- [x] **Multi-Agent Collaboration & Hybrid CAO Orchestration:** Strict declarative workflow cho Task/Story/Bug/Epic và CAO Supervisor worker tree cho requirement discovery/research; Epic v1 tuần tự theo dependency.
 - [ ] Mở rộng hệ sinh thái Custom Skills và Plugins cho Antigravity IDE.
 - [ ] Nền tảng Managed Cloud / Hosted SaaS cho doanh nghiệp.

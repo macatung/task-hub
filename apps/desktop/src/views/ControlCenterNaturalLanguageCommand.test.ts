@@ -5,7 +5,7 @@ describe('ControlCenter Natural Language Command & Chat Trigger Recognition', ()
   it('parses natural language triggers including run lai tu dau, /run, chay lai and task keys', () => {
     expect(controlCenterSource).toContain('isRunCommand');
     expect(controlCenterSource).toContain('isResetOrRerunFromStart');
-    expect(controlCenterSource).toContain('launchEpic(isResetOrRerunFromStart)');
+    expect(controlCenterSource).toContain('launch(isResetOrRerunFromStart)');
   });
 
   it('supports resetFromStart parameter in launchEpic to restart sequence from the first task', () => {

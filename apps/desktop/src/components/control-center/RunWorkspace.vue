@@ -64,6 +64,9 @@ export interface RunWorkspaceProps {
   contextHealth?: "healthy" | "quiet";
   caoAvailable?: boolean;
   executionRoute?: ExecutionRoute;
+  orchestrationMode?: "workflow" | "supervisor";
+  workflowSteps?: Array<{ id: string; label: string; shortLabel: string }>;
+  workflowCurrentStep?: string;
   canReconnectCao?: boolean;
   caoStatus?: {
     running: boolean;
@@ -883,7 +886,12 @@ const submit = () => {
       v-if="isEpicContext"
       class="cc-muted-callout px-5 pt-2 text-[11px] font-semibold"
     >
-      <template v-if="epicSequenceRunning || epicFinalizing">
+      <template v-if="orchestrationMode === 'workflow' && isEpicContext">
+        <span>Strict CAO Workflow · </span>
+        {{ task?.issue_key || task?.title || "Epic" }} ·
+        {{ epicCompletedCount || 0 }}/{{ epicChildCount || 0 }} tasks mapped
+      </template>
+      <template v-else-if="epicSequenceRunning || epicFinalizing">
         <span v-if="epicFinalizing"
           >Epic handoff is being completed automatically ·
         </span>
@@ -1177,10 +1185,12 @@ const submit = () => {
         </div>
 
         <FlowStepper
-          :current-step="flowState.currentStep"
+          :current-step="orchestrationMode === 'workflow' ? (workflowCurrentStep || flowState.currentStep) : flowState.currentStep"
           :state="flowState.state"
           :label="flowState.label"
           :details="showRunContext ? flowState.details : undefined"
+          :mode="orchestrationMode === 'workflow' ? 'cao' : undefined"
+          :steps="orchestrationMode === 'workflow' ? workflowSteps : undefined"
         />
 
         <!-- Epic Sequence Blocked Recovery Banner -->
@@ -1284,7 +1294,13 @@ const submit = () => {
         </div>
 
         <!-- Step-by-Step Multi-Agent Cards Tab (Default Stream View) -->
-        <div v-if="activeSubTab === 'cards'" class="flex-1 min-h-[480px] h-full rounded-xl border border-[#141b2d] bg-[#070b14] shadow-inner overflow-hidden flex flex-col">
+        <div v-if="activeSubTab === 'cards' && orchestrationMode === 'workflow'" class="flex-1 min-h-[180px] h-full rounded-xl border border-cyan-500/20 bg-[#070b14] shadow-inner overflow-hidden flex items-center justify-center p-6 text-center">
+          <div>
+            <p class="text-sm font-semibold text-cyan-300">Strict CAO Workflow đang được theo dõi ở panel phía trên</p>
+            <p class="mt-1 text-xs text-zinc-500">Các step thực tế, current step và trạng thái resume được lấy trực tiếp từ workflow run.</p>
+          </div>
+        </div>
+        <div v-else-if="activeSubTab === 'cards'" class="flex-1 min-h-[480px] h-full rounded-xl border border-[#141b2d] bg-[#070b14] shadow-inner overflow-hidden flex flex-col">
           <StreamCardsView
             :stage-executions="autoPilotStore.stageExecutions.value"
             :context-packages="autoPilotStore.contextPackages.value"

@@ -4,6 +4,7 @@ import preloadSource from '../../electron/preload.ts?raw';
 import builderSource from '../../electron-builder.yml?raw';
 import runWorkspaceSource from '../components/control-center/RunWorkspace.vue?raw';
 import settingsPanelSource from '../components/control-center/SettingsPanel.vue?raw';
+import bootstrapSource from '../../scripts/ensure-cao-runtime.mjs?raw';
 
 describe('CAO Daemon All-In-One Lifecycle & Packaging', () => {
   it('implements embedded CAO daemon detection and lifecycle hooks in main process', () => {
@@ -31,6 +32,14 @@ describe('CAO Daemon All-In-One Lifecycle & Packaging', () => {
     expect(electronMainSource).toContain('const CAO_DEFAULT_PORT = 9889');
     expect(electronMainSource).toContain('function caoServerPort()');
     expect(electronMainSource).toContain("res.headers['content-type']?.includes('application/json')");
+  });
+
+  it('retries transient WSL startup and bootstraps CAO before dev/build', () => {
+    expect(electronMainSource).toContain('if (caoRuntime === null) caoRuntime = undefined;');
+    expect(electronMainSource).toContain('for (let attempt = 0; attempt < 3; attempt += 1)');
+    expect(electronMainSource).toContain('ensureCaoWslInstallation');
+    expect(bootstrapSource).toContain('uv tool install cli-agent-orchestrator');
+    expect(bootstrapSource).toContain('cao install code_supervisor');
   });
 
   it('requires an ext4 CAO home with FIFO support and replaces only conflicting CAO servers', () => {

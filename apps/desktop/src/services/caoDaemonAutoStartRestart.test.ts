@@ -30,8 +30,8 @@ describe('CAO Daemon Startup & Restart Reliability', () => {
 
   it('automatically triggers CAO daemon startup and verifies status on Desktop App launch', () => {
     expect(electronMainSource).toContain('void startCaoDaemon()');
-    expect(controlCenterSource).toContain('caoStatus.value?.available !== true && caoStatus.value?.running !== true');
-    expect(controlCenterSource).toContain('void restartCao()');
+    expect(controlCenterSource).toContain('Electron main owns CAO bootstrap.');
+    expect(controlCenterSource).toContain('caoStatusTimer = setInterval');
     expect(controlCenterSource).toContain('desktopApi?.cao?.onStatusUpdated');
   });
 
@@ -41,4 +41,3 @@ describe('CAO Daemon Startup & Restart Reliability', () => {
     expect(controlCenterSource).toContain('CAO daemon đã sẵn sàng');
   });
 });
-

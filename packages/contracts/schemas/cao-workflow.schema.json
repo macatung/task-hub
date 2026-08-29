@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://task-hub.local/contracts/cao-workflow.schema.json",
+  "title": "Task Hub CAO Workflow Contract",
+  "type": "object",
+  "definitions": {
+    "workflowMetadata": {
+      "type": "object",
+      "required": ["mode", "kind", "state"],
+      "properties": {
+        "mode": { "const": "workflow" },
+        "kind": { "enum": ["task", "epic"] },
+        "workflow_name": { "type": "string" },
+        "cao_run_id": { "type": "string" },
+        "current_step": { "type": ["string", "null"] },
+        "total_steps": { "type": "integer", "minimum": 0 },
+        "completed_steps": { "type": "array", "items": { "type": "string" } },
+        "failed_step": { "type": ["string", "null"] },
+        "state": { "enum": ["validating", "running", "waiting_input", "blocked", "completed", "failed", "interrupted", "cancelled"] },
+        "task_ids": { "type": "array", "items": { "type": "integer" } },
+        "children": { "type": "array", "items": { "type": "object" } }
+      },
+      "additionalProperties": true
+    },
+    "stepStatus": {
+      "type": "object",
+      "required": ["id", "state"],
+      "properties": {
+        "id": { "type": "string" },
+        "task_id": { "type": ["integer", "null"] },
+        "task_key": { "type": ["string", "null"] },
+        "label": { "type": ["string", "null"] },
+        "state": { "enum": ["pending", "running", "waiting_input", "completed", "failed", "blocked", "skipped"] },
+        "output": { "type": ["object", "array", "string", "number", "boolean", "null"] },
+        "error": { "type": ["string", "null"] },
+        "started_at": { "type": ["string", "null"], "format": "date-time" },
+        "completed_at": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
+    "workflowStepResult": {
+      "type": "object",
+      "required": ["workflow_run_id", "step_id", "result", "idempotency_key"],
+      "properties": {
+        "workflow_run_id": { "type": "string" },
+        "step_id": { "type": "string" },
+        "result": { "type": ["object", "array", "string", "number", "boolean", "null"] },
+        "idempotency_key": { "type": "string", "pattern": "^cao:.+:step:.+:result:.+$" }
+      },
+      "additionalProperties": true
+    },
+    "epicAggregateResult": {
+      "type": "object",
+      "required": ["epic_id", "summary", "child_results", "changed_files", "tests", "blockers"],
+      "properties": {
+        "epic_id": { "type": "integer" },
+        "summary": { "type": "string" },
+        "child_results": { "type": "array", "items": { "type": "object" } },
+        "changed_files": { "type": "array", "items": { "type": "string" } },
+        "tests": { "type": "array" },
+        "blockers": { "type": "string" }
+      }
+    }
+  },
+  "properties": {
+    "metadata": { "$ref": "#/$defs/workflowMetadata" },
+    "step": { "$ref": "#/$defs/stepStatus" },
+    "result": { "$ref": "#/$defs/workflowStepResult" },
+    "aggregate": { "$ref": "#/$defs/epicAggregateResult" }
+  },
+  "$defs": {
+    "workflowMetadata": { "$ref": "#/definitions/workflowMetadata" },
+    "stepStatus": { "$ref": "#/definitions/stepStatus" },
+    "workflowStepResult": { "$ref": "#/definitions/workflowStepResult" },
+    "epicAggregateResult": { "$ref": "#/definitions/epicAggregateResult" }
+  }
+}

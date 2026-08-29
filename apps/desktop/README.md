@@ -58,12 +58,14 @@ graph LR
 ### 1. Chạy chế độ Phát triển (Development):
 ```powershell
 # Chạy từ thư mục gốc của repository
-npm --workspace apps/desktop run dev
+npm run dev
 
 # Hoặc di chuyển vào thư mục apps/desktop
 cd apps/desktop
 npm run dev
 ```
+
+`predev` và `prebuild` sẽ kiểm tra CAO trong WSL distro `Ubuntu-24.04` bằng user `rss`. Nếu chưa có `cao`/`cao-server`, script tự cài `cli-agent-orchestrator` bằng `uv` và cài profile `code_supervisor`, sau đó Electron main tự khởi động daemon ở port `9889`. Có thể đổi distro/user bằng `TASK_HUB_CAO_WSL_DISTRO` và `TASK_HUB_CAO_WSL_USER`; đặt `TASK_HUB_CAO_AUTO_INSTALL=false` nếu muốn chỉ kiểm tra mà không tự cài.
 
 Chạy với các chế độ riêng biệt:
 ```powershell
@@ -81,6 +83,8 @@ npm --workspace apps/desktop run test
 npm --workspace apps/desktop run build
 ```
 Bộ cài đặt `.exe` và file `latest.yml` sẽ được tạo trong thư mục `apps/desktop/release/`.
+
+Từ thư mục gốc có thể dùng alias tương đương: `npm run desktop:package`. Prebuild sẽ chạy cùng CAO preflight trước khi electron-builder tạo installer.
 
 ---
 

@@ -50,6 +50,11 @@ describe('CAO Advanced Workflow vs Supervisor Hybrid Orchestration', () => {
       // Data flow bindings across steps
       expect(yaml).toContain('{{steps.implement.output.change_summary}}');
       expect(yaml).toContain('{{steps.review.output.feedback}}');
+      expect(yaml).toContain('{{workflow.inputs.workspace_path}}');
+      expect(yaml).toContain('cd -- "{{workflow.inputs.workspace_path}}"');
+      expect(yaml).toContain('Task title (literal fallback for CAO retry): "Payment Gateway Integration"');
+      expect(yaml).toContain('Task details (literal fallback for CAO retry): "Add Stripe support for workspaces"');
+      expect(yaml).toContain('MUST call the workflow_return MCP tool exactly once');
       expect(yaml).toContain('<TASK_HUB_HANDOFF>');
 
       // Schema validations
@@ -65,6 +70,8 @@ describe('CAO Advanced Workflow vs Supervisor Hybrid Orchestration', () => {
       expect(buildCaoWorkflowCommand('validate', 'pipeline.yaml')).toEqual(['workflow', 'validate', 'pipeline.yaml']);
       expect(buildCaoWorkflowCommand('run', 'pipeline.yaml', { inputs: { pr_url: 'https://github.com/example' } })).toEqual(['workflow', 'run', 'pipeline.yaml', '--input', 'pr_url=https://github.com/example']);
       expect(buildCaoWorkflowCommand('resume', 'run-a1b2c3d4')).toEqual(['workflow', 'resume', 'run-a1b2c3d4']);
+      expect(electronMainSource).toContain('required="2.5.0"');
+      expect(electronMainSource).toContain('uv tool upgrade cli-agent-orchestrator');
     });
 
     it('parses run status and journaled step progress', () => {
@@ -77,7 +84,7 @@ describe('CAO Advanced Workflow vs Supervisor Hybrid Orchestration', () => {
       `;
       const parsed = parseCaoWorkflowRunStatus(statusOutput);
       expect(parsed.runId).toBe('run-98765');
-      expect(parsed.state).toBe('RUNNING');
+      expect(parsed.state).toBe('running');
       expect(parsed.completedSteps).toEqual(['implement', 'review']);
       expect(parsed.currentStep).toBe('evidence');
     });
@@ -101,13 +108,48 @@ describe('CAO Advanced Workflow vs Supervisor Hybrid Orchestration', () => {
   describe('Electron IPC & Preload Integration', () => {
     it('exposes workflow run, resume, status, and answerPrompt in main and preload', () => {
       expect(electronMainSource).toContain("'cao-workflow-run'");
+      expect(electronMainSource).toContain("'cao-workflow-start'");
       expect(electronMainSource).toContain("'cao-workflow-resume'");
       expect(electronMainSource).toContain("'cao-workflow-status'");
+      expect(electronMainSource).toContain("'cao-workflow-cancel'");
+      expect(electronMainSource).toContain("'cao-workflow-list'");
+      expect(electronMainSource).toContain("['workflow', 'resume', run.runId]");
+      expect(electronMainSource).toContain('cao-workflow-event');
       expect(electronMainSource).toContain("'cao-answer-user-prompt'");
+      expect(electronMainSource).toContain('mirrorWorkflowSpec');
+      expect(electronMainSource).toContain('runWslShellWithStdin');
+      expect(electronMainSource).toContain('canonicalPath');
+      expect(electronMainSource).toContain('cp -- ${shellQuote(wslSourcePath)} ${shellQuote(runtimePath)}');
+      expect(electronMainSource).toContain('sed -i ${shellQuote');
+      expect(electronMainSource).toContain('child.stdin?.end(input, \'utf8\')');
+      expect(electronMainSource).toContain('script=/tmp/task-hub-stdin-$$.sh');
+      expect(electronMainSource).toContain('bash "$script"');
+      expect(electronMainSource).toContain('cat > ${shellQuote(runtimePath)}');
+      expect(electronMainSource).toContain('test -s ${shellQuote(runtimePath)}');
+      expect(electronMainSource).toContain('runtimeWorkflowPath');
+      expect(electronMainSource).toContain('mapWorkflowInputsToRuntime');
+      expect(electronMainSource).toContain('Agent worktree is not ready');
+      expect(electronMainSource).toContain('childExited');
+      expect(electronMainSource).toContain('CAO workflow status failed');
+      expect(electronMainSource).toContain('isCaoUnknownRunFailure');
+      expect(electronMainSource).toContain('no longer exists');
+      expect(electronMainSource).toContain('Do not overwrite that terminal state with `running` below.');
+      expect(electronMainSource).toContain("errorCode: 'workflow_validation_failed'");
+      expect(electronMainSource).toContain('canonicalSpecPath');
+      expect(electronMainSource).toContain('runtimeSpecPath');
+      expect(electronMainSource).toContain('runtimeCwd');
+      expect(electronMainSource).toContain('removeRuntimeWorkflowSpec');
+      expect(electronMainSource).toContain('Metadata normalization deferred');
+      expect(electronMainSource).toContain('parseCaoSessionNames');
+      expect(electronMainSource).toContain("['session', 'list', '--json']");
+      expect(electronMainSource).toContain('cao_saved_session_not_live');
+      expect(electronMainSource).toContain('CAO Supervisor stale terminal');
 
       expect(preloadSource).toContain('runWorkflow:');
       expect(preloadSource).toContain('resumeWorkflow:');
       expect(preloadSource).toContain('getWorkflowStatus:');
+      expect(preloadSource).toContain('listWorkflowRuns:');
+      expect(preloadSource).toContain('onWorkflowEvent:');
       expect(preloadSource).toContain('answerUserPrompt:');
     });
   });

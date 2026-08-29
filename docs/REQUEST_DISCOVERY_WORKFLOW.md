@@ -11,9 +11,9 @@ request -> discovery -> docs + plan preview -> human approval -> backlog commit
         -> local execution -> handoff/evidence -> review -> verified
 ```
 
-## Discovery mode (không ghi dữ liệu)
+## Discovery mode (Supervisor, không ghi dữ liệu)
 
-Developer chọn project/repository và provider local (Codex hoặc Antigravity), sau đó cung cấp request. Agent phải:
+Developer chọn project/repository và provider local (Codex hoặc Antigravity), sau đó cung cấp request. Desktop tạo một CAO `code_supervisor` session. Supervisor phải:
 
 1. Đọc Task Hub context pack, project documents và repository hiện tại.
 2. Hỏi lại các điểm mơ hồ, rủi ro hoặc dependency chưa rõ.
@@ -21,6 +21,8 @@ Developer chọn project/repository và provider local (Codex hoặc Antigravity
 4. Sinh plan theo phase/sprint cùng Epic, Story và Task.
 5. Gán story point Fibonacci `1, 2, 3, 5, 8`; mọi item lớn hơn 8 phải tách thành story/task nhỏ hơn.
 6. Trả về preview có acceptance criteria, dependency, risk, estimate và lý do estimate.
+
+Supervisor dùng `assign()` cho các nhánh research độc lập, `handoff()` khi cần kết quả đồng bộ và `send_message()` để cập nhật worker đang chạy. Agent Room hiển thị parent supervisor và workers thật; không thay thế bằng fixed 4-role cards của Auto-Pilot legacy.
 
 Không được commit, push, merge, deploy hoặc tạo task chính thức trong mode này.
 
@@ -35,7 +37,7 @@ Developer xem preview trong Task Hub. Khi approve, Hub mới:
 
 ## Execution mode
 
-Mỗi task được giao cho một local agent trong worktree riêng. Agent phải dùng MCP để đọc task/context/docs, ghi tiến độ, và gửi structured handoff gồm changed files, test/evidence, branch, commit SHA, PR và blocker. Hub giữ nguồn dữ liệu chuẩn cho báo cáo và review.
+Task/Story/Bug/Epic sau khi được approve đi qua strict CAO workflow riêng (YAML implement → review → evidence → handoff), chạy trong worktree riêng và không được tự delegate. Agent phải dùng MCP để đọc task/context/docs, ghi tiến độ, và gửi structured handoff gồm changed files, test/evidence, branch, commit SHA, PR và blocker. Hub giữ nguồn dữ liệu chuẩn cho báo cáo và review.
 
 ## Prompt contract
 

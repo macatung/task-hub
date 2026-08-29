@@ -6,6 +6,8 @@
   "author": "Ma Cà Tưng <macatung.dev>",
   "workspaces": ["apps/desktop", "apps/hub", "apps/mobile", "apps/runner"],
   "scripts": {
+    "dev": "npm --workspace apps/desktop run dev",
+    "desktop:package": "npm --workspace apps/desktop run build",
     "build": "npm --workspace apps/hub run build && npm --workspace apps/desktop run build:vue",
     "hub:build": "npm --workspace apps/hub run build",
     "desktop:build": "npm --workspace apps/desktop run build:vue",

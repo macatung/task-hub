@@ -125,18 +125,27 @@ contextBridge.exposeInMainWorld('desktopApi', {
   cao: {
     getStatus: () => ipcRenderer.invoke('cao-get-status'),
     restartDaemon: () => ipcRenderer.invoke('cao-restart-daemon'),
-    runWorkflow: (workflowSpecYaml: string, inputs?: Record<string, any>, cwd?: string) =>
-      ipcRenderer.invoke('cao-workflow-run', { workflowSpecYaml, inputs, cwd }),
+    startWorkflow: (workflowSpecYaml: string, inputs?: Record<string, any>, cwd?: string, runId?: string, metadata?: Record<string, any>) =>
+      ipcRenderer.invoke('cao-workflow-start', { workflowSpecYaml, inputs, cwd, runId, metadata }),
+    runWorkflow: (workflowSpecYaml: string, inputs?: Record<string, any>, cwd?: string, runId?: string, metadata?: Record<string, any>) =>
+      ipcRenderer.invoke('cao-workflow-start', { workflowSpecYaml, inputs, cwd, runId, metadata }),
     resumeWorkflow: (runId: string, cwd?: string) =>
       ipcRenderer.invoke('cao-workflow-resume', { runId, cwd }),
     getWorkflowStatus: (runId: string, cwd?: string) =>
       ipcRenderer.invoke('cao-workflow-status', { runId, cwd }),
+    listWorkflowRuns: () => ipcRenderer.invoke('cao-workflow-list'),
+    cancelWorkflow: (runId: string) => ipcRenderer.invoke('cao-workflow-cancel', { runId }),
     answerUserPrompt: (payload: { terminalId?: string; answer: string; sessionId?: string }) =>
       ipcRenderer.invoke('cao-answer-user-prompt', payload),
     onStatusUpdated: (callback: (status: any) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, payload: any) => callback(payload);
       ipcRenderer.on('cao-status-updated', listener);
       return () => ipcRenderer.removeListener('cao-status-updated', listener);
+    },
+    onWorkflowEvent: (callback: (event: any) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: any) => callback(payload);
+      ipcRenderer.on('cao-workflow-event', listener);
+      return () => ipcRenderer.removeListener('cao-workflow-event', listener);
     },
   },
 });

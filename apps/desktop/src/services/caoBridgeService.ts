@@ -73,6 +73,88 @@ export function getCaoProviderCapabilities(provider: CaoProvider | string): stri
 
 export type CaoOrchestrationStrategy = 'workflow' | 'supervisor';
 
+export type OrchestrationMode = CaoOrchestrationStrategy;
+export type WorkflowKind = 'task' | 'epic';
+export type WorkflowRunState =
+  | 'validating'
+  | 'running'
+  | 'waiting_input'
+  | 'blocked'
+  | 'completed'
+  | 'failed'
+  | 'interrupted'
+  | 'cancelled';
+
+export type WorkflowStepState =
+  | 'pending'
+  | 'running'
+  | 'waiting_input'
+  | 'completed'
+  | 'failed'
+  | 'blocked'
+  | 'skipped';
+
+export interface CaoWorkflowStepStatus {
+  id: string;
+  taskId?: number;
+  taskKey?: string;
+  label?: string;
+  state: WorkflowStepState;
+  output?: Record<string, any>;
+  error?: string;
+  startedAt?: string;
+  completedAt?: string;
+}
+
+export interface CaoWorkflowRunStatus {
+  runId: string;
+  state: WorkflowRunState;
+  kind?: WorkflowKind;
+  parentRunId?: number;
+  workflowName?: string;
+  currentStep?: string;
+  totalSteps?: number;
+  completedSteps: string[];
+  steps?: CaoWorkflowStepStatus[];
+  error?: string;
+}
+
+export type WorkflowRunStatus = CaoWorkflowRunStatus;
+
+export interface WorkflowRunHandle {
+  runId: string;
+  state: WorkflowRunState;
+  specPath?: string;
+  canonicalSpecPath?: string;
+  runtimeSpecPath?: string;
+  workflowName?: string;
+  errorCode?: string;
+  stdout?: string;
+  stderr?: string;
+  exitCode?: number | null;
+}
+
+export type CaoWorkflowEventType =
+  | 'workflow.validated'
+  | 'workflow.started'
+  | 'workflow.step.started'
+  | 'workflow.step.completed'
+  | 'workflow.step.failed'
+  | 'workflow.waiting_input'
+  | 'workflow.interrupted'
+  | 'workflow.completed'
+  | 'workflow.cancelled';
+
+export interface CaoWorkflowEvent {
+  type: CaoWorkflowEventType;
+  runId: string;
+  stepId?: string;
+  status?: CaoWorkflowRunStatus;
+  output?: Record<string, any>;
+  error?: string;
+  timestamp: string;
+}
+
 export interface CaoWorkflowStep {
   id: string;
   provider?: string;
@@ -92,13 +174,83 @@ export interface CaoWorkflowSpec {
   steps: CaoWorkflowStep[];
 }
 
-export interface CaoWorkflowRunStatus {
-  runId: string;
-  state: 'RUNNING' | 'COMPLETED' | 'FAILED' | 'INTERRUPTED';
-  currentStep?: string;
-  totalSteps?: number;
-  completedSteps: string[];
+export interface CaoEpicWorkflowTask extends CaoChildTaskInfo {
+  sort_order?: number | null;
+}
+
+export interface CaoEpicWorkflowOrder {
+  ok: boolean;
+  ordered: CaoEpicWorkflowTask[];
+  cycleIds: number[];
+  missingDependencyIds: number[];
   error?: string;
+}
+
+/**
+ * Deterministically order open Epic children. Dependencies that are outside
+ * the open-child set are only considered satisfied when Hub reports them done.
+ */
+export function topologicallySortEpicTasks(tasks: CaoEpicWorkflowTask[]): CaoEpicWorkflowOrder {
+  const byId = new Map(tasks.map((task) => [task.id, task]));
+  const missingDependencyIds = new Set<number>();
+  const indegree = new Map<number, number>();
+  const outgoing = new Map<number, number[]>();
+
+  for (const task of tasks) {
+    indegree.set(task.id, 0);
+    outgoing.set(task.id, []);
+  }
+
+  for (const task of tasks) {
+    for (const dependency of task.dependencies || []) {
+      const dependencyId = Number(dependency.depends_on_task_id);
+      if (!dependencyId || dependency.depends_on?.status === 'done') continue;
+      if (!byId.has(dependencyId)) {
+        missingDependencyIds.add(dependencyId);
+        continue;
+      }
+      indegree.set(task.id, (indegree.get(task.id) || 0) + 1);
+      outgoing.get(dependencyId)?.push(task.id);
+    }
+  }
+
+  const compare = (a: CaoEpicWorkflowTask, b: CaoEpicWorkflowTask) =>
+    Number(a.sort_order ?? Number.MAX_SAFE_INTEGER) - Number(b.sort_order ?? Number.MAX_SAFE_INTEGER) || a.id - b.id;
+  const ready = tasks.filter((task) => indegree.get(task.id) === 0).sort(compare);
+  const ordered: CaoEpicWorkflowTask[] = [];
+
+  while (ready.length) {
+    const next = ready.shift()!;
+    ordered.push(next);
+    for (const dependentId of outgoing.get(next.id) || []) {
+      const nextDegree = (indegree.get(dependentId) || 0) - 1;
+      indegree.set(dependentId, nextDegree);
+      if (nextDegree === 0) {
+        const dependent = byId.get(dependentId);
+        if (dependent) {
+          ready.push(dependent);
+          ready.sort(compare);
+        }
+      }
+    }
+  }
+
+  const cycleIds = tasks.filter((task) => !ordered.some((candidate) => candidate.id === task.id)).map((task) => task.id);
+  if (missingDependencyIds.size || cycleIds.length) {
+    const reasons = [
+      missingDependencyIds.size ? `missing dependencies: ${[...missingDependencyIds].join(', ')}` : '',
+      cycleIds.length ? `dependency cycle: ${cycleIds.join(', ')}` : '',
+    ].filter(Boolean);
+    return {
+      ok: false,
+      ordered,
+      cycleIds,
+      missingDependencyIds: [...missingDependencyIds],
+      error: `Epic workflow cannot be built (${reasons.join('; ')}).`,
+    };
+  }
+
+  return { ok: true, ordered, cycleIds: [], missingDependencyIds: [] };
 }
 
 export function selectCaoOrchestrationStrategy(
@@ -131,7 +283,7 @@ export function generateCaoStandardWorkflowYaml(options: {
   const hoProvider = options.handoffProvider || 'antigravity';
 
   return `name: task-${key}-pipeline
-description: "Standard 4-step workflow (Implement -> Review -> Evidence -> Handoff) for ${options.taskTitle.replace(/"/g, '\\"')}"
+description: "Strict Task Hub workflow (Implement -> Review -> Evidence -> Handoff) for ${options.taskTitle.replace(/"/g, '\\"')}"
 inputs:
   task_title:
     type: string
@@ -146,10 +298,16 @@ inputs:
 steps:
   - id: implement
     provider: ${implProvider}
+    agent: developer
     prompt: |
       Implement the solution for task: {{workflow.inputs.task_title}}
+      Task title (literal fallback for CAO retry): ${yamlScalar(options.taskTitle)}
+      Task details (literal fallback for CAO retry): ${yamlScalar(options.taskDescription || '')}
       Details: {{workflow.inputs.task_description}}
+      Workspace: {{workflow.inputs.workspace_path}}
+      First run \`cd -- "{{workflow.inputs.workspace_path}}"\` and verify the working directory. All edits and commands must stay there.
       Follow clean code architecture, apply required modifications to the workspace, and list all changed files.
+      You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid; do not finish until the tool call succeeds.
     output_schema:
       type: object
       required:
@@ -165,11 +323,17 @@ steps:
 
   - id: review
     provider: ${revProvider}
+    agent: reviewer
     prompt: |
       Perform automated code review for: {{workflow.inputs.task_title}}
+      Task title (literal fallback for CAO retry): ${yamlScalar(options.taskTitle)}
+      Task details (literal fallback for CAO retry): ${yamlScalar(options.taskDescription || '')}
       Change summary: {{steps.implement.output.change_summary}}
       Modified files: {{steps.implement.output.modified_files}}
+      Workspace: {{workflow.inputs.workspace_path}}
+      First run \`cd -- "{{workflow.inputs.workspace_path}}"\` before reading files or running commands.
       Review for logic bugs, performance, security, and edge cases. Provide clear verdict.
+      You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid; do not finish until the tool call succeeds.
     output_schema:
       type: object
       required:
@@ -187,10 +351,14 @@ steps:
 
   - id: evidence
     provider: ${evProvider}
+    agent: developer
     prompt: |
       Execute test verification and capture evidence for: {{workflow.inputs.task_title}}
       Review feedback: {{steps.review.output.feedback}}
+      Workspace: {{workflow.inputs.workspace_path}}
+      First run \`cd -- "{{workflow.inputs.workspace_path}}"\` and run all tests from that directory.
       Run workspace test commands and verify that all test suites pass with zero regressions.
+      Do not modify files or delegate. You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid.
     output_schema:
       type: object
       required:
@@ -207,6 +375,7 @@ steps:
 
   - id: handoff
     provider: ${hoProvider}
+    agent: reviewer
     prompt: |
       Synthesize the final handoff summary for Task Hub:
       Task: {{workflow.inputs.task_title}}
@@ -214,7 +383,175 @@ steps:
       Review Verdict: {{steps.review.output.verdict}} (Risk Score: {{steps.review.output.risk_score}})
       Test Evidence: {{steps.evidence.output.test_pass_count}} passed, {{steps.evidence.output.test_fail_count}} failed.
       Output the structured marker <TASK_HUB_HANDOFF> with summary, changed files, and verified evidence.
+      You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid; do not finish until the tool call succeeds.
 `;
+}
+
+function yamlScalar(value: string): string {
+  return JSON.stringify(String(value ?? ''));
+}
+
+function appendWorkflowStep(
+  lines: string[],
+  step: {
+    id: string;
+    label: string;
+    taskId: number;
+    taskKey: string;
+    title: string;
+    description?: string | null;
+    provider: string;
+  },
+) {
+  const inputPrefix = `task_${step.taskId}`;
+  lines.push(
+    `  - id: ${step.id}-implement`,
+    `    provider: ${step.provider}`,
+    '    agent: developer',
+    '    prompt: |',
+    `      Implement only ${step.taskKey}: {{workflow.inputs.${inputPrefix}_title}}`,
+    `      Task title (literal fallback for CAO retry): ${yamlScalar(step.title)}`,
+    `      Task description (literal fallback for CAO retry): ${yamlScalar(step.description || '')}`,
+    `      Description: {{workflow.inputs.${inputPrefix}_description}}`,
+    '      Workspace: {{workflow.inputs.workspace_path}}',
+    '      First run `cd -- "{{workflow.inputs.workspace_path}}"` and verify the working directory. All edits and commands must stay there.',
+    '      Work in the supplied isolated workspace. Do not delegate to another agent.',
+    '      You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid; do not finish until the tool call succeeds.',
+    '    output_schema:',
+    '      type: object',
+    '      required: [task_id, modified_files, change_summary]',
+    '      properties:',
+    '        task_id: {type: integer}',
+    '        modified_files: {type: array, items: {type: string}}',
+    '        change_summary: {type: string}',
+    '',
+    `  - id: ${step.id}-review`,
+    `    provider: ${step.provider}`,
+    '    agent: reviewer',
+    '    prompt: |',
+    `      Review ${step.taskKey} for correctness and security.`,
+    `      Task title (literal fallback for CAO retry): ${yamlScalar(step.title)}`,
+    `      Task description (literal fallback for CAO retry): ${yamlScalar(step.description || '')}`,
+    `      Implementation: {{steps.${step.id}-implement.output.change_summary}}`,
+    `      Files: {{steps.${step.id}-implement.output.modified_files}}`,
+    '      Workspace: {{workflow.inputs.workspace_path}}',
+    '      First run `cd -- "{{workflow.inputs.workspace_path}}"` before reading files or running commands.',
+    '      Do not modify files and do not delegate. Return APPROVED or REJECTED.',
+    '      You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid; do not finish until the tool call succeeds.',
+    '    output_schema:',
+    '      type: object',
+    '      required: [task_id, verdict, feedback, risk_score]',
+    '      properties:',
+    '        task_id: {type: integer}',
+    '        verdict: {type: string, enum: [APPROVED, REJECTED]}',
+    '        feedback: {type: string}',
+    '        risk_score: {type: number}',
+    '',
+    `  - id: ${step.id}-evidence`,
+    `    provider: ${step.provider}`,
+    '    agent: developer',
+    '    prompt: |',
+    `      Run the relevant tests for ${step.taskKey} in the isolated workspace.`,
+    `      Review verdict: {{steps.${step.id}-review.output.verdict}}`,
+    '      Workspace: {{workflow.inputs.workspace_path}}',
+    '      First run `cd -- "{{workflow.inputs.workspace_path}}"` and run all tests from that directory.',
+    '      Do not delegate. You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid.',
+    '    output_schema:',
+    '      type: object',
+    '      required: [task_id, tests, test_pass_count, test_fail_count, status]',
+    '      properties:',
+    '        task_id: {type: integer}',
+    '        tests: {type: array}',
+    '        test_pass_count: {type: integer}',
+    '        test_fail_count: {type: integer}',
+    '        status: {type: string, enum: [passed, failed]}',
+    '',
+    `  - id: ${step.id}-handoff`,
+    `    provider: ${step.provider}`,
+    '    agent: reviewer',
+    '    prompt: |',
+    `      Prepare the strict Task Hub handoff for ${step.taskKey}.`,
+    `      Summary: {{steps.${step.id}-implement.output.change_summary}}`,
+    `      Review: {{steps.${step.id}-review.output.feedback}}`,
+    `      Evidence: {{steps.${step.id}-evidence.output.status}}`,
+    '      Workspace: {{workflow.inputs.workspace_path}}',
+    '      Do not modify files or delegate. You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid; do not finish until the tool call succeeds.',
+    '    output_schema:',
+    '      type: object',
+    '      required: [task_id, summary, changed_files, tests, blockers]',
+    '      properties:',
+    '        task_id: {type: integer}',
+    '        summary: {type: string}',
+    '        changed_files: {type: array}',
+    '        tests: {type: array}',
+    '        blockers: {type: string}',
+    '',
+  );
+}
+
+export function generateCaoEpicWorkflowYaml(options: {
+  epic: { id: number; issue_key?: string | null; title: string; description?: string | null };
+  childTasks: CaoEpicWorkflowTask[];
+  provider?: string;
+}): { yaml?: string; order: CaoEpicWorkflowOrder } {
+  const order = topologicallySortEpicTasks(options.childTasks);
+  if (!order.ok) return { order };
+  const provider = options.provider || 'codex';
+  const epicKey = options.epic.issue_key || `EPIC-${options.epic.id}`;
+  const lines = [
+    `name: epic-${options.epic.id}-pipeline`,
+    `description: ${yamlScalar(`Strict Epic workflow for ${epicKey}: ${options.epic.title}`)}`,
+    'inputs:',
+    '  epic_title:',
+    '    type: string',
+    '    required: true',
+    '  workspace_path:',
+    '    type: path',
+    '    required: true',
+  ];
+  for (const task of order.ordered) {
+    lines.push(`  task_${task.id}_title:`, '    type: string', '    required: true');
+    lines.push(`  task_${task.id}_description:`, '    type: string', '    required: true');
+  }
+  lines.push('', 'steps:');
+  for (const [index, task] of order.ordered.entries()) {
+    appendWorkflowStep(lines, {
+      id: `child-${index + 1}-${task.id}`,
+      label: task.title,
+      taskId: task.id,
+      taskKey: task.issue_key || `#${task.id}`,
+      title: task.title,
+      description: task.description,
+      provider,
+    });
+  }
+  const finalStepRefs = order.ordered.map((task, index) => {
+    const stepId = `child-${index + 1}-${task.id}-handoff`;
+    return `      ${stepId}: {{steps.${stepId}.output}}`;
+  });
+  lines.push(
+    '  - id: epic-finalize',
+    `    provider: ${provider}`,
+    '    agent: reviewer',
+    '    prompt: |',
+    `      Aggregate the verified handoffs for Epic ${epicKey}.`,
+    ...finalStepRefs,
+    '      Workspace: {{workflow.inputs.workspace_path}}',
+    '      Return one aggregate Task Hub handoff. Do not modify files or delegate.',
+    '      You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid; do not finish until the tool call succeeds.',
+    '    output_schema:',
+    '      type: object',
+    '      required: [epic_id, summary, child_results, changed_files, tests, blockers]',
+    '      properties:',
+    `        epic_id: {type: integer, const: ${options.epic.id}}`,
+    '        summary: {type: string}',
+    '        child_results: {type: array}',
+    '        changed_files: {type: array}',
+    '        tests: {type: array}',
+    '        blockers: {type: string}',
+    '',
+  );
+  return { yaml: lines.join('\n'), order };
 }
 
 export function buildCaoWorkflowCommand(
@@ -247,7 +584,7 @@ export function buildCaoWorkflowCommand(
 export function parseCaoWorkflowRunStatus(output: string): CaoWorkflowRunStatus {
   const result: CaoWorkflowRunStatus = {
     runId: '',
-    state: 'RUNNING',
+    state: 'running',
     completedSteps: [],
   };
 
@@ -259,18 +596,18 @@ export function parseCaoWorkflowRunStatus(output: string): CaoWorkflowRunStatus 
   const statusLineMatch = output.match(/(?:overall\s+)?status[:=\s]+(RUNNING|COMPLETED|SUCCESS|INTERRUPTED|ABORTED|FAILED|ERROR)/i);
   if (statusLineMatch) {
     const raw = statusLineMatch[1].toUpperCase();
-    if (raw === 'COMPLETED' || raw === 'SUCCESS') result.state = 'COMPLETED';
-    else if (raw === 'INTERRUPTED' || raw === 'ABORTED') result.state = 'INTERRUPTED';
-    else if (raw === 'FAILED' || raw === 'ERROR') result.state = 'FAILED';
-    else result.state = 'RUNNING';
+    if (raw === 'COMPLETED' || raw === 'SUCCESS') result.state = 'completed';
+    else if (raw === 'INTERRUPTED' || raw === 'ABORTED') result.state = 'interrupted';
+    else if (raw === 'FAILED' || raw === 'ERROR') result.state = 'failed';
+    else result.state = 'running';
   } else if (/run\s+completed|workflow\s+completed/i.test(output)) {
-    result.state = 'COMPLETED';
+    result.state = 'completed';
   } else if (/run\s+interrupted|workflow\s+interrupted/i.test(output)) {
-    result.state = 'INTERRUPTED';
+    result.state = 'interrupted';
   } else if (/run\s+failed|workflow\s+failed/i.test(output)) {
-    result.state = 'FAILED';
+    result.state = 'failed';
   } else {
-    result.state = 'RUNNING';
+    result.state = 'running';
   }
 
   const stepMatches = output.matchAll(/step[:\s]+([a-zA-Z0-9_-]+)\s+completed/gi);
@@ -386,6 +723,25 @@ export function buildCaoTaskOrchestrationPrompt(options: CaoTaskOrchestrationOpt
     '5. Execute required code changes and run automated test suites (e.g. `npm test`, `pytest`, `cargo test`, `vitest`) to verify that all tests pass.',
     '6. Conclude the task with a concise summary and emit the structured handoff marker `<TASK_HUB_HANDOFF>` with changed files and test evidence.',
     epicNotice ? `\n> Note: ${epicNotice}` : '',
+    contextStr,
+  ].filter(Boolean).join('\n');
+}
+
+export function buildCaoRequirementSupervisorPrompt(requirement: string, context?: any): string {
+  const contextStr = context ? `\n\nRepository and Task Hub context:\n${typeof context === 'string' ? context : JSON.stringify(context, null, 2)}` : '';
+  return [
+    '# CAO Requirement Discovery Supervisor',
+    '',
+    'You are the CAO Supervisor. Do not edit files or run implementation commands directly.',
+    'Analyze the requirement, inspect the repository and project documents, and delegate independent investigations to workers.',
+    '',
+    CAO_THREE_STYLES_GUIDELINES,
+    '',
+    'Use assign() for independent research, handoff() when the next decision depends on a worker result, and send_message() to communicate with already-running agents.',
+    'Synthesize the worker findings into a Vietnamese discovery proposal with one Epic, Stories, Tasks, acceptance criteria, Fibonacci points, dependencies and risks.',
+    'Do not create or modify Task Hub records. End with the structured discovery contract and wait for human approval.',
+    '',
+    `Requirement:\n${requirement}`,
     contextStr,
   ].filter(Boolean).join('\n');
 }
