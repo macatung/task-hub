@@ -1457,20 +1457,6 @@ const submit = () => {
         </div>
       </section>
 
-      <!-- Status Notice Banner (AgentsRoom style callout) -->
-      <div
-        v-if="runStatus === 'idle' && !output.trim()"
-        class="cc-muted-callout rounded-xl border px-3.5 py-2.5 text-xs flex items-start gap-2.5"
-      >
-        <i
-          class="codicon codicon-info cc-icon--warning mt-0.5 shrink-0"
-        ></i>
-        <p class="leading-5 text-[11px]">
-          Chưa gửi: tác vụ này chưa từng khởi động nên terminal chỉ là một shell.
-          Hãy hoàn tất phần cài đặt hiển thị phía trên, khởi động tác vụ rồi gửi
-          lại. Tin nhắn của bạn vẫn được giữ.
-        </p>
-      </div>
     </main>
 
     <!-- Floating Command Input Bar & Sub-Tabs Footer -->
