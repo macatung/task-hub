@@ -7,7 +7,6 @@ import AntigravitySkillsModal from './AntigravitySkillsModal.vue';
 import AntigravityScheduledTasksModal from './AntigravityScheduledTasksModal.vue';
 import AntigravitySettingsPermissionsModal from './AntigravitySettingsPermissionsModal.vue';
 import MarkdownView from './MarkdownView.vue';
-import PomodoroTimer from './PomodoroTimer.vue';
 import ActivityTimelineDrawer from './ActivityTimelineDrawer.vue';
 import AutoRepairModal from './AutoRepairModal.vue';
 import PlanUpgradeModal from './PlanUpgradeModal.vue';
@@ -183,21 +182,7 @@ const showAgentSettings = ref(false);
 const showActivityTimeline = ref(false);
 const showProcessDrawer = ref(false);
 const showAutoRepairModal = ref(false);
-const showPomodoroModal = ref(false);
 const isSidebarCollapsed = ref(false);
-
-const handlePomodoroCompleted = async (task?: any) => {
-  if (task) {
-    if (typeof task.completed_pomodoros === 'number') {
-      task.completed_pomodoros++;
-    } else {
-      task.completed_pomodoros = 1;
-    }
-    addTimeline('Pomodoro completed', `Completed 1 focus cycle for ${task.issue_key || `#${task.id}`}.`, 'ok');
-  } else {
-    addTimeline('Pomodoro completed', 'Completed 1 focus cycle.', 'ok');
-  }
-};
 
 const handleEnvironmentRepaired = (result: any) => {
   if (result.ok) {
@@ -1515,13 +1500,6 @@ const vsCommands = computed<VSCommand[]>(() => [
     action: () => { showAutoRepairModal.value = true; },
   },
   {
-    id: 'pomodoro-timer',
-    category: 'Productivity',
-    title: 'Focus Pomodoro Timer (25m / 50m / Breaks)',
-    icon: 'codicon-clock',
-    action: () => { showPomodoroModal.value = true; },
-  },
-  {
     id: 'activity-timeline',
     category: 'View',
     title: 'Open Activity Timeline Drawer (Chronological Logs & Export)',
@@ -1650,7 +1628,6 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
     if (showCommandPalette.value) showCommandPalette.value = false;
     if (showActivityTimeline.value) showActivityTimeline.value = false;
     if (showAutoRepairModal.value) showAutoRepairModal.value = false;
-    if (showPomodoroModal.value) showPomodoroModal.value = false;
     if (showTaskInspector.value) showTaskInspector.value = false;
   }
 };
@@ -3202,18 +3179,8 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <!-- Right: Pomodoro, Auto-Repair, Timeline, Quota, Mascot Switch & Window Controls -->
+      <!-- Right: Auto-Repair, Timeline, Quota & Window Controls -->
       <div class="flex items-center gap-1.5 shrink-0">
-        <!-- Pomodoro Focus Pill -->
-        <button
-          class="h-6 px-2 rounded bg-[#252526] hover:bg-[#2d2d2d] border border-[#3e3e42] text-amber-300 hover:text-amber-200 text-[11px] font-medium flex items-center gap-1 cursor-pointer transition-colors"
-          @click="showPomodoroModal = true"
-          title="Focus Pomodoro Timer"
-        >
-          <span class="text-xs">🍅</span>
-          <span class="hidden sm:inline">Pomodoro</span>
-        </button>
-
         <!-- One-Click Auto-Repair Pill -->
         <button
           class="h-6 px-2 rounded bg-[#252526] hover:bg-[#2d2d2d] border border-[#3e3e42] text-amber-400 hover:text-amber-300 text-[11px] font-medium flex items-center gap-1 cursor-pointer transition-colors"
@@ -6007,21 +5974,6 @@ onUnmounted(() => {
       @close="showAutoRepairModal = false"
       @repaired="handleEnvironmentRepaired"
     />
-
-    <!-- DOCKABLE / FLOATING POMODORO FOCUS TIMER -->
-    <div
-      v-if="showPomodoroModal"
-      class="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 select-none"
-      @click.self="showPomodoroModal = false"
-    >
-      <div class="relative max-w-sm w-full">
-        <PomodoroTimer
-          :active-task="selectedTask"
-          @close="showPomodoroModal = false"
-          @pomodoro-completed="handlePomodoroCompleted"
-        />
-      </div>
-    </div>
 
     <!-- SESSION HISTORY OVERLAY / MODAL -->
     <div

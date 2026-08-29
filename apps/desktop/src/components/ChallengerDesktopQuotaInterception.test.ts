@@ -1,7 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import planUpgradeModalSource from './PlanUpgradeModal.vue?raw';
 import agentConsoleModalSource from './AgentConsoleModal.vue?raw';
-import taskDispatchModalSource from './TaskDispatchModal.vue?raw';
 import { useUpgradeModal } from '../composables/useUpgradeModal';
 
 describe('Challenger M4.2: Comprehensive Desktop Quota Interception Stress Suite', () => {
@@ -266,16 +265,6 @@ describe('Challenger M4.2: Comprehensive Desktop Quota Interception Stress Suite
     it('safely handles desktopApi.openExternal and falls back to window.open', () => {
       expect(planUpgradeModalSource).toContain('(window as any).desktopApi?.openExternal');
       expect(planUpgradeModalSource).toContain('window.open(targetUrl, \'_blank\')');
-    });
-  });
-
-  describe('4. TaskDispatchModal Integration', () => {
-    it('imports and mounts PlanUpgradeModal in TaskDispatchModal.vue', () => {
-      expect(taskDispatchModalSource).toMatch(/import\s+PlanUpgradeModal\s+from\s+['"]\.\/PlanUpgradeModal\.vue['"]/);
-      expect(taskDispatchModalSource).toContain('const showPlanUpgradeModal = ref(false)');
-      expect(taskDispatchModalSource).toContain('<PlanUpgradeModal');
-      expect(taskDispatchModalSource).toContain(':show="showPlanUpgradeModal"');
-      expect(taskDispatchModalSource).toContain('@close="showPlanUpgradeModal = false"');
     });
   });
 });

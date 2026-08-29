@@ -5,23 +5,30 @@ import { describe, expect, it } from 'vitest';
 const styleSource = fs.readFileSync(path.resolve(__dirname, 'style.css'), 'utf8');
 
 describe('Control Center Cloud Hub palette', () => {
-  it('keeps the desktop tokens aligned with Hub graphite/copper dark mode', () => {
-    const hubDarkTokens = [
-      '--cc-canvas: #151514',
-      '--cc-surface: #1f1f1d',
-      '--cc-surface-muted: #282724',
-      '--cc-line: #514c45',
-      '--cc-ink: #f7f3ed',
-      '--cc-muted: #c2bbb1',
-      '--cc-accent: #e09a70',
-      '--cc-accent-strong: #efad85',
-      '--cc-accent-soft: #4a2e22',
-      '--cc-accent-line: #966044',
-      '--cc-success: #a9bea4',
-      '--cc-success-soft: #2b382b',
+  it('keeps the desktop tokens aligned with Deep Midnight Obsidian & Phantom Neon palette', () => {
+    const midnightObsidianTokens = [
+      '--cc-canvas: #04070d',
+      '--cc-surface: #070b14',
+      '--cc-surface-muted: #0c1220',
+      '--cc-surface-elevated: #11182c',
+      '--cc-line: #141b2d',
+      '--cc-line-soft: rgba(20, 27, 45, 0.6)',
+      '--cc-ink: #f8fafc',
+      '--cc-muted: #94a3b8',
+      '--cc-accent: #00f5a0',
+      '--cc-accent-strong: #00f5d4',
+      '--cc-accent-soft: rgba(0, 245, 160, 0.12)',
+      '--cc-accent-line: rgba(0, 245, 160, 0.4)',
+      '--cc-cyan: #00f5d4',
+      '--cc-purple: #9d4edd',
+      '--cc-success: #00f5a0',
+      '--cc-warning: #f59e0b',
+      '--cc-danger: #ff0054',
     ];
 
-    for (const token of hubDarkTokens) expect(styleSource).toContain(token);
+    for (const token of midnightObsidianTokens) {
+      expect(styleSource).toContain(token);
+    }
   });
 
   it('does not reintroduce the previous navy control-center surfaces', () => {

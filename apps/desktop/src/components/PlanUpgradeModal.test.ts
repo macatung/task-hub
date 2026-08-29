@@ -1,7 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import planUpgradeModalSource from './PlanUpgradeModal.vue?raw';
 import agentConsoleModalSource from './AgentConsoleModal.vue?raw';
-import taskDispatchModalSource from './TaskDispatchModal.vue?raw';
 import { useUpgradeModal } from '../composables/useUpgradeModal';
 
 describe('PlanUpgradeModal Component & Studio Integration Suite', () => {
@@ -205,12 +204,6 @@ describe('PlanUpgradeModal Component & Studio Integration Suite', () => {
     it('exposes Upgrade Plan button in AgentConsoleModal.vue Plan section', () => {
       expect(agentConsoleModalSource).toContain('openPlanUpgradeModal');
       expect(agentConsoleModalSource).toContain('Upgrade Plan');
-    });
-
-    it('integrates PlanUpgradeModal into TaskDispatchModal.vue', () => {
-      expect(taskDispatchModalSource).toContain("import PlanUpgradeModal from './PlanUpgradeModal.vue'");
-      expect(taskDispatchModalSource).toContain('showPlanUpgradeModal');
-      expect(taskDispatchModalSource).toContain('<PlanUpgradeModal');
     });
   });
 });

@@ -2,7 +2,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import axios from 'axios';
-import MiniMascotLogo from '@/Components/mascot/MiniMascotLogo.vue';
 import TasksEmptyState from '@/Components/tasks/TasksEmptyState.vue';
 import ProjectDocumentsPanel from '@/Components/tasks/ProjectDocumentsPanel.vue';
 import ProjectReleaseLog from '@/Components/tasks/ProjectReleaseLog.vue';
@@ -2565,17 +2564,24 @@ onUnmounted(() => {
 
   <div
     :class="[
-      'tasks-page minimal-theme h-screen w-screen overflow-hidden font-sans flex flex-col transition-colors duration-150 select-none selection:bg-amber-500 selection:text-slate-950',
-      isDarkMode ? 'dark bg-[#080d1a] text-slate-100' : 'bg-[#f8fafc] text-slate-900'
+      'tasks-page minimal-theme h-screen w-screen overflow-hidden font-sans flex flex-col transition-colors duration-150 select-none selection:bg-phantom-mint selection:text-midnight-950 relative',
+      isDarkMode ? 'dark bg-midnight-950 text-slate-100' : 'bg-[#f8fafc] text-slate-900'
     ]"
   >
+    <!-- Ambient Background Glows (matching landing page) -->
+    <div v-if="isDarkMode" class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+      <div class="absolute -top-40 left-1/2 -translate-x-1/2 h-[450px] w-[900px] rounded-full bg-gradient-to-tr from-emerald-600/15 via-cyan-500/10 to-purple-600/10 blur-[140px]" />
+      <div class="absolute top-[400px] -left-40 h-[400px] w-[600px] rounded-full bg-gradient-to-br from-blue-600/10 via-purple-600/10 to-transparent blur-[130px]" />
+      <div class="absolute bottom-10 -right-40 h-[500px] w-[700px] rounded-full bg-gradient-to-tl from-emerald-600/15 via-teal-500/10 to-transparent blur-[150px]" />
+    </div>
+
     <!-- ========================================================================= -->
     <!-- 1. TOP NAVBAR (STICKY GLASSMORPHISM & LINEAR ENTERPRISE CONTROLS)         -->
     <!-- ========================================================================= -->
     <header
       :class="[
-        'h-16 shrink-0 z-40 border-b backdrop-blur-md transition-colors w-full px-3 sm:px-6 flex items-center justify-between gap-3',
-        isDarkMode ? 'bg-[#0b101e]/95 border-slate-800/80 text-slate-100 shadow-sm' : 'bg-white/95 border-slate-200/90 text-slate-900 shadow-xs'
+        'h-16 shrink-0 z-40 border-b backdrop-blur-xl transition-colors w-full px-3 sm:px-6 flex items-center justify-between gap-3 relative',
+        isDarkMode ? 'bg-midnight-900/90 border-midnight-800/80 text-slate-100 shadow-sm' : 'bg-white/95 border-slate-200/90 text-slate-900 shadow-xs'
       ]"
     >
       <!-- Left: Sidebar toggle + Logo + Breadcrumb -->
@@ -2583,8 +2589,8 @@ onUnmounted(() => {
         <button
           @click="isSidebarOpen = !isSidebarOpen"
           :class="[
-            'p-2 rounded-xl border transition-all cursor-pointer text-xs font-bold shadow-xs',
-            isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800' : 'bg-white border-slate-200 text-slate-700 hover:text-slate-950 hover:bg-slate-100'
+            'h-9 w-9 rounded-xl border transition-all cursor-pointer inline-flex items-center justify-center shrink-0 shadow-xs',
+            isDarkMode ? 'bg-midnight-850 border-midnight-800 text-slate-300 hover:text-white hover:bg-midnight-800' : 'bg-white border-slate-200 text-slate-700 hover:text-slate-950 hover:bg-slate-100'
           ]"
           title="Toggle project navigation"
         >
@@ -2594,20 +2600,20 @@ onUnmounted(() => {
         <WorkspaceBrand :dark="isDarkMode" />
 
         <!-- Dynamic Breadcrumbs -->
-        <div class="hidden lg:flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800 text-xs min-w-0">
-          <span class="text-slate-400">/</span>
+        <div class="hidden lg:flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-midnight-800 text-xs min-w-0 font-mono">
+          <span class="text-slate-500">/</span>
           <div class="flex items-center gap-1.5 font-bold truncate">
-            <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: activeProjectObject?.color || '#10b981' }"></span>
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: activeProjectObject?.color || '#00f5a0' }"></span>
             <span :class="['truncate', isDarkMode ? 'text-slate-200' : 'text-slate-800']">
               {{ activeProjectObject ? activeProjectObject.title : 'All Projects' }}
             </span>
-            <span v-if="activeProjectObject?.key" class="font-mono text-[10px] px-1.5 py-0.2 rounded font-bold border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+            <span v-if="activeProjectObject?.key" class="font-mono text-[10px] px-1.5 py-0.2 rounded font-bold border border-emerald-500/40 bg-emerald-500/10 text-emerald-400">
               {{ activeProjectObject.key }}
             </span>
           </div>
           <template v-if="activeSprint">
-            <span class="text-slate-400">/</span>
-            <span class="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 truncate max-w-[140px]">
+            <span class="text-slate-500">/</span>
+            <span class="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 truncate max-w-[140px] inline-flex items-center justify-center shrink-0">
               {{ activeSprint.name }}
             </span>
           </template>
@@ -2617,22 +2623,22 @@ onUnmounted(() => {
       <!-- Center Tabs: Board | Backlog | Roadmap with dynamic counts -->
       <div
         :class="[
-          'hidden md:flex items-center p-1 rounded-2xl border font-semibold text-xs gap-1 shadow-xs',
-          isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-100/90 border-slate-200/80'
+          'hidden md:flex items-center p-1 rounded-2xl border font-bold text-xs gap-1 shadow-xs font-mono',
+          isDarkMode ? 'bg-midnight-950 border-midnight-800/80' : 'bg-slate-100/90 border-slate-200/80'
         ]"
       >
         <button
           @click="currentView = 'board'; sound.playClick();"
           :class="[
-            'px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5',
+            'px-3.5 py-2 rounded-xl transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 shrink-0',
             currentView === 'board'
-              ? (isDarkMode ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold shadow-md shadow-emerald-950/40' : 'bg-white text-emerald-900 font-bold shadow-xs border border-slate-200/80')
-              : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-midnight-950 font-extrabold shadow-md shadow-emerald-500/20'
+              : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-midnight-850' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
           ]"
         >
-          <Icons name="LayoutGrid" :size="15" aria-hidden="true" />
-          <span>Task Board</span>
-          <span :class="['px-1.5 py-0.2 rounded-full font-mono text-[10px] font-bold', currentView === 'board' ? 'bg-white/20 text-white' : (isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700')]">
+          <Icons name="LayoutGrid" :size="14" aria-hidden="true" />
+          <span class="leading-none">Task Board</span>
+          <span :class="['px-1.5 py-0.2 rounded-full font-mono text-[10px] font-bold inline-flex items-center justify-center', currentView === 'board' ? 'bg-midnight-950/20 text-midnight-950 font-extrabold' : (isDarkMode ? 'bg-midnight-850 text-slate-300' : 'bg-slate-200 text-slate-700')]">
             {{ filteredBoardTasks.length }}
           </span>
         </button>
@@ -2640,15 +2646,15 @@ onUnmounted(() => {
         <button
           @click="currentView = 'backlog'; sound.playClick();"
           :class="[
-            'px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5',
+            'px-3.5 py-2 rounded-xl transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 shrink-0',
             currentView === 'backlog'
-              ? (isDarkMode ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold shadow-md shadow-emerald-950/40' : 'bg-white text-emerald-900 font-bold shadow-xs border border-slate-200/80')
-              : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-midnight-950 font-extrabold shadow-md shadow-emerald-500/20'
+              : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-midnight-850' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
           ]"
         >
-          <Icons name="Layers" :size="15" aria-hidden="true" />
-          <span>Sprint Backlog</span>
-          <span :class="['px-1.5 py-0.2 rounded-full font-mono text-[10px] font-bold', currentView === 'backlog' ? 'bg-white/20 text-white' : (isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700')]">
+          <Icons name="Layers" :size="14" aria-hidden="true" />
+          <span class="leading-none">Sprint Backlog</span>
+          <span :class="['px-1.5 py-0.2 rounded-full font-mono text-[10px] font-bold inline-flex items-center justify-center', currentView === 'backlog' ? 'bg-midnight-950/20 text-midnight-950 font-extrabold' : (isDarkMode ? 'bg-midnight-850 text-slate-300' : 'bg-slate-200 text-slate-700')]">
             {{ sprintList.length }}
           </span>
         </button>
@@ -2656,14 +2662,14 @@ onUnmounted(() => {
         <button
           @click="currentView = 'roadmap'; sound.playClick();"
           :class="[
-            'px-3.5 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5',
+            'px-3.5 py-2 rounded-xl transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 shrink-0',
             currentView === 'roadmap'
-              ? (isDarkMode ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold shadow-md shadow-emerald-950/40' : 'bg-white text-emerald-900 font-bold shadow-xs border border-slate-200/80')
-              : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-midnight-950 font-extrabold shadow-md shadow-emerald-500/20'
+              : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-midnight-850' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60')
           ]"
         >
-          <Icons name="GitBranch" :size="15" aria-hidden="true" />
-          <span>Roadmap</span>
+          <Icons name="GitBranch" :size="14" aria-hidden="true" />
+          <span class="leading-none">Roadmap</span>
         </button>
       </div>
 
@@ -2674,14 +2680,14 @@ onUnmounted(() => {
           <button
             @click.stop="isAiMenuOpen = !isAiMenuOpen"
             :class="[
-              'px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs',
-              isDarkMode ? 'bg-slate-900 border-purple-800/60 text-purple-300 hover:bg-purple-950/30' : 'bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100'
+              'px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-xs shrink-0',
+              isDarkMode ? 'bg-midnight-850 border-purple-800/60 text-purple-300 hover:bg-purple-950/40' : 'bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100'
             ]"
             title="AI planning and settings"
           >
-            <Icons name="Sparkles" :size="15" aria-hidden="true" />
-            <span class="hidden sm:inline">AI Engine</span>
-            <span class="text-[10px]">▾</span>
+            <Icons name="Sparkles" :size="14" class="text-amber-300" aria-hidden="true" />
+            <span class="hidden sm:inline leading-none">AI Engine</span>
+            <Icons name="ChevronDown" :size="12" />
           </button>
 
           <!-- Dropdown Menu -->
@@ -2689,28 +2695,32 @@ onUnmounted(() => {
             v-if="isAiMenuOpen"
             @click.stop
             :class="[
-              'absolute right-0 top-full mt-2 w-56 rounded-2xl border shadow-2xl p-2 z-50 text-xs font-medium backdrop-blur-xl',
-              isDarkMode ? 'bg-slate-900/95 border-slate-800 text-slate-200' : 'bg-white border-slate-200 text-slate-800'
+              'absolute right-0 top-full mt-2 w-60 rounded-2xl border shadow-2xl p-2 z-50 text-xs font-medium backdrop-blur-xl',
+              isDarkMode ? 'bg-midnight-900/95 border-midnight-800 text-slate-200' : 'bg-white border-slate-200 text-slate-800'
             ]"
           >
             <button
               @click="isAiMenuOpen = false; openAiGeneratorModal();"
-              class="w-full px-3 py-2.5 rounded-xl text-left hover:bg-slate-800/60 flex items-center gap-2.5 cursor-pointer font-medium"
+              class="w-full px-3 py-2.5 rounded-xl text-left hover:bg-midnight-850 flex items-center gap-2.5 cursor-pointer font-medium"
             >
-              <span class="mono-icon">✦</span>
+              <div class="w-7 h-7 rounded-lg border border-purple-700 bg-purple-950/50 inline-flex items-center justify-center shrink-0 text-purple-300">
+                <Icons name="Sparkles" :size="14" />
+              </div>
               <div>
                 <div class="font-bold text-xs">AI Project Planner</div>
-                <div class="text-[10px] text-slate-400">Break down epics, sprints and tasks</div>
+                <div class="text-[10px] text-slate-400 font-mono">Break down epics, sprints and tasks</div>
               </div>
             </button>
             <button
               @click="isAiMenuOpen = false; openAiSettings();"
-              class="w-full px-3 py-2.5 rounded-xl text-left hover:bg-slate-800/60 flex items-center gap-2.5 cursor-pointer font-medium border-t border-slate-800/50 mt-1"
+              class="w-full px-3 py-2.5 rounded-xl text-left hover:bg-midnight-850 flex items-center gap-2.5 cursor-pointer font-medium border-t border-midnight-800/80 mt-1"
             >
-              <span>⚙️</span>
+              <div class="w-7 h-7 rounded-lg border border-midnight-700 bg-midnight-800 inline-flex items-center justify-center shrink-0 text-slate-300">
+                <Icons name="Settings" :size="14" />
+              </div>
               <div>
                 <div class="font-bold text-xs">AI Settings</div>
-                <div class="text-[10px] text-slate-400">Private provider and API key</div>
+                <div class="text-[10px] text-slate-400 font-mono">Private provider and API key</div>
               </div>
             </button>
           </div>
@@ -2720,42 +2730,42 @@ onUnmounted(() => {
         <button
           @click="openMcpModal()"
           :class="[
-            'flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs',
-            isDarkMode ? 'bg-slate-900 border-indigo-500/40 text-indigo-300 hover:bg-slate-800 hover:border-indigo-400' : 'bg-indigo-50 border-indigo-300 text-indigo-950 hover:bg-indigo-100'
+            'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0',
+            isDarkMode ? 'bg-midnight-850 border-indigo-500/40 text-indigo-300 hover:bg-midnight-800 hover:border-indigo-400' : 'bg-indigo-50 border-indigo-300 text-indigo-950 hover:bg-indigo-100'
           ]"
           title="Model Context Protocol (MCP) & AI Agent Integration (Antigravity 2.0, Cursor, Claude)"
         >
-          <Icons name="Plug" :size="15" aria-hidden="true" />
-          <span>MCP & Agents</span>
+          <Icons name="Plug" :size="14" aria-hidden="true" />
+          <span class="leading-none">MCP & Agents</span>
         </button>
 
         <!-- Weekly Email Report Button -->
         <button
           @click="openReportModal"
           :class="[
-            'hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs',
-            isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50'
+            'hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0',
+            isDarkMode ? 'bg-midnight-850 border-midnight-800 text-slate-200 hover:bg-midnight-800' : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50'
           ]"
           title="Configure and send the weekly progress report"
         >
-          <Icons name="Mail" :size="15" aria-hidden="true" />
-          <span>Reports</span>
+          <Icons name="Mail" :size="14" aria-hidden="true" />
+          <span class="leading-none">Reports</span>
         </button>
 
         <!-- Notifications -->
         <button
           @click.stop="toggleNotifications"
           :class="[
-            'relative p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs',
+            'relative h-9 w-9 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs inline-flex items-center justify-center shrink-0',
             isNotificationsOpen
-              ? (isDarkMode ? 'bg-blue-600 border-blue-500 text-white' : 'bg-blue-50 border-blue-300 text-blue-800')
-              : (isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50')
+              ? (isDarkMode ? 'bg-cyan-600 border-cyan-500 text-white' : 'bg-blue-50 border-blue-300 text-blue-800')
+              : (isDarkMode ? 'bg-midnight-850 border-midnight-800 text-slate-300 hover:bg-midnight-800 hover:text-white' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50')
           ]"
           title="Open notifications"
           aria-label="Open notifications"
         >
           <Icons name="Bell" :size="15" aria-hidden="true" />
-          <span v-if="unreadNotificationCount" class="absolute -right-1 -top-1 min-w-4 h-4 px-1 rounded-full bg-blue-600 text-white text-[9px] leading-4 font-black border-2 border-[#070b14]">
+          <span v-if="unreadNotificationCount" class="absolute -right-1 -top-1 min-w-4 h-4 px-1 rounded-full bg-cyan-500 text-midnight-950 text-[9px] leading-4 font-black border-2 border-midnight-900 inline-flex items-center justify-center">
             {{ unreadNotificationCount > 9 ? '9+' : unreadNotificationCount }}
           </span>
         </button>
@@ -2764,9 +2774,9 @@ onUnmounted(() => {
         <button
           @click="toggleTheme"
           :class="[
-            'p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs',
+            'h-9 w-9 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs inline-flex items-center justify-center shrink-0',
             isDarkMode
-              ? 'bg-slate-900 border-slate-700 text-amber-300 hover:bg-slate-800'
+              ? 'bg-midnight-850 border-midnight-800 text-amber-300 hover:bg-midnight-800'
               : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50'
           ]"
           :title="isDarkMode ? 'Switch to light theme' : 'Switch to dark theme'"
@@ -2779,14 +2789,14 @@ onUnmounted(() => {
           <button
             @click.stop="isWorkspaceMenuOpen = !isWorkspaceMenuOpen"
             :class="[
-              'px-2.5 sm:px-3 py-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer',
-              isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-emerald-400' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-emerald-700'
+              'px-2.5 sm:px-3 py-2 rounded-xl border text-xs font-bold transition-all inline-flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0',
+              isDarkMode ? 'bg-midnight-850 border-midnight-800 text-slate-300 hover:bg-midnight-800 hover:text-phantom-mint' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-emerald-700'
             ]"
             title="Workspace settings and billing"
           >
             <Icons name="Zap" :size="14" class="text-emerald-400" />
-            <span class="hidden sm:inline">Billing</span>
-            <span class="text-[10px]">▾</span>
+            <span class="hidden sm:inline leading-none">Billing</span>
+            <Icons name="ChevronDown" :size="12" />
           </button>
 
           <!-- Workspace / Billing Menu -->
@@ -2794,15 +2804,15 @@ onUnmounted(() => {
             v-if="isWorkspaceMenuOpen"
             :class="[
               'absolute right-0 mt-2 w-56 rounded-2xl border p-2 shadow-2xl z-50',
-              isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-slate-200 text-slate-800'
+              isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-200' : 'bg-white border-slate-200 text-slate-800'
             ]"
           >
-            <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Workspace Management</div>
+            <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Workspace Management</div>
             <a
               :href="`/workspaces/${props.currentWorkspaceId || 'default'}/billing`"
               :class="[
                 'flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-bold transition-colors',
-                isDarkMode ? 'hover:bg-slate-800 text-emerald-400' : 'hover:bg-slate-100 text-emerald-600'
+                isDarkMode ? 'hover:bg-midnight-850 text-emerald-400' : 'hover:bg-slate-100 text-emerald-600'
               ]"
             >
               <Icons name="Zap" :size="14" />
@@ -2812,15 +2822,15 @@ onUnmounted(() => {
               href="/pricing"
               :class="[
                 'flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold transition-colors',
-                isDarkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
+                isDarkMode ? 'hover:bg-midnight-850 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
               ]"
             >
               <Icons name="ExternalLink" :size="14" />
               <span>Public Pricing Matrix</span>
             </a>
             <template v-if="props.workspaces && props.workspaces.length > 1">
-              <div class="my-1 border-t border-slate-800/80"></div>
-              <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Switch Workspace</div>
+              <div class="my-1 border-t border-midnight-800"></div>
+              <div class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Switch Workspace</div>
               <a
                 v-for="w in props.workspaces"
                 :key="w.id"
@@ -2829,11 +2839,11 @@ onUnmounted(() => {
                   'flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-colors',
                   w.id === props.currentWorkspaceId
                     ? (isDarkMode ? 'bg-emerald-950/60 text-emerald-300' : 'bg-emerald-50 text-emerald-800')
-                    : (isDarkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-700')
+                    : (isDarkMode ? 'hover:bg-midnight-850 text-slate-300' : 'hover:bg-slate-100 text-slate-700')
                 ]"
               >
                 <span class="truncate">{{ w.name }}</span>
-                <span class="text-[9px] uppercase font-mono px-1 rounded bg-slate-800 text-slate-400">{{ w.plan || 'free' }}</span>
+                <span class="text-[9px] uppercase font-mono px-1 rounded bg-midnight-800 text-slate-400">{{ w.plan || 'free' }}</span>
               </a>
             </template>
           </div>
@@ -2842,21 +2852,21 @@ onUnmounted(() => {
         <!-- Primary Action: + Create Task -->
         <button
           @click="openCreateTaskModal"
-          class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+          class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
           title="Create a new task"
         >
           <Icons name="Plus" :size="16" aria-hidden="true" />
-          <span>Create Task</span>
+          <span class="leading-none">Create Task</span>
         </button>
 
         <!-- User Profile & Action Controls -->
         <template v-if="props.auth?.user">
-          <div class="flex items-center gap-2 pl-2 border-l border-slate-800">
-            <span class="hidden xl:inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[10px] font-bold" :class="isDarkMode ? 'border-slate-700 text-slate-300' : 'border-slate-300 text-slate-700'">
+          <div class="flex items-center gap-2 pl-2 border-l border-midnight-800">
+            <span class="hidden xl:inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[10px] font-bold" :class="isDarkMode ? 'border-midnight-800 bg-midnight-850 text-slate-300' : 'border-slate-300 text-slate-700'">
               <img v-if="props.auth.user.github_avatar_url" :src="props.auth.user.github_avatar_url" class="h-4 w-4 rounded-full" alt="GitHub avatar" />
               @{{ props.auth.user.github_login || props.auth.user.name }}
             </span>
-            <button @click="logoutGithub" class="rounded-xl border px-2.5 py-2 text-[10px] font-bold cursor-pointer" :class="isDarkMode ? 'border-slate-700 text-slate-300 hover:bg-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'">Sign out</button>
+            <button @click="logoutGithub" class="rounded-xl border px-2.5 py-2 text-[10px] font-bold cursor-pointer" :class="isDarkMode ? 'border-midnight-800 bg-midnight-850 text-slate-300 hover:bg-midnight-800' : 'border-slate-300 text-slate-700 hover:bg-slate-100'">Sign out</button>
           </div>
         </template>
         <a v-else href="/auth/github" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-100">Sign in with GitHub</a>
@@ -2865,12 +2875,12 @@ onUnmounted(() => {
         <button
           @click="lockWorkspace"
           :class="[
-            'p-2 rounded-xl border text-xs transition-colors cursor-pointer shadow-xs',
-            isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-red-400 hover:bg-slate-800' : 'bg-white border-slate-200 text-slate-600 hover:text-red-600 hover:bg-red-50'
+            'h-9 w-9 rounded-xl border text-xs transition-colors cursor-pointer shadow-xs inline-flex items-center justify-center shrink-0',
+            isDarkMode ? 'bg-midnight-850 border-midnight-800 text-slate-400 hover:text-rose-400 hover:bg-midnight-800' : 'bg-white border-slate-200 text-slate-600 hover:text-rose-600 hover:bg-red-50'
           ]"
           title="Lock workspace (PIN: 301095)"
         >
-          <span class="mono-icon">□</span>
+          <Icons name="Lock" :size="14" />
         </button>
       </div>
     </header>
@@ -2886,7 +2896,7 @@ onUnmounted(() => {
         v-if="isSidebarOpen"
         :class="[
           'fixed md:relative left-0 top-16 md:top-auto bottom-0 md:bottom-auto z-30 w-[min(88vw,20rem)] md:w-72 border-r flex flex-col justify-between shrink-0 h-full select-none transition-colors shadow-xl md:shadow-none overflow-hidden',
-          isDarkMode ? 'bg-[#090d16] border-slate-800/80' : 'bg-white border-slate-200/90'
+          isDarkMode ? 'bg-midnight-900 border-midnight-800/80' : 'bg-white border-slate-200/90'
         ]"
       >
         <div class="p-3.5 space-y-4 overflow-y-auto flex-1 custom-scrollbar pr-2 min-h-0">
@@ -2897,37 +2907,38 @@ onUnmounted(() => {
               :class="[
                 'w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-all cursor-pointer border text-left',
                 selectedProjectId === 'all'
-                  ? (isDarkMode ? 'bg-slate-900 text-white border-blue-500/60 font-bold' : 'bg-blue-50/90 text-blue-950 border-blue-300 font-bold shadow-xs')
-                  : (isDarkMode ? 'text-slate-300 border-transparent hover:text-white hover:bg-slate-900/60' : 'text-slate-800 border-transparent hover:bg-slate-50 hover:text-slate-950')
+                  ? (isDarkMode ? 'bg-midnight-850 text-white border-phantom-mint/60 font-bold shadow-xs' : 'bg-blue-50/90 text-blue-950 border-blue-300 font-bold shadow-xs')
+                  : (isDarkMode ? 'text-slate-300 border-transparent hover:text-white hover:bg-midnight-850/60' : 'text-slate-800 border-transparent hover:bg-slate-50 hover:text-slate-950')
               ]"
             >
               <div class="flex items-center gap-2.5 min-w-0">
-                <span class="mono-icon text-base">▦</span>
+                <div class="w-7 h-7 rounded-lg border border-midnight-700 bg-midnight-800 inline-flex items-center justify-center shrink-0 text-cyan-400">
+                  <Icons name="LayoutGrid" :size="14" />
+                </div>
                 <div>
                   <div :class="['font-bold text-xs', isDarkMode ? 'text-white' : 'text-slate-950']">All Projects</div>
-                  <div :class="['text-[11px]', isDarkMode ? 'text-slate-400' : 'text-slate-600']">All projects and tasks</div>
+                  <div :class="['text-[11px]', isDarkMode ? 'text-slate-400 font-mono' : 'text-slate-600 font-mono']">All projects and tasks</div>
                 </div>
               </div>
-              <span :class="['font-mono text-xs font-bold px-2 py-0.5 rounded-full', isDarkMode ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-slate-100 text-slate-800 border border-slate-300']">
+              <span :class="['font-mono text-xs font-bold px-2 py-0.5 rounded-full inline-flex items-center justify-center shrink-0', isDarkMode ? 'bg-midnight-800 text-slate-300 border border-midnight-700' : 'bg-slate-100 text-slate-800 border border-slate-300']">
                 {{ getProjectTaskCount('all') }}
               </span>
             </button>
-
           </div>
 
           <!-- PROJECTS -->
           <div class="space-y-2">
             <div class="flex items-center justify-between px-2 text-[11px] font-mono font-bold uppercase tracking-wider">
-              <span class="flex items-center gap-1.5 text-blue-700 dark:text-blue-400 font-bold">
-                <span>💼</span>
+              <span class="flex items-center gap-1.5 text-phantom-mint font-bold">
+                <Icons name="Briefcase" :size="13" class="text-phantom-mint shrink-0" />
                 <span>PROJECTS</span>
               </span>
               <button
                 @click="openCreateProjectModal()"
-                class="hover:text-blue-600 p-0.5 rounded cursor-pointer text-xs font-bold"
+                class="hover:text-phantom-mint p-1 rounded-lg border border-midnight-700 bg-midnight-850 cursor-pointer text-xs font-bold inline-flex items-center justify-center shrink-0 transition-colors"
                 title="Create project"
               >
-                +
+                <Icons name="Plus" :size="13" />
               </button>
             </div>
 
@@ -2946,30 +2957,30 @@ onUnmounted(() => {
                   :class="[
                     'w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-all cursor-pointer border text-left',
                     selectedProjectId === proj.id
-                      ? (isDarkMode ? 'bg-slate-900 text-white border-blue-500 font-bold' : 'bg-blue-50/90 text-blue-950 border-blue-300 font-bold shadow-xs')
-                      : (isDarkMode ? 'text-slate-300 border-transparent hover:text-white hover:bg-slate-900/50' : 'text-slate-800 border-transparent hover:bg-slate-50 hover:text-slate-950')
+                      ? (isDarkMode ? 'bg-midnight-850 text-white border-phantom-mint font-bold shadow-xs' : 'bg-blue-50/90 text-blue-950 border-blue-300 font-bold shadow-xs')
+                      : (isDarkMode ? 'text-slate-300 border-transparent hover:text-white hover:bg-midnight-850/50' : 'text-slate-800 border-transparent hover:bg-slate-50 hover:text-slate-950')
                   ]"
                 >
                   <!-- Left side: 2 Lines (Title + Description) -->
                   <div class="min-w-0 pr-2 flex-1">
                     <div class="flex items-center gap-2 mb-0.5">
-                      <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: proj.color || '#2563eb' }"></span>
+                      <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: proj.color || '#00f5a0' }"></span>
                       <span :class="['font-bold text-xs truncate', isDarkMode ? 'text-white' : 'text-slate-950']">{{ proj.title }}</span>
-                      <span v-if="proj.key" :class="['px-1.5 py-0.2 rounded text-[9px] font-mono font-bold shrink-0', isDarkMode ? 'bg-blue-950/80 text-blue-300 border border-blue-800' : 'bg-blue-50 text-blue-800 border border-blue-200']">
+                      <span v-if="proj.key" :class="['px-1.5 py-0.2 rounded text-[9px] font-mono font-bold shrink-0', isDarkMode ? 'bg-midnight-950 text-emerald-400 border border-emerald-500/30' : 'bg-blue-50 text-blue-800 border border-blue-200']">
                         {{ proj.key }}
                       </span>
                     </div>
 
-                    <div :class="['text-[11px] truncate pl-4.5 font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
+                    <div :class="['text-[11px] truncate pl-4.5 font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
                       {{ proj.description || 'Project description' }}
                     </div>
-                    <div v-if="proj.tags?.length" class="mt-1 flex gap-1 overflow-hidden pl-4.5">
-                      <span v-for="tag in proj.tags.slice(0, 3)" :key="tag" class="shrink-0 rounded bg-blue-950/50 px-1.5 py-0.5 text-[9px] font-semibold text-blue-300">#{{ tag }}</span>
+                    <div v-if="proj.tags?.length" class="mt-1 flex gap-1 overflow-hidden pl-4.5 font-mono">
+                      <span v-for="tag in proj.tags.slice(0, 3)" :key="tag" class="shrink-0 rounded bg-midnight-950 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-400 border border-midnight-800">#{{ tag }}</span>
                     </div>
                   </div>
 
                   <!-- Right side: Count Badge -->
-                  <span :class="['font-mono text-xs font-bold px-2 py-0.5 rounded-full shrink-0', isDarkMode ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-slate-100 text-slate-800 border border-slate-300']">
+                  <span :class="['font-mono text-xs font-bold px-2 py-0.5 rounded-full shrink-0 inline-flex items-center justify-center', isDarkMode ? 'bg-midnight-800 text-slate-300 border border-midnight-700' : 'bg-slate-100 text-slate-800 border border-slate-300']">
                     {{ getProjectTaskCount(proj.id) }}
                   </span>
                 </button>
@@ -2984,33 +2995,33 @@ onUnmounted(() => {
                   <button
                     @click.stop="activeProjectMenuId = activeProjectMenuId === proj.id ? null : proj.id"
                     :class="[
-                      'p-1 rounded-md text-xs cursor-pointer border font-bold',
-                      isDarkMode ? 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700' : 'bg-white text-slate-700 border-slate-300 shadow-xs hover:bg-slate-100'
+                      'h-7 w-7 rounded-lg text-xs cursor-pointer border font-bold inline-flex items-center justify-center shrink-0',
+                      isDarkMode ? 'bg-midnight-850 text-slate-200 border-midnight-700 hover:bg-midnight-800' : 'bg-white text-slate-700 border-slate-300 shadow-xs hover:bg-slate-100'
                     ]"
                   >
-                    •••
+                    <Icons name="MoreVertical" :size="13" />
                   </button>
 
                   <div
                     v-if="activeProjectMenuId === proj.id"
                     :class="[
                       'absolute right-0 top-full mt-1.5 w-36 rounded-xl border shadow-xl p-1.5 z-50 text-xs font-medium',
-                      isDarkMode ? 'bg-[#0f172a] border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-800'
+                      isDarkMode ? 'bg-midnight-900 border-midnight-700 text-slate-200' : 'bg-white border-slate-300 text-slate-800'
                     ]"
                     @click.stop
                   >
                     <button
                       @click.stop="openEditProjectModal(proj)"
-                      class="w-full px-2.5 py-1.5 rounded-lg text-left hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer font-medium"
+                      class="w-full px-2.5 py-1.5 rounded-lg text-left hover:bg-midnight-850 flex items-center gap-2 cursor-pointer font-medium"
                     >
-                      <span>✏️</span>
+                      <Icons name="Edit3" :size="13" class="text-slate-300" />
                       <span>Edit</span>
                     </button>
                     <button
                       @click.stop="handleDeleteProject(proj)"
-                      class="w-full px-2.5 py-1.5 rounded-lg text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-2 cursor-pointer font-medium"
+                      class="w-full px-2.5 py-1.5 rounded-lg text-left text-rose-400 hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer font-medium"
                     >
-                      <span>🗑️</span>
+                      <Icons name="Trash2" :size="13" class="text-rose-400" />
                       <span>Delete Project</span>
                     </button>
                   </div>
@@ -3018,57 +3029,56 @@ onUnmounted(() => {
               </div>
             </div>
           </div>
-
         </div>
 
         <!-- Sidebar Footer -->
-        <div :class="['p-3.5 border-t space-y-2', isDarkMode ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-slate-50']">
+        <div :class="['p-3.5 border-t space-y-2', isDarkMode ? 'border-midnight-800 bg-midnight-950' : 'border-slate-200 bg-slate-50']">
           <!-- AI Sprint Plan Button in Sidebar -->
           <button
             @click="openAiGeneratorModal"
-            class="w-full py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+            class="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 font-extrabold text-xs shadow-xs transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            <span>✨</span>
-            <span>AI Project Planner</span>
+            <Icons name="Sparkles" :size="14" class="text-midnight-950" />
+            <span class="leading-none">AI Project Planner</span>
           </button>
 
           <button
             @click="openCreateProjectModal()"
             :class="[
-              'w-full py-2 px-3 rounded-xl border font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer',
-              isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-100' : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-900 shadow-xs'
+              'w-full py-2 px-3 rounded-xl border font-bold text-xs transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer',
+              isDarkMode ? 'bg-midnight-850 hover:bg-midnight-800 border-midnight-700 text-slate-100' : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-900 shadow-xs'
             ]"
           >
-            <span>+</span>
-            <span>Add Project</span>
+            <Icons name="Plus" :size="14" />
+            <span class="leading-none">Add Project</span>
           </button>
         </div>
       </aside>
 
       <div
         v-if="isSidebarOpen"
-        class="fixed inset-0 top-16 z-20 bg-slate-950/30 md:hidden"
+        class="fixed inset-0 top-16 z-20 bg-midnight-950/40 md:hidden backdrop-blur-xs"
         @click="isSidebarOpen = false"
       ></div>
 
       <!-- MAIN WORKSPACE -->
-      <main :class="['min-w-0 flex-1 flex flex-col h-full overflow-hidden', isDarkMode ? 'bg-[#070b14]' : 'bg-[#f8fafc]']">
+      <main :class="['min-w-0 flex-1 flex flex-col h-full overflow-hidden relative', isDarkMode ? 'bg-midnight-900/40' : 'bg-[#f8fafc]']">
         <!-- =================================================================== -->
         <!-- MODERN 2-TIER PROJECT SUB-HEADER & SMART FILTER BAR (STICKY)        -->
         <!-- =================================================================== -->
-        <div :class="['p-4 sm:p-5 border-b space-y-3.5 shrink-0 shadow-xs backdrop-blur-md transition-colors z-20', isDarkMode ? 'bg-slate-950/90 border-slate-800/90' : 'bg-white/95 border-slate-200/90']">
+        <div :class="['p-4 sm:p-5 border-b space-y-3.5 shrink-0 shadow-xs backdrop-blur-xl transition-colors z-20', isDarkMode ? 'bg-midnight-900/90 border-midnight-800/80' : 'bg-white/95 border-slate-200/90']">
           <!-- TIER 1: PROJECT BANNER & ANALYTICS METRICS -->
           <div class="flex flex-wrap items-center justify-between gap-4">
             <!-- Left: Project Identity -->
             <div class="flex items-start gap-3.5 min-w-0 max-w-2xl">
               <div
-                class="w-11 h-11 rounded-2xl flex items-center justify-center text-xl shadow-xs shrink-0 border"
+                class="w-11 h-11 rounded-2xl inline-flex items-center justify-center shadow-xs shrink-0 border"
                 :style="{
-                  backgroundColor: activeProjectObject?.color ? `${activeProjectObject.color}20` : (isDarkMode ? '#1e293b' : '#f1f5f9'),
-                  borderColor: activeProjectObject?.color || (isDarkMode ? '#334155' : '#cbd5e1')
+                  backgroundColor: activeProjectObject?.color ? `${activeProjectObject.color}20` : (isDarkMode ? '#0c1220' : '#f1f5f9'),
+                  borderColor: activeProjectObject?.color || (isDarkMode ? '#141b2d' : '#cbd5e1')
                 }"
               >
-                <span>▦</span>
+                <Icons name="Briefcase" :size="20" class="text-phantom-mint" />
               </div>
 
               <div class="min-w-0">
@@ -3077,14 +3087,14 @@ onUnmounted(() => {
                     {{ activeProjectObject ? activeProjectObject.title : 'All Projects & Tasks' }}
                   </h1>
 
-                  <span v-if="activeProjectObject?.key" class="px-2.5 py-0.5 rounded-lg bg-blue-100 text-blue-900 dark:bg-blue-950/80 dark:text-blue-300 font-mono text-xs font-bold border border-blue-300 dark:border-blue-800 shadow-xs">
+                  <span v-if="activeProjectObject?.key" class="px-2.5 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 font-mono text-xs font-bold border border-emerald-500/30 shadow-xs inline-flex items-center justify-center">
                     {{ activeProjectObject.key }}
                   </span>
 
-                  <span v-if="activeProjectObject" class="px-2.5 py-0.5 rounded-lg font-mono text-[11px] font-bold border shadow-xs bg-blue-100 text-blue-950 dark:bg-blue-950 dark:text-blue-300 border-blue-300 dark:border-blue-800">PROJECT</span>
+                  <span v-if="activeProjectObject" class="px-2.5 py-0.5 rounded-lg font-mono text-[11px] font-bold border shadow-xs bg-cyan-500/10 text-cyan-300 border-cyan-500/30 inline-flex items-center justify-center">PROJECT</span>
                 </div>
 
-                <p :class="['text-xs sm:text-sm mt-1 line-clamp-1 font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-700']">
+                <p :class="['text-xs sm:text-sm mt-1 line-clamp-1 font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-700']">
                   {{ activeProjectObject?.tagline || activeProjectObject?.description || 'Manage project delivery, sprints and task backlog.' }}
                 </p>
               </div>
@@ -3093,24 +3103,24 @@ onUnmounted(() => {
             <!-- Right: Project Analytics & Health Metric Pills -->
             <div class="flex flex-wrap items-center gap-2.5 font-mono text-xs">
               <!-- Total Tasks Pill -->
-              <div :class="['px-3.5 py-2 rounded-2xl border font-bold flex items-center gap-2 shadow-xs', isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-200' : 'bg-white border-slate-300 text-slate-900 shadow-xs']">
+              <div :class="['px-3.5 py-2 rounded-2xl border font-bold flex items-center gap-2 shadow-xs', isDarkMode ? 'bg-midnight-850 border-midnight-800 text-slate-200' : 'bg-white border-slate-300 text-slate-900 shadow-xs']">
                 <span :class="isDarkMode ? 'text-slate-400' : 'text-slate-700 font-bold'">Tasks:</span>
-                <strong class="text-blue-600 dark:text-blue-400 text-sm font-black">{{ activeProjectTasks.length }}</strong>
+                <strong class="text-phantom-mint text-sm font-black">{{ activeProjectTasks.length }}</strong>
               </div>
 
               <!-- Story Points Pill -->
-              <div :class="['px-3.5 py-2 rounded-2xl border font-bold flex items-center gap-2 shadow-xs', isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-200' : 'bg-white border-slate-300 text-slate-900 shadow-xs']">
+              <div :class="['px-3.5 py-2 rounded-2xl border font-bold flex items-center gap-2 shadow-xs', isDarkMode ? 'bg-midnight-850 border-midnight-800 text-slate-200' : 'bg-white border-slate-300 text-slate-900 shadow-xs']">
                 <span :class="isDarkMode ? 'text-slate-400' : 'text-slate-700 font-bold'">Points:</span>
-                <strong class="text-purple-600 dark:text-purple-400 text-sm font-black">{{ activeProjectStoryPoints }}</strong>
+                <strong class="text-purple-400 text-sm font-black">{{ activeProjectStoryPoints }}</strong>
               </div>
 
               <!-- Progress % Pill with Mini Bar -->
-              <div :class="['px-3.5 py-2 rounded-2xl border font-bold flex items-center gap-2.5 shadow-xs', isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-200' : 'bg-white border-slate-300 text-slate-900 shadow-xs']">
+              <div :class="['px-3.5 py-2 rounded-2xl border font-bold flex items-center gap-2.5 shadow-xs', isDarkMode ? 'bg-midnight-850 border-midnight-800 text-slate-200' : 'bg-white border-slate-300 text-slate-900 shadow-xs']">
                 <span :class="isDarkMode ? 'text-slate-400' : 'text-slate-700 font-bold'">Progress:</span>
-                <div class="w-14 h-2.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                  <div class="h-full bg-emerald-500 rounded-full transition-all duration-500" :style="{ width: `${activeProjectProgressPercent}%` }"></div>
+                <div class="w-14 h-2.5 rounded-full bg-midnight-950 border border-midnight-800 overflow-hidden">
+                  <div class="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500" :style="{ width: `${activeProjectProgressPercent}%` }"></div>
                 </div>
-                <strong class="text-emerald-700 dark:text-emerald-400 text-xs font-black">{{ activeProjectProgressPercent }}%</strong>
+                <strong class="text-phantom-mint text-xs font-black">{{ activeProjectProgressPercent }}%</strong>
               </div>
 
               <!-- Warning Pill (Click to filter) -->
@@ -3118,15 +3128,15 @@ onUnmounted(() => {
                 v-if="activeProjectWarningCount > 0"
                 @click="filterHealth = filterHealth === 'warning' ? 'all' : 'warning'"
                 :class="[
-                  'px-3.5 py-2 rounded-2xl border font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-xs',
+                  'px-3.5 py-2 rounded-2xl border font-bold cursor-pointer transition-all inline-flex items-center gap-1.5 shadow-xs shrink-0',
                   filterHealth === 'warning'
                     ? 'bg-rose-600 text-white border-rose-600 ring-2 ring-rose-300 shadow-md'
                     : (isDarkMode ? 'bg-rose-950/80 border-rose-800 text-rose-300 hover:bg-rose-900' : 'bg-rose-100 border-rose-300 text-rose-950 hover:bg-rose-200 font-bold')
                 ]"
                 title="Filter overdue and at-risk tasks"
               >
-                <span>🚨</span>
-                <strong class="font-black">{{ activeProjectWarningCount }} Attention</strong>
+                <Icons name="AlertTriangle" :size="13" class="text-rose-300" />
+                <strong class="font-black leading-none">{{ activeProjectWarningCount }} Attention</strong>
               </button>
 
               <!-- Documents Button -->
@@ -3134,13 +3144,13 @@ onUnmounted(() => {
                 v-if="activeProjectObject?.id"
                 @click="isDocsModalOpen = true; sound.playClick();"
                 :class="[
-                  'px-3 py-2 rounded-2xl border font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-all hover:scale-105',
-                  isDarkMode ? 'bg-slate-900 border-slate-700 text-cyan-300 hover:border-cyan-500/60 hover:bg-cyan-950/30' : 'bg-cyan-50 border-cyan-200 text-cyan-900 hover:bg-cyan-100'
+                  'px-3 py-2 rounded-2xl border font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-all hover:scale-105 shrink-0',
+                  isDarkMode ? 'bg-midnight-850 border-midnight-800 text-cyan-300 hover:border-cyan-500/60 hover:bg-cyan-950/30' : 'bg-cyan-50 border-cyan-200 text-cyan-900 hover:bg-cyan-100'
                 ]"
                 title="Open project documents and GitHub sync"
               >
-                <span>📚</span>
-                <span class="text-xs">Docs</span>
+                <Icons name="FileText" :size="13" class="text-cyan-400" />
+                <span class="text-xs leading-none">Docs</span>
               </button>
 
               <!-- Releases Button -->
@@ -3148,22 +3158,20 @@ onUnmounted(() => {
                 v-if="activeProjectObject?.id"
                 @click="isReleasesModalOpen = true; sound.playClick();"
                 :class="[
-                  'px-3 py-2 rounded-2xl border font-bold flex items-center gap-1.5 shadow-xs cursor-pointer transition-all hover:scale-105',
-                  isDarkMode ? 'bg-slate-900 border-slate-700 text-emerald-300 hover:border-emerald-500/60 hover:bg-emerald-950/30' : 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100'
+                  'px-3 py-2 rounded-2xl border font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-all hover:scale-105 shrink-0',
+                  isDarkMode ? 'bg-midnight-850 border-midnight-800 text-emerald-300 hover:border-emerald-500/60 hover:bg-emerald-950/30' : 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100'
                 ]"
                 title="Open release history"
               >
-                <span>🚀</span>
-                <span class="text-xs">Releases</span>
+                <Icons name="Rocket" :size="13" class="text-emerald-400" />
+                <span class="text-xs leading-none">Releases</span>
               </button>
             </div>
           </div>
 
-
-
           <!-- TIER 2: SMART FILTER & QUICK ACTION BAR -->
-          <div :class="['flex flex-wrap items-center justify-between gap-3 pt-3.5 border-t text-xs', isDarkMode ? 'border-slate-800/80' : 'border-slate-200']">
-            <div class="flex flex-wrap items-center gap-2.5 flex-1 min-w-0">
+          <div :class="['flex flex-wrap items-center justify-between gap-3 pt-3.5 border-t text-xs', isDarkMode ? 'border-midnight-800/80' : 'border-slate-200']">
+            <div class="flex flex-wrap items-center gap-2.5 flex-1 min-w-0 font-mono">
               <!-- Search Input with Shortcut Badge -->
               <div class="relative min-w-[200px] max-w-xs flex-1">
                 <input
@@ -3172,13 +3180,13 @@ onUnmounted(() => {
                   type="text"
                   placeholder="Search tasks... (Press '/')"
                   :class="[
-                    'w-full border rounded-xl pl-8 pr-8 py-2 text-xs focus:outline-none focus:border-blue-500 shadow-xs font-medium transition-colors',
-                    isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'
+                    'w-full border rounded-xl pl-8 pr-8 py-2 text-xs focus:outline-none focus:border-phantom-mint/60 shadow-xs font-medium transition-colors',
+                    isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'
                   ]"
                 />
-                <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">🔍</span>
-                <span v-if="searchQuery" @click="searchQuery = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer font-bold">✕</span>
-                <span v-else class="absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.2 rounded border text-[10px] font-mono text-slate-400 border-slate-300 dark:border-slate-700 font-bold">/</span>
+                <Icons name="Search" :size="13" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <span v-if="searchQuery" @click="searchQuery = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer font-bold">✕</span>
+                <span v-else class="absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.2 rounded border text-[10px] font-mono text-slate-400 border-midnight-800 font-bold">/</span>
               </div>
 
               <!-- Health / Progress Warning Filter -->
@@ -3190,20 +3198,20 @@ onUnmounted(() => {
                     ? (isDarkMode ? 'bg-rose-950 text-rose-300 border-rose-600' : 'bg-rose-50 text-rose-900 border-rose-400')
                     : filterHealth === 'at_risk'
                     ? (isDarkMode ? 'bg-amber-950 text-amber-300 border-amber-600' : 'bg-amber-50 text-amber-900 border-amber-400')
-                    : (isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
+                    : (isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
                 ]"
               >
-                <option value="all">📊 All progress</option>
+                <option value="all">All progress</option>
                 <option value="warning" :disabled="activeProjectWarningCount === 0">
-                  ⚠️ Attention needed (Overdue + At risk) ({{ activeProjectWarningCount }})
+                  Attention needed (Overdue + At risk) ({{ activeProjectWarningCount }})
                 </option>
                 <option value="overdue" :disabled="overdueTasksCount === 0">
-                  🚨 Overdue only ({{ overdueTasksCount }})
+                  Overdue only ({{ overdueTasksCount }})
                 </option>
                 <option value="at_risk" :disabled="delayedTasksCount === 0">
-                  ⚠️ At risk only ({{ delayedTasksCount }})
+                  At risk only ({{ delayedTasksCount }})
                 </option>
-                <option value="on_track">🟢 On track</option>
+                <option value="on_track">On track</option>
               </select>
 
               <!-- Issue Type Filter -->
@@ -3212,15 +3220,15 @@ onUnmounted(() => {
                 :class="[
                   'border text-xs rounded-xl px-3 py-2 focus:outline-none cursor-pointer shadow-xs font-semibold',
                   filterIssueType !== 'all'
-                    ? 'bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-300 border-blue-300 dark:border-blue-700 font-bold'
-                    : (isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
+                    ? (isDarkMode ? 'bg-cyan-950/80 text-cyan-300 border-cyan-700 font-bold' : 'bg-blue-50 text-blue-900 border-blue-300 font-bold')
+                    : (isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
                 ]"
               >
                 <option value="all">All issue types</option>
-                <option value="story">📖 Story</option>
-                <option value="task">☑️ Task</option>
-                <option value="bug">🐞 Bug</option>
-                <option value="epic">⚡ Epic</option>
+                <option value="story">Story</option>
+                <option value="task">Task</option>
+                <option value="bug">Bug</option>
+                <option value="epic">Epic</option>
               </select>
 
               <!-- Priority Filter -->
@@ -3229,15 +3237,15 @@ onUnmounted(() => {
                 :class="[
                   'border text-xs rounded-xl px-3 py-2 focus:outline-none cursor-pointer shadow-xs font-semibold',
                   filterPriority !== 'all'
-                    ? 'bg-amber-50 dark:bg-amber-950 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-700 font-bold'
-                    : (isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
+                    ? (isDarkMode ? 'bg-amber-950/80 text-amber-300 border-amber-700 font-bold' : 'bg-amber-50 text-amber-900 border-amber-300 font-bold')
+                    : (isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
                 ]"
               >
                 <option value="all">All priorities</option>
-                <option value="urgent">🔴 Urgent</option>
-                <option value="high">🟠 High</option>
-                <option value="medium">🟡 Medium</option>
-                <option value="low">⚪ Low</option>
+                <option value="urgent">Urgent</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
               </select>
 
               <!-- Epic Filter -->
@@ -3246,14 +3254,14 @@ onUnmounted(() => {
                 :class="[
                   'border text-xs rounded-xl px-3 py-2 focus:outline-none cursor-pointer shadow-xs font-semibold',
                   filterEpicId !== 'all'
-                    ? 'bg-purple-50 dark:bg-purple-950 text-purple-900 dark:text-purple-300 border-purple-300 dark:border-purple-700 font-bold'
-                    : (isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
+                    ? (isDarkMode ? 'bg-purple-950/80 text-purple-300 border-purple-700 font-bold' : 'bg-purple-50 text-purple-900 border-purple-300 font-bold')
+                    : (isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
                 ]"
               >
                 <option value="all">All Epics</option>
                 <option value="none">No Epic</option>
                 <option v-for="epic in epicList" :key="epic.id" :value="epic.id">
-                  ⚡ {{ epic.issue_key }} — {{ epic.title }}
+                  {{ epic.issue_key }} — {{ epic.title }}
                 </option>
               </select>
 
@@ -3261,16 +3269,16 @@ onUnmounted(() => {
               <button
                 v-if="hasActiveFilters"
                 @click="resetFilters"
-                class="px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-rose-200 dark:border-rose-800 transition-colors flex items-center gap-1 cursor-pointer shadow-xs"
-              title="Clear all active filters"
+                class="px-3 py-2 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-950/50 border border-rose-800 transition-colors inline-flex items-center gap-1 cursor-pointer shadow-xs shrink-0"
+                title="Clear all active filters"
               >
-                <span>✕</span>
-                <span>Clear Filters</span>
+                <Icons name="X" :size="12" />
+                <span class="leading-none">Clear Filters</span>
               </button>
             </div>
 
             <!-- Quick Add in Bar -->
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 font-mono">
               <input
                 ref="quickInputRef"
                 v-model="quickInputText"
@@ -3278,8 +3286,8 @@ onUnmounted(() => {
                 placeholder="+ Quick add task... (Enter)"
                 @keydown.enter="handleQuickCreate(null)"
                 :class="[
-                  'min-w-[220px] sm:min-w-[260px] border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-blue-500 shadow-xs font-medium transition-colors',
-                  isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'
+                  'min-w-[220px] sm:min-w-[260px] border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-phantom-mint/60 shadow-xs font-medium transition-colors',
+                  isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'
                 ]"
               />
             </div>
@@ -3335,63 +3343,6 @@ onUnmounted(() => {
             </button>
           </div>
         </section>
-        <!-- Keep the board as the primary detail-page surface. Daily planning is
-             available from the task actions and should not push the repo board down. -->
-        <section v-if="false" :class="['p-4 sm:p-6 border-b', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
-          <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
-            <div>
-              <p :class="['text-[10px] font-mono font-bold uppercase tracking-widest', isDarkMode ? 'text-indigo-300' : 'text-indigo-700']">Personal Command Center</p>
-              <h2 :class="['text-lg font-bold tracking-tight', isDarkMode ? 'text-white' : 'text-slate-950']">What needs your attention today?</h2>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <button @click="startMyDay" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer shadow-xs">Start my day</button>
-              <button @click="openNextAction" :disabled="!nextActionTask" class="px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer disabled:opacity-50" :class="isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-800'">▶ Next action</button>
-              <button @click="openDailyReview" class="px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer" :class="isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-800'">End my day</button>
-            </div>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <button v-for="task in dailyFocusTasks" :key="task.id" @click="openTaskDrawer(task)" :class="['text-left p-3 rounded-2xl border transition-all hover:-translate-y-0.5 cursor-pointer', isDarkMode ? 'bg-slate-950/70 border-slate-800 hover:border-indigo-500' : 'bg-white border-slate-200 hover:border-indigo-400 shadow-xs']">
-              <div class="flex items-center justify-between gap-2 mb-1">
-                <span class="font-mono text-[10px] text-slate-500">{{ task.issue_key }}</span>
-                <span class="text-[10px] font-bold uppercase" :class="task.priority === 'urgent' ? 'text-rose-600' : task.priority === 'high' ? 'text-amber-600' : 'text-slate-500'">{{ task.priority }}</span>
-              </div>
-              <p :class="['text-xs font-bold line-clamp-2', isDarkMode ? 'text-slate-100' : 'text-slate-900']">{{ task.title }}</p>
-              <p class="mt-1 text-[10px] text-slate-500 truncate">{{ task.project?.title || 'Project' }} · {{ task.due_date || 'No due date' }}</p>
-            </button>
-            <TasksEmptyState
-              v-if="dailyFocusTasks.length === 0"
-              :dark="isDarkMode"
-              icon="✓"
-              title="No open tasks"
-              description="Create the next plan or review the backlog."
-            />
-          </div>
-          <div class="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-3">
-            <div :class="['rounded-xl border p-4', isDarkMode ? 'bg-slate-950/40 border-slate-800' : 'bg-white border-slate-200']">
-              <div class="flex items-center justify-between mb-3"><h3 class="text-xs font-bold">Attention</h3><span class="font-mono text-[10px] text-slate-500">{{ warningTasksCount }}</span></div>
-              <button v-for="task in taskList.filter(t => t.status !== 'done' && (getTaskDelayStatus(t).isOverdue || getTaskDelayStatus(t).isDelayed)).slice(0, 3)" :key="task.id" @click="openTaskDrawer(task)" class="w-full flex items-center gap-2 border-b py-2 text-left last:border-0 border-slate-200 dark:border-slate-800">
-                <span class="h-2 w-2 rounded-full bg-rose-500 shrink-0"></span><span class="truncate text-[11px] font-medium">{{ task.title }}</span>
-              </button>
-              <p v-if="!taskList.some(t => t.status !== 'done' && (getTaskDelayStatus(t).isOverdue || getTaskDelayStatus(t).isDelayed))" class="text-[11px] text-slate-500">No alerts.</p>
-            </div>
-            <div :class="['rounded-xl border p-4', isDarkMode ? 'bg-slate-950/40 border-slate-800' : 'bg-white border-slate-200']">
-              <div class="flex items-center justify-between mb-3"><h3 class="text-xs font-bold">Current sprint</h3><span class="text-[10px] text-slate-500">{{ activeSprint?.end_date || 'No deadline' }}</span></div>
-              <template v-if="activeSprint">
-                <p class="truncate text-[11px] font-medium">{{ activeSprint?.name }}</p>
-                <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"><div class="h-full rounded-full bg-blue-600" :style="{ width: ((activeSprint?.total_tasks ?? 0) > 0 ? Math.round(((activeSprint?.done_tasks ?? 0) / (activeSprint?.total_tasks ?? 1)) * 100) : 0) + '%' }"></div></div>
-                <p class="mt-2 text-[10px] text-slate-500">{{ activeSprint?.done_tasks || 0 }}/{{ activeSprint?.total_tasks || 0 }} tasks complete</p>
-              </template>
-              <p v-else class="text-[11px] text-slate-500">No active sprint.</p>
-            </div>
-            <div :class="['rounded-xl border p-4', isDarkMode ? 'bg-slate-950/40 border-slate-800' : 'bg-white border-slate-200']">
-              <div class="flex items-center justify-between mb-3"><h3 class="text-xs font-bold">Recently completed</h3><span class="text-[10px] text-slate-500">{{ completedRecentlyTasks.length }}</span></div>
-              <button v-for="task in completedRecentlyTasks.slice(0, 3)" :key="task.id" @click="openTaskDrawer(task)" class="w-full flex items-center gap-2 border-b py-2 text-left last:border-0 border-slate-200 dark:border-slate-800">
-                <span class="text-emerald-600">✓</span><span class="truncate text-[11px] font-medium">{{ task.title }}</span>
-              </button>
-              <p v-if="!completedRecentlyTasks.length" class="text-[11px] text-slate-500">No recently completed tasks.</p>
-            </div>
-          </div>
-        </section>
 
         <!-- ===================================================================== -->
         <!-- VIEW 1: CLEAN KANBAN BOARD (HIGH CONTRAST & CARD ELEVATION)          -->
@@ -3408,8 +3359,8 @@ onUnmounted(() => {
             ]"
           >
             <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-lg animate-bounce">
-                🚨
+              <div class="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 inline-flex items-center justify-center shrink-0 text-lg animate-bounce">
+                <Icons name="AlertTriangle" :size="18" class="text-rose-400" />
               </div>
               <div>
                 <div class="flex items-center gap-2">
@@ -3428,19 +3379,20 @@ onUnmounted(() => {
               <button
                 v-if="filterHealth !== 'warning'"
                 @click="filterHealth = 'warning'"
-                class="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs cursor-pointer transition-colors"
+                class="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs cursor-pointer transition-colors inline-flex items-center gap-1.5 shrink-0"
               >
-                🚨 View Details
+                <Icons name="AlertTriangle" :size="13" />
+                <span class="leading-none">View Details</span>
               </button>
               <button
                 v-else
                 @click="filterHealth = 'all'"
                 :class="[
-                  'px-3 py-1.5 rounded-xl border font-bold text-xs cursor-pointer transition-colors',
-                  isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white' : 'bg-white border-slate-300 text-slate-700 hover:text-slate-950'
+                  'px-3 py-1.5 rounded-xl border font-bold text-xs cursor-pointer transition-colors inline-flex items-center justify-center shrink-0',
+                  isDarkMode ? 'bg-midnight-850 border-midnight-700 text-slate-300 hover:text-white' : 'bg-white border-slate-300 text-slate-700 hover:text-slate-950'
                 ]"
               >
-                Clear filter
+                <span class="leading-none">Clear filter</span>
               </button>
             </div>
           </div>
@@ -3450,17 +3402,17 @@ onUnmounted(() => {
             v-if="activeSprint"
             :class="[
               'mb-5 p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-3 shadow-xs',
-              isDarkMode ? 'bg-slate-900/80 border-blue-500/50' : 'bg-white border-blue-300 ring-2 ring-blue-50 shadow-sm'
+              isDarkMode ? 'bg-midnight-900/90 border-emerald-500/40 backdrop-blur-xl' : 'bg-white border-blue-300 ring-2 ring-blue-50 shadow-sm'
             ]"
           >
             <div class="flex items-center gap-3">
-              <span class="w-3 h-3 rounded-full bg-blue-600 animate-pulse"></span>
+              <span class="w-3 h-3 rounded-full bg-phantom-mint animate-pulse shrink-0"></span>
               <div>
                 <div class="flex items-center gap-2">
                   <span :class="['font-bold text-sm sm:text-base', isDarkMode ? 'text-white' : 'text-slate-950']">{{ activeSprint.name }}</span>
-                  <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-100 text-emerald-950 font-bold border border-emerald-300 shadow-xs">ACTIVE</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/30 shadow-xs inline-flex items-center justify-center">ACTIVE</span>
                 </div>
-                <p v-if="activeSprint.goal" :class="['text-xs mt-0.5 font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-700']">{{ activeSprint.goal }}</p>
+                <p v-if="activeSprint.goal" :class="['text-xs mt-0.5 font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-700']">{{ activeSprint.goal }}</p>
               </div>
             </div>
 
@@ -3471,11 +3423,12 @@ onUnmounted(() => {
               <button
                 @click="openCompleteSprintModal(activeSprint)"
                 :class="[
-                  'px-3.5 py-1.5 rounded-xl text-xs font-bold border cursor-pointer transition-colors shadow-xs',
+                  'px-3.5 py-1.5 rounded-xl text-xs font-bold border cursor-pointer transition-colors shadow-xs inline-flex items-center gap-1.5 shrink-0',
                   isDarkMode ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700 hover:bg-emerald-900' : 'bg-emerald-50 text-emerald-950 border-emerald-300 hover:bg-emerald-100 font-bold'
                 ]"
               >
-                Complete Sprint 🏁
+                <Icons name="CheckCircle" :size="13" class="text-emerald-400" />
+                <span class="leading-none">Complete Sprint</span>
               </button>
             </div>
           </div>
@@ -3492,17 +3445,17 @@ onUnmounted(() => {
           <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 h-full items-start">
             <!-- 1. TO DO -->
             <div
-              :class="['flex flex-col border rounded-2xl p-3.5 min-h-[480px] transition-colors', isDarkMode ? 'bg-slate-950/90 border-slate-800' : 'bg-slate-100/90 border-slate-200 shadow-inner']"
+              :class="['flex flex-col border rounded-2xl p-3.5 min-h-[480px] transition-colors', isDarkMode ? 'bg-midnight-900/90 border-midnight-800/80' : 'bg-slate-100/90 border-slate-200 shadow-inner']"
               @dragover="onDragOverColumn($event, 'todo')"
               @drop="onDropColumn('todo')"
             >
-              <div :class="['flex items-center justify-between pb-3 mb-3 border-b px-1', isDarkMode ? 'border-slate-800' : 'border-slate-300']">
+              <div :class="['flex items-center justify-between pb-3 mb-3 border-b px-1', isDarkMode ? 'border-midnight-800/80' : 'border-slate-300']">
                 <span class="flex items-center gap-2 font-mono text-xs font-bold text-slate-900 dark:text-slate-200 uppercase tracking-wide">
-                  <span class="w-2 h-2 rounded-full bg-sky-400"></span>
-                  <Icons name="Clock" :size="13" class="text-sky-400" />
+                  <span class="w-2 h-2 rounded-full bg-sky-400 shrink-0"></span>
+                  <Icons name="Clock" :size="13" class="text-sky-400 shrink-0" />
                   <span>TO DO</span>
                 </span>
-                <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border', isDarkMode ? 'bg-slate-900 text-sky-300 border-sky-900/60' : 'bg-white text-slate-950 border-slate-300 shadow-xs']">
+                <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border inline-flex items-center justify-center shrink-0', isDarkMode ? 'bg-midnight-850 text-sky-300 border-midnight-700' : 'bg-white text-slate-950 border-slate-300 shadow-xs']">
                   {{ todoTasks.length }}
                 </span>
               </div>
@@ -3516,14 +3469,14 @@ onUnmounted(() => {
                   @click="openTaskDrawer(task)"
                   :class="[
                     'p-3 rounded-xl border transition-all duration-150 cursor-pointer space-y-2 group shadow-xs hover:scale-[1.01]',
-                    isDarkMode ? 'bg-[#0b101c] border-slate-800/90 hover:border-sky-500/60 hover:shadow-lg hover:shadow-sky-950/20' : 'bg-white border-slate-200 hover:border-sky-500 hover:shadow-md',
+                    isDarkMode ? 'bg-midnight-850 border-midnight-800 hover:border-sky-500/60 hover:shadow-lg hover:shadow-sky-950/20' : 'bg-white border-slate-200 hover:border-sky-500 hover:shadow-md',
                     getTaskDelayStatus(task).cardBorderClass
                   ]"
                 >
                   <!-- Next Up Recommended Spotlight Banner -->
                   <div
                     v-if="task.id === webNextUpTaskId"
-                    class="flex items-center justify-between px-2 py-0.5 rounded-lg bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-transparent border border-amber-500/40 text-[9px] font-bold text-amber-600 dark:text-amber-300 tracking-wide uppercase shadow-xs"
+                    class="flex items-center justify-between px-2 py-0.5 rounded-lg bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-transparent border border-amber-500/40 text-[9px] font-bold text-amber-600 dark:text-amber-300 tracking-wide uppercase shadow-xs font-mono"
                   >
                     <span class="flex items-center gap-1.5">
                       <Icons name="Sparkles" :size="12" class="text-amber-400 animate-pulse" />
@@ -3534,14 +3487,14 @@ onUnmounted(() => {
 
                   <div class="flex items-center justify-between text-xs">
                     <div class="flex items-center gap-1.5">
-                      <Icons :name="getIssueTypeBadge(task.issue_type).icon" :size="13" class="shrink-0 text-blue-400" />
-                      <span :class="['font-mono text-[11px] font-bold px-1.5 py-0.2 rounded border', isDarkMode ? 'bg-slate-900 text-blue-300 border-blue-900/60' : 'bg-blue-50 text-blue-900 border-blue-200']">{{ task.issue_key }}</span>
+                      <Icons :name="getIssueTypeBadge(task.issue_type).icon" :size="13" class="shrink-0 text-cyan-400" />
+                      <span :class="['font-mono text-[11px] font-bold px-1.5 py-0.2 rounded border', isDarkMode ? 'bg-midnight-950 text-cyan-300 border-midnight-700' : 'bg-blue-50 text-blue-900 border-blue-200']">{{ task.issue_key }}</span>
                     </div>
-                    <div class="flex items-center gap-1">
+                    <div class="flex items-center gap-1 font-mono">
                       <span v-if="getTaskDelayStatus(task).isOverdue || getTaskDelayStatus(task).isDelayed" :class="['px-1.5 py-0.2 rounded text-[10px] font-bold border', getTaskDelayStatus(task).badgeClass]" :title="getTaskDelayStatus(task).reason">
                         {{ getTaskDelayStatus(task).label }}
                       </span>
-                      <span v-if="task.story_points" :class="['px-1.5 py-0.2 rounded text-[11px] font-mono font-bold border', isDarkMode ? 'bg-indigo-950/80 text-indigo-300 border-indigo-800' : 'bg-indigo-50 text-indigo-900 border-indigo-200']">
+                      <span v-if="task.story_points" :class="['px-1.5 py-0.2 rounded text-[11px] font-mono font-bold border', isDarkMode ? 'bg-midnight-950 text-purple-300 border-midnight-700' : 'bg-indigo-50 text-indigo-900 border-indigo-200']">
                         {{ task.story_points }} pts
                       </span>
                     </div>
@@ -3551,52 +3504,52 @@ onUnmounted(() => {
                     {{ task.title }}
                   </h4>
 
-                  <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-medium">
-                    <span class="text-slate-600 dark:text-slate-300">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
-                    <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-700 dark:text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
-                    <span v-if="taskExecutionMeta(task).reconsidered" class="font-bold text-rose-700 dark:text-rose-300">· Needs review: a prerequisite moved back from done</span>
+                  <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-mono">
+                    <span class="text-slate-400">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
+                    <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).reconsidered" class="font-bold text-rose-400">· Needs review: a prerequisite moved back from done</span>
                   </div>
 
-                  <div v-if="taskExecutionMeta(task).dependents.length" class="flex flex-wrap items-center gap-1 text-[10px] font-semibold">
-                    <span class="text-slate-500 dark:text-slate-400">Unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
-                    <span v-if="taskExecutionMeta(task).dependentReconsideration.length" class="text-rose-700 dark:text-rose-300">· reconsider dependent work: {{ taskExecutionMeta(task).dependentReconsideration.join(', ') }}</span>
+                  <div v-if="taskExecutionMeta(task).dependents.length" class="flex flex-wrap items-center gap-1 text-[10px] font-mono font-semibold">
+                    <span class="text-slate-400">Unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).dependentReconsideration.length" class="text-rose-400">· reconsider dependent work: {{ taskExecutionMeta(task).dependentReconsideration.join(', ') }}</span>
                   </div>
 
                   <!-- Subtask & Due Date mini indicator -->
                   <div v-if="task.subtasks?.length || task.due_date" :class="['flex items-center justify-between text-[10px] font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600 font-semibold']">
                     <span v-if="task.subtasks?.length" class="flex items-center gap-1.5">
-                      <Icons name="ListChecks" :size="12" class="text-indigo-400" />
+                      <Icons name="ListChecks" :size="12" class="text-indigo-400 shrink-0" />
                       <span>{{ task.subtasks.filter(s => s.done).length }}/{{ task.subtasks.length }}</span>
                     </span>
-                    <span v-if="task.due_date" :class="['flex items-center gap-1.5', getTaskDelayStatus(task).isOverdue ? 'text-rose-500 font-bold' : '']">
+                    <span v-if="task.due_date" :class="['flex items-center gap-1.5', getTaskDelayStatus(task).isOverdue ? 'text-rose-400 font-bold' : '']">
                       <Icons name="Clock" :size="12" :class="getTaskDelayStatus(task).isOverdue ? 'text-rose-400' : 'text-slate-400'" />
                       <span>{{ task.due_date }}</span>
                     </span>
                   </div>
 
-                  <div :class="['flex items-center justify-between pt-1.5 border-t text-[10px]', isDarkMode ? 'border-slate-800/80' : 'border-slate-100']">
+                  <div :class="['flex items-center justify-between pt-1.5 border-t text-[10px]', isDarkMode ? 'border-midnight-800' : 'border-slate-100']">
                     <div class="flex items-center gap-1.5">
                       <span :class="['px-1.5 py-0.2 rounded border font-medium', getCategoryBadge(task.category).class]">
                         {{ getCategoryBadge(task.category).label }}
                       </span>
-                      <span :class="['px-1.5 py-0.2 rounded border font-semibold flex items-center gap-1', getPriorityBadge(task.priority).class]">
+                      <span :class="['px-1.5 py-0.2 rounded border font-semibold inline-flex items-center gap-1', getPriorityBadge(task.priority).class]">
                         <Icons :name="getPriorityBadge(task.priority).icon" :size="10" />
-                        <span>{{ getPriorityBadge(task.priority).label }}</span>
+                        <span class="leading-none">{{ getPriorityBadge(task.priority).label }}</span>
                       </span>
                     </div>
                     <button
                       @click.stop="openRemoteDispatch(task)"
                       :disabled="!executionGateFor(task).allowed"
-                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer inline-flex items-center justify-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                       title="⚡ Dispatch to Connected Desktop Agent"
                     >
-                      <Icons name="Zap" :size="11" class="text-amber-300" />
-                      <span>Dispatch</span>
+                      <Icons name="Zap" :size="11" class="text-phantom-mint" />
+                      <span class="leading-none">⚡ Dispatch to Connected Desktop Agent</span>
                     </button>
                   </div>
                 </div>
 
-                <div v-if="todoTasks.length === 0" class="h-24 border-2 border-dashed border-slate-300 dark:border-slate-800/80 rounded-xl flex items-center justify-center text-xs text-slate-500 font-medium">
+                <div v-if="todoTasks.length === 0" class="h-24 border-2 border-dashed border-slate-300 dark:border-midnight-800 rounded-xl flex items-center justify-center text-xs text-slate-500 font-medium font-mono">
                   Drag tasks here
                 </div>
               </div>
@@ -3604,17 +3557,17 @@ onUnmounted(() => {
 
             <!-- 2. IN PROGRESS -->
             <div
-              :class="['flex flex-col border rounded-2xl p-3.5 min-h-[480px] transition-colors', isDarkMode ? 'bg-slate-950/90 border-slate-800' : 'bg-slate-50 border-slate-200 shadow-inner']"
+              :class="['flex flex-col border rounded-2xl p-3.5 min-h-[480px] transition-colors', isDarkMode ? 'bg-midnight-900/90 border-midnight-800/80' : 'bg-slate-50 border-slate-200 shadow-inner']"
               @dragover="onDragOverColumn($event, 'in_progress')"
               @drop="onDropColumn('in_progress')"
             >
-              <div :class="['flex items-center justify-between pb-3 mb-3 border-b px-1', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+              <div :class="['flex items-center justify-between pb-3 mb-3 border-b px-1', isDarkMode ? 'border-midnight-800/80' : 'border-slate-200']">
                 <span class="flex items-center gap-2 font-mono text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                  <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                  <Icons name="Play" :size="13" class="text-amber-400 animate-pulse" />
+                  <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
+                  <Icons name="Play" :size="13" class="text-amber-400 animate-pulse shrink-0" />
                   <span>IN PROGRESS</span>
                 </span>
-                <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border', isDarkMode ? 'bg-slate-900 text-amber-300 border-amber-900/60' : 'bg-white text-amber-950 border-amber-300 shadow-xs']">
+                <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border inline-flex items-center justify-center shrink-0', isDarkMode ? 'bg-midnight-850 text-amber-300 border-midnight-700' : 'bg-white text-amber-950 border-amber-300 shadow-xs']">
                   {{ inProgressTasks.length }}
                 </span>
               </div>
@@ -3628,14 +3581,14 @@ onUnmounted(() => {
                   @click="openTaskDrawer(task)"
                   :class="[
                     'p-3 rounded-xl border transition-all duration-150 cursor-pointer space-y-2 group shadow-xs hover:scale-[1.01]',
-                    isDarkMode ? 'bg-[#0b101c] border-amber-500/40 hover:border-amber-500 hover:shadow-lg hover:shadow-amber-950/20' : 'bg-white border-amber-200 hover:border-amber-500 hover:shadow-md',
+                    isDarkMode ? 'bg-midnight-850 border-amber-500/40 hover:border-amber-500 hover:shadow-lg hover:shadow-amber-950/20' : 'bg-white border-amber-200 hover:border-amber-500 hover:shadow-md',
                     getTaskDelayStatus(task).cardBorderClass
                   ]"
                 >
                   <!-- Next Up Recommended Spotlight Banner -->
                   <div
                     v-if="task.id === webNextUpTaskId"
-                    class="flex items-center justify-between px-2 py-0.5 rounded-lg bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-transparent border border-amber-500/40 text-[9px] font-bold text-amber-600 dark:text-amber-300 tracking-wide uppercase shadow-xs"
+                    class="flex items-center justify-between px-2 py-0.5 rounded-lg bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-transparent border border-amber-500/40 text-[9px] font-bold text-amber-600 dark:text-amber-300 tracking-wide uppercase shadow-xs font-mono"
                   >
                     <span class="flex items-center gap-1.5">
                       <Icons name="Sparkles" :size="12" class="text-amber-400 animate-pulse" />
@@ -3647,13 +3600,13 @@ onUnmounted(() => {
                   <div class="flex items-center justify-between text-xs">
                     <div class="flex items-center gap-1.5">
                       <Icons :name="getIssueTypeBadge(task.issue_type).icon" :size="13" class="shrink-0 text-amber-400" />
-                      <span :class="['font-mono text-[11px] font-bold px-1.5 py-0.2 rounded border', isDarkMode ? 'bg-amber-950/80 text-amber-300 border-amber-800' : 'bg-amber-50 text-amber-900 border-amber-200']">{{ task.issue_key }}</span>
+                      <span :class="['font-mono text-[11px] font-bold px-1.5 py-0.2 rounded border', isDarkMode ? 'bg-midnight-950 text-amber-300 border-midnight-700' : 'bg-amber-50 text-amber-900 border-amber-200']">{{ task.issue_key }}</span>
                     </div>
-                    <div class="flex items-center gap-1">
+                    <div class="flex items-center gap-1 font-mono">
                       <span v-if="getTaskDelayStatus(task).isOverdue || getTaskDelayStatus(task).isDelayed" :class="['px-1.5 py-0.2 rounded text-[10px] font-bold border', getTaskDelayStatus(task).badgeClass]" :title="getTaskDelayStatus(task).reason">
                         {{ getTaskDelayStatus(task).label }}
                       </span>
-                      <span v-if="task.story_points" :class="['px-1.5 py-0.2 rounded text-[11px] font-mono font-bold border', isDarkMode ? 'bg-indigo-950/80 text-indigo-300 border-indigo-800' : 'bg-indigo-50 text-indigo-900 border-indigo-200']">
+                      <span v-if="task.story_points" :class="['px-1.5 py-0.2 rounded text-[11px] font-mono font-bold border', isDarkMode ? 'bg-midnight-950 text-purple-300 border-midnight-700' : 'bg-indigo-50 text-indigo-900 border-indigo-200']">
                         {{ task.story_points }} pts
                       </span>
                     </div>
@@ -3663,52 +3616,52 @@ onUnmounted(() => {
                     {{ task.title }}
                   </h4>
 
-                  <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-medium">
-                    <span class="text-slate-600 dark:text-slate-300">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
-                    <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-700 dark:text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
-                    <span v-if="taskExecutionMeta(task).reconsidered" class="font-bold text-rose-700 dark:text-rose-300">· Needs review: a prerequisite moved back from done</span>
+                  <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-mono">
+                    <span class="text-slate-400">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
+                    <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).reconsidered" class="font-bold text-rose-400">· Needs review: a prerequisite moved back from done</span>
                   </div>
 
-                  <div v-if="taskExecutionMeta(task).dependents.length" class="flex flex-wrap items-center gap-1 text-[10px] font-semibold">
-                    <span class="text-slate-500 dark:text-slate-400">Unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
-                    <span v-if="taskExecutionMeta(task).dependentReconsideration.length" class="text-rose-700 dark:text-rose-300">· reconsider dependent work: {{ taskExecutionMeta(task).dependentReconsideration.join(', ') }}</span>
+                  <div v-if="taskExecutionMeta(task).dependents.length" class="flex flex-wrap items-center gap-1 text-[10px] font-mono font-semibold">
+                    <span class="text-slate-400">Unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).dependentReconsideration.length" class="text-rose-400">· reconsider dependent work: {{ taskExecutionMeta(task).dependentReconsideration.join(', ') }}</span>
                   </div>
 
                   <!-- Subtask & Due Date mini indicator -->
                   <div v-if="task.subtasks?.length || task.due_date" :class="['flex items-center justify-between text-[10px] font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600 font-semibold']">
                     <span v-if="task.subtasks?.length" class="flex items-center gap-1.5">
-                      <Icons name="ListChecks" :size="12" class="text-indigo-400" />
+                      <Icons name="ListChecks" :size="12" class="text-indigo-400 shrink-0" />
                       <span>{{ task.subtasks.filter(s => s.done).length }}/{{ task.subtasks.length }}</span>
                     </span>
-                    <span v-if="task.due_date" :class="['flex items-center gap-1.5', getTaskDelayStatus(task).isOverdue ? 'text-rose-500 font-bold' : '']">
+                    <span v-if="task.due_date" :class="['flex items-center gap-1.5', getTaskDelayStatus(task).isOverdue ? 'text-rose-400 font-bold' : '']">
                       <Icons name="Clock" :size="12" :class="getTaskDelayStatus(task).isOverdue ? 'text-rose-400' : 'text-slate-400'" />
                       <span>{{ task.due_date }}</span>
                     </span>
                   </div>
 
-                  <div :class="['flex items-center justify-between pt-1.5 border-t text-[10px]', isDarkMode ? 'border-slate-800/80' : 'border-slate-100']">
+                  <div :class="['flex items-center justify-between pt-1.5 border-t text-[10px]', isDarkMode ? 'border-midnight-800' : 'border-slate-100']">
                     <div class="flex items-center gap-1.5">
                       <span :class="['px-1.5 py-0.2 rounded border font-medium', getCategoryBadge(task.category).class]">
                         {{ getCategoryBadge(task.category).label }}
                       </span>
-                      <span :class="['px-1.5 py-0.2 rounded border font-semibold flex items-center gap-1', getPriorityBadge(task.priority).class]">
+                      <span :class="['px-1.5 py-0.2 rounded border font-semibold inline-flex items-center gap-1', getPriorityBadge(task.priority).class]">
                         <Icons :name="getPriorityBadge(task.priority).icon" :size="10" />
-                        <span>{{ getPriorityBadge(task.priority).label }}</span>
+                        <span class="leading-none">{{ getPriorityBadge(task.priority).label }}</span>
                       </span>
                     </div>
                     <button
                       @click.stop="openRemoteDispatch(task)"
                       :disabled="!executionGateFor(task).allowed"
-                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer inline-flex items-center justify-center gap-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/30 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                       title="⚡ Re-dispatch / Run on Connected Desktop Agent"
                     >
                       <Icons name="Zap" :size="11" class="text-amber-300" />
-                      <span>Dispatch</span>
+                      <span class="leading-none">⚡ Re-dispatch / Run on Connected Desktop Agent</span>
                     </button>
                   </div>
                 </div>
 
-                <div v-if="inProgressTasks.length === 0" class="h-24 border-2 border-dashed border-slate-300 dark:border-slate-800/80 rounded-xl flex items-center justify-center text-xs text-slate-500 font-medium">
+                <div v-if="inProgressTasks.length === 0" class="h-24 border-2 border-dashed border-slate-300 dark:border-midnight-800 rounded-xl flex items-center justify-center text-xs text-slate-500 font-medium font-mono">
                   Drag tasks here
                 </div>
               </div>
@@ -3716,17 +3669,17 @@ onUnmounted(() => {
 
             <!-- 3. REVIEW -->
             <div
-              :class="['flex flex-col border rounded-2xl p-3.5 min-h-[480px] transition-colors', isDarkMode ? 'bg-slate-950/90 border-slate-800' : 'bg-slate-50 border-slate-200 shadow-inner']"
+              :class="['flex flex-col border rounded-2xl p-3.5 min-h-[480px] transition-colors', isDarkMode ? 'bg-midnight-900/90 border-midnight-800/80' : 'bg-slate-50 border-slate-200 shadow-inner']"
               @dragover="onDragOverColumn($event, 'review')"
               @drop="onDropColumn('review')"
             >
-              <div :class="['flex items-center justify-between pb-3 mb-3 border-b px-1', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+              <div :class="['flex items-center justify-between pb-3 mb-3 border-b px-1', isDarkMode ? 'border-midnight-800/80' : 'border-slate-200']">
                 <span class="flex items-center gap-2 font-mono text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                  <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
-                  <Icons name="Eye" :size="13" class="text-purple-400 animate-pulse" />
+                  <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse shrink-0"></span>
+                  <Icons name="Eye" :size="13" class="text-purple-400 animate-pulse shrink-0" />
                   <span>REVIEW</span>
                 </span>
-                <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border', isDarkMode ? 'bg-slate-900 text-purple-300 border-purple-900/60' : 'bg-white text-purple-950 border-purple-300 shadow-xs']">
+                <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border inline-flex items-center justify-center shrink-0', isDarkMode ? 'bg-midnight-850 text-purple-300 border-midnight-700' : 'bg-white text-purple-950 border-purple-300 shadow-xs']">
                   {{ reviewTasks.length }}
                 </span>
               </div>
@@ -3740,21 +3693,21 @@ onUnmounted(() => {
                   @click="openTaskDrawer(task)"
                   :class="[
                     'p-3 rounded-xl border transition-all duration-150 cursor-pointer space-y-2 group shadow-xs hover:scale-[1.01]',
-                    isDarkMode ? 'bg-[#0b101c] border-purple-500/40 hover:border-purple-500 hover:shadow-lg hover:shadow-purple-950/20' : 'bg-white border-purple-200 hover:border-purple-500 hover:shadow-md',
+                    isDarkMode ? 'bg-midnight-850 border-purple-500/40 hover:border-purple-500 hover:shadow-lg hover:shadow-purple-950/20' : 'bg-white border-purple-200 hover:border-purple-500 hover:shadow-md',
                     getTaskDelayStatus(task).cardBorderClass
                   ]"
                 >
                   <div class="flex items-center justify-between text-xs">
                     <div class="flex items-center gap-1.5">
                       <Icons :name="getIssueTypeBadge(task.issue_type).icon" :size="13" class="shrink-0 text-purple-400" />
-                      <span :class="['font-mono text-[11px] font-bold px-1.5 py-0.2 rounded border', isDarkMode ? 'bg-purple-950/80 text-purple-300 border-purple-800' : 'bg-purple-50 text-purple-900 border-purple-200']">{{ task.issue_key }}</span>
+                      <span :class="['font-mono text-[11px] font-bold px-1.5 py-0.2 rounded border', isDarkMode ? 'bg-midnight-950 text-purple-300 border-midnight-700' : 'bg-purple-50 text-purple-900 border-purple-200']">{{ task.issue_key }}</span>
                     </div>
-                    <div class="flex items-center gap-1">
-                      <span class="px-1.5 py-0.2 rounded bg-purple-500/15 border border-purple-500/30 text-purple-300 font-mono text-[9px] font-bold flex items-center gap-1">
-                        <Icons name="Agent" :size="10" />
-                        <span>Review</span>
+                    <div class="flex items-center gap-1 font-mono">
+                      <span class="px-1.5 py-0.2 rounded bg-purple-500/15 border border-purple-500/30 text-purple-300 font-mono text-[9px] font-bold inline-flex items-center gap-1">
+                        <Icons name="Bot" :size="10" />
+                        <span class="leading-none">Review</span>
                       </span>
-                      <span v-if="task.story_points" :class="['px-1.5 py-0.2 rounded text-[11px] font-mono font-bold border', isDarkMode ? 'bg-indigo-950/80 text-indigo-300 border-indigo-800' : 'bg-indigo-50 text-indigo-900 border-indigo-200']">
+                      <span v-if="task.story_points" :class="['px-1.5 py-0.2 rounded text-[11px] font-mono font-bold border', isDarkMode ? 'bg-midnight-950 text-purple-300 border-midnight-700' : 'bg-indigo-50 text-indigo-900 border-indigo-200']">
                         {{ task.story_points }} pts
                       </span>
                     </div>
@@ -3764,52 +3717,52 @@ onUnmounted(() => {
                     {{ task.title }}
                   </h4>
 
-                  <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-medium">
-                    <span class="text-slate-600 dark:text-slate-300">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
-                    <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-700 dark:text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
-                    <span v-if="taskExecutionMeta(task).reconsidered" class="font-bold text-rose-700 dark:text-rose-300">· Needs review: a prerequisite moved back from done</span>
+                  <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-mono">
+                    <span class="text-slate-400">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
+                    <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).reconsidered" class="font-bold text-rose-400">· Needs review: a prerequisite moved back from done</span>
                   </div>
 
-                  <div v-if="taskExecutionMeta(task).dependents.length" class="flex flex-wrap items-center gap-1 text-[10px] font-semibold">
-                    <span class="text-slate-500 dark:text-slate-400">Unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
-                    <span v-if="taskExecutionMeta(task).dependentReconsideration.length" class="text-rose-700 dark:text-rose-300">· reconsider dependent work: {{ taskExecutionMeta(task).dependentReconsideration.join(', ') }}</span>
+                  <div v-if="taskExecutionMeta(task).dependents.length" class="flex flex-wrap items-center gap-1 text-[10px] font-mono font-semibold">
+                    <span class="text-slate-400">Unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).dependentReconsideration.length" class="text-rose-400">· reconsider dependent work: {{ taskExecutionMeta(task).dependentReconsideration.join(', ') }}</span>
                   </div>
 
                   <!-- Subtask & Due Date mini indicator -->
                   <div v-if="task.subtasks?.length || task.due_date" :class="['flex items-center justify-between text-[10px] font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600 font-semibold']">
                     <span v-if="task.subtasks?.length" class="flex items-center gap-1.5">
-                      <Icons name="ListChecks" :size="12" class="text-indigo-400" />
+                      <Icons name="ListChecks" :size="12" class="text-indigo-400 shrink-0" />
                       <span>{{ task.subtasks.filter(s => s.done).length }}/{{ task.subtasks.length }}</span>
                     </span>
-                    <span v-if="task.due_date" :class="['flex items-center gap-1.5', getTaskDelayStatus(task).isOverdue ? 'text-rose-500 font-bold' : '']">
+                    <span v-if="task.due_date" :class="['flex items-center gap-1.5', getTaskDelayStatus(task).isOverdue ? 'text-rose-400 font-bold' : '']">
                       <Icons name="Clock" :size="12" :class="getTaskDelayStatus(task).isOverdue ? 'text-rose-400' : 'text-slate-400'" />
                       <span>{{ task.due_date }}</span>
                     </span>
                   </div>
 
-                  <div :class="['flex items-center justify-between pt-1.5 border-t text-[10px]', isDarkMode ? 'border-slate-800/80' : 'border-slate-100']">
+                  <div :class="['flex items-center justify-between pt-1.5 border-t text-[10px]', isDarkMode ? 'border-midnight-800' : 'border-slate-100']">
                     <div class="flex items-center gap-1.5">
                       <span :class="['px-1.5 py-0.2 rounded border font-medium', getCategoryBadge(task.category).class]">
                         {{ getCategoryBadge(task.category).label }}
                       </span>
-                      <span :class="['px-1.5 py-0.2 rounded border font-semibold flex items-center gap-1', getPriorityBadge(task.priority).class]">
+                      <span :class="['px-1.5 py-0.2 rounded border font-semibold inline-flex items-center gap-1', getPriorityBadge(task.priority).class]">
                         <Icons :name="getPriorityBadge(task.priority).icon" :size="10" />
-                        <span>{{ getPriorityBadge(task.priority).label }}</span>
+                        <span class="leading-none">{{ getPriorityBadge(task.priority).label }}</span>
                       </span>
                     </div>
                     <button
                       @click.stop="openRemoteDispatch(task)"
                       :disabled="!executionGateFor(task).allowed"
-                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                      class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all cursor-pointer inline-flex items-center justify-center gap-1 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                       title="⚡ Re-test / Dispatch to Connected Desktop Agent"
                     >
-                      <Icons name="Zap" :size="11" class="text-amber-300" />
-                      <span>Dispatch</span>
+                      <Icons name="Zap" :size="11" class="text-purple-300" />
+                      <span class="leading-none">⚡ Re-test / Dispatch to Connected Desktop Agent</span>
                     </button>
                   </div>
                 </div>
 
-                <div v-if="reviewTasks.length === 0" class="h-24 border-2 border-dashed border-slate-300 dark:border-slate-800/80 rounded-xl flex items-center justify-center text-xs text-slate-500 font-medium">
+                <div v-if="reviewTasks.length === 0" class="h-24 border-2 border-dashed border-slate-300 dark:border-midnight-800 rounded-xl flex items-center justify-center text-xs text-slate-500 font-medium font-mono">
                   Drag tasks here
                 </div>
               </div>
@@ -3817,17 +3770,17 @@ onUnmounted(() => {
 
             <!-- 4. DONE -->
             <div
-              :class="['flex flex-col border rounded-2xl p-3.5 min-h-[480px] transition-colors', isDarkMode ? 'bg-slate-950/90 border-slate-800' : 'bg-slate-50 border-slate-200 shadow-inner']"
+              :class="['flex flex-col border rounded-2xl p-3.5 min-h-[480px] transition-colors', isDarkMode ? 'bg-midnight-900/90 border-midnight-800/80' : 'bg-slate-50 border-slate-200 shadow-inner']"
               @dragover="onDragOverColumn($event, 'done')"
               @drop="onDropColumn('done')"
             >
-              <div :class="['flex items-center justify-between pb-3 mb-3 border-b px-1', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+              <div :class="['flex items-center justify-between pb-3 mb-3 border-b px-1', isDarkMode ? 'border-midnight-800/80' : 'border-slate-200']">
                 <span class="flex items-center gap-2 font-mono text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                  <Icons name="CheckCircle" :size="13" class="text-emerald-400" />
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+                  <Icons name="CheckCircle" :size="13" class="text-emerald-400 shrink-0" />
                   <span>DONE</span>
                 </span>
-                <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border', isDarkMode ? 'bg-slate-900 text-emerald-300 border-emerald-900/60' : 'bg-white text-emerald-950 border-emerald-300 shadow-xs']">
+                <span :class="['font-mono text-xs px-2.5 py-0.5 rounded-lg font-bold border inline-flex items-center justify-center shrink-0', isDarkMode ? 'bg-midnight-850 text-emerald-300 border-midnight-700' : 'bg-white text-emerald-950 border-emerald-300 shadow-xs']">
                   {{ doneTasks.length }}
                 </span>
               </div>
@@ -3841,15 +3794,15 @@ onUnmounted(() => {
                   @click="openTaskDrawer(task)"
                   :class="[
                     'p-3 rounded-xl border transition-all duration-150 cursor-pointer space-y-2 group shadow-xs opacity-85 hover:opacity-100 hover:scale-[1.01]',
-                    isDarkMode ? 'bg-[#0b101c] border-emerald-500/30 hover:border-emerald-500 hover:shadow-lg hover:shadow-emerald-950/20' : 'bg-white border-emerald-200 hover:border-emerald-500 hover:shadow-md'
+                    isDarkMode ? 'bg-midnight-850 border-emerald-500/30 hover:border-emerald-500 hover:shadow-lg hover:shadow-emerald-950/20' : 'bg-white border-emerald-200 hover:border-emerald-500 hover:shadow-md'
                   ]"
                 >
                   <div class="flex items-center justify-between text-xs">
                     <div class="flex items-center gap-1.5">
                       <Icons :name="getIssueTypeBadge(task.issue_type).icon" :size="13" class="shrink-0 text-emerald-400" />
-                      <span :class="['font-mono text-[11px] font-bold px-1.5 py-0.2 rounded border', isDarkMode ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800' : 'bg-emerald-50 text-emerald-900 border-emerald-200']">{{ task.issue_key }}</span>
+                      <span :class="['font-mono text-[11px] font-bold px-1.5 py-0.2 rounded border', isDarkMode ? 'bg-midnight-950 text-emerald-300 border-midnight-700' : 'bg-emerald-50 text-emerald-900 border-emerald-200']">{{ task.issue_key }}</span>
                     </div>
-                    <span v-if="task.story_points" :class="['px-1.5 py-0.2 rounded text-[11px] font-mono font-bold border', isDarkMode ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800' : 'bg-emerald-50 text-emerald-900 border-emerald-200']">
+                    <span v-if="task.story_points" :class="['px-1.5 py-0.2 rounded text-[11px] font-mono font-bold border', isDarkMode ? 'bg-midnight-950 text-emerald-300 border-midnight-700' : 'bg-emerald-50 text-emerald-900 border-emerald-200']">
                       {{ task.story_points }} pts
                     </span>
                   </div>
@@ -3858,28 +3811,28 @@ onUnmounted(() => {
                     {{ task.title }}
                   </h4>
 
-                  <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-medium">
-                    <span class="text-slate-600 dark:text-slate-300">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
-                    <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-700 dark:text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
-                    <span v-if="taskExecutionMeta(task).reconsidered" class="font-bold text-rose-700 dark:text-rose-300">· Needs review: a prerequisite moved back from done</span>
+                  <div v-if="dependencySummary(task).total" class="flex flex-wrap items-center gap-1 text-[10px] font-mono">
+                    <span class="text-slate-400">Depends on {{ dependencySummary(task).labels.join(', ') }}</span>
+                    <span v-if="dependencySummary(task).pendingLabels.length" class="font-bold text-amber-300">· Blocked by {{ dependencySummary(task).pendingLabels.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).reconsidered" class="font-bold text-rose-400">· Needs review: a prerequisite moved back from done</span>
                   </div>
-                  <div v-if="taskExecutionMeta(task).dependents.length" class="flex flex-wrap items-center gap-1 text-[10px] font-semibold">
-                    <span class="text-slate-500 dark:text-slate-400">Unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
-                    <span v-if="taskExecutionMeta(task).dependentReconsideration.length" class="text-rose-700 dark:text-rose-300">· reconsider dependent work: {{ taskExecutionMeta(task).dependentReconsideration.join(', ') }}</span>
+                  <div v-if="taskExecutionMeta(task).dependents.length" class="flex flex-wrap items-center gap-1 text-[10px] font-mono font-semibold">
+                    <span class="text-slate-400">Unlocks {{ taskExecutionMeta(task).dependents.join(', ') }}</span>
+                    <span v-if="taskExecutionMeta(task).dependentReconsideration.length" class="text-rose-400">· reconsider dependent work: {{ taskExecutionMeta(task).dependentReconsideration.join(', ') }}</span>
                   </div>
 
-                  <div :class="['flex items-center justify-between pt-1.5 border-t text-[10px]', isDarkMode ? 'border-slate-800/80' : 'border-slate-100']">
+                  <div :class="['flex items-center justify-between pt-1.5 border-t text-[10px]', isDarkMode ? 'border-midnight-800' : 'border-slate-100']">
                     <span :class="['px-1.5 py-0.2 rounded border font-medium', getCategoryBadge(task.category).class]">
                       {{ getCategoryBadge(task.category).label }}
                     </span>
-                    <span class="text-emerald-400 font-mono font-bold flex items-center gap-1">
+                    <span class="text-emerald-400 font-mono font-bold inline-flex items-center gap-1">
                       <Icons name="CheckCircle" :size="12" />
-                      <span>Done</span>
+                      <span class="leading-none">Done</span>
                     </span>
                   </div>
                 </div>
 
-                <div v-if="doneTasks.length === 0" class="h-24 border-2 border-dashed border-slate-300 dark:border-slate-800/80 rounded-xl flex items-center justify-center text-xs text-slate-500 font-medium">
+                <div v-if="doneTasks.length === 0" class="h-24 border-2 border-dashed border-slate-300 dark:border-midnight-800 rounded-xl flex items-center justify-center text-xs text-slate-500 font-medium font-mono">
                   Drag tasks here
                 </div>
               </div>
@@ -3891,22 +3844,22 @@ onUnmounted(() => {
         <!-- VIEW 2: BACKLOG SPRINT PLANNING (COLLAPSIBLE + MULTI-BAR PROGRESS)   -->
         <!-- ===================================================================== -->
         <div v-else-if="currentView === 'backlog'" class="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6">
-          <div :class="['flex flex-wrap items-center justify-between gap-3 pb-3 border-b', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+          <div :class="['flex flex-wrap items-center justify-between gap-3 pb-3 border-b', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
             <div>
               <h2 :class="['text-base sm:text-lg font-bold font-display', isDarkMode ? 'text-white' : 'text-slate-950']">
                 Sprint planning & backlog
               </h2>
-              <p :class="['text-xs mt-0.5 font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
+              <p :class="['text-xs mt-0.5 font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
                 Drag tasks into sprints to prepare the delivery stages.
               </p>
             </div>
 
             <button
               @click="openCreateSprintModal"
-              class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+              class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 font-extrabold text-xs shadow-xs transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
             >
-              <span>+</span>
-              <span>Create Sprint</span>
+              <Icons name="Plus" :size="14" />
+              <span class="leading-none">Create Sprint</span>
             </button>
           </div>
 
@@ -3918,28 +3871,28 @@ onUnmounted(() => {
               :class="[
                 'rounded-2xl border transition-all shadow-xs overflow-hidden',
                 sprint.status === 'active'
-                  ? (isDarkMode ? 'bg-[#0a0f1d] border-blue-500/50' : 'bg-white border-blue-300 ring-2 ring-blue-50')
-                  : (isDarkMode ? 'bg-slate-950/80 border-slate-800' : 'bg-white border-slate-200')
+                  ? (isDarkMode ? 'bg-midnight-900 border-emerald-500/50' : 'bg-white border-blue-300 ring-2 ring-blue-50')
+                  : (isDarkMode ? 'bg-midnight-900/80 border-midnight-800' : 'bg-white border-slate-200')
               ]"
               @dragover="onDragOverSprint($event, sprint.id)"
               @drop="onDropSprint(sprint.id)"
             >
               <!-- Sprint Header Row -->
-              <div :class="['p-4 flex flex-wrap items-center justify-between gap-3 border-b', isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50/90 border-slate-200']">
+              <div :class="['p-4 flex flex-wrap items-center justify-between gap-3 border-b', isDarkMode ? 'bg-midnight-850 border-midnight-800' : 'bg-slate-50/90 border-slate-200']">
                 <div class="flex items-center gap-3 min-w-0">
                   <!-- Collapse/Expand Toggle -->
                   <button
                     @click="toggleSprintCollapse(sprint.id)"
-                    :class="['p-1 rounded cursor-pointer text-xs font-bold', isDarkMode ? 'text-slate-300 hover:text-white' : 'text-slate-700 hover:text-slate-950']"
-                  title="Collapse / expand"
+                    :class="['h-7 w-7 rounded-lg border border-midnight-700 cursor-pointer text-xs font-bold inline-flex items-center justify-center shrink-0 transition-colors', isDarkMode ? 'text-slate-300 hover:text-white bg-midnight-900' : 'text-slate-700 hover:text-slate-950 bg-white']"
+                    title="Collapse / expand"
                   >
-                    {{ collapsedSprints[sprint.id] ? '▶' : '▼' }}
+                    <Icons :name="collapsedSprints[sprint.id] ? 'ChevronRight' : 'ChevronDown'" :size="13" />
                   </button>
 
                   <span
                     :class="[
-                      'px-2.5 py-0.5 rounded-md font-mono text-[10px] font-bold border',
-                      sprint.status === 'active' ? 'bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-blue-300 dark:border-blue-700' : (sprint.status === 'completed' ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700' : 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300 border-slate-300 dark:border-slate-700')
+                      'px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold border inline-flex items-center justify-center',
+                      sprint.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : (sprint.status === 'completed' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' : 'bg-midnight-950 text-slate-400 border-midnight-700')
                     ]"
                   >
                     {{ sprint.status.toUpperCase() }}
@@ -3955,38 +3908,40 @@ onUnmounted(() => {
                 <div class="flex items-center gap-3">
                   <!-- Multi-Segment Progress Bar -->
                   <div class="hidden sm:flex items-center gap-2 min-w-[140px]">
-                    <div class="h-2.5 flex-1 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden flex">
+                    <div class="h-2.5 flex-1 bg-midnight-950 border border-midnight-800 rounded-full overflow-hidden flex">
                       <div class="bg-emerald-500 h-full" :style="{ width: `${getSprintStats(sprint.id).donePercent}%` }"></div>
                       <div class="bg-amber-500 h-full" :style="{ width: `${getSprintStats(sprint.id).inProgressPercent}%` }"></div>
-                      <div class="bg-slate-300 dark:bg-slate-700 h-full" :style="{ width: `${getSprintStats(sprint.id).todoPercent}%` }"></div>
+                      <div class="bg-slate-700 h-full" :style="{ width: `${getSprintStats(sprint.id).todoPercent}%` }"></div>
                     </div>
-                    <span :class="['font-mono text-[11px] font-bold', isDarkMode ? 'text-slate-300' : 'text-slate-800']">{{ getSprintStats(sprint.id).donePercent }}%</span>
+                    <span :class="['font-mono text-[11px] font-bold', isDarkMode ? 'text-phantom-mint' : 'text-slate-800']">{{ getSprintStats(sprint.id).donePercent }}%</span>
                   </div>
 
                   <!-- Sprint Action Buttons -->
-                  <div class="flex items-center gap-2">
+                  <div class="flex items-center gap-2 font-mono">
                     <button
                       v-if="sprint.status === 'future'"
                       @click="openStartSprintModal(sprint)"
-                      class="px-3 py-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-colors cursor-pointer"
+                      class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 font-extrabold text-xs transition-colors cursor-pointer inline-flex items-center gap-1.5 shrink-0"
                     >
-                      Start Sprint ▶
+                      <Icons name="Play" :size="12" />
+                      <span class="leading-none">Start Sprint</span>
                     </button>
 
                     <button
                       v-if="sprint.status === 'active'"
                       @click="openCompleteSprintModal(sprint)"
-                      class="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors cursor-pointer"
+                      class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 font-extrabold text-xs transition-colors cursor-pointer inline-flex items-center gap-1.5 shrink-0"
                     >
-                      Complete Sprint ✓
+                      <Icons name="CheckCircle" :size="12" />
+                      <span class="leading-none">Complete Sprint</span>
                     </button>
 
                     <button
                       @click="handleDeleteSprint(sprint)"
-                      class="p-1 text-slate-400 hover:text-red-600 cursor-pointer text-xs font-bold"
+                      class="h-8 w-8 rounded-lg border border-midnight-700 bg-midnight-900 text-slate-400 hover:text-rose-400 hover:border-rose-800 cursor-pointer inline-flex items-center justify-center shrink-0 transition-colors"
                       title="Delete Sprint"
                     >
-                      🗑️
+                      <Icons name="Trash2" :size="13" />
                     </button>
                   </div>
                 </div>
@@ -4002,39 +3957,39 @@ onUnmounted(() => {
                   @click="openTaskDrawer(task)"
                   :class="[
                     'flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer shadow-xs',
-                    isDarkMode ? 'bg-[#0f1523] border-slate-800 hover:border-blue-500/50' : 'bg-white border-slate-200 hover:border-blue-500 hover:shadow-sm',
+                    isDarkMode ? 'bg-midnight-850 border-midnight-800 hover:border-phantom-mint/50' : 'bg-white border-slate-200 hover:border-blue-500 hover:shadow-sm',
                     getTaskDelayStatus(task).cardBorderClass
                   ]"
                 >
                   <div class="flex items-center gap-3 min-w-0">
-                    <span class="text-sm">{{ getIssueTypeBadge(task.issue_type).icon }}</span>
-                    <span :class="['font-mono text-xs font-bold px-1.5 py-0.5 rounded border shrink-0', isDarkMode ? 'bg-blue-950/80 text-blue-300 border-blue-800' : 'bg-blue-100 text-blue-950 border-blue-300']">{{ task.issue_key }}</span>
+                    <Icons :name="getIssueTypeBadge(task.issue_type).icon" :size="14" class="text-cyan-400 shrink-0" />
+                    <span :class="['font-mono text-xs font-bold px-1.5 py-0.5 rounded border shrink-0', isDarkMode ? 'bg-midnight-950 text-cyan-300 border-midnight-700' : 'bg-blue-100 text-blue-950 border-blue-300']">{{ task.issue_key }}</span>
                     <span :class="['text-sm truncate font-bold', isDarkMode ? 'text-slate-100' : 'text-slate-950']">{{ task.title }}</span>
                   </div>
 
-                  <div class="flex items-center gap-2 shrink-0">
+                  <div class="flex items-center gap-2 shrink-0 font-mono">
                     <span v-if="getTaskDelayStatus(task).isOverdue || getTaskDelayStatus(task).isDelayed" :class="['px-2 py-0.5 rounded text-[10px] font-bold border', getTaskDelayStatus(task).badgeClass]" :title="getTaskDelayStatus(task).reason">
                       {{ getTaskDelayStatus(task).label }}
                     </span>
                     <span :class="['px-2 py-0.5 rounded text-[11px] font-mono border', getPriorityBadge(task.priority).class]">
                       {{ getPriorityBadge(task.priority).label }}
                     </span>
-                    <span v-if="task.story_points" :class="['px-2 py-0.5 rounded text-xs font-mono font-bold border', isDarkMode ? 'bg-indigo-950/80 text-indigo-300 border-indigo-800' : 'bg-indigo-100 text-indigo-950 border-indigo-300']">
+                    <span v-if="task.story_points" :class="['px-2 py-0.5 rounded text-xs font-mono font-bold border', isDarkMode ? 'bg-midnight-950 text-purple-300 border-midnight-700' : 'bg-indigo-100 text-indigo-950 border-indigo-300']">
                       {{ task.story_points }} pts
                     </span>
                     <button
                       @click.stop="openRemoteDispatch(task)"
                       :disabled="!executionGateFor(task).allowed"
-                      class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 text-emerald-400 border-emerald-500/40 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                      class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer inline-flex items-center justify-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                       title="🚀 Run on Connected Desktop Agent"
                     >
-                      <span>🚀</span>
-                      <span>Dispatch</span>
+                      <Icons name="Zap" :size="11" class="text-phantom-mint" />
+                      <span class="leading-none">🚀 Run on Connected Desktop Agent</span>
                     </button>
                   </div>
                 </div>
 
-                <div v-if="getSprintTasks(sprint.id).length === 0" class="py-6 border-2 border-dashed border-slate-300 dark:border-slate-800 rounded-xl text-center text-xs text-slate-500 font-medium">
+                <div v-if="getSprintTasks(sprint.id).length === 0" class="py-6 border-2 border-dashed border-slate-300 dark:border-midnight-800 rounded-xl text-center text-xs text-slate-500 font-mono">
                   This sprint has no tasks. Drag tasks here from the backlog.
                 </div>
               </div>
@@ -4042,13 +3997,13 @@ onUnmounted(() => {
 
             <!-- Backlog Pool Box -->
             <div
-              :class="['p-4 rounded-2xl border space-y-3 shadow-xs', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']"
+              :class="['p-4 rounded-2xl border space-y-3 shadow-xs', isDarkMode ? 'bg-midnight-900 border-midnight-800' : 'bg-white border-slate-200']"
               @dragover="onDragOverSprint($event, 'backlog')"
               @drop="onDropSprint(null)"
             >
-              <div :class="['flex items-center justify-between pb-3 border-b', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+              <div :class="['flex items-center justify-between pb-3 border-b', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
                 <div class="flex items-center gap-2">
-                  <span class="text-lg">📦</span>
+                  <Icons name="Package" :size="16" class="text-phantom-mint shrink-0" />
                   <h3 :class="['text-sm sm:text-base font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">Backlog (No Sprint)</h3>
                   <span :class="['text-xs font-mono font-bold', isDarkMode ? 'text-slate-400' : 'text-slate-700']">({{ backlogTasks.length }} tasks)</span>
                 </div>
@@ -4063,39 +4018,39 @@ onUnmounted(() => {
                   @click="openTaskDrawer(task)"
                   :class="[
                     'flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer shadow-xs',
-                    isDarkMode ? 'bg-[#0e1422] border-slate-800 hover:border-blue-500/50' : 'bg-white border-slate-200 hover:border-blue-500 hover:shadow-sm',
+                    isDarkMode ? 'bg-midnight-850 border-midnight-800 hover:border-phantom-mint/50' : 'bg-white border-slate-200 hover:border-blue-500 hover:shadow-sm',
                     getTaskDelayStatus(task).cardBorderClass
                   ]"
                 >
                   <div class="flex items-center gap-3 min-w-0">
-                    <span class="text-sm">{{ getIssueTypeBadge(task.issue_type).icon }}</span>
-                    <span :class="['font-mono text-xs font-bold px-1.5 py-0.5 rounded border shrink-0', isDarkMode ? 'bg-slate-900 text-slate-300 border-slate-700' : 'bg-slate-100 text-slate-900 border-slate-300 font-bold']">{{ task.issue_key }}</span>
+                    <Icons :name="getIssueTypeBadge(task.issue_type).icon" :size="14" class="text-cyan-400 shrink-0" />
+                    <span :class="['font-mono text-xs font-bold px-1.5 py-0.5 rounded border shrink-0', isDarkMode ? 'bg-midnight-950 text-slate-300 border-midnight-700' : 'bg-slate-100 text-slate-900 border-slate-300 font-bold']">{{ task.issue_key }}</span>
                     <span :class="['text-sm truncate font-bold', isDarkMode ? 'text-slate-100' : 'text-slate-950']">{{ task.title }}</span>
                   </div>
 
-                  <div class="flex items-center gap-2 shrink-0">
+                  <div class="flex items-center gap-2 shrink-0 font-mono">
                     <span v-if="getTaskDelayStatus(task).isOverdue || getTaskDelayStatus(task).isDelayed" :class="['px-2 py-0.5 rounded text-[10px] font-bold border', getTaskDelayStatus(task).badgeClass]" :title="getTaskDelayStatus(task).reason">
                       {{ getTaskDelayStatus(task).label }}
                     </span>
                     <span :class="['px-2 py-0.5 rounded text-[11px] font-mono border', getPriorityBadge(task.priority).class]">
                       {{ getPriorityBadge(task.priority).label }}
                     </span>
-                    <span v-if="task.story_points" :class="['px-2 py-0.5 rounded text-xs font-mono font-bold border', isDarkMode ? 'bg-indigo-950/80 text-indigo-300 border-indigo-800' : 'bg-indigo-100 text-indigo-950 border-indigo-300']">
+                    <span v-if="task.story_points" :class="['px-2 py-0.5 rounded text-xs font-mono font-bold border', isDarkMode ? 'bg-midnight-950 text-purple-300 border-midnight-700' : 'bg-indigo-100 text-indigo-950 border-indigo-300']">
                       {{ task.story_points }} pts
                     </span>
                     <button
                       @click.stop="openRemoteDispatch(task)"
                       :disabled="!executionGateFor(task).allowed"
-                      class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 text-emerald-400 border-emerald-500/40 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                      class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer inline-flex items-center justify-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30 active:scale-95 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                       title="🚀 Run on Connected Desktop Agent"
                     >
-                      <span>🚀</span>
-                      <span>Dispatch</span>
+                      <Icons name="Zap" :size="11" class="text-phantom-mint" />
+                      <span class="leading-none">🚀 Run on Connected Desktop Agent</span>
                     </button>
                   </div>
                 </div>
 
-                <div v-if="backlogTasks.length === 0" class="py-6 text-center text-xs text-slate-500 italic font-medium">
+                <div v-if="backlogTasks.length === 0" class="py-6 text-center text-xs text-slate-500 italic font-medium font-mono">
                   Backlog is empty.
                 </div>
               </div>
@@ -4107,22 +4062,56 @@ onUnmounted(() => {
         <!-- VIEW 3: ROADMAP & TIMELINE                                            -->
         <!-- ===================================================================== -->
         <div v-else-if="currentView === 'roadmap'" class="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6">
-          <div :class="['sticky top-0 z-10 -mx-4 -mt-4 border-b px-4 pt-4 pb-3 sm:-mx-6 sm:px-6', isDarkMode ? 'border-slate-800 bg-[#090d18]/95' : 'border-slate-200 bg-slate-50/95']">
+          <div :class="['sticky top-0 z-10 -mx-4 -mt-4 border-b px-4 pt-4 pb-3 sm:-mx-6 sm:px-6 backdrop-blur-xl', isDarkMode ? 'border-midnight-800 bg-midnight-900/95' : 'border-slate-200 bg-slate-50/95']">
             <div class="flex flex-wrap items-start justify-between gap-3">
-              <div><p class="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-600 dark:text-blue-300">Delivery control</p><h2 :class="['mt-0.5 text-lg font-bold font-display', isDarkMode ? 'text-white' : 'text-slate-950']">{{ activeProjectObject?.title || 'Roadmap & project delivery' }}</h2><p :class="['mt-0.5 text-xs font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">A clear view of health, milestones and scheduled work.</p></div>
-              <button v-if="hasSelectedProject" @click="exportRoadmapWorkbook" :disabled="isRoadmapExporting" class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-70"><Icons :name="isRoadmapExporting ? 'LoaderCircle' : 'FileSpreadsheet'" :size="15" :class="isRoadmapExporting ? 'animate-spin' : ''" />{{ isRoadmapExporting ? 'Creating Excel…' : 'Export Excel' }}</button>
+              <div>
+                <p class="text-[10px] font-mono font-bold uppercase tracking-[0.16em] text-phantom-mint">Delivery control</p>
+                <h2 :class="['mt-0.5 text-lg font-bold font-display', isDarkMode ? 'text-white' : 'text-slate-950']">{{ activeProjectObject?.title || 'Roadmap & project delivery' }}</h2>
+                <p :class="['mt-0.5 text-xs font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600']">A clear view of health, milestones and scheduled work.</p>
+              </div>
+              <button
+                v-if="hasSelectedProject"
+                @click="exportRoadmapWorkbook"
+                :disabled="isRoadmapExporting"
+                class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 px-3.5 py-2 text-xs font-extrabold shadow-sm transition-colors disabled:cursor-wait disabled:opacity-70 shrink-0"
+              >
+                <Icons :name="isRoadmapExporting ? 'LoaderCircle' : 'FileSpreadsheet'" :size="15" :class="isRoadmapExporting ? 'animate-spin' : ''" />
+                <span class="leading-none">{{ isRoadmapExporting ? 'Creating Excel…' : 'Export Excel' }}</span>
+              </button>
             </div>
-            <div v-if="hasSelectedProject" class="mt-4 flex gap-1 overflow-x-auto rounded-xl border p-1 w-max min-w-full sm:min-w-0" :class="isDarkMode ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-white'">
-              <button v-for="tab in roadmapTabs" :key="tab.id" @click="setRoadmapTab(tab.id)" :class="['inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold transition-colors', roadmapTab === tab.id ? 'bg-blue-600 text-white' : (isDarkMode ? 'text-slate-400 hover:bg-slate-800 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950')]"><Icons :name="tab.icon" :size="14" />{{ tab.label }}</button>
+            <div v-if="hasSelectedProject" class="mt-4 flex gap-1 overflow-x-auto rounded-xl border p-1 w-max min-w-full sm:min-w-0 font-mono" :class="isDarkMode ? 'border-midnight-800 bg-midnight-950' : 'border-slate-200 bg-white'">
+              <button
+                v-for="tab in roadmapTabs"
+                :key="tab.id"
+                @click="setRoadmapTab(tab.id)"
+                :class="[
+                  'inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold transition-colors shrink-0',
+                  roadmapTab === tab.id
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-midnight-950 font-extrabold shadow-sm'
+                    : (isDarkMode ? 'text-slate-400 hover:bg-midnight-850 hover:text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950')
+                ]"
+              >
+                <Icons :name="tab.icon" :size="14" />
+                <span class="leading-none">{{ tab.label }}</span>
+              </button>
             </div>
           </div>
 
-          <div v-if="!hasSelectedProject" :class="['mx-auto mt-8 max-w-xl rounded-2xl border p-8 text-center', isDarkMode ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-white']">
-            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-xl text-white">↗</div>
+          <div v-if="!hasSelectedProject" :class="['mx-auto mt-8 max-w-xl rounded-2xl border p-8 text-center', isDarkMode ? 'border-midnight-800 bg-midnight-900' : 'border-slate-200 bg-white']">
+            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xl text-emerald-400">
+              <Icons name="FolderGit2" :size="24" />
+            </div>
             <h3 :class="['mt-4 text-base font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">Select a project to view its roadmap</h3>
-            <p :class="['mt-2 text-sm leading-6', isDarkMode ? 'text-slate-400' : 'text-slate-600']">Project health, delivery trend and the Gantt timeline are intentionally scoped to one project so the signals stay actionable.</p>
-            <div class="mt-5 flex flex-wrap justify-center gap-2">
-              <button v-for="project in projectList" :key="project.id" @click="selectedProjectId = project.id" :class="['rounded-lg border px-3 py-2 text-xs font-bold transition-colors', isDarkMode ? 'border-slate-700 text-slate-200 hover:border-blue-500 hover:bg-blue-950/40' : 'border-slate-200 text-slate-700 hover:border-blue-400 hover:bg-blue-50']">{{ project.title }}</button>
+            <p :class="['mt-2 text-sm leading-6 font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600']">Project health, delivery trend and the Gantt timeline are intentionally scoped to one project so the signals stay actionable.</p>
+            <div class="mt-5 flex flex-wrap justify-center gap-2 font-mono">
+              <button
+                v-for="project in projectList"
+                :key="project.id"
+                @click="selectedProjectId = project.id"
+                :class="['rounded-lg border px-3 py-2 text-xs font-bold transition-colors', isDarkMode ? 'border-midnight-700 text-slate-200 hover:border-emerald-500 hover:bg-midnight-850' : 'border-slate-200 text-slate-700 hover:border-blue-400 hover:bg-blue-50']"
+              >
+                {{ project.title }}
+              </button>
             </div>
           </div>
 
@@ -4132,80 +4121,87 @@ onUnmounted(() => {
 
             <section v-show="roadmapTab === 'epics'" class="space-y-3">
               <div class="flex items-end justify-between gap-3">
-                <div><h3 :class="['text-sm font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">Epic progress</h3><p :class="['mt-0.5 text-xs', isDarkMode ? 'text-slate-400' : 'text-slate-500']">Delete an Epic without deleting its linked tasks.</p></div>
-                <span :class="['text-xs font-semibold', isDarkMode ? 'text-slate-400' : 'text-slate-500']">{{ roadmapEpics.length }} Epic{{ roadmapEpics.length === 1 ? '' : 's' }}</span>
+                <div>
+                  <h3 :class="['text-sm font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">Epic progress</h3>
+                  <p :class="['mt-0.5 text-xs font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-500']">Delete an Epic without deleting its linked tasks.</p>
+                </div>
+                <span :class="['text-xs font-mono font-semibold', isDarkMode ? 'text-slate-400' : 'text-slate-500']">{{ roadmapEpics.length }} Epic{{ roadmapEpics.length === 1 ? '' : 's' }}</span>
               </div>
 
-          <div class="space-y-4">
-            <div
-              v-for="epic in roadmapEpics"
-              :key="epic.id"
-              :class="['p-4 rounded-2xl border space-y-3 shadow-xs', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']"
-            >
-              <div class="flex items-center justify-between gap-3">
-                <div class="flex items-center gap-2.5">
-                  <button
-                    type="button"
-                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-sm transition-colors"
-                    :class="isDarkMode ? 'border-slate-700 text-slate-300 hover:border-blue-500 hover:bg-blue-950/40' : 'border-slate-200 text-slate-600 hover:border-blue-400 hover:bg-blue-50'"
-                    :aria-label="`${expandedRoadmapEpicIds.includes(epic.id) ? 'Collapse' : 'Expand'} ${epic.title} tasks`"
-                    @click="toggleRoadmapEpic(epic.id)"
-                  >{{ expandedRoadmapEpicIds.includes(epic.id) ? '−' : '+' }}</button>
-                  <span class="text-lg">◆</span>
-                  <span :class="['font-mono text-xs font-bold px-2 py-0.5 rounded border', isDarkMode ? 'bg-purple-950/80 text-purple-300 border-purple-800' : 'bg-purple-50 text-purple-800 border-purple-200']">{{ epic.issue_key }}</span>
-                  <h3 :class="['text-sm sm:text-base font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">{{ epic.title }}</h3>
-                </div>
-
-                <div class="flex items-center gap-3">
-                  <span :class="['hidden font-mono text-xs font-bold sm:inline', isDarkMode ? 'text-slate-400' : 'text-slate-600']">{{ epic.start_date || 'Start' }} → {{ epic.due_date || 'Due date' }}</span>
-                  <button @click="deleteEpicFromRoadmap(epic)" :class="['rounded-lg border p-2 text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40', isDarkMode ? 'border-slate-700' : 'border-slate-200']" :aria-label="`Delete Epic ${epic.title}`" :title="`Delete ${epic.title}`"><Icons name="Trash2" :size="14" /></button>
-                </div>
-              </div>
-
-              <!-- Progress Bar -->
-              <div class="space-y-1.5">
-                <div :class="['h-3 w-full rounded-full overflow-hidden p-0.5', isDarkMode ? 'bg-slate-900 border border-slate-800' : 'bg-slate-100 border border-slate-300']">
-                  <div
-                    class="h-full bg-gradient-to-r from-purple-600 to-blue-600 rounded-full transition-all duration-500"
-                    :style="{ width: `${(() => { const children = roadmapTasks.filter(task => task.epic_id === epic.id); return children.length ? Math.round((children.filter(task => task.status === 'done').length / children.length) * 100) : (epic.status === 'done' ? 100 : (epic.status === 'in_progress' ? 50 : 0)); })()}%` }"
-                  ></div>
-                </div>
-                <div :class="['flex justify-between text-xs font-mono font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
-                  <span>Status: <strong :class="['uppercase font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">{{ epic.status }}</strong></span>
-                  <span class="font-bold">{{ epic.story_points || 0 }} Story Points</span>
-                </div>
-              </div>
-
-              <div v-if="expandedRoadmapEpicIds.includes(epic.id)" class="space-y-2 border-t pt-3" :class="isDarkMode ? 'border-slate-800' : 'border-slate-200'">
-                <div class="flex items-center justify-between gap-2">
-                  <p :class="['text-xs font-bold uppercase tracking-wide', isDarkMode ? 'text-slate-400' : 'text-slate-500']">Tasks in this Epic</p>
-                  <span :class="['text-xs font-semibold', isDarkMode ? 'text-slate-400' : 'text-slate-500']">{{ epicChildren(epic.id).length }} task{{ epicChildren(epic.id).length === 1 ? '' : 's' }}</span>
-                </div>
-                <button
-                  v-for="child in epicChildren(epic.id)"
-                  :key="child.id"
-                  type="button"
-                  class="flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors"
-                  :class="isDarkMode ? 'border-slate-800 bg-slate-900/60 hover:border-blue-700 hover:bg-slate-900' : 'border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50/40'"
-                  @click="openTaskDrawer(child)"
+              <div class="space-y-4">
+                <div
+                  v-for="epic in roadmapEpics"
+                  :key="epic.id"
+                  :class="['p-4 rounded-2xl border space-y-3 shadow-xs', isDarkMode ? 'bg-midnight-900 border-midnight-800' : 'bg-white border-slate-200']"
                 >
-                  <span class="min-w-0">
-                    <span class="flex items-center gap-2">
-                      <span :class="['font-mono text-[11px] font-bold', isDarkMode ? 'text-blue-300' : 'text-blue-700']">{{ child.issue_key }}</span>
-                      <span :class="['truncate text-sm font-semibold', isDarkMode ? 'text-slate-100' : 'text-slate-800']">{{ child.title }}</span>
-                    </span>
-                    <span :class="['mt-1 block text-[11px]', isDarkMode ? 'text-slate-400' : 'text-slate-500']">{{ child.story_points || 0 }} pts · {{ child.priority }}</span>
-                  </span>
-                  <span :class="['shrink-0 rounded-full px-2 py-1 text-[10px] font-bold uppercase', child.status === 'done' ? (isDarkMode ? 'bg-emerald-950 text-emerald-300' : 'bg-emerald-50 text-emerald-700') : child.status === 'review' ? (isDarkMode ? 'bg-amber-950 text-amber-300' : 'bg-amber-50 text-amber-700') : (isDarkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700')]">{{ child.status.replace('_', ' ') }}</span>
-                </button>
-                <p v-if="epicChildren(epic.id).length === 0" :class="['rounded-lg border border-dashed px-3 py-3 text-xs italic', isDarkMode ? 'border-slate-700 text-slate-500' : 'border-slate-300 text-slate-500']">No tasks are linked to this Epic yet.</p>
-              </div>
-            </div>
+                  <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-2.5">
+                      <button
+                        type="button"
+                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-sm transition-colors"
+                        :class="isDarkMode ? 'border-midnight-700 text-slate-300 hover:border-purple-500 hover:bg-midnight-850' : 'border-slate-200 text-slate-600 hover:border-blue-400 hover:bg-blue-50'"
+                        :aria-label="`${expandedRoadmapEpicIds.includes(epic.id) ? 'Collapse' : 'Expand'} ${epic.title} tasks`"
+                        @click="toggleRoadmapEpic(epic.id)"
+                      >
+                        <Icons :name="expandedRoadmapEpicIds.includes(epic.id) ? 'Minus' : 'Plus'" :size="14" />
+                      </button>
+                      <Icons name="Layers" :size="16" class="text-purple-400 shrink-0" />
+                      <span :class="['font-mono text-xs font-bold px-2 py-0.5 rounded border', isDarkMode ? 'bg-purple-950/80 text-purple-300 border-purple-800' : 'bg-purple-50 text-purple-800 border-purple-200']">{{ epic.issue_key }}</span>
+                      <h3 :class="['text-sm sm:text-base font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">{{ epic.title }}</h3>
+                    </div>
 
-            <div v-if="roadmapEpics.length === 0" class="py-8 text-center text-xs text-slate-500 italic font-medium">
-              No epics yet. Create an Epic issue to show it on the roadmap.
-            </div>
-          </div>
+                    <div class="flex items-center gap-3 font-mono">
+                      <span :class="['hidden text-xs font-bold sm:inline', isDarkMode ? 'text-slate-400' : 'text-slate-600']">{{ epic.start_date || 'Start' }} → {{ epic.due_date || 'Due date' }}</span>
+                      <button @click="deleteEpicFromRoadmap(epic)" :class="['rounded-lg border p-2 text-rose-400 transition-colors hover:bg-rose-950/40', isDarkMode ? 'border-midnight-700' : 'border-slate-200']" :aria-label="`Delete Epic ${epic.title}`" :title="`Delete ${epic.title}`">
+                        <Icons name="Trash2" :size="14" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Progress Bar -->
+                  <div class="space-y-1.5">
+                    <div :class="['h-3 w-full rounded-full overflow-hidden p-0.5', isDarkMode ? 'bg-midnight-950 border border-midnight-800' : 'bg-slate-100 border border-slate-300']">
+                      <div
+                        class="h-full bg-gradient-to-r from-purple-500 via-teal-500 to-emerald-500 rounded-full transition-all duration-500"
+                        :style="{ width: `${(() => { const children = roadmapTasks.filter(task => task.epic_id === epic.id); return children.length ? Math.round((children.filter(task => task.status === 'done').length / children.length) * 100) : (epic.status === 'done' ? 100 : (epic.status === 'in_progress' ? 50 : 0)); })()}%` }"
+                      ></div>
+                    </div>
+                    <div :class="['flex justify-between text-xs font-mono font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
+                      <span>Status: <strong :class="['uppercase font-bold', isDarkMode ? 'text-white' : 'text-slate-950']">{{ epic.status }}</strong></span>
+                      <span class="font-bold">{{ epic.story_points || 0 }} Story Points</span>
+                    </div>
+                  </div>
+
+                  <div v-if="expandedRoadmapEpicIds.includes(epic.id)" class="space-y-2 border-t pt-3" :class="isDarkMode ? 'border-midnight-800' : 'border-slate-200'">
+                    <div class="flex items-center justify-between gap-2 font-mono">
+                      <p :class="['text-xs font-bold uppercase tracking-wide', isDarkMode ? 'text-slate-400' : 'text-slate-500']">Tasks in this Epic</p>
+                      <span :class="['text-xs font-semibold', isDarkMode ? 'text-slate-400' : 'text-slate-500']">{{ epicChildren(epic.id).length }} task{{ epicChildren(epic.id).length === 1 ? '' : 's' }}</span>
+                    </div>
+                    <button
+                      v-for="child in epicChildren(epic.id)"
+                      :key="child.id"
+                      type="button"
+                      class="flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors font-mono"
+                      :class="isDarkMode ? 'border-midnight-800 bg-midnight-850 hover:border-purple-500 hover:bg-midnight-800' : 'border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50/40'"
+                      @click="openTaskDrawer(child)"
+                    >
+                      <span class="min-w-0">
+                        <span class="flex items-center gap-2">
+                          <span :class="['font-mono text-[11px] font-bold', isDarkMode ? 'text-purple-300' : 'text-blue-700']">{{ child.issue_key }}</span>
+                          <span :class="['truncate text-sm font-semibold', isDarkMode ? 'text-slate-100' : 'text-slate-800']">{{ child.title }}</span>
+                        </span>
+                        <span :class="['mt-1 block text-[11px]', isDarkMode ? 'text-slate-400' : 'text-slate-500']">{{ child.story_points || 0 }} pts · {{ child.priority }}</span>
+                      </span>
+                      <span :class="['shrink-0 rounded-full px-2 py-1 text-[10px] font-bold uppercase', child.status === 'done' ? (isDarkMode ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-emerald-50 text-emerald-700') : child.status === 'review' ? (isDarkMode ? 'bg-purple-950 text-purple-300 border border-purple-800' : 'bg-amber-50 text-amber-700') : (isDarkMode ? 'bg-midnight-950 text-slate-300 border border-midnight-700' : 'bg-slate-200 text-slate-700')]">{{ child.status.replace('_', ' ') }}</span>
+                    </button>
+                    <p v-if="epicChildren(epic.id).length === 0" :class="['rounded-lg border border-dashed px-3 py-3 text-xs italic font-mono', isDarkMode ? 'border-midnight-800 text-slate-500' : 'border-slate-300 text-slate-500']">No tasks are linked to this Epic yet.</p>
+                  </div>
+                </div>
+
+                <div v-if="roadmapEpics.length === 0" class="py-8 text-center text-xs text-slate-500 italic font-medium font-mono">
+                  No epics yet. Create an Epic issue to show it on the roadmap.
+                </div>
+              </div>
             </section>
           </template>
         </div>
@@ -4216,35 +4212,35 @@ onUnmounted(() => {
     <!-- NOTIFICATION DRAWER -->
     <div
       v-if="isNotificationsOpen"
-      class="fixed inset-0 z-[55] bg-slate-950/30"
+      class="fixed inset-0 z-[55] bg-midnight-950/50 backdrop-blur-xs"
       @click="isNotificationsOpen = false"
     >
       <aside
         :class="[
-          'absolute right-0 top-0 h-full w-full max-w-sm border-l flex flex-col shadow-2xl animate-slideInRight',
-          isDarkMode ? 'bg-[#0b101e] border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+          'absolute right-0 top-0 h-full w-full max-w-sm border-l flex flex-col shadow-2xl animate-slideInRight font-mono',
+          isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
         ]"
         @click.stop
       >
-        <div :class="['px-5 py-4 border-b flex items-center justify-between shrink-0', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+        <div :class="['px-5 py-4 border-b flex items-center justify-between shrink-0', isDarkMode ? 'border-midnight-800 bg-midnight-950' : 'border-slate-200']">
           <div>
-            <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-blue-500">Workspace inbox</p>
+            <p class="text-[10px] uppercase tracking-[0.18em] font-bold text-phantom-mint">Workspace inbox</p>
             <h2 class="mt-1 text-lg font-bold tracking-tight">Notifications</h2>
           </div>
           <div class="flex items-center gap-2">
             <button
               v-if="unreadNotificationCount"
               @click="markAllNotificationsRead"
-              class="rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-blue-600 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/50 cursor-pointer"
+              class="rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-phantom-mint hover:bg-midnight-850 cursor-pointer"
             >
               Mark all read
             </button>
             <button
               @click="isNotificationsOpen = false"
-              class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white cursor-pointer"
+              class="h-8 w-8 rounded-lg text-slate-400 hover:bg-midnight-850 hover:text-white cursor-pointer inline-flex items-center justify-center shrink-0 transition-colors"
               aria-label="Close notifications"
             >
-              ✕
+              <Icons name="X" :size="14" />
             </button>
           </div>
         </div>
@@ -4257,153 +4253,153 @@ onUnmounted(() => {
             :class="[
               'w-full flex items-start gap-3 rounded-xl border p-3 text-left transition-colors cursor-pointer',
               readNotificationIds.includes(item.id)
-                ? (isDarkMode ? 'border-slate-800 bg-slate-950/40 hover:bg-slate-900' : 'border-slate-200 bg-white hover:bg-slate-50')
-                : (isDarkMode ? 'border-blue-900/70 bg-blue-950/20 hover:bg-blue-950/40' : 'border-blue-200 bg-blue-50/60 hover:bg-blue-50')
+                ? (isDarkMode ? 'border-midnight-800 bg-midnight-950/40 hover:bg-midnight-850' : 'border-slate-200 bg-white hover:bg-slate-50')
+                : (isDarkMode ? 'border-cyan-500/40 bg-cyan-950/20 hover:bg-cyan-950/40' : 'border-blue-200 bg-blue-50/60 hover:bg-blue-50')
             ]"
           >
             <span
               :class="[
                 'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-xs font-bold',
-                item.tone === 'warning' ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300' : item.tone === 'success' ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300' : 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-300'
+                item.tone === 'warning' ? 'border-amber-500/40 bg-amber-950/50 text-amber-300' : item.tone === 'success' ? 'border-emerald-500/40 bg-emerald-950/50 text-emerald-300' : 'border-cyan-500/40 bg-cyan-950/50 text-cyan-300'
               ]"
             >
-              {{ item.tone === 'warning' ? '!' : item.tone === 'success' ? '✓' : 'i' }}
+              <Icons :name="item.tone === 'warning' ? 'AlertTriangle' : item.tone === 'success' ? 'CheckCircle' : 'Info'" :size="13" />
             </span>
             <span class="min-w-0 flex-1">
               <span :class="['block text-xs font-bold', isDarkMode ? 'text-slate-100' : 'text-slate-900']">{{ item.title }}</span>
-              <span class="mt-1 block text-[11px] leading-4 text-slate-500">{{ item.detail }}</span>
+              <span class="mt-1 block text-[11px] leading-4 text-slate-400">{{ item.detail }}</span>
             </span>
-            <span v-if="!readNotificationIds.includes(item.id)" class="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-500"></span>
+            <span v-if="!readNotificationIds.includes(item.id)" class="mt-1 h-2 w-2 shrink-0 rounded-full bg-cyan-400"></span>
           </button>
         </div>
         <div v-else class="flex flex-1 flex-col items-center justify-center px-8 text-center">
-          <div class="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-xl text-slate-400 dark:border-slate-800 dark:bg-slate-950">✓</div>
+          <div class="flex h-12 w-12 items-center justify-center rounded-2xl border border-midnight-800 bg-midnight-950 text-xl text-slate-400">
+            <Icons name="CheckCircle" :size="22" class="text-emerald-400" />
+          </div>
           <h3 class="mt-3 text-sm font-bold">You’re all caught up</h3>
-          <p class="mt-1 text-xs leading-5 text-slate-500">No task risks or workspace updates need your attention.</p>
+          <p class="mt-1 text-xs leading-5 text-slate-400 font-mono">No task risks or workspace updates need your attention.</p>
         </div>
       </aside>
     </div>
 
     <!-- ========================================================================= -->
-    <!-- 3. TASK DETAIL DRAWER (HIGH CONTRAST MARKDOWN & CODE BLOCKS)              -->
-    <!-- ========================================================================= -->
-    <!-- ========================================================================= -->
     <!-- 3. TASK DETAIL DRAWER (HIGH CONTRAST, EXPANDABLE & CLEAR TYPOGRAPHY)      -->
     <!-- ========================================================================= -->
     <div
       v-if="selectedTask"
-      class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex justify-end"
+      class="fixed inset-0 z-50 bg-midnight-950/70 backdrop-blur-sm flex justify-end"
       @click.self="closeTaskDrawer"
     >
       <div
         :class="[
           'task-detail-drawer w-full border-l h-full flex flex-col shadow-2xl animate-slideInRight transition-all duration-200',
           isDrawerExpanded ? 'max-w-[1440px]' : 'max-w-[980px]',
-          isDarkMode ? 'bg-[#090d18] border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900'
+          isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900'
         ]"
       >
         <!-- Drawer Header -->
-        <div :class="['px-6 py-4.5 border-b flex flex-wrap items-center justify-between gap-3 shrink-0', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200']">
-          <div class="flex items-center gap-3 min-w-0">
-            <span :class="['font-mono text-sm font-bold px-3 py-1 rounded-xl shadow-xs border', isDarkMode ? 'bg-blue-950 text-blue-300 border-blue-800' : 'bg-blue-50 text-blue-800 border-blue-200']">
+        <div :class="['px-6 py-4.5 border-b flex flex-wrap items-center justify-between gap-3 shrink-0', isDarkMode ? 'bg-midnight-950 border-midnight-800' : 'bg-slate-50 border-slate-200']">
+          <div class="flex items-center gap-3 min-w-0 font-mono">
+            <span :class="['text-sm font-bold px-3 py-1 rounded-xl shadow-xs border inline-flex items-center justify-center shrink-0', isDarkMode ? 'bg-midnight-900 text-cyan-300 border-cyan-500/40' : 'bg-blue-50 text-blue-800 border-blue-200']">
               {{ selectedTask.issue_key }}
             </span>
-            <span class="text-slate-400 font-bold">/</span>
+            <span class="text-slate-500 font-bold">/</span>
             <span :class="['text-sm truncate font-bold', isDarkMode ? 'text-slate-300' : 'text-slate-800']">
               {{ selectedTask.project?.title || 'Project required' }}
             </span>
-            <span v-if="selectedTask.epic" class="hidden sm:inline-flex px-2 py-0.5 rounded-md font-mono text-xs font-bold bg-purple-50 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-              ⚡ {{ selectedTask.epic.issue_key }}
+            <span v-if="selectedTask.epic" class="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md font-mono text-xs font-bold bg-purple-950/80 text-purple-300 border border-purple-800 shrink-0">
+              <Icons name="Layers" :size="12" class="text-purple-400" />
+              <span>{{ selectedTask.epic.issue_key }}</span>
             </span>
           </div>
 
-          <div class="flex items-center gap-2 shrink-0">
+          <div class="flex items-center gap-2 shrink-0 font-mono">
             <!-- Fullscreen / Expand Toggle Button -->
             <button
               @click="isDrawerExpanded = !isDrawerExpanded"
               :class="[
-                'px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs',
-                isDarkMode ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-200' : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-800'
+                'px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 shadow-xs shrink-0',
+                isDarkMode ? 'bg-midnight-850 hover:bg-midnight-800 border-midnight-700 text-slate-200' : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-800'
               ]"
               :title="isDrawerExpanded ? 'Collapse details' : 'Expand to full screen'"
             >
-              <span>{{ isDrawerExpanded ? '🗗' : '⛶' }}</span>
-              <span class="hidden sm:inline">{{ isDrawerExpanded ? 'Collapse' : 'Full Screen' }}</span>
+              <Icons :name="isDrawerExpanded ? 'Minimize2' : 'Maximize2'" :size="13" />
+              <span class="hidden sm:inline leading-none">{{ isDrawerExpanded ? 'Collapse' : 'Full Screen' }}</span>
             </button>
 
             <!-- Delete Button -->
             <button
               @click="deleteTask(selectedTask)"
-              class="px-3 py-1.5 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 border border-transparent hover:border-red-200 text-xs cursor-pointer font-bold flex items-center gap-1 transition-colors"
+              class="px-3 py-1.5 rounded-xl text-rose-400 hover:bg-rose-950/40 border border-transparent hover:border-rose-800 text-xs cursor-pointer font-bold inline-flex items-center justify-center gap-1.5 transition-colors shrink-0"
               title="Delete issue"
             >
-              <span>🗑️</span>
-                <span class="hidden sm:inline">Delete</span>
+              <Icons name="Trash2" :size="13" />
+              <span class="hidden sm:inline leading-none">Delete</span>
             </button>
 
             <!-- Close Button -->
             <button
               @click="closeTaskDrawer"
               :class="[
-                'p-2 rounded-xl text-sm font-bold cursor-pointer transition-colors shadow-xs',
-                isDarkMode ? 'bg-slate-900 hover:bg-slate-800 text-slate-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-800'
+                'h-8 w-8 rounded-xl text-sm font-bold cursor-pointer transition-colors shadow-xs inline-flex items-center justify-center shrink-0',
+                isDarkMode ? 'bg-midnight-850 hover:bg-midnight-800 text-slate-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-800'
               ]"
               title="Close details (Esc)"
             >
-              ✕
+              <Icons name="X" :size="14" />
             </button>
           </div>
         </div>
 
-        <div v-if="drawerSaveError" class="mx-5 mt-4 flex items-center justify-between gap-3 rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-200">
-          <span>{{ drawerSaveError }}</span><button class="font-bold underline" @click="drawerSaveError = ''">Dismiss</button>
+        <div v-if="drawerSaveError" class="mx-5 mt-4 flex items-center justify-between gap-3 rounded-xl border border-rose-800 bg-rose-950/50 px-3 py-2 text-xs text-rose-200">
+          <span>{{ drawerSaveError }}</span><button class="font-bold underline cursor-pointer" @click="drawerSaveError = ''">Dismiss</button>
         </div>
 
         <!-- Drawer Body: reading-first surface with secondary context below -->
         <div class="flex-1 p-5 sm:p-8 overflow-y-auto">
           <div class="mx-auto max-w-5xl space-y-6">
             <!-- Large Title Input -->
-            <div class="space-y-1">
-              <label :class="['font-mono text-[11px] font-bold uppercase tracking-wider block', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
+            <div class="space-y-1 font-mono">
+              <label :class="['text-[11px] font-bold uppercase tracking-wider block', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
                 Task Title (Issue Title)
               </label>
               <input
                 v-model="selectedTask.title"
                 @blur="saveTaskDrawerChanges"
                 :class="[
-                  'w-full font-bold text-xl sm:text-2xl lg:text-3xl bg-transparent border-b-2 border-slate-200 dark:border-slate-800 focus:border-blue-500 focus:outline-none py-2 transition-colors leading-snug',
+                  'w-full font-bold text-xl sm:text-2xl lg:text-3xl bg-transparent border-b-2 border-midnight-800 focus:border-phantom-mint focus:outline-none py-2 transition-colors leading-snug',
                   isDarkMode ? 'text-white placeholder-slate-600' : 'text-slate-950 placeholder-slate-400'
                 ]"
                 placeholder="Enter task title..."
               />
             </div>
 
-            <section :class="['rounded-2xl border p-3 shadow-sm', isDarkMode ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-white']" aria-label="Quick task edits">
-              <div class="mb-2 flex items-center justify-between"><span :class="['text-[10px] font-bold uppercase tracking-[0.14em]', isDarkMode ? 'text-slate-400' : 'text-slate-500']">Quick edit</span><span :class="['text-[11px]', isDarkMode ? 'text-slate-500' : 'text-slate-500']">Changes save automatically</span></div>
+            <section :class="['rounded-2xl border p-3 shadow-sm font-mono', isDarkMode ? 'border-midnight-800 bg-midnight-950' : 'border-slate-200 bg-white']" aria-label="Quick task edits">
+              <div class="mb-2 flex items-center justify-between"><span :class="['text-[10px] font-bold uppercase tracking-[0.14em]', isDarkMode ? 'text-phantom-mint' : 'text-slate-500']">Quick edit</span><span :class="['text-[11px]', isDarkMode ? 'text-slate-400' : 'text-slate-500']">Changes save automatically</span></div>
               <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-                <select v-model="selectedTask.status" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'"><option value="todo">To do</option><option value="in_progress">In progress</option><option value="review">Review</option><option value="done">Done</option></select>
-                <select v-model="selectedTask.priority" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'"><option value="urgent">Urgent</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
-                <select v-model="selectedTask.story_points" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'"><option :value="null">Points</option><option v-for="pts in [1, 2, 3, 5, 8, 13, 21]" :key="pts" :value="pts">{{ pts }} pts</option></select>
-                <input v-model="selectedTask.due_date" type="date" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'" aria-label="Due date" />
-                <select v-if="selectedTask.issue_type !== 'epic'" v-model="selectedTask.sprint_id" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'"><option :value="null">Backlog</option><option v-for="sprint in sprintList" :key="sprint.id" :value="sprint.id">{{ sprint.name }}</option></select>
-                <select v-if="selectedTask.issue_type !== 'epic'" v-model="selectedTask.epic_id" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'"><option :value="null">No Epic</option><option v-for="epic in epicList" :key="epic.id" :value="epic.id">{{ epic.issue_key }}</option></select>
+                <select v-model="selectedTask.status" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-midnight-700 bg-midnight-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'"><option value="todo">To do</option><option value="in_progress">In progress</option><option value="review">Review</option><option value="done">Done</option></select>
+                <select v-model="selectedTask.priority" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-midnight-700 bg-midnight-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'"><option value="urgent">Urgent</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
+                <select v-model="selectedTask.story_points" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-midnight-700 bg-midnight-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'"><option :value="null">Points</option><option v-for="pts in [1, 2, 3, 5, 8, 13, 21]" :key="pts" :value="pts">{{ pts }} pts</option></select>
+                <input v-model="selectedTask.due_date" type="date" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-midnight-700 bg-midnight-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'" aria-label="Due date" />
+                <select v-if="selectedTask.issue_type !== 'epic'" v-model="selectedTask.sprint_id" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-midnight-700 bg-midnight-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'"><option :value="null">Backlog</option><option v-for="sprint in sprintList" :key="sprint.id" :value="sprint.id">{{ sprint.name }}</option></select>
+                <select v-if="selectedTask.issue_type !== 'epic'" v-model="selectedTask.epic_id" @change="saveTaskDrawerChanges" class="min-w-0 rounded-lg border px-2 py-2 text-xs font-semibold" :class="isDarkMode ? 'border-midnight-700 bg-midnight-900 text-slate-100' : 'border-slate-300 bg-white text-slate-900'"><option :value="null">No Epic</option><option v-for="epic in epicList" :key="epic.id" :value="epic.id">{{ epic.issue_key }}</option></select>
               </div>
             </section>
 
-            <details v-if="selectedTask.issue_type !== 'epic'" :class="['rounded-2xl border p-3 shadow-sm', isDarkMode ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-white']">
+            <details v-if="selectedTask.issue_type !== 'epic'" :class="['rounded-2xl border p-3 shadow-sm font-mono', isDarkMode ? 'border-midnight-800 bg-midnight-950' : 'border-slate-200 bg-white']">
               <summary class="cursor-pointer list-none flex items-center justify-between gap-3 text-xs font-bold">
-                <span>Dependencies <span class="font-mono text-slate-400">({{ selectedDependencyIds.length }})</span></span>
-                <span class="text-[10px] font-normal text-amber-400">Human review required before changing execution order</span>
+                <span>Dependencies <span class="text-phantom-mint">({{ selectedDependencyIds.length }})</span></span>
+                <span class="text-[10px] font-normal text-amber-300">Human review required before changing execution order</span>
               </summary>
               <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
                 A selected task must be done before this task can run. Remove one circular link to unblock an Epic, then retry dispatch.
               </p>
               <div class="mt-3 max-h-44 space-y-1 overflow-y-auto pr-1">
-                <label v-for="candidate in dependencyCandidates" :key="candidate.id" class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-slate-800/60">
-                  <input v-model="selectedDependencyIds" :value="candidate.id" type="checkbox" class="h-3.5 w-3.5 rounded border-slate-600 text-blue-500 focus:ring-blue-500" @change="saveTaskDrawerChanges" />
-                  <span class="font-mono text-[11px] text-blue-300">{{ candidate.issue_key || `#${candidate.id}` }}</span>
+                <label v-for="candidate in dependencyCandidates" :key="candidate.id" class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs hover:bg-midnight-850">
+                  <input v-model="selectedDependencyIds" :value="candidate.id" type="checkbox" class="h-3.5 w-3.5 rounded border-midnight-700 text-phantom-mint focus:ring-phantom-mint bg-midnight-900" @change="saveTaskDrawerChanges" />
+                  <span class="text-cyan-300">{{ candidate.issue_key || `#${candidate.id}` }}</span>
                   <span class="truncate">{{ candidate.title }}</span>
-                  <span class="ml-auto shrink-0 text-[10px] text-slate-500">{{ candidate.status }}</span>
+                  <span class="ml-auto shrink-0 text-[10px] text-slate-500 uppercase">{{ candidate.status }}</span>
                 </label>
                 <p v-if="dependencyCandidates.length === 0" class="px-2 py-1 text-[11px] text-slate-500">No other work item is available in this project.</p>
               </div>
@@ -4413,14 +4409,14 @@ onUnmounted(() => {
             <div
               v-if="getTaskDelayStatus(selectedTask).isOverdue || getTaskDelayStatus(selectedTask).isDelayed"
               :class="[
-                'p-4 sm:p-5 rounded-2xl border space-y-3 transition-all shadow-xs',
+                'p-4 sm:p-5 rounded-2xl border space-y-3 transition-all shadow-xs font-mono',
                 getTaskDelayStatus(selectedTask).isOverdue
                   ? (isDarkMode ? 'bg-rose-950/50 border-rose-800 text-rose-200' : 'bg-rose-50 border-rose-300 text-rose-950')
                   : (isDarkMode ? 'bg-amber-950/50 border-amber-800 text-amber-200' : 'bg-amber-50 border-amber-300 text-amber-950')
               ]"
             >
               <div class="flex items-center gap-3">
-                <span class="text-2xl">{{ getTaskDelayStatus(selectedTask).isOverdue ? '🚨' : '⚠️' }}</span>
+                <Icons name="AlertTriangle" :size="24" :class="getTaskDelayStatus(selectedTask).isOverdue ? 'text-rose-400' : 'text-amber-400'" />
                 <div>
                   <div class="font-bold text-sm sm:text-base">
                     {{ getTaskDelayStatus(selectedTask).label }}
@@ -4436,21 +4432,21 @@ onUnmounted(() => {
                 <span class="font-mono text-xs font-bold uppercase opacity-80 mr-1">Quick actions:</span>
                 <button
                   @click="extendDueDate(1)"
-                  class="px-3 py-1.5 rounded-xl font-bold border bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs"
+                  class="px-3 py-1.5 rounded-xl font-bold border bg-midnight-900 border-midnight-700 hover:bg-midnight-850 cursor-pointer shadow-xs"
                   title="Extend by 1 day"
                 >
                   +1 Day
                 </button>
                 <button
                   @click="extendDueDate(3)"
-                  class="px-3 py-1.5 rounded-xl font-bold border bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs"
+                  class="px-3 py-1.5 rounded-xl font-bold border bg-midnight-900 border-midnight-700 hover:bg-midnight-850 cursor-pointer shadow-xs"
                   title="Extend by 3 days"
                 >
                   +3 Days
                 </button>
                 <button
                   @click="extendDueDate(7)"
-                  class="px-3 py-1.5 rounded-xl font-bold border bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shadow-xs"
+                  class="px-3 py-1.5 rounded-xl font-bold border bg-midnight-900 border-midnight-700 hover:bg-midnight-850 cursor-pointer shadow-xs"
                   title="Extend by 1 week"
                 >
                   +1 Week
@@ -4458,25 +4454,27 @@ onUnmounted(() => {
                 <button
                   v-if="selectedTask.priority !== 'urgent'"
                   @click="increaseTaskPriority"
-                  class="px-3.5 py-1.5 rounded-xl font-bold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-xs ml-auto"
+                  class="px-3.5 py-1.5 rounded-xl font-bold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-xs ml-auto inline-flex items-center gap-1.5"
                 >
-                  🔴 Mark Urgent
+                  <Icons name="AlertCircle" :size="13" />
+                  <span class="leading-none">Mark Urgent</span>
                 </button>
               </div>
             </div>
 
             <!-- Description Markdown & Code Render -->
-            <div class="space-y-2.5">
-              <div class="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-slate-800">
-                <span :class="['text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2', isDarkMode ? 'text-slate-300' : 'text-slate-700']">
-                  <span>📝</span>
+            <div class="space-y-2.5 font-mono">
+              <div class="flex items-center justify-between pb-2 border-b border-midnight-800">
+                <span :class="['text-xs font-bold uppercase tracking-wider flex items-center gap-2', isDarkMode ? 'text-slate-300' : 'text-slate-700']">
+                  <Icons name="FileText" :size="14" class="text-phantom-mint" />
                   <span>DESCRIPTION (MARKDOWN)</span>
                 </span>
                 <button
                   @click="isEditingDescription = !isEditingDescription"
-                  class="text-xs px-3.5 py-1.5 rounded-xl font-bold bg-blue-50 text-blue-800 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900 transition-colors border border-blue-200 dark:border-blue-800 cursor-pointer shadow-xs"
+                  class="text-xs px-3.5 py-1.5 rounded-xl font-bold bg-midnight-850 text-cyan-300 hover:bg-midnight-800 transition-colors border border-midnight-700 cursor-pointer shadow-xs inline-flex items-center gap-1.5"
                 >
-                  {{ isEditingDescription ? '👁️ Preview' : '✏️ Edit Markdown' }}
+                  <Icons :name="isEditingDescription ? 'Eye' : 'Edit3'" :size="12" />
+                  <span class="leading-none">{{ isEditingDescription ? 'Preview' : 'Edit Markdown' }}</span>
                 </button>
               </div>
 
@@ -4486,23 +4484,24 @@ onUnmounted(() => {
                   v-model="descriptionEditContent"
                   rows="10"
                   :class="[
-                    'w-full p-4 rounded-2xl border text-sm font-mono focus:outline-none focus:border-blue-500 shadow-xs font-medium leading-relaxed',
-                    isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950'
+                    'w-full p-4 rounded-2xl border text-sm font-mono focus:outline-none focus:border-phantom-mint shadow-xs font-medium leading-relaxed',
+                    isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950'
                   ]"
                   placeholder="Enter a Markdown description (# heading, - list, ```code...)"
                 ></textarea>
                 <div class="flex justify-end gap-2">
                   <button
                     @click="isEditingDescription = false"
-                    class="px-4 py-2 rounded-xl border text-xs font-bold cursor-pointer"
+                    class="px-4 py-2 rounded-xl border border-midnight-700 text-xs font-bold cursor-pointer hover:bg-midnight-850"
                   >
                     Cancel
                   </button>
                   <button
                     @click="isEditingDescription = false; saveTaskDrawerChanges();"
-                    class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer shadow-xs"
+                    class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 text-xs font-extrabold cursor-pointer shadow-xs inline-flex items-center gap-1.5"
                   >
-                    Save Description ✓
+                    <Icons name="CheckCircle" :size="13" />
+                    <span class="leading-none">Save Description</span>
                   </button>
                 </div>
               </div>
@@ -4512,24 +4511,24 @@ onUnmounted(() => {
                 v-else
                 :class="[
                   'p-6 rounded-2xl border text-sm sm:text-base leading-relaxed min-h-[140px] shadow-xs',
-                  isDarkMode ? 'bg-slate-950/80 border-slate-800 text-slate-100' : 'bg-slate-50/90 border-slate-200/90 text-slate-900'
+                  isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-slate-50/90 border-slate-200/90 text-slate-900'
                 ]"
               >
                 <div v-if="selectedTask.description" v-html="formatMarkdown(selectedTask.description)"></div>
-                <div v-else class="text-slate-400 italic font-medium py-6 text-center">
-                  No detailed description yet. Click "✏️ Edit Markdown" to add content.
+                <div v-else class="text-slate-500 italic font-medium py-6 text-center">
+                  No detailed description yet. Click "Edit Markdown" to add content.
                 </div>
               </div>
             </div>
 
             <!-- Subtasks Checklist -->
-            <div class="space-y-3 pt-2">
-              <div class="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-slate-800">
-                <span :class="['text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2', isDarkMode ? 'text-slate-300' : 'text-slate-700']">
-                  <span>☑️</span>
+            <div class="space-y-3 pt-2 font-mono">
+              <div class="flex items-center justify-between pb-2 border-b border-midnight-800">
+                <span :class="['text-xs font-bold uppercase tracking-wider flex items-center gap-2', isDarkMode ? 'text-slate-300' : 'text-slate-700']">
+                  <Icons name="ListChecks" :size="14" class="text-phantom-mint" />
                   <span>SUBTASKS</span>
                 </span>
-                <span :class="['font-mono text-xs font-bold px-3 py-1 rounded-full border', isDarkMode ? 'bg-slate-900 text-slate-200 border-slate-700' : 'bg-slate-100 text-slate-800 border-slate-300 shadow-xs']">
+                <span :class="['text-xs font-bold px-3 py-1 rounded-full border inline-flex items-center justify-center', isDarkMode ? 'bg-midnight-950 text-slate-200 border-midnight-800' : 'bg-slate-100 text-slate-800 border-slate-300 shadow-xs']">
                   {{ (selectedTask.subtasks || []).filter(s => s.done).length }}/{{ (selectedTask.subtasks || []).length }} complete
                 </span>
               </div>
@@ -4540,15 +4539,16 @@ onUnmounted(() => {
                   @keydown.enter="addSubtask"
                   placeholder="+ Add a subtask... (Press Enter)"
                   :class="[
-                    'flex-1 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-blue-500 shadow-xs font-medium',
-                    isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'
+                    'flex-1 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-phantom-mint shadow-xs font-medium font-mono',
+                    isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'
                   ]"
                 />
                 <button
                   @click="addSubtask"
-                  class="px-5 py-2.5 rounded-xl font-bold text-sm bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shadow-xs transition-colors"
+                  class="px-5 py-2.5 rounded-xl font-extrabold text-sm bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 cursor-pointer shadow-xs transition-colors shrink-0 inline-flex items-center gap-1.5"
                 >
-                  Add
+                  <Icons name="Plus" :size="14" />
+                  <span class="leading-none">Add</span>
                 </button>
               </div>
 
@@ -4559,8 +4559,8 @@ onUnmounted(() => {
                   :class="[
                     'flex items-center justify-between p-3.5 rounded-xl border text-sm shadow-xs transition-all',
                     st.done
-                      ? (isDarkMode ? 'bg-slate-950/60 border-slate-800/80 opacity-75' : 'bg-slate-50/80 border-slate-200 opacity-75')
-                      : (isDarkMode ? 'bg-slate-900/90 border-slate-700/80' : 'bg-white border-slate-200')
+                      ? (isDarkMode ? 'bg-midnight-950/60 border-midnight-800/80 opacity-75' : 'bg-slate-50/80 border-slate-200 opacity-75')
+                      : (isDarkMode ? 'bg-midnight-850 border-midnight-800' : 'bg-white border-slate-200')
                   ]"
                 >
                   <label class="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
@@ -4568,19 +4568,19 @@ onUnmounted(() => {
                       type="checkbox"
                       :checked="st.done"
                       @change="toggleSubtask(st)"
-                      class="w-4 h-4 rounded text-blue-600 focus:ring-0 cursor-pointer"
+                      class="w-4 h-4 rounded text-phantom-mint focus:ring-0 cursor-pointer bg-midnight-900 border-midnight-700"
                     />
-                    <span :class="['truncate text-sm font-semibold', st.done ? 'line-through text-slate-400 dark:text-slate-500' : (isDarkMode ? 'text-slate-100' : 'text-slate-950')]">
+                    <span :class="['truncate text-sm font-semibold', st.done ? 'line-through text-slate-500' : (isDarkMode ? 'text-slate-100' : 'text-slate-950')]">
                       {{ st.text }}
                     </span>
                   </label>
 
-                  <button @click="deleteSubtask(st.id)" class="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/50 text-xs cursor-pointer font-bold ml-2" title="Delete subtask">
-                    ✕
+                  <button @click="deleteSubtask(st.id)" class="text-slate-400 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-950/40 text-xs cursor-pointer font-bold ml-2 transition-colors" title="Delete subtask">
+                    <Icons name="X" :size="13" />
                   </button>
                 </div>
 
-                <div v-if="!selectedTask.subtasks || selectedTask.subtasks.length === 0" class="py-4 text-center text-xs text-slate-400 italic">
+                <div v-if="!selectedTask.subtasks || selectedTask.subtasks.length === 0" class="py-4 text-center text-xs text-slate-500 italic">
                   No subtasks yet. Enter a title above to add one.
                 </div>
               </div>
@@ -4589,15 +4589,15 @@ onUnmounted(() => {
 
           <TaskContextRail :dark="isDarkMode">
             <details class="group" open>
-            <summary class="font-mono text-xs font-bold uppercase tracking-wider text-slate-400 pb-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-1.5 cursor-pointer list-none">
+            <summary class="font-mono text-xs font-bold uppercase tracking-wider text-slate-400 pb-3 border-b border-midnight-800 flex items-center justify-between gap-1.5 cursor-pointer list-none">
               <span class="flex items-center gap-1.5">
-              <Icons name="Sliders" :size="14" />
+              <Icons name="Sliders" :size="14" class="text-phantom-mint" />
               <span>TASK CONTEXT</span>
               </span>
               <span class="text-[10px] transition-transform group-open:rotate-180">⌄</span>
             </summary>
 
-            <div class="mt-5 space-y-5">
+            <div class="mt-5 space-y-5 font-mono">
 
             <!-- Status -->
             <div class="space-y-1.5">
@@ -4606,14 +4606,14 @@ onUnmounted(() => {
                 v-model="selectedTask.status"
                 @change="saveTaskDrawerChanges"
                 :class="[
-                  'w-full border rounded-xl p-3 text-sm focus:outline-none focus:border-blue-500 shadow-xs font-bold',
-                  isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-950'
+                  'w-full border rounded-xl p-3 text-sm focus:outline-none focus:border-phantom-mint shadow-xs font-bold',
+                  isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-950'
                 ]"
               >
-                <option value="todo">⚪ To Do</option>
-                <option value="in_progress">🟡 In Progress</option>
-                <option value="review">🟣 Review</option>
-                <option value="done">🟢 Done</option>
+                <option value="todo">To Do</option>
+                <option value="in_progress">In Progress</option>
+                <option value="review">Review</option>
+                <option value="done">Done</option>
               </select>
             </div>
 
@@ -4624,14 +4624,14 @@ onUnmounted(() => {
                 v-model="selectedTask.issue_type"
                 @change="saveTaskDrawerChanges"
                 :class="[
-                  'w-full border rounded-xl p-3 text-sm focus:outline-none focus:border-blue-500 shadow-xs font-bold',
-                  isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-950'
+                  'w-full border rounded-xl p-3 text-sm focus:outline-none focus:border-phantom-mint shadow-xs font-bold',
+                  isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-950'
                 ]"
               >
-                <option value="task">☑️ Task</option>
-                <option value="story">📖 Story</option>
-                <option value="bug">🐞 Bug</option>
-                <option value="epic">⚡ Epic</option>
+                <option value="task">Task</option>
+                <option value="story">Story</option>
+                <option value="bug">Bug</option>
+                <option value="epic">Epic</option>
               </select>
             </div>
 
@@ -4639,18 +4639,18 @@ onUnmounted(() => {
             <div class="space-y-2">
               <div class="flex items-center justify-between">
                 <label :class="['font-mono text-xs font-bold uppercase block', isDarkMode ? 'text-slate-300' : 'text-slate-700']">Story Points (Fibonacci)</label>
-                <span class="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">{{ selectedTask.story_points || 0 }} pts</span>
+                <span class="font-mono text-xs font-bold text-phantom-mint">{{ selectedTask.story_points || 0 }} pts</span>
               </div>
-              <div class="grid grid-cols-4 gap-2">
+              <div class="grid grid-cols-4 gap-2 font-mono">
                 <button
                   v-for="pts in [1, 2, 3, 5, 8, 13, 21]"
                   :key="pts"
                   @click="selectedTask.story_points = pts; saveTaskDrawerChanges();"
                   :class="[
-                    'h-10 rounded-xl font-mono font-bold text-sm border transition-all cursor-pointer shadow-xs flex items-center justify-center',
+                    'h-10 rounded-xl font-mono font-bold text-sm border transition-all cursor-pointer shadow-xs inline-flex items-center justify-center',
                     selectedTask.story_points === pts
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-md font-bold scale-105'
-                      : (isDarkMode ? 'bg-slate-900 text-slate-200 border-slate-700 hover:bg-slate-800' : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-100')
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-midnight-950 border-transparent font-black shadow-md scale-105'
+                      : (isDarkMode ? 'bg-midnight-950 text-slate-200 border-midnight-800 hover:bg-midnight-850' : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-100')
                   ]"
                 >
                   {{ pts }}
@@ -4665,13 +4665,13 @@ onUnmounted(() => {
                 v-model="selectedTask.sprint_id"
                 @change="saveTaskDrawerChanges"
                 :class="[
-                  'w-full border rounded-xl p-3 text-sm focus:outline-none focus:border-blue-500 shadow-xs font-semibold',
-                  isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-950'
+                  'w-full border rounded-xl p-3 text-sm focus:outline-none focus:border-phantom-mint shadow-xs font-semibold',
+                  isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-950'
                 ]"
               >
-                <option :value="null">📦 Backlog (No Sprint)</option>
+                <option :value="null">Backlog (No Sprint)</option>
                 <option v-for="sprint in sprintList" :key="sprint.id" :value="sprint.id">
-                  🏃 {{ sprint.name }} ({{ sprint.status.toUpperCase() }})
+                  {{ sprint.name }} ({{ sprint.status.toUpperCase() }})
                 </option>
               </select>
             </div>
@@ -4683,13 +4683,13 @@ onUnmounted(() => {
                 v-model="selectedTask.epic_id"
                 @change="saveTaskDrawerChanges"
                 :class="[
-                  'w-full border rounded-xl p-3 text-sm focus:outline-none focus:border-blue-500 shadow-xs font-semibold',
-                  isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-950'
+                  'w-full border rounded-xl p-3 text-sm focus:outline-none focus:border-phantom-mint shadow-xs font-semibold',
+                  isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-950'
                 ]"
               >
                 <option :value="null">No Epic</option>
                 <option v-for="epic in epicList" :key="epic.id" :value="epic.id">
-                  ⚡ {{ epic.issue_key }} — {{ epic.title }}
+                  {{ epic.issue_key }} — {{ epic.title }}
                 </option>
               </select>
             </div>
@@ -4701,14 +4701,14 @@ onUnmounted(() => {
                 v-model="selectedTask.priority"
                 @change="saveTaskDrawerChanges"
                 :class="[
-                  'w-full border rounded-xl p-3 text-sm focus:outline-none focus:border-blue-500 shadow-xs font-bold',
-                  isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-950'
+                  'w-full border rounded-xl p-3 text-sm focus:outline-none focus:border-phantom-mint shadow-xs font-bold',
+                  isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-950'
                 ]"
               >
-                <option value="urgent">🔴 Urgent</option>
-                <option value="high">🟠 High</option>
-                <option value="medium">🟡 Medium</option>
-                <option value="low">⚪ Low</option>
+                <option value="urgent">Urgent</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
               </select>
             </div>
 
@@ -4720,35 +4720,31 @@ onUnmounted(() => {
                 type="date"
                 @change="saveTaskDrawerChanges"
                 :class="[
-                  'w-full border rounded-xl p-3 text-sm focus:outline-none focus:border-blue-500 shadow-xs font-semibold',
-                  isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-950'
+                  'w-full border rounded-xl p-3 text-sm focus:outline-none focus:border-phantom-mint shadow-xs font-semibold',
+                  isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-950'
                 ]"
               />
             </div>
 
-            <div v-if="selectedTask.documents?.length" :class="['space-y-2 pt-4 border-t', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+            <div v-if="selectedTask.documents?.length" :class="['space-y-2 pt-4 border-t', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
               <label :class="['font-mono text-xs font-bold uppercase', isDarkMode ? 'text-slate-300' : 'text-slate-700']">Task references</label>
-              <a v-for="document in selectedTask.documents" :key="document.id" :href="document.url || '#'" target="_blank" rel="noreferrer" class="block text-[11px] text-blue-600 underline">{{ document.pivot?.is_required ? 'Required · ' : '' }}{{ document.title }}</a>
+              <a v-for="document in selectedTask.documents" :key="document.id" :href="document.url || '#'" target="_blank" rel="noreferrer" class="block text-[11px] text-cyan-400 underline">{{ document.pivot?.is_required ? 'Required · ' : '' }}{{ document.title }}</a>
             </div>
 
-            <!-- Agent execution and verification. Keep this secondary surface
-                 collapsed and internally scrollable so it never hides task content. -->
-            <details :class="['group border-t pt-4', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+            <!-- Agent execution and verification -->
+            <details :class="['group border-t pt-4', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
               <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
                 <div class="flex min-w-0 items-center gap-2">
                   <label :class="['font-mono text-xs font-bold uppercase', isDarkMode ? 'text-slate-300' : 'text-slate-700']">Execution <span class="sr-only">Agent activity & evidence</span></label>
-                  <span :class="['rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap', selectedExecutionGate.allowed ? (isDarkMode ? 'border-emerald-800 bg-emerald-950/30 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700') : selectedExecutionGate.code === 'blocked' || selectedExecutionGate.code === 'review' ? (isDarkMode ? 'border-amber-800 bg-amber-950/30 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700') : (isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500')]">{{ selectedExecutionGate.title }}</span>
+                  <span :class="['rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap inline-flex items-center justify-center', selectedExecutionGate.allowed ? (isDarkMode ? 'border-emerald-800 bg-emerald-950/30 text-emerald-300' : 'border-emerald-200 bg-emerald-50 text-emerald-700') : selectedExecutionGate.code === 'blocked' || selectedExecutionGate.code === 'review' ? (isDarkMode ? 'border-amber-800 bg-amber-950/30 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-700') : (isDarkMode ? 'border-midnight-700 bg-midnight-950 text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-500')]">{{ selectedExecutionGate.title }}</span>
                 </div>
-                <span class="flex shrink-0 items-center gap-2"><span v-if="selectedAgentRuns.length" class="text-[10px] text-slate-500 font-mono">{{ selectedAgentRuns.length }} run{{ selectedAgentRuns.length === 1 ? '' : 's' }}</span><span v-if="isAgentRunsLoading" class="text-[10px] text-slate-500 font-mono">Syncing…</span><span class="text-[10px] text-slate-500 transition-transform group-open:rotate-180">⌄</span></span>
+                <span class="flex shrink-0 items-center gap-2"><span v-if="selectedAgentRuns.length" class="text-[10px] text-slate-400 font-mono">{{ selectedAgentRuns.length }} run{{ selectedAgentRuns.length === 1 ? '' : 's' }}</span><span v-if="isAgentRunsLoading" class="text-[10px] text-slate-400 font-mono">Syncing…</span><span class="text-[10px] text-slate-500 transition-transform group-open:rotate-180">⌄</span></span>
               </summary>
-              <div class="mt-3 max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+              <div class="mt-3 max-h-[70vh] space-y-3 overflow-y-auto pr-1 font-mono">
               <div :class="['rounded-xl border p-3 text-xs', selectedExecutionGate.allowed ? (isDarkMode ? 'border-emerald-800/70 bg-emerald-950/20 text-emerald-200' : 'border-emerald-200 bg-emerald-50 text-emerald-800') : (isDarkMode ? 'border-amber-800/70 bg-amber-950/20 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-800')]">
                 <p class="font-semibold">{{ selectedExecutionGate.title }}</p>
                 <p class="mt-1 leading-5 opacity-80">{{ selectedExecutionGate.detail }}</p>
                 <div v-if="selectedExecutionGate.pendingLabels.length" class="mt-2 flex flex-wrap gap-1.5"><span v-for="label in selectedExecutionGate.pendingLabels" :key="label" class="rounded-md border border-amber-700/50 px-1.5 py-0.5 font-mono text-[10px]">{{ label }}</span></div>
-              </div>
-              <div class="hidden">
-                <span v-if="isAgentRunsLoading" class="text-[10px] text-slate-500 font-mono">Syncing…</span>
               </div>
 
               <!-- Primary Remote Dispatch CTA -->
@@ -4756,22 +4752,22 @@ onUnmounted(() => {
                 <button
                   @click="openRemoteDispatch(selectedTask)"
                   :disabled="!selectedExecutionGate.allowed"
-                  class="w-full py-2.5 px-4 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white shadow-md shadow-emerald-950/30 active:scale-98 border border-emerald-400/40"
+                  class="w-full py-2.5 px-4 rounded-xl font-extrabold text-xs transition-all cursor-pointer inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 shadow-md shadow-emerald-500/20 active:scale-98 border border-emerald-400/40 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <span class="animate-pulse">⚡</span>
-                  <span>Dispatch to Connected Desktop Agent (Auto-Pilot)</span>
+                  <Icons name="Zap" :size="14" class="text-midnight-950" />
+                  <span class="leading-none">Dispatch to Connected Desktop Agent (Auto-Pilot)</span>
                 </button>
 
                 <!-- Quick local provider launcher -->
                 <div class="grid grid-cols-3 gap-1.5">
-                  <button v-for="provider in ['codex', 'claude_code', 'antigravity']" :key="`local-${provider}`" @click="startAgentRun(provider)" :disabled="!selectedExecutionGate.allowed" class="rounded-lg border px-2 py-1.5 text-[10px] font-bold cursor-pointer hover:border-blue-500 disabled:cursor-not-allowed disabled:opacity-45 flex flex-col items-center gap-0.5" :class="isDarkMode ? 'border-slate-700 bg-slate-900 text-slate-200' : 'border-slate-300 bg-white text-slate-800'">
+                  <button v-for="provider in ['codex', 'claude_code', 'antigravity']" :key="`local-${provider}`" @click="startAgentRun(provider)" :disabled="!selectedExecutionGate.allowed" class="rounded-lg border px-2 py-1.5 text-[10px] font-bold cursor-pointer hover:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-45 flex flex-col items-center gap-0.5" :class="isDarkMode ? 'border-midnight-700 bg-midnight-950 text-slate-200' : 'border-slate-300 bg-white text-slate-800'">
                     <span>{{ provider === 'claude_code' ? 'Local Claude' : provider === 'antigravity' ? 'Local AGY' : 'Local Codex' }}</span>
                     <span class="text-[8px] font-mono text-slate-400 opacity-80">{{ selectedProviderModel[provider] }}</span>
                   </button>
                 </div>
               </div>
 
-              <p v-if="agentRunFeedback" class="text-[11px] leading-relaxed text-blue-600 dark:text-blue-300">{{ agentRunFeedback }}</p>
+              <p v-if="agentRunFeedback" class="text-[11px] leading-relaxed text-cyan-300">{{ agentRunFeedback }}</p>
 
               <!-- Real-time Streamback Console for Active Run -->
               <StreambackConsole
@@ -4785,9 +4781,9 @@ onUnmounted(() => {
               />
 
               <!-- Older runs collapsed list -->
-              <div v-if="selectedAgentRuns.length > 1" class="space-y-2 pt-2 border-t border-slate-800/60">
-                <span class="font-mono text-[10px] font-bold uppercase text-slate-500">Prior Runs History</span>
-                <div v-for="run in selectedAgentRuns.slice(1)" :key="run.id" :class="['rounded-xl border p-2.5 space-y-1.5 opacity-80', isDarkMode ? 'border-slate-800 bg-slate-900/60' : 'border-slate-200 bg-white']">
+              <div v-if="selectedAgentRuns.length > 1" class="space-y-2 pt-2 border-t border-midnight-800/60">
+                <span class="font-mono text-[10px] font-bold uppercase text-slate-400">Prior Runs History</span>
+                <div v-for="run in selectedAgentRuns.slice(1)" :key="run.id" :class="['rounded-xl border p-2.5 space-y-1.5 opacity-80', isDarkMode ? 'border-midnight-800 bg-midnight-950' : 'border-slate-200 bg-white']">
                   <div class="flex items-center justify-between gap-2 text-xs">
                     <span class="font-bold text-[11px]">{{ run.provider }} · Run #{{ run.id }}</span>
                     <span class="rounded-full border px-1.5 py-0.2 font-mono text-[9px]">{{ run.status }}</span>
@@ -4796,17 +4792,18 @@ onUnmounted(() => {
                 </div>
               </div>
 
-              <p v-if="!selectedAgentRuns.length && !isAgentRunsLoading" class="text-[11px] text-slate-500">
+              <p v-if="!selectedAgentRuns.length && !isAgentRunsLoading" class="text-[11px] text-slate-500 font-mono">
                 No active runs yet. Click Dispatch to Desktop Agent or choose a local CLI provider.
               </p>
               </div>
             </details>
 
             <!-- E2E Transition History & Actor Audit Trail -->
-            <details open :class="['group border-t pt-4', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
-              <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
-                <label :class="['font-mono text-xs font-bold uppercase', isDarkMode ? 'text-slate-300' : 'text-slate-700']">
-                  📜 Lịch sử E2E & Người xử lý (Audit Trail)
+            <details open :class="['group border-t pt-4', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-3 font-mono">
+                <label :class="['text-xs font-bold uppercase flex items-center gap-2', isDarkMode ? 'text-slate-300' : 'text-slate-700']">
+                  <Icons name="History" :size="14" class="text-phantom-mint shrink-0" />
+                  <span class="leading-none">Lịch sử E2E & Người xử lý (Audit Trail)</span>
                 </label>
                 <span class="text-[10px] text-slate-500 transition-transform group-open:rotate-180">⌄</span>
               </summary>
@@ -4840,111 +4837,111 @@ onUnmounted(() => {
     />
 
     <!-- Modal: Create Sprint -->
-    <div v-if="showSprintModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div :class="['w-full max-w-md border rounded-3xl p-6 shadow-2xl space-y-4', isDarkMode ? 'bg-[#0a0f1d] border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-950']">
-        <div :class="['flex items-center justify-between pb-3 border-b', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+    <div v-if="showSprintModal" class="fixed inset-0 z-50 bg-midnight-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+      <div :class="['w-full max-w-md border rounded-3xl p-6 shadow-2xl space-y-4 font-mono', isDarkMode ? 'bg-midnight-900 border-midnight-700 text-white' : 'bg-white border-slate-300 text-slate-950']">
+        <div :class="['flex items-center justify-between pb-3 border-b', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
           <h3 class="font-bold text-sm">Create scrum sprint</h3>
-          <button @click="showSprintModal = false" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+          <button @click="showSprintModal = false" class="text-slate-400 hover:text-white cursor-pointer font-bold"><Icons name="X" :size="14" /></button>
         </div>
 
         <div class="space-y-3 text-xs">
           <div>
-            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Project *</label>
+            <label :class="['text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Project *</label>
             <select
               v-model="newTaskForm.project_id"
-              :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 font-bold', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
+              :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-phantom-mint font-bold', isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
             >
               <option v-for="project in projectList" :key="project.id" :value="project.id">{{ project.title }}</option>
             </select>
           </div>
           <div>
-            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Sprint name</label>
+            <label :class="['text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Sprint name</label>
             <input
               v-model="sprintForm.name"
               placeholder="e.g. Sprint 1 — Feature delivery"
-              :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 font-medium', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
+              :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-phantom-mint font-medium', isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
             />
           </div>
 
           <div>
-            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Goal</label>
+            <label :class="['text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Goal</label>
             <textarea
               v-model="sprintForm.goal"
               rows="3"
               placeholder="Sprint goal..."
-              :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 font-medium', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
+              :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-phantom-mint font-medium', isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
             ></textarea>
           </div>
         </div>
 
-        <div :class="['flex justify-end gap-2 pt-2 border-t', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
-          <button @click="showSprintModal = false" class="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer">Cancel</button>
-          <button @click="handleSaveSprint" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer">Create Sprint</button>
+        <div :class="['flex justify-end gap-2 pt-2 border-t', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
+          <button @click="showSprintModal = false" class="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer hover:bg-midnight-850">Cancel</button>
+          <button @click="handleSaveSprint" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 text-xs font-extrabold cursor-pointer">Create Sprint</button>
         </div>
       </div>
     </div>
 
     <!-- Modal: Start Sprint -->
-    <div v-if="showStartSprintModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div :class="['w-full max-w-md border rounded-3xl p-6 shadow-2xl space-y-4', isDarkMode ? 'bg-[#0a0f1d] border-blue-500/50 text-white' : 'bg-white border-blue-300 text-slate-950']">
+    <div v-if="showStartSprintModal" class="fixed inset-0 z-50 bg-midnight-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+      <div :class="['w-full max-w-md border rounded-3xl p-6 shadow-2xl space-y-4 font-mono', isDarkMode ? 'bg-midnight-900 border-emerald-500/40 text-white' : 'bg-white border-blue-300 text-slate-950']">
         <h3 class="font-bold text-sm">Start sprint: {{ targetSprintForAction?.name }}</h3>
-        <p :class="['text-xs font-medium', isDarkMode ? 'text-slate-300' : 'text-slate-600']">The sprint will move to <strong>ACTIVE</strong>.</p>
-        <div :class="['flex justify-end gap-2 pt-2 border-t', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
-          <button @click="showStartSprintModal = false" class="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer">Cancel</button>
-          <button @click="confirmStartSprint" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer">Start ▶</button>
+        <p :class="['text-xs font-medium', isDarkMode ? 'text-slate-300' : 'text-slate-600']">The sprint will move to <strong class="text-phantom-mint">ACTIVE</strong>.</p>
+        <div :class="['flex justify-end gap-2 pt-2 border-t', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
+          <button @click="showStartSprintModal = false" class="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer hover:bg-midnight-850">Cancel</button>
+          <button @click="confirmStartSprint" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 text-xs font-extrabold cursor-pointer">Start</button>
         </div>
       </div>
     </div>
 
     <!-- Modal: Complete Sprint -->
-    <div v-if="showCompleteSprintModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div :class="['w-full max-w-md border rounded-3xl p-6 shadow-2xl space-y-4', isDarkMode ? 'bg-[#0a0f1d] border-emerald-500/50 text-white' : 'bg-white border-emerald-300 text-slate-950']">
-        <h3 class="font-bold text-sm">🏁 Complete Sprint: {{ targetSprintForAction?.name }}</h3>
-        <p :class="['text-xs font-medium', isDarkMode ? 'text-slate-300' : 'text-slate-600']">Incomplete tasks will be moved safely to the <strong>Backlog</strong>.</p>
-        <div :class="['flex justify-end gap-2 pt-2 border-t', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
-          <button @click="showCompleteSprintModal = false" class="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer">Cancel</button>
-          <button @click="confirmCompleteSprint" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer">Complete ✓</button>
+    <div v-if="showCompleteSprintModal" class="fixed inset-0 z-50 bg-midnight-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+      <div :class="['w-full max-w-md border rounded-3xl p-6 shadow-2xl space-y-4 font-mono', isDarkMode ? 'bg-midnight-900 border-emerald-500/40 text-white' : 'bg-white border-emerald-300 text-slate-950']">
+        <h3 class="font-bold text-sm">Complete Sprint: {{ targetSprintForAction?.name }}</h3>
+        <p :class="['text-xs font-medium', isDarkMode ? 'text-slate-300' : 'text-slate-600']">Incomplete tasks will be moved safely to the <strong class="text-phantom-mint">Backlog</strong>.</p>
+        <div :class="['flex justify-end gap-2 pt-2 border-t', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
+          <button @click="showCompleteSprintModal = false" class="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer hover:bg-midnight-850">Cancel</button>
+          <button @click="confirmCompleteSprint" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 text-xs font-extrabold cursor-pointer">Complete</button>
         </div>
       </div>
     </div>
 
     <!-- Modal: Create Task -->
-    <div v-if="showCreateModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div :class="['w-full max-w-lg border rounded-3xl p-6 shadow-2xl space-y-4', isDarkMode ? 'bg-[#0a0f1d] border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-950']">
-        <div :class="['flex items-center justify-between pb-3 border-b', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+    <div v-if="showCreateModal" class="fixed inset-0 z-50 bg-midnight-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+      <div :class="['w-full max-w-lg border rounded-3xl p-6 shadow-2xl space-y-4 font-mono', isDarkMode ? 'bg-midnight-900 border-midnight-700 text-white' : 'bg-white border-slate-300 text-slate-950']">
+        <div :class="['flex items-center justify-between pb-3 border-b', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
           <h3 class="font-bold text-sm">Create task</h3>
-          <button @click="showCreateModal = false" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+          <button @click="showCreateModal = false" class="text-slate-400 hover:text-white cursor-pointer font-bold"><Icons name="X" :size="14" /></button>
         </div>
 
         <div class="space-y-3 text-xs">
           <div>
-            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Task title *</label>
+            <label :class="['text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Task title *</label>
             <input
               v-model="newTaskForm.title"
               placeholder="e.g. Update the project dashboard"
-              :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 font-medium', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
+              :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-phantom-mint font-medium', isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
             />
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Issue Type</label>
+              <label :class="['text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Issue Type</label>
               <select
                 v-model="newTaskForm.issue_type"
-                :class="['w-full p-2.5 rounded-xl border focus:outline-none font-bold', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
+                :class="['w-full p-2.5 rounded-xl border focus:outline-none font-bold', isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
               >
-                <option value="task">☑️ Task</option>
-                <option value="story">📖 Story</option>
-                <option value="bug">🐞 Bug</option>
-                <option value="epic">⚡ Epic</option>
+                <option value="task">Task</option>
+                <option value="story">Story</option>
+                <option value="bug">Bug</option>
+                <option value="epic">Epic</option>
               </select>
             </div>
 
             <div>
-              <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Story Points</label>
+              <label :class="['text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Story Points</label>
               <select
                 v-model="newTaskForm.story_points"
-                :class="['w-full p-2.5 rounded-xl border focus:outline-none font-bold', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
+                :class="['w-full p-2.5 rounded-xl border focus:outline-none font-bold', isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
               >
                 <option :value="1">1 pt</option>
                 <option :value="2">2 pts</option>
@@ -4957,111 +4954,111 @@ onUnmounted(() => {
           </div>
 
           <div>
-            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Description</label>
+            <label :class="['text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Description</label>
             <textarea
               v-model="newTaskForm.description"
               rows="3"
               placeholder="Task details..."
-              :class="['w-full p-2.5 rounded-xl border focus:outline-none font-medium', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
+              :class="['w-full p-2.5 rounded-xl border focus:outline-none font-medium', isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
             ></textarea>
           </div>
         </div>
 
-        <div :class="['flex justify-end gap-2 pt-2 border-t', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
-          <button @click="showCreateModal = false" class="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer">Cancel</button>
-          <button @click="handleCreateTask" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer">Create Task</button>
+        <div :class="['flex justify-end gap-2 pt-2 border-t', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
+          <button @click="showCreateModal = false" class="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer hover:bg-midnight-850">Cancel</button>
+          <button @click="handleCreateTask" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 text-xs font-extrabold cursor-pointer">Create Task</button>
         </div>
       </div>
     </div>
 
     <!-- Modal: Create / Edit Project -->
-    <div v-if="showProjectModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div :class="['w-full max-w-md border rounded-3xl p-6 shadow-2xl space-y-4', isDarkMode ? 'bg-[#0a0f1d] border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-950']">
-        <div :class="['flex items-center justify-between pb-3 border-b', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+    <div v-if="showProjectModal" class="fixed inset-0 z-50 bg-midnight-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+      <div :class="['w-full max-w-md border rounded-3xl p-6 shadow-2xl space-y-4 font-mono', isDarkMode ? 'bg-midnight-900 border-midnight-700 text-white' : 'bg-white border-slate-300 text-slate-950']">
+        <div :class="['flex items-center justify-between pb-3 border-b', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
           <h3 class="font-bold text-sm">
             {{ projectModalMode === 'create' ? 'Create Project' : 'Edit Project' }}
           </h3>
-          <button @click="showProjectModal = false" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+          <button @click="showProjectModal = false" class="text-slate-400 hover:text-white cursor-pointer font-bold"><Icons name="X" :size="14" /></button>
         </div>
 
         <div class="space-y-3 text-xs">
           <div v-if="projectModalMode === 'create'" class="space-y-3">
-            <div v-if="!props.auth?.user" class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-blue-900">
+            <div v-if="!props.auth?.user" class="rounded-xl border border-cyan-500/40 bg-midnight-950 p-4 text-cyan-300">
               <p class="font-bold">GitHub authentication required</p>
-              <p class="mt-1 text-[11px]">Sign in with GitHub to select a repository for this project.</p>
-              <a href="/auth/github" class="mt-3 inline-block rounded-lg bg-slate-900 px-3 py-2 text-[11px] font-bold text-white">Sign in with GitHub</a>
+              <p class="mt-1 text-[11px] text-slate-400">Sign in with GitHub to select a repository for this project.</p>
+              <a href="/auth/github" class="mt-3 inline-block rounded-lg bg-midnight-850 border border-midnight-700 px-3 py-2 text-[11px] font-bold text-white hover:bg-midnight-800">Sign in with GitHub</a>
             </div>
             <template v-else>
-              <input v-model="githubRepositorySearch" placeholder="Search GitHub repositories..." :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']" />
-              <div v-if="isGithubRepositoriesLoading" class="rounded-xl border p-4 text-center text-slate-500">Loading repositories…</div>
+              <input v-model="githubRepositorySearch" placeholder="Search GitHub repositories..." :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-phantom-mint font-mono', isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']" />
+              <div v-if="isGithubRepositoriesLoading" class="rounded-xl border border-midnight-800 p-4 text-center text-slate-500">Loading repositories…</div>
               <div v-else class="max-h-56 space-y-2 overflow-y-auto pr-1">
-                <button v-for="repo in filteredGithubRepositories" :key="repo.id" type="button" @click="selectedGithubRepository = repo" :class="['w-full rounded-xl border p-3 text-left', selectedGithubRepository?.id === repo.id ? 'border-blue-500 bg-blue-50 text-blue-950' : (isDarkMode ? 'border-slate-700 bg-slate-900' : 'border-slate-200 bg-white')]">
-                  <div class="flex items-center justify-between gap-2"><span class="font-bold">{{ repo.full_name }}</span><span class="text-[10px]">{{ repo.private ? 'Private' : 'Public' }}</span></div>
-                  <p class="mt-1 line-clamp-2 text-[11px] text-slate-500">{{ repo.description || 'No description' }}</p>
+                <button v-for="repo in filteredGithubRepositories" :key="repo.id" type="button" @click="selectedGithubRepository = repo" :class="['w-full rounded-xl border p-3 text-left transition-colors cursor-pointer', selectedGithubRepository?.id === repo.id ? 'border-phantom-mint bg-midnight-850 text-white' : (isDarkMode ? 'border-midnight-700 bg-midnight-950 text-slate-300' : 'border-slate-200 bg-white')]">
+                  <div class="flex items-center justify-between gap-2"><span class="font-bold">{{ repo.full_name }}</span><span class="text-[10px] uppercase font-mono">{{ repo.private ? 'Private' : 'Public' }}</span></div>
+                  <p class="mt-1 line-clamp-2 text-[11px] text-slate-400">{{ repo.description || 'No description' }}</p>
                   <span class="text-[10px] text-slate-500">{{ repo.default_branch || 'main' }} · {{ repo.language || 'Unknown' }}</span>
                 </button>
                 <p v-if="!filteredGithubRepositories.length" class="p-4 text-center text-slate-500">No repositories found.</p>
               </div>
-              <div v-if="selectedGithubRepository" class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-900">Selected <strong>{{ selectedGithubRepository.full_name }}</strong>.</div>
+              <div v-if="selectedGithubRepository" class="rounded-xl border border-emerald-500/40 bg-midnight-950 p-3 text-emerald-300">Selected <strong>{{ selectedGithubRepository.full_name }}</strong>.</div>
             </template>
           </div>
           <div v-if="projectModalMode === 'edit'">
-            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Project name *</label>
+            <label :class="['text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Project name *</label>
             <input
               v-model="projectForm.title"
               placeholder="e.g. Mobile App 2026"
-              :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 font-medium', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
+              :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-phantom-mint font-medium', isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
             />
           </div>
 
           <div v-if="projectModalMode === 'edit'">
-            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Project key (2-5 characters)</label>
+            <label :class="['text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Project key (2-5 characters)</label>
             <input
               v-model="projectForm.key"
               placeholder="e.g. APP"
-              :class="['w-full p-2.5 rounded-xl border font-mono uppercase focus:outline-none focus:border-blue-500 font-bold', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
+              :class="['w-full p-2.5 rounded-xl border font-mono uppercase focus:outline-none focus:border-phantom-mint font-bold', isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
             />
           </div>
 
           <div>
-            <label :class="['font-mono text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Project tags</label>
+            <label :class="['text-[10px] font-bold uppercase block mb-1', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Project tags</label>
             <input
               v-model="projectForm.tags"
               placeholder="product, platform, priority"
-              :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 font-medium', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
+              :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-phantom-mint font-medium', isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']"
             />
             <p class="mt-1 text-[10px] text-slate-500">Separate tags with commas.</p>
           </div>
 
-          <div v-if="projectModalMode === 'edit'" :class="['pt-3 mt-3 border-t space-y-3', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+          <div v-if="projectModalMode === 'edit'" :class="['pt-3 mt-3 border-t space-y-3', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
             <div class="flex items-center justify-between">
               <div>
                 <h4 class="font-bold text-xs">Project integrations</h4>
                 <p class="text-[10px] text-slate-500">These settings are isolated to this project.</p>
               </div>
-              <span v-if="projectGithubStatus?.connected" class="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">GitHub {{ projectGithubStatus.sync_status }}</span>
+              <span v-if="projectGithubStatus?.connected" class="rounded-full border border-emerald-500/40 bg-midnight-950 px-2 py-0.5 text-[10px] font-bold text-emerald-300">GitHub {{ projectGithubStatus.sync_status }}</span>
             </div>
-            <input v-model="projectForm.github_repository" placeholder="GitHub repository: owner/repository" :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 font-mono text-xs', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']" />
-            <input v-model="projectForm.github_default_branch" placeholder="Default branch: main" :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 font-mono text-xs', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']" />
-            <input v-model="projectForm.github_webhook_secret" type="password" autocomplete="new-password" placeholder="Repository webhook secret" :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 text-xs', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']" />
+            <input v-model="projectForm.github_repository" placeholder="GitHub repository: owner/repository" :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-phantom-mint font-mono text-xs', isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']" />
+            <input v-model="projectForm.github_default_branch" placeholder="Default branch: main" :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-phantom-mint font-mono text-xs', isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']" />
+            <input v-model="projectForm.github_webhook_secret" type="password" autocomplete="new-password" placeholder="Repository webhook secret" :class="['w-full p-2.5 rounded-xl border focus:outline-none focus:border-phantom-mint text-xs', isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']" />
             <div>
               <div class="flex items-center justify-between mb-1">
-                <label :class="['font-mono text-[10px] font-bold uppercase', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Project MCP Token (AI Agents)</label>
+                <label :class="['text-[10px] font-bold uppercase', isDarkMode ? 'text-slate-400' : 'text-slate-700']">Project MCP Token (AI Agents)</label>
                 <button
                   type="button"
                   @click="generateProjectMcpToken"
-                  class="text-[10px] text-blue-500 hover:text-blue-400 font-bold cursor-pointer"
+                  class="text-[10px] text-phantom-mint hover:underline font-bold cursor-pointer"
                 >
                   ⚡ Auto-Generate Token
                 </button>
               </div>
               <div class="flex items-center gap-2">
-                <input v-model="projectForm.task_hub_mcp_token" type="text" autocomplete="new-password" placeholder="Project MCP token for agents (e.g. th_mcp_...)" :class="['flex-1 p-2.5 rounded-xl border focus:outline-none focus:border-blue-500 font-mono text-xs', isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']" />
+                <input v-model="projectForm.task_hub_mcp_token" type="text" autocomplete="new-password" placeholder="Project MCP token for agents (e.g. th_mcp_...)" :class="['flex-1 p-2.5 rounded-xl border focus:outline-none focus:border-phantom-mint font-mono text-xs', isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-950']" />
                 <button
                   type="button"
                   v-if="editingProjectId"
                   @click="openMcpModal(editingProjectId)"
-                  class="px-2.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] whitespace-nowrap cursor-pointer shadow-xs"
+                  class="px-2.5 py-2.5 rounded-xl bg-midnight-850 hover:bg-midnight-800 border border-midnight-700 text-cyan-300 font-bold text-[10px] whitespace-nowrap cursor-pointer shadow-xs"
                   title="Open MCP Guide & Config snippets"
                 >
                   ⚡ MCP Guide
@@ -5075,15 +5072,15 @@ onUnmounted(() => {
             </div>
             <div v-if="projectModalMode === 'edit'" class="flex items-center justify-between gap-2">
               <span class="text-[10px] text-slate-500">{{ projectGithubStatus?.last_sync_at ? `Last sync: ${projectGithubStatus.last_sync_at}` : 'GitHub has not been synced' }}</span>
-              <button @click="syncProjectGithub" :disabled="isProjectGithubSyncing || !projectForm.github_repository" class="rounded-lg border border-blue-300 px-2.5 py-1.5 text-[10px] font-bold text-blue-700 disabled:opacity-50">{{ isProjectGithubSyncing ? 'Syncing…' : 'Sync GitHub' }}</button>
+              <button @click="syncProjectGithub" :disabled="isProjectGithubSyncing || !projectForm.github_repository" class="rounded-lg border border-cyan-500/40 bg-midnight-850 px-2.5 py-1.5 text-[10px] font-bold text-cyan-300 hover:bg-midnight-800 disabled:opacity-50 cursor-pointer">{{ isProjectGithubSyncing ? 'Syncing…' : 'Sync GitHub' }}</button>
             </div>
-            <p v-if="projectGithubFeedback" class="text-[10px] text-blue-600">{{ projectGithubFeedback }}</p>
+            <p v-if="projectGithubFeedback" class="text-[10px] text-cyan-300">{{ projectGithubFeedback }}</p>
           </div>
         </div>
 
-        <div :class="['flex justify-end gap-2 pt-2 border-t', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
-          <button @click="showProjectModal = false" class="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer">Cancel</button>
-          <button @click="handleSaveProject" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer">Save Project</button>
+        <div :class="['flex justify-end gap-2 pt-2 border-t', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
+          <button @click="showProjectModal = false" class="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer hover:bg-midnight-850">Cancel</button>
+          <button @click="handleSaveProject" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 text-xs font-extrabold cursor-pointer">Save Project</button>
         </div>
       </div>
     </div>
@@ -5100,28 +5097,28 @@ onUnmounted(() => {
     <!-- ========================================================================= -->
     <div
       v-if="showAiGeneratorModal"
-      class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+      class="fixed inset-0 z-50 bg-midnight-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
     >
       <div
         :class="[
-          'w-full max-w-4xl border rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 max-h-[90vh] flex flex-col',
-          isDarkMode ? 'bg-[#0a0f1d] border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-950'
+          'w-full max-w-4xl border rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 max-h-[90vh] flex flex-col font-mono',
+          isDarkMode ? 'bg-midnight-900 border-midnight-700 text-white' : 'bg-white border-slate-300 text-slate-950'
         ]"
       >
         <!-- Modal Header -->
-        <div :class="['flex items-center justify-between pb-4 border-b shrink-0', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+        <div :class="['flex items-center justify-between pb-4 border-b shrink-0', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-blue-600 flex items-center justify-center shadow-xs">
-              <span class="text-xl">✨</span>
+            <div class="w-10 h-10 rounded-2xl bg-midnight-950 border border-purple-500/40 inline-flex items-center justify-center shrink-0 shadow-xs text-purple-300">
+              <Icons name="Sparkles" :size="20" />
             </div>
             <div>
               <div class="flex items-center gap-2">
                 <h3 class="font-bold text-base sm:text-lg font-display">AI Project Planning & Breakdown</h3>
-                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-100 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-950 text-purple-300 border border-purple-800">
                   SMART SCRUM ENGINE
                 </span>
               </div>
-              <p :class="['text-xs mt-0.5 font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
+              <p :class="['text-xs mt-0.5 font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
                 {{ aiGeneratorStep === 'input' ? 'Select repo and enter requirements; AI will analyze project context and draft the plan.' : 'Review, edit, and confirm your backlog plan.' }}
               </p>
             </div>
@@ -5129,9 +5126,9 @@ onUnmounted(() => {
 
           <button
             @click="showAiGeneratorModal = false"
-            :class="['p-2 rounded-xl text-xs font-bold cursor-pointer', isDarkMode ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-600']"
+            :class="['h-8 w-8 rounded-xl text-xs font-bold cursor-pointer inline-flex items-center justify-center shrink-0 transition-colors', isDarkMode ? 'hover:bg-midnight-850 text-slate-400' : 'hover:bg-slate-100 text-slate-600']"
           >
-            ✕
+            <Icons name="X" :size="14" />
           </button>
         </div>
 
@@ -5139,7 +5136,7 @@ onUnmounted(() => {
         <div v-if="aiGeneratorStep === 'input'" class="space-y-5 overflow-y-auto pr-1 flex-1">
           <!-- Requirement Textarea -->
           <div class="space-y-1.5">
-            <label :class="['font-mono text-xs font-bold uppercase tracking-wider block', isDarkMode ? 'text-slate-300' : 'text-slate-700']">
+            <label :class="['text-xs font-bold uppercase tracking-wider block', isDarkMode ? 'text-slate-300' : 'text-slate-700']">
               Requirement *
             </label>
             <textarea
@@ -5524,52 +5521,56 @@ onUnmounted(() => {
     </div>
 
     <!-- DAILY REVIEW MODAL -->
-    <div v-if="showDailyReview" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" @click.self="showDailyReview = false">
-      <div :class="['w-full max-w-lg rounded-3xl border shadow-2xl p-6 space-y-5', isDarkMode ? 'bg-[#0b101e] border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-950']">
-        <div class="flex items-center justify-between border-b pb-3" :class="isDarkMode ? 'border-slate-800' : 'border-slate-200'"><div><p class="text-[10px] font-mono uppercase text-indigo-500 font-bold">Daily Review</p><h2 class="text-lg font-bold">End of Day Review</h2></div><button @click="showDailyReview = false" class="text-slate-400 font-bold cursor-pointer">✕</button></div>
+    <div v-if="showDailyReview" class="fixed inset-0 z-50 bg-midnight-950/70 backdrop-blur-xs flex items-center justify-center p-4" @click.self="showDailyReview = false">
+      <div :class="['w-full max-w-lg rounded-3xl border shadow-2xl p-6 space-y-5 font-mono', isDarkMode ? 'bg-midnight-900 border-midnight-700 text-white' : 'bg-white border-slate-200 text-slate-950']">
+        <div class="flex items-center justify-between border-b pb-3" :class="isDarkMode ? 'border-midnight-800' : 'border-slate-200'"><div><p class="text-[10px] font-mono uppercase text-phantom-mint font-bold">Daily Review</p><h2 class="text-lg font-bold">End of Day Review</h2></div><button @click="showDailyReview = false" class="text-slate-400 hover:text-white font-bold cursor-pointer"><Icons name="X" :size="14" /></button></div>
         <div v-if="isDailyLoading" class="py-8 text-center text-slate-500 text-xs">Summarizing...</div>
         <div v-else-if="dailyReviewData" class="space-y-4 text-xs">
-          <div class="grid grid-cols-3 gap-2"><div class="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800"><strong class="block text-xl text-emerald-600">{{ dailyReviewData.completed_tasks?.length || 0 }}</strong><span>Completed</span></div><div class="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800"><strong class="block text-xl text-amber-600">{{ dailyReviewData.incompleted_tasks?.length || 0 }}</strong><span>Remaining</span></div><div class="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800"><strong class="block text-xl text-indigo-600">{{ dailyReviewData.total_pomodoros_done || 0 }}</strong><span>Pomodoros</span></div></div>
-          <div><h3 class="font-bold mb-2">Incomplete Tasks</h3><div v-if="dailyReviewData.incompleted_tasks?.length" class="space-y-1.5 max-h-48 overflow-y-auto"><button v-for="task in dailyReviewData.incompleted_tasks" :key="task.id" @click="showDailyReview = false; openTaskDrawer(task)" class="w-full text-left p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-indigo-400 cursor-pointer"><span class="font-mono text-[10px] text-slate-500">{{ task.issue_key }}</span> · <span class="font-medium">{{ task.title }}</span></button></div><p v-else class="text-emerald-600 font-medium">✓ You completed all priority tasks today.</p></div>
+          <div class="grid grid-cols-3 gap-2">
+            <div class="p-3 rounded-2xl bg-midnight-950 border border-emerald-500/40"><strong class="block text-xl text-emerald-400 font-extrabold">{{ dailyReviewData.completed_tasks?.length || 0 }}</strong><span class="text-slate-400 text-[11px]">Completed</span></div>
+            <div class="p-3 rounded-2xl bg-midnight-950 border border-amber-500/40"><strong class="block text-xl text-amber-400 font-extrabold">{{ dailyReviewData.incompleted_tasks?.length || 0 }}</strong><span class="text-slate-400 text-[11px]">Remaining</span></div>
+            <div class="p-3 rounded-2xl bg-midnight-950 border border-purple-500/40"><strong class="block text-xl text-purple-400 font-extrabold">{{ dailyReviewData.total_pomodoros_done || 0 }}</strong><span class="text-slate-400 text-[11px]">Pomodoros</span></div>
+          </div>
+          <div><h3 class="font-bold mb-2 text-slate-300">Incomplete Tasks</h3><div v-if="dailyReviewData.incompleted_tasks?.length" class="space-y-1.5 max-h-48 overflow-y-auto"><button v-for="task in dailyReviewData.incompleted_tasks" :key="task.id" @click="showDailyReview = false; openTaskDrawer(task)" class="w-full text-left p-2.5 rounded-xl border border-midnight-800 bg-midnight-950 hover:border-phantom-mint cursor-pointer"><span class="font-mono text-[10px] text-cyan-300">{{ task.issue_key }}</span> · <span class="font-medium text-slate-200">{{ task.title }}</span></button></div><p v-else class="text-emerald-400 font-medium flex items-center gap-1.5"><Icons name="CheckCircle" :size="14" /> <span>You completed all priority tasks today.</span></p></div>
         </div>
       </div>
     </div>
 
     <!-- AI SETTINGS MODAL -->
-    <div v-if="showAiSettingsModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" @click.self="showAiSettingsModal = false">
-      <div :class="['w-full max-w-lg rounded-3xl border shadow-2xl p-6 space-y-5', isDarkMode ? 'bg-[#0b101e] border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-950']">
-        <div class="flex items-center justify-between border-b pb-3" :class="isDarkMode ? 'border-slate-800' : 'border-slate-200'"><div><p class="text-[10px] font-mono uppercase text-purple-500 font-bold">Private Configuration</p><h2 class="text-lg font-bold">AI Planning Settings</h2></div><button @click="showAiSettingsModal = false" class="text-slate-400 font-bold cursor-pointer">✕</button></div>
-        <div v-if="aiSettingsFeedback" class="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-xs font-bold">{{ aiSettingsFeedback }}</div>
+    <div v-if="showAiSettingsModal" class="fixed inset-0 z-50 bg-midnight-950/70 backdrop-blur-xs flex items-center justify-center p-4" @click.self="showAiSettingsModal = false">
+      <div :class="['w-full max-w-lg rounded-3xl border shadow-2xl p-6 space-y-5 font-mono', isDarkMode ? 'bg-midnight-900 border-midnight-700 text-white' : 'bg-white border-slate-200 text-slate-950']">
+        <div class="flex items-center justify-between border-b pb-3" :class="isDarkMode ? 'border-midnight-800' : 'border-slate-200'"><div><p class="text-[10px] uppercase text-purple-400 font-bold">Private Configuration</p><h2 class="text-lg font-bold">AI Planning Settings</h2></div><button @click="showAiSettingsModal = false" class="text-slate-400 hover:text-white font-bold cursor-pointer"><Icons name="X" :size="14" /></button></div>
+        <div v-if="aiSettingsFeedback" class="p-3 rounded-xl bg-midnight-950 border border-purple-500/40 text-purple-300 text-xs font-bold">{{ aiSettingsFeedback }}</div>
         <div class="space-y-3 text-xs">
-          <label class="block"><span class="block mb-1 font-bold">Provider</span><select v-model="aiSettings.provider" class="w-full p-2.5 rounded-xl border bg-transparent"><option value="template">Offline template fallback</option><option value="openai_compatible">OpenAI-compatible API</option></select></label>
-          <label class="block"><span class="block mb-1 font-bold">Base URL</span><input v-model="aiSettings.base_url" class="w-full p-2.5 rounded-xl border bg-transparent" placeholder="https://api.openai.com/v1" /></label>
-          <div class="grid grid-cols-2 gap-3"><label class="block"><span class="block mb-1 font-bold">Model</span><input v-model="aiSettings.model" class="w-full p-2.5 rounded-xl border bg-transparent" /></label><label class="block"><span class="block mb-1 font-bold">Temperature</span><input v-model.number="aiSettings.temperature" type="number" min="0" max="2" step="0.1" class="w-full p-2.5 rounded-xl border bg-transparent" /></label></div>
-          <label class="block"><span class="block mb-1 font-bold">API key <span v-if="aiSettings.has_api_key" class="text-emerald-600">(saved)</span></span><input v-model="aiSettings.api_key" type="password" autocomplete="new-password" class="w-full p-2.5 rounded-xl border bg-transparent" placeholder="Leave blank to keep the current key" /></label>
+          <label class="block"><span class="block mb-1 font-bold text-slate-400">Provider</span><select v-model="aiSettings.provider" class="w-full p-2.5 rounded-xl border bg-midnight-950 border-midnight-700 text-slate-100"><option value="template">Offline template fallback</option><option value="openai_compatible">OpenAI-compatible API</option></select></label>
+          <label class="block"><span class="block mb-1 font-bold text-slate-400">Base URL</span><input v-model="aiSettings.base_url" class="w-full p-2.5 rounded-xl border bg-midnight-950 border-midnight-700 text-slate-100" placeholder="https://api.openai.com/v1" /></label>
+          <div class="grid grid-cols-2 gap-3"><label class="block"><span class="block mb-1 font-bold text-slate-400">Model</span><input v-model="aiSettings.model" class="w-full p-2.5 rounded-xl border bg-midnight-950 border-midnight-700 text-slate-100" /></label><label class="block"><span class="block mb-1 font-bold text-slate-400">Temperature</span><input v-model.number="aiSettings.temperature" type="number" min="0" max="2" step="0.1" class="w-full p-2.5 rounded-xl border bg-midnight-950 border-midnight-700 text-slate-100" /></label></div>
+          <label class="block"><span class="block mb-1 font-bold text-slate-400">API key <span v-if="aiSettings.has_api_key" class="text-emerald-400">(saved)</span></span><input v-model="aiSettings.api_key" type="password" autocomplete="new-password" class="w-full p-2.5 rounded-xl border bg-midnight-950 border-midnight-700 text-slate-100" placeholder="Leave blank to keep the current key" /></label>
           <p class="text-[11px] text-slate-500">The key is encrypted on the server and never returned to the browser. If the provider fails, the workspace uses offline templates.</p>
         </div>
-        <div class="flex justify-end gap-2 border-t pt-3" :class="isDarkMode ? 'border-slate-800' : 'border-slate-200'"><button @click="showAiSettingsModal = false" class="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer">Cancel</button><button @click="saveAiSettings" :disabled="isAiSettingsSaving" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50">{{ isAiSettingsSaving ? 'Saving...' : 'Save settings' }}</button></div>
+        <div class="flex justify-end gap-2 border-t pt-3" :class="isDarkMode ? 'border-midnight-800' : 'border-slate-200'"><button @click="showAiSettingsModal = false" class="px-4 py-2 rounded-xl text-xs font-bold cursor-pointer hover:bg-midnight-850">Cancel</button><button @click="saveAiSettings" :disabled="isAiSettingsSaving" class="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold cursor-pointer disabled:opacity-50">{{ isAiSettingsSaving ? 'Saving...' : 'Save settings' }}</button></div>
       </div>
     </div>
 
     <!-- ==================================================================== -->
-    <!-- ✉️ WEEKLY EMAIL REPORT CONFIGURATION & SEND MODAL                    -->
+    <!-- WEEKLY EMAIL REPORT CONFIGURATION & SEND MODAL                       -->
     <!-- ==================================================================== -->
     <div
       v-if="showReportModal"
-      class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+      class="fixed inset-0 z-50 bg-midnight-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
       @click.self="showReportModal = false"
     >
       <div
         :class="[
-          'w-full max-w-2xl rounded-3xl border shadow-2xl p-6 sm:p-7 space-y-5 my-8 transition-colors',
-          isDarkMode ? 'bg-[#0b101e] border-slate-700/80 text-white' : 'bg-white border-slate-200 text-slate-950'
+          'w-full max-w-2xl rounded-3xl border shadow-2xl p-6 sm:p-7 space-y-5 my-8 transition-colors font-mono',
+          isDarkMode ? 'bg-midnight-900 border-midnight-700 text-white' : 'bg-white border-slate-200 text-slate-950'
         ]"
       >
         <!-- Modal Header -->
-        <div class="flex items-center justify-between border-b pb-4 shrink-0" :class="isDarkMode ? 'border-slate-800' : 'border-slate-200'">
+        <div class="flex items-center justify-between border-b pb-4 shrink-0" :class="isDarkMode ? 'border-midnight-800' : 'border-slate-200'">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/80 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-xl shadow-xs">
-              ✉️
+            <div class="w-10 h-10 rounded-2xl bg-midnight-950 border border-midnight-700 flex items-center justify-center text-xl shadow-xs text-cyan-300">
+              <Icons name="Mail" :size="18" />
             </div>
             <div>
               <h2 class="text-base sm:text-lg font-bold font-display tracking-tight">
@@ -5582,9 +5583,9 @@ onUnmounted(() => {
           </div>
           <button
             @click="showReportModal = false"
-            class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold p-1 text-base cursor-pointer"
+            class="text-slate-400 hover:text-white font-bold p-1 text-base cursor-pointer"
           >
-            ✕
+            <Icons name="X" :size="14" />
           </button>
         </div>
 
@@ -5599,11 +5600,11 @@ onUnmounted(() => {
           ]"
         >
           <span>{{ reportFeedbackMsg }}</span>
-          <button @click="reportFeedbackMsg = ''" class="hover:opacity-75 cursor-pointer">✕</button>
+          <button @click="reportFeedbackMsg = ''" class="hover:opacity-75 cursor-pointer"><Icons name="X" :size="12" /></button>
         </div>
 
-        <div v-if="isReportLoading" class="py-12 text-center text-slate-400 text-xs font-medium">
-          <span class="animate-spin inline-block mr-2 text-base">⏳</span>
+        <div v-if="isReportLoading" class="py-12 text-center text-slate-400 text-xs font-medium font-mono">
+          <Icons name="LoaderCircle" :size="20" class="animate-spin inline-block mr-2 text-cyan-300" />
           <span>Loading email report settings...</span>
         </div>
 
@@ -5614,13 +5615,13 @@ onUnmounted(() => {
             :class="[
               'p-4 rounded-2xl border flex items-center justify-between gap-4 cursor-pointer transition-all',
               reportForm.is_enabled
-                ? (isDarkMode ? 'bg-blue-950/30 border-blue-700/80 ring-1 ring-blue-500/30' : 'bg-blue-50/70 border-blue-300 ring-1 ring-blue-200')
-                : (isDarkMode ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-200')
+                ? (isDarkMode ? 'bg-midnight-950 border-cyan-500/40 ring-1 ring-cyan-500/30' : 'bg-blue-50/70 border-blue-300 ring-1 ring-blue-200')
+                : (isDarkMode ? 'bg-midnight-950 border-midnight-800' : 'bg-slate-50 border-slate-200')
             ]"
             @click="reportForm.is_enabled = !reportForm.is_enabled"
           >
             <div class="flex items-center gap-3">
-              <span class="text-xl">{{ reportForm.is_enabled ? '🔔' : '🔕' }}</span>
+              <Icons :name="reportForm.is_enabled ? 'Bell' : 'BellOff'" :size="18" :class="reportForm.is_enabled ? 'text-phantom-mint' : 'text-slate-500'" />
               <div>
                 <div class="font-bold text-sm" :class="isDarkMode ? 'text-white' : 'text-slate-950'">
                   Automatically send weekly email reports
@@ -5635,12 +5636,12 @@ onUnmounted(() => {
             <div
               :class="[
                 'w-11 h-6 rounded-full transition-colors relative shrink-0 p-0.5',
-                reportForm.is_enabled ? 'bg-blue-600' : (isDarkMode ? 'bg-slate-800' : 'bg-slate-300')
+                reportForm.is_enabled ? 'bg-phantom-mint' : (isDarkMode ? 'bg-midnight-800' : 'bg-slate-300')
               ]"
             >
               <div
                 :class="[
-                  'w-5 h-5 rounded-full bg-white transition-transform shadow-xs',
+                  'w-5 h-5 rounded-full bg-midnight-950 transition-transform shadow-xs',
                   reportForm.is_enabled ? 'translate-x-5' : 'translate-x-0'
                 ]"
               ></div>
@@ -5650,19 +5651,19 @@ onUnmounted(() => {
           <!-- 2. Recipients Emails -->
           <div>
             <label class="block font-bold mb-1.5" :class="isDarkMode ? 'text-slate-300' : 'text-slate-700'">
-              Recipient email addresses (stakeholders / PM / clients) <span class="text-red-500">*</span>
+              Recipient email addresses (stakeholders / PM / clients) <span class="text-rose-500">*</span>
             </label>
             <textarea
               v-model="reportForm.recipients"
               rows="2"
               placeholder="e.g. boss@company.com, ceo@company.com, manager@company.com"
               :class="[
-                'w-full border rounded-xl p-3 focus:outline-none focus:border-blue-500 font-mono text-xs shadow-xs',
-                isDarkMode ? 'bg-slate-900 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
+                'w-full border rounded-xl p-3 focus:outline-none focus:border-phantom-mint font-mono text-xs shadow-xs',
+                isDarkMode ? 'bg-midnight-950 border-midnight-700 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
               ]"
             ></textarea>
             <p :class="['text-[11px] mt-1', isDarkMode ? 'text-slate-400' : 'text-slate-500']">
-              💡 Separate multiple email addresses with commas (<strong class="font-mono">,</strong>).
+              Separate multiple email addresses with commas (<strong class="font-mono">,</strong>).
             </p>
           </div>
 
@@ -5675,17 +5676,17 @@ onUnmounted(() => {
               <select
                 v-model="reportForm.day_of_week"
                 :class="[
-                  'w-full border rounded-xl p-2.5 focus:outline-none focus:border-blue-500 font-semibold shadow-xs',
-                  isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                  'w-full border rounded-xl p-2.5 focus:outline-none focus:border-phantom-mint font-semibold shadow-xs',
+                  isDarkMode ? 'bg-midnight-950 border-midnight-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                 ]"
               >
-                <option value="monday">📅 Monday (Suggested: start the week)</option>
-                <option value="tuesday">📅 Tuesday</option>
-                <option value="wednesday">📅 Wednesday</option>
-                <option value="thursday">📅 Thursday</option>
-                <option value="friday">📅 Friday (Suggested: wrap up the week)</option>
-                <option value="saturday">📅 Saturday</option>
-                <option value="sunday">📅 Sunday (Prepare for the week)</option>
+                <option value="monday">Monday (Suggested: start the week)</option>
+                <option value="tuesday">Tuesday</option>
+                <option value="wednesday">Wednesday</option>
+                <option value="thursday">Thursday</option>
+                <option value="friday">Friday (Suggested: wrap up the week)</option>
+                <option value="saturday">Saturday</option>
+                <option value="sunday">Sunday (Prepare for the week)</option>
               </select>
             </div>
 
@@ -5696,17 +5697,17 @@ onUnmounted(() => {
               <select
                 v-model="reportForm.send_time"
                 :class="[
-                  'w-full border rounded-xl p-2.5 focus:outline-none focus:border-blue-500 font-semibold font-mono shadow-xs',
-                  isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                  'w-full border rounded-xl p-2.5 focus:outline-none focus:border-phantom-mint font-semibold font-mono shadow-xs',
+                  isDarkMode ? 'bg-midnight-950 border-midnight-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                 ]"
               >
-                <option value="07:30">⏰ 07:30 AM</option>
-                <option value="08:00">⏰ 08:00 AM (Start of workday)</option>
-                <option value="08:30">⏰ 08:30 AM</option>
-                <option value="09:00">⏰ 09:00 AM</option>
-                <option value="17:00">⏰ 17:00 PM (End of workday)</option>
-                <option value="18:00">⏰ 18:00 PM</option>
-                <option value="20:00">⏰ 20:00 PM</option>
+                <option value="07:30">07:30 AM</option>
+                <option value="08:00">08:00 AM (Start of workday)</option>
+                <option value="08:30">08:30 AM</option>
+                <option value="09:00">09:00 AM</option>
+                <option value="17:00">17:00 PM (End of workday)</option>
+                <option value="18:00">18:00 PM</option>
+                <option value="20:00">20:00 PM</option>
               </select>
             </div>
           </div>
@@ -5721,8 +5722,8 @@ onUnmounted(() => {
               type="text"
               placeholder="Weekly Project Progress Report"
               :class="[
-                'w-full border rounded-xl p-2.5 focus:outline-none focus:border-blue-500 font-medium shadow-xs',
-                isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                'w-full border rounded-xl p-2.5 focus:outline-none focus:border-phantom-mint font-medium shadow-xs',
+                isDarkMode ? 'bg-midnight-950 border-midnight-700 text-white' : 'bg-white border-slate-300 text-slate-900'
               ]"
             />
           </div>
@@ -5740,16 +5741,16 @@ onUnmounted(() => {
                   :class="[
                     'text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all cursor-pointer shadow-xs',
                     isReportProjectSelected('all')
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                      : (isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800' : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200')
+                      ? 'bg-phantom-mint text-midnight-950 border-phantom-mint shadow-sm font-extrabold'
+                      : (isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-300 hover:bg-midnight-850' : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200')
                   ]"
                 >
-                  📁 All Projects
+                  All Projects
                 </button>
               </div>
 
               <!-- Project Multi-Select Chips -->
-              <div class="flex flex-wrap gap-2 p-3 rounded-2xl border max-h-36 overflow-y-auto" :class="isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200'">
+              <div class="flex flex-wrap gap-2 p-3 rounded-2xl border max-h-36 overflow-y-auto" :class="isDarkMode ? 'bg-midnight-950 border-midnight-800' : 'bg-slate-50 border-slate-200'">
                 <button
                   v-for="p in projectList"
                   :key="p.id"
@@ -5758,27 +5759,27 @@ onUnmounted(() => {
                   :class="[
                     'px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-2 shadow-xs',
                     isReportProjectSelected(p.id)
-                      ? (isDarkMode ? 'bg-blue-600 text-white border-blue-500 font-bold shadow-sm' : 'bg-blue-50 text-blue-900 border-blue-400 font-bold')
-                      : (isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100')
+                      ? (isDarkMode ? 'bg-midnight-850 text-cyan-300 border-cyan-500/40 font-bold shadow-sm' : 'bg-blue-50 text-blue-900 border-blue-400 font-bold')
+                      : (isDarkMode ? 'bg-midnight-900 border-midnight-700 text-slate-300 hover:bg-midnight-850' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100')
                   ]"
                 >
-                  <span class="w-2 h-2 rounded-full shrink-0" :style="{ backgroundColor: p.color || '#2563eb' }"></span>
-                  <span>▦ {{ p.title }}</span>
+                  <span class="w-2 h-2 rounded-full shrink-0" :style="{ backgroundColor: p.color || '#00f5a0' }"></span>
+                  <span>{{ p.title }}</span>
                   <span v-if="isReportProjectSelected(p.id)" class="text-[11px] font-bold">✓</span>
                 </button>
               </div>
               <p :class="['text-[11px] mt-1', isDarkMode ? 'text-slate-400' : 'text-slate-500']">
-                💡 The report includes completed tasks, sprints, and alerts from selected projects (or all projects when "All Projects" is selected).
+                The report includes completed tasks, sprints, and alerts from selected projects (or all projects when "All Projects" is selected).
               </p>
             </div>
 
             <div class="flex flex-wrap gap-4 pt-1">
               <label class="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" v-model="reportForm.include_upcoming" class="w-4 h-4 rounded text-blue-600" />
+                <input type="checkbox" v-model="reportForm.include_upcoming" class="w-4 h-4 rounded text-phantom-mint focus:ring-phantom-mint bg-midnight-950 border-midnight-700" />
                 <span :class="isDarkMode ? 'text-slate-300' : 'text-slate-700'">Include next-week focus</span>
               </label>
               <label class="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" v-model="reportForm.include_warnings" class="w-4 h-4 rounded text-blue-600" />
+                <input type="checkbox" v-model="reportForm.include_warnings" class="w-4 h-4 rounded text-phantom-mint focus:ring-phantom-mint bg-midnight-950 border-midnight-700" />
                 <span :class="isDarkMode ? 'text-slate-300' : 'text-slate-700'">Include task risk alerts</span>
               </label>
             </div>
@@ -5787,24 +5788,24 @@ onUnmounted(() => {
           <!-- Last Sent Status -->
           <div
             v-if="reportForm.last_sent_at"
-            :class="['p-3 rounded-xl border text-[11px] font-mono flex items-center justify-between', isDarkMode ? 'bg-slate-900/60 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600']"
+            :class="['p-3 rounded-xl border text-[11px] font-mono flex items-center justify-between', isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600']"
           >
-            <span>🕒 Last successful delivery:</span>
+            <span>Last successful delivery:</span>
             <strong :class="isDarkMode ? 'text-slate-200' : 'text-slate-800'">{{ reportForm.last_sent_at }}</strong>
           </div>
         </div>
 
         <!-- Modal Footer Actions -->
-        <div :class="['flex flex-wrap items-center justify-between gap-3 pt-4 border-t shrink-0', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+        <div :class="['flex flex-wrap items-center justify-between gap-3 pt-4 border-t shrink-0', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
           <!-- Left: Send Test Report Button -->
           <button
             @click="handleSendReportNow"
             :disabled="isReportSending || isReportLoading || !reportForm.recipients.trim()"
-            class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            class="px-4 py-2.5 rounded-xl bg-midnight-850 hover:bg-midnight-800 border border-midnight-700 text-cyan-300 font-bold text-xs shadow-md transition-all inline-flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             title="Send a sample report immediately to the entered recipients"
           >
-            <span v-if="isReportSending" class="animate-spin">⏳</span>
-            <span v-else>🚀</span>
+            <Icons v-if="isReportSending" name="LoaderCircle" :size="14" class="animate-spin" />
+            <Icons v-else name="Send" :size="14" />
             <span>{{ isReportSending ? 'Sending report...' : 'Send test report now' }}</span>
           </button>
 
@@ -5814,7 +5815,7 @@ onUnmounted(() => {
               @click="showReportModal = false"
               :class="[
                 'px-4 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-colors',
-                isDarkMode ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
+                isDarkMode ? 'hover:bg-midnight-850 text-slate-300' : 'hover:bg-slate-100 text-slate-700'
               ]"
             >
               Close
@@ -5823,10 +5824,10 @@ onUnmounted(() => {
             <button
               @click="handleSaveReportSettings"
               :disabled="isReportSaving || isReportLoading"
-              class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 font-extrabold text-xs shadow-md transition-all inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span v-if="isReportSaving" class="animate-spin">⏳</span>
-              <span v-else>✓</span>
+              <Icons v-if="isReportSaving" name="LoaderCircle" :size="14" class="animate-spin" />
+              <Icons v-else name="CheckCircle" :size="14" />
               <span>{{ isReportSaving ? 'Saving...' : 'Save settings' }}</span>
             </button>
           </div>
@@ -5835,31 +5836,31 @@ onUnmounted(() => {
     </div>
 
     <!-- ==================================================================== -->
-    <!-- ⚡ MODEL CONTEXT PROTOCOL (MCP) & AI AGENTS MODAL                     -->
+    <!-- MODEL CONTEXT PROTOCOL (MCP) & AI AGENTS MODAL                       -->
     <!-- ==================================================================== -->
     <div
       v-if="showMcpModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 select-none overflow-y-auto backdrop-blur-md bg-black/70 animate-fadeIn"
+      class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 select-none overflow-y-auto backdrop-blur-md bg-midnight-950/80 animate-fadeIn"
       @click.self="showMcpModal = false"
     >
       <div
         :class="[
-          'relative w-full max-w-4xl border rounded-3xl p-5 sm:p-7 shadow-2xl z-10 transition-all flex flex-col max-h-[92vh] overflow-hidden',
-          isDarkMode ? 'bg-[#0b1120] border-slate-700/80 text-slate-100' : 'bg-white border-slate-300 text-slate-900'
+          'relative w-full max-w-4xl border rounded-3xl p-5 sm:p-7 shadow-2xl z-10 transition-all flex flex-col max-h-[92vh] overflow-hidden font-mono',
+          isDarkMode ? 'bg-midnight-900 border-midnight-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900'
         ]"
       >
         <!-- Modal Header -->
-        <div class="flex items-start justify-between pb-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
+        <div class="flex items-start justify-between pb-4 border-b border-midnight-800 shrink-0">
           <div class="flex items-center gap-3">
-            <div class="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-2xl shadow-inner text-indigo-400">
-              ⚡
+            <div class="w-12 h-12 rounded-2xl bg-midnight-950 border border-purple-500/30 flex items-center justify-center text-2xl shadow-inner text-purple-400">
+              <Icons name="Zap" :size="22" />
             </div>
             <div>
               <div class="flex items-center gap-2.5">
                 <h3 class="text-base sm:text-lg font-bold font-display">
                   Model Context Protocol (MCP) & AI Agent Setup
                 </h3>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-950 text-purple-300 border border-purple-800">
                   Protocol: 2024-11-05
                 </span>
               </div>
@@ -5872,12 +5873,12 @@ onUnmounted(() => {
           <button
             @click="showMcpModal = false"
             :class="[
-              'p-2 rounded-xl border text-xs font-bold transition-colors cursor-pointer',
-              isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800' : 'bg-slate-100 border-slate-300 text-slate-600 hover:bg-slate-200'
+              'h-8 w-8 rounded-xl border text-xs font-bold transition-colors cursor-pointer inline-flex items-center justify-center shrink-0',
+              isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-400 hover:text-white hover:bg-midnight-850' : 'bg-slate-100 border-slate-300 text-slate-600 hover:bg-slate-200'
             ]"
             title="Close modal"
           >
-            ✕
+            <Icons name="X" :size="14" />
           </button>
         </div>
 
@@ -5890,7 +5891,7 @@ onUnmounted(() => {
           ]"
         >
           <span>{{ mcpFeedbackMsg }}</span>
-          <button @click="mcpFeedbackMsg = ''" class="text-xs opacity-70 hover:opacity-100 cursor-pointer">✕</button>
+          <button @click="mcpFeedbackMsg = ''" class="text-xs opacity-70 hover:opacity-100 cursor-pointer"><Icons name="X" :size="12" /></button>
         </div>
 
         <!-- Modal Body (Scrollable) -->
@@ -5898,7 +5899,7 @@ onUnmounted(() => {
           <!-- 1. Project Selector & Server Endpoint -->
           <div class="grid grid-cols-1 md:grid-cols-12 gap-3.5">
             <!-- Project Picker -->
-            <div :class="['md:col-span-6 p-4 rounded-2xl border', isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200']">
+            <div :class="['md:col-span-6 p-4 rounded-2xl border', isDarkMode ? 'bg-midnight-950 border-midnight-800' : 'bg-slate-50 border-slate-200']">
               <label class="block text-[11px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-2">
                 1. Select Target Project
               </label>
@@ -5910,11 +5911,11 @@ onUnmounted(() => {
                   :class="[
                     'px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-1.5',
                     selectedMcpProjectId === p.id
-                      ? 'bg-blue-600 border-blue-500 text-white shadow-xs'
-                      : (isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-800' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100')
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-midnight-950 border-transparent font-extrabold shadow-xs'
+                      : (isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-300 hover:bg-midnight-850' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100')
                   ]"
                 >
-                  <span class="w-2 h-2 rounded-full" :style="{ backgroundColor: p.color || '#3b82f6' }"></span>
+                  <span class="w-2 h-2 rounded-full" :style="{ backgroundColor: p.color || '#00f5a0' }"></span>
                   <span>{{ p.title }}</span>
                   <span v-if="p.key" class="font-mono text-[9px] opacity-75">({{ p.key }})</span>
                 </button>
@@ -5922,7 +5923,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Server Endpoint -->
-            <div :class="['md:col-span-6 p-4 rounded-2xl border flex flex-col justify-between', isDarkMode ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-200']">
+            <div :class="['md:col-span-6 p-4 rounded-2xl border flex flex-col justify-between', isDarkMode ? 'bg-midnight-950 border-midnight-800' : 'bg-slate-50 border-slate-200']">
               <div>
                 <label class="block text-[11px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-1">
                   2. MCP Server Endpoint URL
@@ -5932,13 +5933,14 @@ onUnmounted(() => {
                     type="text"
                     readonly
                     :value="mcpData?.server_url || 'https://midnight.macatung.dev/mcp'"
-                    :class="['flex-1 p-2 rounded-xl font-mono text-xs border select-all', isDarkMode ? 'bg-slate-950 border-slate-800 text-indigo-300' : 'bg-white border-slate-300 text-indigo-900']"
+                    :class="['flex-1 p-2 rounded-xl font-mono text-xs border select-all', isDarkMode ? 'bg-midnight-900 border-midnight-800 text-cyan-300' : 'bg-white border-slate-300 text-indigo-900']"
                   />
                   <button
                     @click="copyMcpSnippet('url', mcpData?.server_url || 'https://midnight.macatung.dev/mcp')"
-                    class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold cursor-pointer transition-colors shrink-0"
+                    class="px-3 py-2 rounded-xl bg-midnight-850 hover:bg-midnight-800 border border-midnight-700 text-cyan-300 text-xs font-bold cursor-pointer transition-colors shrink-0 inline-flex items-center gap-1"
                   >
-                    {{ copiedSnippetType === 'url' ? '✓ Copied' : 'Copy' }}
+                    <Icons :name="copiedSnippetType === 'url' ? 'Check' : 'Copy'" :size="12" />
+                    <span>{{ copiedSnippetType === 'url' ? 'Copied' : 'Copy' }}</span>
                   </button>
                 </div>
               </div>
@@ -5949,11 +5951,11 @@ onUnmounted(() => {
           </div>
 
           <!-- 2. MCP Authentication Token Management -->
-          <div :class="['p-4 sm:p-5 rounded-2xl border space-y-3.5', isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200']">
+          <div :class="['p-4 sm:p-5 rounded-2xl border space-y-3.5', isDarkMode ? 'bg-midnight-950 border-midnight-800' : 'bg-slate-50 border-slate-200']">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h4 class="font-bold text-xs flex items-center gap-2">
-                  <span>🔑</span>
+                  <Icons name="Key" :size="14" class="text-phantom-mint" />
                   <span>Project MCP Token</span>
                   <span
                     :class="[
@@ -5965,7 +5967,7 @@ onUnmounted(() => {
                   </span>
                 </h4>
                 <p class="text-[11px] text-slate-500 mt-0.5">
-                  Secures AI Agent communication for <strong class="text-blue-500">{{ activeMcpProject?.title }}</strong>.
+                  Secures AI Agent communication for <strong class="text-phantom-mint">{{ activeMcpProject?.title }}</strong>.
                 </p>
               </div>
 
@@ -5974,9 +5976,9 @@ onUnmounted(() => {
                 <button
                   @click="generateMcpTokenForProject"
                   :disabled="isMcpGenerating || isMcpLoading"
-                  class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md cursor-pointer transition-all flex items-center gap-1.5 disabled:opacity-50"
+                  class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 font-extrabold text-xs shadow-md cursor-pointer transition-all inline-flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  <span>{{ isMcpGenerating ? '⏳' : '⚡' }}</span>
+                  <Icons :name="isMcpGenerating ? 'LoaderCircle' : 'Zap'" :size="13" :class="isMcpGenerating ? 'animate-spin' : ''" />
                   <span>{{ mcpData?.has_token ? 'Regenerate Token' : 'Generate Secure Token' }}</span>
                 </button>
 
@@ -5984,7 +5986,7 @@ onUnmounted(() => {
                   v-if="mcpData?.has_token"
                   @click="clearMcpTokenForProject"
                   :disabled="isMcpSaving"
-                  class="px-3 py-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-bold cursor-pointer transition-colors"
+                  class="px-3 py-2 rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-950/40 text-xs font-bold cursor-pointer transition-colors"
                 >
                   Revoke
                 </button>
@@ -5993,7 +5995,7 @@ onUnmounted(() => {
 
             <!-- Token View / Copy Box -->
             <div v-if="mcpData?.has_token" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              <div :class="['flex-1 flex items-center justify-between p-2.5 rounded-xl border font-mono text-xs min-w-0', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-300']">
+              <div :class="['flex-1 flex items-center justify-between p-2.5 rounded-xl border font-mono text-xs min-w-0', isDarkMode ? 'bg-midnight-900 border-midnight-800' : 'bg-white border-slate-300']">
                 <span class="truncate select-all pr-2">
                   {{ showRawToken ? (mcpData.token || 'Encrypted on server') : (mcpData.masked_token || '••••••••••••••••••••••••••••••••') }}
                 </span>
@@ -6008,25 +6010,25 @@ onUnmounted(() => {
               <button
                 v-if="mcpData?.token"
                 @click="copyMcpSnippet('token', mcpData.token)"
-                class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold cursor-pointer transition-colors shrink-0 flex items-center justify-center gap-1.5"
+                class="px-4 py-2.5 rounded-xl bg-midnight-850 hover:bg-midnight-800 border border-midnight-700 text-cyan-300 text-xs font-bold cursor-pointer transition-colors shrink-0 inline-flex items-center justify-center gap-1.5"
               >
-                <span>{{ copiedSnippetType === 'token' ? '✓' : '📋' }}</span>
+                <Icons :name="copiedSnippetType === 'token' ? 'Check' : 'Copy'" :size="12" />
                 <span>{{ copiedSnippetType === 'token' ? 'Copied Token' : 'Copy Token' }}</span>
               </button>
             </div>
 
             <!-- Custom Token Option -->
-            <div class="pt-2 border-t border-slate-200 dark:border-slate-800/80 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div class="pt-2 border-t border-midnight-800 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <input
                 v-model="customMcpTokenInput"
                 type="text"
                 placeholder="Or paste your own custom MCP token / secret key..."
-                :class="['flex-1 p-2 rounded-xl text-xs border font-mono', isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900']"
+                :class="['flex-1 p-2 rounded-xl text-xs border font-mono', isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900']"
               />
               <button
                 @click="saveCustomMcpToken"
                 :disabled="!customMcpTokenInput.trim() || isMcpSaving"
-                class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs cursor-pointer disabled:opacity-40 shrink-0"
+                class="px-3.5 py-2 rounded-xl bg-midnight-850 hover:bg-midnight-800 border border-midnight-700 text-cyan-300 font-bold text-xs cursor-pointer disabled:opacity-40 shrink-0"
               >
                 {{ isMcpSaving ? 'Saving...' : 'Set Custom Token' }}
               </button>
@@ -6034,59 +6036,59 @@ onUnmounted(() => {
           </div>
 
           <!-- 3. Client Configuration Snippets (Tabbed) -->
-          <div :class="['p-4 sm:p-5 rounded-2xl border space-y-3.5', isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200']">
+          <div :class="['p-4 sm:p-5 rounded-2xl border space-y-3.5', isDarkMode ? 'bg-midnight-950 border-midnight-800' : 'bg-slate-50 border-slate-200']">
             <!-- Tabs -->
-            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-midnight-800 pb-3">
               <div class="flex flex-wrap items-center gap-1.5">
                 <button
                   @click="activeMcpTab = 'antigravity'"
                   :class="[
-                    'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5',
+                    'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5',
                     activeMcpTab === 'antigravity'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200')
+                      ? 'bg-phantom-mint text-midnight-950 font-extrabold shadow-xs'
+                      : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-midnight-850' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200')
                   ]"
                 >
-                  <span>🌟</span>
+                  <Icons name="Sparkles" :size="13" />
                   <span>Google Antigravity 2.0</span>
                 </button>
 
                 <button
                   @click="activeMcpTab = 'cursor'"
                   :class="[
-                    'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5',
+                    'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5',
                     activeMcpTab === 'cursor'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200')
+                      ? 'bg-phantom-mint text-midnight-950 font-extrabold shadow-xs'
+                      : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-midnight-850' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200')
                   ]"
                 >
-                  <span>⚡</span>
+                  <Icons name="Zap" :size="13" />
                   <span>Cursor IDE</span>
                 </button>
 
                 <button
                   @click="activeMcpTab = 'claude'"
                   :class="[
-                    'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5',
+                    'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5',
                     activeMcpTab === 'claude'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200')
+                      ? 'bg-phantom-mint text-midnight-950 font-extrabold shadow-xs'
+                      : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-midnight-850' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200')
                   ]"
                 >
-                  <span>🤖</span>
+                  <Icons name="Bot" :size="13" />
                   <span>Claude Desktop</span>
                 </button>
 
                 <button
                   @click="activeMcpTab = 'tools'"
                   :class="[
-                    'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5',
+                    'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5',
                     activeMcpTab === 'tools'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200')
+                      ? 'bg-phantom-mint text-midnight-950 font-extrabold shadow-xs'
+                      : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-midnight-850' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200')
                   ]"
                 >
-                  <span>🛠️</span>
+                  <Icons name="Wrench" :size="13" />
                   <span>14 AI Tools</span>
                 </button>
               </div>
@@ -6095,9 +6097,9 @@ onUnmounted(() => {
               <button
                 @click="testMcpConnection"
                 :disabled="isTestingMcp || !mcpData?.has_token"
-                class="px-3 py-1.5 rounded-xl border border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/10 text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 disabled:opacity-40"
+                class="px-3 py-1.5 rounded-xl border border-cyan-500/40 text-cyan-300 hover:bg-midnight-850 text-xs font-bold cursor-pointer transition-all inline-flex items-center gap-1.5 disabled:opacity-40"
               >
-                <span>{{ isTestingMcp ? '⏳' : '🚀' }}</span>
+                <Icons :name="isTestingMcp ? 'LoaderCircle' : 'Send'" :size="13" :class="isTestingMcp ? 'animate-spin' : ''" />
                 <span>{{ isTestingMcp ? 'Testing...' : 'Test Connection' }}</span>
               </button>
             </div>
@@ -6119,13 +6121,13 @@ onUnmounted(() => {
               <div class="text-xs space-y-1">
                 <p class="font-bold text-slate-200">Where to save this configuration:</p>
                 <ul class="list-disc list-inside text-slate-400 text-[11px] space-y-0.5">
-                  <li><strong>Workspace level (Recommended):</strong> Create <code class="px-1 py-0.5 rounded bg-slate-950 font-mono text-indigo-300">.agents/mcp_config.json</code> in your project root.</li>
-                  <li><strong>Global level:</strong> Save into <code class="px-1 py-0.5 rounded bg-slate-950 font-mono text-indigo-300">~/.gemini/config/mcp_config.json</code> (or <code class="px-1 py-0.5 rounded bg-slate-950 font-mono text-indigo-300">%USERPROFILE%\.gemini\config\mcp_config.json</code>).</li>
+                  <li><strong>Workspace level (Recommended):</strong> Create <code class="px-1 py-0.5 rounded bg-midnight-900 border border-midnight-800 font-mono text-cyan-300">.agents/mcp_config.json</code> in your project root.</li>
+                  <li><strong>Global level:</strong> Save into <code class="px-1 py-0.5 rounded bg-midnight-900 border border-midnight-800 font-mono text-cyan-300">~/.gemini/config/mcp_config.json</code> (or <code class="px-1 py-0.5 rounded bg-midnight-900 border border-midnight-800 font-mono text-cyan-300">%USERPROFILE%\.gemini\config\mcp_config.json</code>).</li>
                 </ul>
               </div>
 
               <div class="relative">
-                <pre :class="['p-4 rounded-xl border font-mono text-xs overflow-x-auto select-all leading-relaxed', isDarkMode ? 'bg-[#060913] border-slate-800 text-emerald-400' : 'bg-slate-900 border-slate-700 text-emerald-300']"><code>{{ JSON.stringify(mcpData?.configs?.antigravity || {
+                <pre :class="['p-4 rounded-xl border font-mono text-xs overflow-x-auto select-all leading-relaxed', isDarkMode ? 'bg-midnight-900 border-midnight-800 text-emerald-400' : 'bg-slate-900 border-slate-700 text-emerald-300']"><code>{{ JSON.stringify(mcpData?.configs?.antigravity || {
   "mcpServers": {
     "task-hub": {
       "serverUrl": mcpData?.server_url || "https://midnight.macatung.dev/mcp",
@@ -6147,7 +6149,7 @@ onUnmounted(() => {
                       }
                     }
                   }, null, 2))"
-                  class="absolute right-3 top-3 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md cursor-pointer transition-colors"
+                  class="absolute right-3 top-3 px-3 py-1.5 rounded-lg bg-midnight-850 hover:bg-midnight-800 border border-midnight-700 text-cyan-300 font-bold text-xs shadow-md cursor-pointer transition-colors"
                 >
                   {{ copiedSnippetType === 'antigravity' ? '✓ Copied' : 'Copy JSON' }}
                 </button>
@@ -6158,11 +6160,11 @@ onUnmounted(() => {
             <div v-else-if="activeMcpTab === 'cursor'" class="space-y-3">
               <div class="text-xs space-y-1">
                 <p class="font-bold text-slate-200">Where to save this configuration for Cursor:</p>
-                <p class="text-slate-400 text-[11px]">Save into <code class="px-1 py-0.5 rounded bg-slate-950 font-mono text-indigo-300">.cursor/mcp.json</code> or project root <code class="px-1 py-0.5 rounded bg-slate-950 font-mono text-indigo-300">.mcp.json</code>.</p>
+                <p class="text-slate-400 text-[11px]">Save into <code class="px-1 py-0.5 rounded bg-midnight-900 border border-midnight-800 font-mono text-cyan-300">.cursor/mcp.json</code> or project root <code class="px-1 py-0.5 rounded bg-midnight-900 border border-midnight-800 font-mono text-cyan-300">.mcp.json</code>.</p>
               </div>
 
               <div class="relative">
-                <pre :class="['p-4 rounded-xl border font-mono text-xs overflow-x-auto select-all leading-relaxed', isDarkMode ? 'bg-[#060913] border-slate-800 text-emerald-400' : 'bg-slate-900 border-slate-700 text-emerald-300']"><code>{{ JSON.stringify(mcpData?.configs?.cursor || {
+                <pre :class="['p-4 rounded-xl border font-mono text-xs overflow-x-auto select-all leading-relaxed', isDarkMode ? 'bg-midnight-900 border-midnight-800 text-emerald-400' : 'bg-slate-900 border-slate-700 text-emerald-300']"><code>{{ JSON.stringify(mcpData?.configs?.cursor || {
   "mcpServers": {
     "task-hub": {
       "url": mcpData?.server_url || "https://midnight.macatung.dev/mcp",
@@ -6184,7 +6186,7 @@ onUnmounted(() => {
                       }
                     }
                   }, null, 2))"
-                  class="absolute right-3 top-3 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md cursor-pointer transition-colors"
+                  class="absolute right-3 top-3 px-3 py-1.5 rounded-lg bg-midnight-850 hover:bg-midnight-800 border border-midnight-700 text-cyan-300 font-bold text-xs shadow-md cursor-pointer transition-colors"
                 >
                   {{ copiedSnippetType === 'cursor' ? '✓ Copied' : 'Copy JSON' }}
                 </button>
@@ -6195,11 +6197,11 @@ onUnmounted(() => {
             <div v-else-if="activeMcpTab === 'claude'" class="space-y-3">
               <div class="text-xs space-y-1">
                 <p class="font-bold text-slate-200">Where to save for Claude Desktop:</p>
-                <p class="text-slate-400 text-[11px]">Save into <code class="px-1 py-0.5 rounded bg-slate-950 font-mono text-indigo-300">%APPDATA%\Claude\claude_desktop_config.json</code> (Windows) or <code class="px-1 py-0.5 rounded bg-slate-950 font-mono text-indigo-300">~/Library/Application Support/Claude/claude_desktop_config.json</code> (macOS).</p>
+                <p class="text-slate-400 text-[11px]">Save into <code class="px-1 py-0.5 rounded bg-midnight-900 border border-midnight-800 font-mono text-cyan-300">%APPDATA%\Claude\claude_desktop_config.json</code> (Windows) or <code class="px-1 py-0.5 rounded bg-midnight-900 border border-midnight-800 font-mono text-cyan-300">~/Library/Application Support/Claude/claude_desktop_config.json</code> (macOS).</p>
               </div>
 
               <div class="relative">
-                <pre :class="['p-4 rounded-xl border font-mono text-xs overflow-x-auto select-all leading-relaxed', isDarkMode ? 'bg-[#060913] border-slate-800 text-emerald-400' : 'bg-slate-900 border-slate-700 text-emerald-300']"><code>{{ JSON.stringify(mcpData?.configs?.claude_desktop || {
+                <pre :class="['p-4 rounded-xl border font-mono text-xs overflow-x-auto select-all leading-relaxed', isDarkMode ? 'bg-midnight-900 border-midnight-800 text-emerald-400' : 'bg-slate-900 border-slate-700 text-emerald-300']"><code>{{ JSON.stringify(mcpData?.configs?.claude_desktop || {
   "mcpServers": {
     "task-hub": {
       "url": mcpData?.server_url || "https://midnight.macatung.dev/mcp",
@@ -6221,7 +6223,7 @@ onUnmounted(() => {
                       }
                     }
                   }, null, 2))"
-                  class="absolute right-3 top-3 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md cursor-pointer transition-colors"
+                  class="absolute right-3 top-3 px-3 py-1.5 rounded-lg bg-midnight-850 hover:bg-midnight-800 border border-midnight-700 text-cyan-300 font-bold text-xs shadow-md cursor-pointer transition-colors"
                 >
                   {{ copiedSnippetType === 'claude' ? '✓ Copied' : 'Copy JSON' }}
                 </button>
@@ -6234,36 +6236,36 @@ onUnmounted(() => {
                 The Midnight Hub MCP server automatically exposes these 14 tools to the AI agent:
               </p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
-                  <div class="font-mono font-bold text-indigo-400">get_next_action</div>
+                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-midnight-900 border-midnight-800' : 'bg-white border-slate-200']">
+                  <div class="font-mono font-bold text-cyan-300">get_next_action</div>
                   <div class="text-[11px] text-slate-400 mt-0.5">Return the smallest actionable high-priority task.</div>
                 </div>
-                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
-                  <div class="font-mono font-bold text-indigo-400">get_work_item</div>
+                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-midnight-900 border-midnight-800' : 'bg-white border-slate-200']">
+                  <div class="font-mono font-bold text-cyan-300">get_work_item</div>
                   <div class="text-[11px] text-slate-400 mt-0.5">Read task details, subtasks & sprint backlog.</div>
                 </div>
-                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
-                  <div class="font-mono font-bold text-indigo-400">get_context_pack</div>
+                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-midnight-900 border-midnight-800' : 'bg-white border-slate-200']">
+                  <div class="font-mono font-bold text-cyan-300">get_context_pack</div>
                   <div class="text-[11px] text-slate-400 mt-0.5">Build full context pack for AI code synthesis.</div>
                 </div>
-                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
-                  <div class="font-mono font-bold text-indigo-400">get_project_state</div>
+                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-midnight-900 border-midnight-800' : 'bg-white border-slate-200']">
+                  <div class="font-mono font-bold text-cyan-300">get_project_state</div>
                   <div class="text-[11px] text-slate-400 mt-0.5">Read project sprint health, blockers & progress.</div>
                 </div>
-                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
-                  <div class="font-mono font-bold text-indigo-400">start_agent_run</div>
+                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-midnight-900 border-midnight-800' : 'bg-white border-slate-200']">
+                  <div class="font-mono font-bold text-cyan-300">start_agent_run</div>
                   <div class="text-[11px] text-slate-400 mt-0.5">Register auditable agent lifecycle session.</div>
                 </div>
-                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
-                  <div class="font-mono font-bold text-indigo-400">complete_agent_handoff</div>
+                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-midnight-900 border-midnight-800' : 'bg-white border-slate-200']">
+                  <div class="font-mono font-bold text-cyan-300">complete_agent_handoff</div>
                   <div class="text-[11px] text-slate-400 mt-0.5">Submit files changed, tests & request review.</div>
                 </div>
-                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
-                  <div class="font-mono font-bold text-indigo-400">attach_verification_evidence</div>
+                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-midnight-900 border-midnight-800' : 'bg-white border-slate-200']">
+                  <div class="font-mono font-bold text-cyan-300">attach_verification_evidence</div>
                   <div class="text-[11px] text-slate-400 mt-0.5">Attach build, test & security logs.</div>
                 </div>
-                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200']">
-                  <div class="font-mono font-bold text-indigo-400">list_project_documents</div>
+                <div :class="['p-2.5 rounded-xl border', isDarkMode ? 'bg-midnight-900 border-midnight-800' : 'bg-white border-slate-200']">
+                  <div class="font-mono font-bold text-cyan-300">list_project_documents</div>
                   <div class="text-[11px] text-slate-400 mt-0.5">Read project architecture & spec registry.</div>
                 </div>
               </div>
@@ -6272,13 +6274,13 @@ onUnmounted(() => {
         </div>
 
         <!-- Modal Footer -->
-        <div class="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800 shrink-0">
-          <span class="text-xs text-slate-500">
-            Endpoint: <code class="font-mono text-indigo-400">/mcp</code> | JSON-RPC 2.0
+        <div class="flex items-center justify-between pt-4 border-t border-midnight-800 shrink-0">
+          <span class="text-xs text-slate-500 font-mono">
+            Endpoint: <code class="font-mono text-cyan-300">/mcp</code> | JSON-RPC 2.0
           </span>
           <button
             @click="showMcpModal = false"
-            class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs cursor-pointer shadow-md transition-colors"
+            class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 font-extrabold text-xs cursor-pointer shadow-md transition-colors"
           >
             Done
           </button>
@@ -6293,25 +6295,25 @@ onUnmounted(() => {
       v-if="!isPinUnlocked"
       :class="[
         'fixed inset-0 z-50 flex items-center justify-center p-4 select-none overflow-y-auto backdrop-blur-md',
-        isDarkMode ? 'bg-[#04070d]/95' : 'bg-slate-900/60'
+        isDarkMode ? 'bg-midnight-950/95' : 'bg-slate-900/60'
       ]"
     >
       <div
         :class="[
-          'relative w-full max-w-md border rounded-3xl p-6 sm:p-8 shadow-2xl text-center z-10 transition-all duration-300',
-          isPinShaking ? 'animate-bounce !border-red-500' : (isDarkMode ? 'bg-[#0a0f1d] border-slate-700' : 'bg-white border-slate-300 text-slate-950')
+          'relative w-full max-w-md border rounded-3xl p-6 sm:p-8 shadow-2xl text-center z-10 transition-all duration-300 font-mono',
+          isPinShaking ? 'animate-bounce !border-rose-500' : (isDarkMode ? 'bg-midnight-900 border-midnight-700' : 'bg-white border-slate-300 text-slate-950')
         ]"
       >
         <div class="flex flex-col items-center mb-6">
-          <div class="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 flex items-center justify-center shadow-xs mb-3">
-            <span class="text-2xl">🔒</span>
+          <div class="w-14 h-14 rounded-2xl bg-midnight-950 border border-midnight-700 flex items-center justify-center shadow-xs mb-3 text-phantom-mint">
+            <Icons name="Lock" :size="24" />
           </div>
 
           <h2 :class="['text-lg sm:text-xl font-bold font-display', isDarkMode ? 'text-white' : 'text-slate-950']">
             MIDNIGHT HUB WORKSPACE SECURITY
           </h2>
-          <p :class="['text-xs mt-1 font-medium', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
-            Enter the <strong class="text-blue-600 dark:text-blue-400 font-mono font-bold">6-digit PIN</strong> to unlock the workspace.
+          <p :class="['text-xs mt-1 font-medium font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-600']">
+            Enter the <strong class="text-phantom-mint font-mono font-bold">6-digit PIN</strong> to unlock the workspace.
           </p>
         </div>
 
@@ -6323,20 +6325,21 @@ onUnmounted(() => {
             :class="[
               'w-11 h-13 sm:w-12 sm:h-14 rounded-2xl border-2 flex items-center justify-center font-mono font-bold text-xl transition-all duration-150',
               pinInput.length >= i
-                ? 'border-blue-600 bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-300 scale-105 shadow-xs'
+                ? 'border-phantom-mint bg-midnight-950 text-phantom-mint scale-105 shadow-xs'
                 : pinInput.length === i - 1
-                ? 'border-blue-500 bg-slate-50 dark:bg-slate-900 text-slate-400 ring-2 ring-blue-200 dark:ring-blue-900'
-                : (isDarkMode ? 'border-slate-800 bg-slate-950 text-slate-600' : 'border-slate-300 bg-slate-50 text-slate-400')
+                ? 'border-cyan-400 bg-midnight-950 text-slate-400 ring-2 ring-cyan-500/30'
+                : (isDarkMode ? 'border-midnight-800 bg-midnight-950 text-slate-600' : 'border-slate-300 bg-slate-50 text-slate-400')
             ]"
           >
-            <span v-if="pinInput.length >= i" class="text-xl text-blue-600 dark:text-blue-400">●</span>
-            <span v-else class="text-slate-400 dark:text-slate-700 text-xs">―</span>
+            <span v-if="pinInput.length >= i" class="text-xl text-phantom-mint">●</span>
+            <span v-else class="text-slate-600 text-xs">―</span>
           </div>
         </div>
 
         <!-- Error Message -->
-        <div v-if="pinError" class="mb-4 text-xs text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/80 border border-red-200 dark:border-red-800 py-2 px-3 rounded-xl font-bold">
-          ⚠️ {{ pinError }}
+        <div v-if="pinError" class="mb-4 text-xs text-rose-300 bg-rose-950/80 border border-rose-800 py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-1.5">
+          <Icons name="AlertCircle" :size="14" />
+          <span>{{ pinError }}</span>
         </div>
 
         <!-- Numpad -->
@@ -6347,7 +6350,7 @@ onUnmounted(() => {
             @click="handleNumpadPress(num)"
             :class="[
               'h-12 rounded-2xl border font-mono font-bold text-lg transition-all active:scale-95 cursor-pointer shadow-xs',
-              isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100 hover:bg-slate-800' : 'bg-slate-50 border-slate-300 text-slate-900 hover:bg-slate-100'
+              isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-100 hover:bg-midnight-850' : 'bg-slate-50 border-slate-300 text-slate-900 hover:bg-slate-100'
             ]"
           >
             {{ num }}
@@ -6357,7 +6360,7 @@ onUnmounted(() => {
             @click="handleNumpadClear"
             :class="[
               'h-12 rounded-2xl border font-mono font-bold text-xs transition-all active:scale-95 cursor-pointer',
-              isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-300' : 'bg-slate-100 border-slate-300 text-slate-800 hover:bg-slate-200'
+              isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-400 hover:bg-midnight-850' : 'bg-slate-100 border-slate-300 text-slate-800 hover:bg-slate-200'
             ]"
           >
             CLEAR
@@ -6367,7 +6370,7 @@ onUnmounted(() => {
             @click="handleNumpadPress('0')"
             :class="[
               'h-12 rounded-2xl border font-mono font-bold text-lg transition-all active:scale-95 cursor-pointer shadow-xs',
-              isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100 hover:bg-slate-800' : 'bg-slate-50 border-slate-300 text-slate-900 hover:bg-slate-100'
+              isDarkMode ? 'bg-midnight-950 border-midnight-700 text-slate-100 hover:bg-midnight-850' : 'bg-slate-50 border-slate-300 text-slate-900 hover:bg-slate-100'
             ]"
           >
             0
@@ -6376,15 +6379,15 @@ onUnmounted(() => {
           <button
             @click="handleNumpadBackspace"
             :class="[
-              'h-12 rounded-2xl border font-mono font-bold text-lg transition-all active:scale-95 cursor-pointer',
-              isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-300 hover:text-red-400' : 'bg-slate-100 border-slate-300 text-slate-800 hover:text-red-600 hover:bg-red-50'
+              'h-12 rounded-2xl border font-mono font-bold text-lg transition-all active:scale-95 cursor-pointer flex items-center justify-center',
+              isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-400 hover:text-rose-400 hover:bg-midnight-850' : 'bg-slate-100 border-slate-300 text-slate-800 hover:text-red-600 hover:bg-red-50'
             ]"
           >
-            ⌫
+            <Icons name="Delete" :size="16" />
           </button>
         </div>
 
-        <div :class="['flex items-center justify-between pt-4 border-t text-xs', isDarkMode ? 'border-slate-800' : 'border-slate-200']">
+        <div :class="['flex items-center justify-between pt-4 border-t text-xs', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
           <a href="/" :class="['font-bold flex items-center gap-1', isDarkMode ? 'text-slate-400 hover:text-white' : 'text-slate-700 hover:text-slate-950']">
             ← Back to home
           </a>
@@ -6393,14 +6396,14 @@ onUnmounted(() => {
             @click="checkPin"
             :disabled="pinInput.length !== 6"
             :class="[
-              'px-5 py-2 rounded-xl font-bold font-mono text-xs transition-all flex items-center gap-1.5 shadow-xs',
+              'px-5 py-2 rounded-xl font-extrabold font-mono text-xs transition-all inline-flex items-center gap-1.5 shadow-xs',
               pinInput.length === 6
-                ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
-                : (isDarkMode ? 'bg-slate-800 text-slate-600 cursor-not-allowed opacity-60' : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-60')
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-midnight-950 hover:from-emerald-400 hover:to-teal-400 cursor-pointer shadow-emerald-500/20'
+                : (isDarkMode ? 'bg-midnight-800 text-slate-600 cursor-not-allowed opacity-60' : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-60')
             ]"
           >
             <span>UNLOCK</span>
-            <span>🔓</span>
+            <Icons name="Unlock" :size="13" />
           </button>
         </div>
       </div>
@@ -6409,18 +6412,18 @@ onUnmounted(() => {
     <!-- PROJECT DOCUMENTS MODAL -->
     <div
       v-if="isDocsModalOpen"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-midnight-950/80 backdrop-blur-sm animate-fade-in"
       @click.self="isDocsModalOpen = false"
     >
       <div
         :class="[
-          'w-full max-w-4xl rounded-3xl border p-4 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar transition-all',
-          isDarkMode ? 'bg-slate-900/95 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+          'w-full max-w-4xl rounded-3xl border p-4 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar transition-all font-mono',
+          isDarkMode ? 'bg-midnight-900 border-midnight-700 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
         ]"
       >
-        <div class="flex items-center justify-between border-b pb-3" :class="isDarkMode ? 'border-slate-800' : 'border-slate-200'">
+        <div class="flex items-center justify-between border-b pb-3" :class="isDarkMode ? 'border-midnight-800' : 'border-slate-200'">
           <div class="flex items-center gap-2.5">
-            <span class="mono-icon text-xl">▤</span>
+            <Icons name="FileText" :size="20" class="text-phantom-mint shrink-0" />
             <div>
               <h3 class="font-bold text-base">Project Documents & Context Pack</h3>
               <p class="text-xs text-slate-400">{{ activeProjectObject?.title || 'Project' }} · shared context for developers and AI agents</p>
@@ -6430,9 +6433,9 @@ onUnmounted(() => {
             @click="isDocsModalOpen = false"
             aria-label="Close project documents"
             title="Close project documents"
-            class="min-h-[44px] min-w-[44px] p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors cursor-pointer"
+            class="min-h-[36px] min-w-[36px] p-2 rounded-xl text-slate-400 hover:text-white hover:bg-midnight-850 focus:outline-none focus:ring-2 focus:ring-phantom-mint transition-colors cursor-pointer inline-flex items-center justify-center shrink-0"
           >
-            ✕
+            <Icons name="X" :size="14" />
           </button>
         </div>
 
@@ -6448,18 +6451,18 @@ onUnmounted(() => {
     <!-- PROJECT RELEASES MODAL -->
     <div
       v-if="isReleasesModalOpen"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-midnight-950/80 backdrop-blur-sm animate-fade-in"
       @click.self="isReleasesModalOpen = false"
     >
       <div
         :class="[
-          'w-full max-w-2xl rounded-3xl border p-6 shadow-2xl space-y-4 max-h-[88vh] overflow-y-auto custom-scrollbar transition-all',
-          isDarkMode ? 'bg-slate-900/95 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+          'w-full max-w-2xl rounded-3xl border p-6 shadow-2xl space-y-4 max-h-[88vh] overflow-y-auto custom-scrollbar transition-all font-mono',
+          isDarkMode ? 'bg-midnight-900 border-midnight-700 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
         ]"
       >
-        <div class="flex items-center justify-between border-b pb-3" :class="isDarkMode ? 'border-slate-800' : 'border-slate-200'">
+        <div class="flex items-center justify-between border-b pb-3" :class="isDarkMode ? 'border-midnight-800' : 'border-slate-200'">
           <div class="flex items-center gap-2.5">
-            <span class="mono-icon text-xl">↗</span>
+            <Icons name="Rocket" :size="20" class="text-phantom-mint shrink-0" />
             <div>
               <h3 class="font-bold text-base">Project Release Log</h3>
               <p class="text-xs text-slate-400">Track deployments, commit SHAs and release changes</p>
@@ -6467,9 +6470,9 @@ onUnmounted(() => {
           </div>
           <button
             @click="isReleasesModalOpen = false"
-            class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            class="h-8 w-8 rounded-xl text-slate-400 hover:text-white hover:bg-midnight-850 transition-colors cursor-pointer inline-flex items-center justify-center shrink-0"
           >
-            ✕
+            <Icons name="X" :size="14" />
           </button>
         </div>
 

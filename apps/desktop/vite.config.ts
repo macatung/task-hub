@@ -16,11 +16,7 @@ export default defineConfig(({ mode }) => {
         main: {
           entry: 'electron/main.ts',
           onstart(args) {
-            if (mode === 'ide' || mode === 'mascot') {
-              args.startup(['.', `--mode=${mode}`, '--no-sandbox']);
-            } else {
-              args.startup(['.', '--no-sandbox']);
-            }
+            args.startup(['.', '--no-sandbox']);
           },
           vite: {
             build: {

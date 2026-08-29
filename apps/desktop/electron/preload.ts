@@ -25,15 +25,7 @@ contextBridge.exposeInMainWorld('desktopApi', {
   resizeWindow: (width: number, height: number) => ipcRenderer.send('window-resize', safeClone({ width, height })),
   toggleFullscreen: (fullscreen: boolean) => ipcRenderer.invoke('window-toggle-fullscreen', safeClone(fullscreen)),
   setIgnoreMouseEvents: (ignore: boolean, forward: boolean) => ipcRenderer.send('window-ignore-mouse-events', safeClone({ ignore, forward })),
-  getAppMode: () => ipcRenderer.invoke('app-get-mode'),
-  setAppMode: (mode: 'ide' | 'mascot') => ipcRenderer.invoke('app-set-mode', safeClone(mode)),
-  toggleAppMode: () => ipcRenderer.invoke('app-toggle-mode'),
   getSystemInfo: () => ipcRenderer.invoke('app-get-system-info'),
-  onAppModeChange: (callback: (mode: 'ide' | 'mascot') => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, mode: 'ide' | 'mascot') => callback(mode);
-    ipcRenderer.on('app-mode-changed', listener);
-    return () => ipcRenderer.removeListener('app-mode-changed', listener);
-  },
   onTrayAction: (callback: (action: string) => void) => {
     ipcRenderer.on('tray-action', (_event, action) => callback(action));
   },
@@ -133,5 +125,18 @@ contextBridge.exposeInMainWorld('desktopApi', {
   cao: {
     getStatus: () => ipcRenderer.invoke('cao-get-status'),
     restartDaemon: () => ipcRenderer.invoke('cao-restart-daemon'),
+    runWorkflow: (workflowSpecYaml: string, inputs?: Record<string, any>, cwd?: string) =>
+      ipcRenderer.invoke('cao-workflow-run', { workflowSpecYaml, inputs, cwd }),
+    resumeWorkflow: (runId: string, cwd?: string) =>
+      ipcRenderer.invoke('cao-workflow-resume', { runId, cwd }),
+    getWorkflowStatus: (runId: string, cwd?: string) =>
+      ipcRenderer.invoke('cao-workflow-status', { runId, cwd }),
+    answerUserPrompt: (payload: { terminalId?: string; answer: string; sessionId?: string }) =>
+      ipcRenderer.invoke('cao-answer-user-prompt', payload),
+    onStatusUpdated: (callback: (status: any) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: any) => callback(payload);
+      ipcRenderer.on('cao-status-updated', listener);
+      return () => ipcRenderer.removeListener('cao-status-updated', listener);
+    },
   },
 });

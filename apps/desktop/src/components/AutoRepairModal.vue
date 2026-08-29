@@ -224,74 +224,74 @@ const formatCheckTitle = (id: string) => {
     @click.self="emit('close')"
   >
     <div
-      class="w-full max-w-xl bg-[#1e1e1e] border border-[#3e3e42] rounded-xl shadow-2xl overflow-hidden flex flex-col text-zinc-200"
+      class="w-full max-w-xl bg-[#070b14] border border-[#141b2d] rounded-xl shadow-2xl overflow-hidden flex flex-col text-zinc-200"
     >
       <!-- Modal Header -->
-      <div class="h-12 px-4 border-b border-[#2d2d2d] bg-[#252526] flex items-center justify-between shrink-0">
+      <div class="h-12 px-4 border-b border-[#141b2d] bg-[#0c1220] flex items-center justify-between shrink-0">
         <div class="flex items-center gap-2">
-          <div class="w-6 h-6 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center">
-            <TailwindIcon name="wrench" :size="13" />
+          <div class="inline-flex items-center justify-center shrink-0 w-6 h-6 rounded-md bg-[#00f5a0]/20 border border-[#00f5a0]/40 text-[#00f5a0]">
+            <TailwindIcon name="wrench" :size="13" class="shrink-0" />
           </div>
           <div>
-            <h2 class="text-xs font-bold text-zinc-100 uppercase tracking-wider">One-Click Environment Auto-Repair</h2>
+            <h2 class="text-xs font-bold text-zinc-100 uppercase tracking-wider font-['Space_Grotesk']">One-Click Environment Auto-Repair</h2>
             <p class="text-[10px] text-zinc-400">Comprehensive Windows diagnostics & self-healing engine</p>
           </div>
         </div>
 
         <button
-          class="w-6 h-6 rounded hover:bg-[#333333] text-zinc-400 hover:text-white grid place-items-center transition-colors cursor-pointer"
+          class="inline-flex items-center justify-center shrink-0 w-6 h-6 rounded-lg hover:bg-[#11182c] text-zinc-400 hover:text-white transition-colors cursor-pointer"
           @click="emit('close')"
         >
-          <TailwindIcon name="x" :size="13" />
+          <TailwindIcon name="x" :size="13" class="shrink-0" />
         </button>
       </div>
 
       <!-- Modal Body -->
       <div class="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
         <!-- Target Info -->
-        <div class="p-2.5 rounded-lg border border-[#333333] bg-[#252526] text-xs space-y-1">
+        <div class="p-2.5 rounded-xl border border-[#141b2d] bg-[#0c1220] text-xs space-y-1">
           <div class="flex items-center justify-between text-zinc-400 text-[11px]">
             <span>Workspace Directory:</span>
             <span class="font-mono text-zinc-200 truncate max-w-[320px]" :title="cwd">{{ cwd || 'No workspace selected' }}</span>
           </div>
           <div class="flex items-center justify-between text-zinc-400 text-[11px]">
             <span>Target AI Provider:</span>
-            <span class="font-mono font-bold text-sky-300 uppercase">{{ provider }}</span>
+            <span class="font-mono font-bold text-[#00f5a0] uppercase">{{ provider }}</span>
           </div>
         </div>
 
         <!-- Diagnostic Overview Cards (when no repair performed yet) -->
         <div v-if="!repairResult && !isRepairing && !isPreflighting" class="space-y-2">
-          <p class="text-xs text-zinc-300 font-medium">Auto-Repair checks and resolves:</p>
+          <p class="text-xs text-zinc-300 font-bold font-['Space_Grotesk']">Auto-Repair checks and resolves:</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-            <div class="p-2.5 rounded border border-[#333333] bg-[#222224] space-y-1">
-              <div class="flex items-center gap-1.5 text-sky-300 font-medium">
-                <TailwindIcon name="terminal" :size="13" />
-                <span>Multi-Tier Windows PATH</span>
+            <div class="p-2.5 rounded-xl border border-[#141b2d] bg-[#0c1220] space-y-1">
+              <div class="flex items-center gap-1.5 text-[#00f5d4] font-medium">
+                <TailwindIcon name="terminal" :size="13" class="shrink-0" />
+                <span class="font-['Space_Grotesk'] font-bold">Multi-Tier Windows PATH</span>
               </div>
               <p class="text-[11px] text-zinc-400">Scans ProgramData, AppData, Scoop, WinGet, and Git for Windows candidate paths.</p>
             </div>
 
-            <div class="p-2.5 rounded border border-[#333333] bg-[#222224] space-y-1">
+            <div class="p-2.5 rounded-xl border border-[#141b2d] bg-[#0c1220] space-y-1">
               <div class="flex items-center gap-1.5 text-amber-300 font-medium">
-                <TailwindIcon name="shield" :size="13" />
-                <span>Stale Git Locks & Worktrees</span>
+                <TailwindIcon name="shield" :size="13" class="shrink-0" />
+                <span class="font-['Space_Grotesk'] font-bold">Stale Git Locks & Worktrees</span>
               </div>
               <p class="text-[11px] text-zinc-400">Safely detects and prunes orphaned index.lock, HEAD.lock, and worktree locks.</p>
             </div>
 
-            <div class="p-2.5 rounded border border-[#333333] bg-[#222224] space-y-1">
-              <div class="flex items-center gap-1.5 text-emerald-300 font-medium">
-                <TailwindIcon name="file-text" :size="13" />
-                <span>Multi-Template .env Recovery</span>
+            <div class="p-2.5 rounded-xl border border-[#141b2d] bg-[#0c1220] space-y-1">
+              <div class="flex items-center gap-1.5 text-[#00f5a0] font-medium">
+                <TailwindIcon name="file-text" :size="13" class="shrink-0" />
+                <span class="font-['Space_Grotesk'] font-bold">Multi-Template .env Recovery</span>
               </div>
               <p class="text-[11px] text-zinc-400">Auto-detects .env.example, .env.template, .env.defaults or creates fallback .env.</p>
             </div>
 
-            <div class="p-2.5 rounded border border-[#333333] bg-[#222224] space-y-1">
+            <div class="p-2.5 rounded-xl border border-[#141b2d] bg-[#0c1220] space-y-1">
               <div class="flex items-center gap-1.5 text-purple-300 font-medium">
-                <TailwindIcon name="folder" :size="13" />
-                <span>Permissions & Write Probes</span>
+                <TailwindIcon name="folder" :size="13" class="shrink-0" />
+                <span class="font-['Space_Grotesk'] font-bold">Permissions & Write Probes</span>
               </div>
               <p class="text-[11px] text-zinc-400">Tests write access and automatically strips Windows read-only filesystem attributes.</p>
             </div>
@@ -300,9 +300,9 @@ const formatCheckTitle = (id: string) => {
 
         <!-- Progress Spinner (Preflight or Repair) -->
         <div v-if="isRepairing || isPreflighting" class="py-8 flex flex-col items-center justify-center gap-3 text-center">
-          <TailwindIcon name="loader" :size="30" class="animate-spin text-sky-400" />
+          <TailwindIcon name="loader" :size="30" class="animate-spin text-[#00f5a0] shrink-0" />
           <div class="space-y-1">
-            <p class="text-xs font-semibold text-zinc-200">
+            <p class="text-xs font-bold text-zinc-200 font-['Space_Grotesk']">
               {{ isRepairing ? 'Evaluating & Auto-Repairing Workspace...' : 'Running Diagnostics Preflight...' }}
             </p>
             <p class="text-[11px] text-zinc-400 font-mono">
@@ -312,7 +312,7 @@ const formatCheckTitle = (id: string) => {
         </div>
 
         <!-- Error Banner -->
-        <div v-if="errorMessage" class="p-3 rounded-lg border border-rose-800/80 bg-rose-950/60 text-rose-300 text-xs flex items-start gap-2">
+        <div v-if="errorMessage" class="p-3 rounded-xl border border-rose-800/80 bg-rose-950/60 text-rose-300 text-xs flex items-start gap-2">
           <TailwindIcon name="alert-circle" :size="14" class="mt-0.5 shrink-0" />
           <span>{{ errorMessage }}</span>
         </div>
@@ -321,36 +321,36 @@ const formatCheckTitle = (id: string) => {
         <div v-if="repairResult && !isRepairing && !isPreflighting" class="space-y-3">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <span class="text-xs font-bold text-zinc-200 uppercase tracking-wider">Diagnostic Report</span>
+              <span class="text-xs font-bold text-zinc-200 uppercase tracking-wider font-['Space_Grotesk']">Diagnostic Report</span>
               <span
-                class="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase"
-                :class="repairResult.ok ? 'bg-emerald-900 text-emerald-300 border border-emerald-700' : 'bg-rose-900 text-rose-300 border border-rose-700'"
+                class="inline-flex items-center justify-center shrink-0 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase"
+                :class="repairResult.ok ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-700' : 'bg-rose-950/80 text-rose-300 border border-rose-700'"
               >
                 {{ repairResult.ok ? 'All Systems Healthy' : 'Issues Detected' }}
               </span>
             </div>
 
             <!-- Filter Controls -->
-            <div class="flex items-center gap-1 bg-[#252526] p-0.5 rounded border border-[#333333] text-[10px]">
+            <div class="flex items-center gap-1 bg-[#0c1220] p-0.5 rounded-lg border border-[#141b2d] text-[10px]">
               <button
-                class="px-2 py-0.5 rounded transition-colors cursor-pointer"
-                :class="filterCategory === 'all' ? 'bg-[#37373d] text-white font-medium' : 'text-zinc-400 hover:text-zinc-200'"
-                @click="filterCategory = 'all'"
+                class="px-2 py-0.5 rounded transition-colors cursor-pointer font-mono"
+                :class="filterCategory === 'all' ? 'bg-[#11182c] text-[#00f5a0] font-bold' : 'text-zinc-400 hover:text-zinc-200'"
+                @click="filterCategory === 'all'"
               >
                 All ({{ repairResult.checks.length }})
               </button>
               <button
                 v-if="issuesCount > 0"
-                class="px-2 py-0.5 rounded transition-colors cursor-pointer text-amber-400"
-                :class="filterCategory === 'issues' ? 'bg-amber-950/80 text-amber-300 font-medium' : 'hover:text-amber-300'"
-                @click="filterCategory = 'issues'"
+                class="px-2 py-0.5 rounded transition-colors cursor-pointer text-amber-400 font-mono"
+                :class="filterCategory === 'issues' ? 'bg-amber-950/80 text-amber-300 font-bold' : 'hover:text-amber-300'"
+                @click="filterCategory === 'issues'"
               >
                 Issues ({{ issuesCount }})
               </button>
               <button
-                class="px-2 py-0.5 rounded transition-colors cursor-pointer"
-                :class="filterCategory === 'healthy' ? 'bg-emerald-950/80 text-emerald-300 font-medium' : 'text-zinc-400 hover:text-zinc-200'"
-                @click="filterCategory = 'healthy'"
+                class="px-2 py-0.5 rounded transition-colors cursor-pointer font-mono"
+                :class="filterCategory === 'healthy' ? 'bg-emerald-950/80 text-emerald-300 font-bold' : 'text-zinc-400 hover:text-zinc-200'"
+                @click="filterCategory === 'healthy'"
               >
                 Healthy ({{ healthyCount }})
               </button>
@@ -361,7 +361,7 @@ const formatCheckTitle = (id: string) => {
             <div
               v-for="chk in filteredChecks"
               :key="chk.id"
-              class="p-2.5 rounded border flex flex-col gap-1 text-xs transition-colors"
+              class="p-2.5 rounded-xl border flex flex-col gap-1 text-xs transition-colors bg-[#0c1220] border-[#141b2d]"
               :class="getStatusBadge(chk.status).bg"
             >
               <div class="flex items-start justify-between gap-2">
@@ -373,11 +373,11 @@ const formatCheckTitle = (id: string) => {
                     :class="getStatusBadge(chk.status).iconClass"
                   />
                   <div class="min-w-0">
-                    <span class="font-semibold block truncate text-zinc-100">{{ formatCheckTitle(chk.id) }}</span>
+                    <span class="font-bold block truncate text-zinc-100 font-['Space_Grotesk']">{{ formatCheckTitle(chk.id) }}</span>
                     <p class="text-[11px] text-zinc-300 leading-relaxed">{{ chk.message }}</p>
                   </div>
                 </div>
-                <span class="text-[10px] font-mono font-semibold shrink-0 uppercase px-1.5 py-0.5 rounded bg-black/30">
+                <span class="text-[10px] font-mono font-semibold shrink-0 uppercase px-1.5 py-0.5 rounded bg-black/40">
                   {{ getStatusBadge(chk.status).label }}
                 </span>
               </div>
@@ -385,9 +385,9 @@ const formatCheckTitle = (id: string) => {
               <!-- Fix Hint when present -->
               <div
                 v-if="chk.fixHint && chk.status !== 'passed'"
-                class="mt-1 pt-1.5 border-t border-current/10 text-[10px] text-zinc-400 flex items-center gap-1.5"
+                class="mt-1 pt-1.5 border-t border-white/5 text-[10px] text-zinc-400 flex items-center gap-1.5"
               >
-                <TailwindIcon name="info" :size="11" class="shrink-0 text-sky-400" />
+                <TailwindIcon name="info" :size="11" class="shrink-0 text-[#00f5a0]" />
                 <span>{{ chk.fixHint }}</span>
               </div>
             </div>
@@ -396,9 +396,9 @@ const formatCheckTitle = (id: string) => {
       </div>
 
       <!-- Modal Footer -->
-      <div class="h-12 px-4 border-t border-[#2d2d2d] bg-[#252526] flex items-center justify-between shrink-0">
+      <div class="h-12 px-4 border-t border-[#141b2d] bg-[#0c1220] flex items-center justify-between shrink-0">
         <button
-          class="h-8 px-3 rounded text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer"
+          class="h-8 px-3 rounded-lg text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer"
           @click="emit('close')"
         >
           Close
@@ -406,16 +406,16 @@ const formatCheckTitle = (id: string) => {
 
         <div class="flex items-center gap-2">
           <button
-            class="h-8 px-4 rounded text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+            class="inline-flex items-center justify-center shrink-0 h-8 px-4 rounded-lg text-xs font-bold transition-all gap-1.5 cursor-pointer"
             :class="[
               isRepairing || isPreflighting
-                ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed'
-                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs active:scale-98'
+                ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                : 'bg-[#00f5a0] hover:bg-[#00f5d4] text-black shadow-xs active:scale-98'
             ]"
             :disabled="isRepairing || isPreflighting"
             @click="runAutoRepair"
           >
-            <TailwindIcon :name="isRepairing ? 'loader' : 'wrench'" :size="13" :class="isRepairing ? 'animate-spin' : ''" />
+            <TailwindIcon :name="isRepairing ? 'loader' : 'wrench'" :size="13" :class="isRepairing ? 'animate-spin' : ''" class="shrink-0" />
             <span>{{ isRepairing ? 'Repairing...' : (repairResult ? 'Re-run Auto-Repair' : 'Execute Auto-Repair') }}</span>
           </button>
         </div>

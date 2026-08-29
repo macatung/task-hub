@@ -268,7 +268,7 @@ const iconSize = computed(() => {
 <template>
   <span
     :class="[
-      'inline-flex items-center rounded-lg border font-mono uppercase tracking-wider transition-all duration-150',
+      'inline-flex items-center justify-center shrink-0 rounded-lg border font-mono uppercase tracking-wider transition-all duration-150',
       displayConfig.badgeClass,
       sizeClasses,
     ]"
@@ -292,6 +292,6 @@ const iconSize = computed(() => {
     />
 
     <!-- Text Label -->
-    <span class="truncate">{{ displayConfig.label }}</span>
+    <span class="truncate leading-none">{{ displayConfig.label }}</span>
   </span>
 </template>

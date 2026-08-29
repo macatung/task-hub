@@ -24,6 +24,7 @@ export interface FleetAgent {
     | string;
   kind?: string;
   role?: "supervisor" | "worker" | "reviewer" | string;
+  collaborationStyle?: "sync_handoff" | "async_assign" | "direct_message" | string;
   tokenUsage?: {
     promptTokens: number;
     completionTokens: number;
@@ -146,22 +147,22 @@ const handleCardClick = (sessionId: string) => {
 
 <template>
   <!-- DRAWER MODE (Modal slide-over from right) -->
-  <div v-if="drawer && open" class="fixed inset-0 z-50 flex justify-end">
+  <div v-if="drawer && open" class="fixed inset-0 z-50 flex justify-end select-none">
     <!-- Backdrop Overlay -->
     <div
-      class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+      class="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
       @click="emit('close')"
     ></div>
 
     <!-- Drawer Panel Content -->
     <aside
-      class="relative z-10 flex h-full w-full max-w-md flex-col border-l border-[#1a273b] bg-[#070b14] p-5 text-zinc-100 shadow-2xl animate-in slide-in-from-right duration-200"
+      class="relative z-10 flex h-full w-full max-w-md flex-col border-l border-[#141b2d] bg-[#070b14] p-5 text-zinc-100 shadow-2xl animate-in slide-in-from-right duration-200"
     >
       <!-- Drawer Header -->
-      <div class="flex items-center justify-between border-b border-[#162235] pb-4">
+      <div class="flex items-center justify-between border-b border-[#141b2d] pb-4">
         <div class="flex items-center gap-2.5">
-          <div class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-tr from-[#00f5a0]/20 to-[#00f5d4]/10 border border-[#00f5a0]/30 text-[#00f5a0]">
-            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <div class="inline-flex items-center justify-center shrink-0 h-8 w-8 rounded-xl bg-[#00f5a0]/15 border border-[#00f5a0]/30 text-[#00f5a0]">
+            <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
             </svg>
           </div>
@@ -169,14 +170,14 @@ const handleCardClick = (sessionId: string) => {
             <h2 class="text-sm font-bold text-white font-['Space_Grotesk'] tracking-wide">
               AGENT ROOM
             </h2>
-            <p class="text-[11px] text-zinc-400">
+            <p class="text-[11px] text-zinc-400 font-mono">
               {{ active }} đang chạy · {{ waiting }} cần phản hồi · {{ agents.length }} phiên
             </p>
           </div>
         </div>
 
         <button
-          class="grid h-7 w-7 place-items-center rounded-lg border border-[#1d2d46] bg-[#0c1626] text-zinc-400 hover:text-white hover:border-zinc-500 transition"
+          class="inline-flex items-center justify-center shrink-0 h-7 w-7 rounded-lg border border-[#141b2d] bg-[#0c1220] text-zinc-400 hover:text-white hover:border-zinc-500 transition"
           title="Đóng (Escape)"
           @click="emit('close')"
         >
@@ -192,28 +193,28 @@ const handleCardClick = (sessionId: string) => {
           class="cursor-pointer rounded-xl border p-3.5 text-xs transition space-y-2.5 shadow-sm"
           :class="[
             agent.sessionId === activeSessionId
-              ? 'border-[#00f5a0]/70 bg-[#0c1e18] shadow-[0_0_14px_rgba(0,245,160,0.15)]'
-              : 'border-[#17253b] bg-[#0a101d] hover:border-[#243a5a] hover:bg-[#0f172a]',
+              ? 'border-[#00f5a0]/80 bg-[#11182c] shadow-[0_0_14px_rgba(0,245,160,0.15)]'
+              : 'border-[#141b2d] bg-[#0c1220] hover:border-zinc-600 hover:bg-[#11182c]',
           ]"
           @click="handleCardClick(agent.sessionId)"
         >
           <div class="flex items-center gap-3">
             <span
-              class="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-orange-400 to-amber-700 text-[11px] font-bold text-black shadow"
+              class="inline-flex items-center justify-center shrink-0 h-8 w-8 rounded-xl bg-gradient-to-br from-[#00f5a0] to-[#00f5d4] text-[11px] font-black text-black shadow"
             >
               {{ initials(agent) }}
             </span>
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between gap-2">
-                <span class="truncate font-bold text-zinc-100">{{ label(agent.provider) }}</span>
-                <span class="inline-flex items-center gap-1.5 text-[10px] capitalize text-zinc-400">
-                  <i class="h-2 w-2 rounded-full" :class="tone(agent.status)" />
+                <span class="truncate font-bold text-zinc-100 font-['Space_Grotesk']">{{ label(agent.provider) }}</span>
+                <span class="inline-flex items-center gap-1.5 text-[10px] capitalize text-zinc-400 font-mono">
+                  <i class="h-2 w-2 rounded-full shrink-0" :class="tone(agent.status)" />
                   {{ agent.status || "saved" }}
                 </span>
               </div>
               <div class="mt-1 flex items-center justify-between gap-2">
                 <span
-                  class="rounded-md border px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider"
+                  class="inline-flex items-center justify-center shrink-0 rounded-md border px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider font-mono"
                   :class="roleBadgeClass(agent)"
                 >
                   {{ role(agent) }}
@@ -231,14 +232,14 @@ const handleCardClick = (sessionId: string) => {
 
           <p
             v-if="agent.stepInfo"
-            class="truncate rounded-md bg-black/30 px-2 py-1 text-[11px] text-zinc-300 font-mono"
+            class="truncate rounded-md bg-[#04070d] border border-[#141b2d] px-2 py-1 text-[11px] text-zinc-300 font-mono"
             :title="agent.stepInfo"
           >
             {{ agent.stepInfo }}
           </p>
 
           <p
-            class="truncate border-t border-[#162235] pt-2 font-mono text-[10px] text-zinc-500"
+            class="truncate border-t border-[#141b2d] pt-2 font-mono text-[10px] text-zinc-500"
             :title="agent.cwd"
           >
             {{ agent.cwd || agent.sessionId }}
@@ -247,7 +248,7 @@ const handleCardClick = (sessionId: string) => {
 
         <div
           v-if="!agents.length"
-          class="rounded-xl border border-dashed border-[#1e2f47] bg-[#0a101d] p-8 text-center text-xs text-zinc-500"
+          class="rounded-xl border border-dashed border-[#141b2d] bg-[#0c1220] p-8 text-center text-xs text-zinc-500 font-mono"
         >
           Chưa có phiên agent nào được lưu. Khởi chạy một agent để hiển thị trong phòng trực chiến này.
         </div>
@@ -258,18 +259,18 @@ const handleCardClick = (sessionId: string) => {
   <!-- STATIC INLINE BAR MODE (Fallback if drawer is disabled) -->
   <section
     v-else-if="!drawer"
-    class="border-b border-white/10 bg-[#11110f] px-4 py-3"
+    class="border-b border-[#141b2d] bg-[#070b14] px-4 py-3"
     :class="{ 'max-h-64 overflow-y-auto': sidebar }"
   >
     <div
       class="mb-3 flex items-center justify-between gap-3 text-[11px] text-zinc-400"
     >
       <div>
-        <span class="font-semibold uppercase tracking-[0.18em] text-zinc-200"
+        <span class="font-bold uppercase tracking-[0.18em] text-zinc-200 font-['Space_Grotesk']"
           >Agent room</span
-        ><span class="ml-2 text-zinc-600">Local fleet</span>
+        ><span class="ml-2 text-zinc-500 font-mono">Local fleet</span>
       </div>
-      <span
+      <span class="font-mono"
         >{{ active }} active · {{ waiting }} attention ·
         {{ agents.length }} sessions</span
       >
@@ -287,31 +288,31 @@ const handleCardClick = (sessionId: string) => {
           sidebar ? 'min-w-0' : '',
           agent.sessionId === activeSessionId
             ? 'border-orange-400/70 bg-orange-950/20 shadow-[0_0_0_1px_rgba(251,146,60,.15)]'
-            : 'border-white/10 bg-[#1a1a18] hover:border-white/20',
+            : 'border-[#141b2d] bg-[#0c1220] hover:border-zinc-600',
         ]"
         @click="$emit('select', agent.sessionId)"
       >
         <div class="flex items-center gap-2.5">
           <span
-            class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-orange-300 to-amber-700 text-[10px] font-bold text-[#20160c]"
+            class="inline-flex items-center justify-center shrink-0 h-8 w-8 rounded-lg bg-gradient-to-br from-[#00f5a0] to-[#00f5d4] text-[10px] font-black text-black"
             >{{ initials(agent) }}</span
           >
           <div class="min-w-0 flex-1">
             <div class="flex items-center justify-between gap-2">
-              <span class="truncate font-semibold text-zinc-100">{{
+              <span class="truncate font-semibold text-zinc-100 font-['Space_Grotesk']">{{
                 label(agent.provider)
               }}</span
               ><span
-                class="inline-flex items-center gap-1 text-[10px] capitalize text-zinc-400"
+                class="inline-flex items-center gap-1 text-[10px] capitalize text-zinc-400 font-mono"
                 ><i
-                  class="h-1.5 w-1.5 rounded-full"
+                  class="h-1.5 w-1.5 rounded-full shrink-0"
                   :class="tone(agent.status)"
                 />{{ agent.status || "saved" }}</span
               >
             </div>
             <div class="mt-1 flex items-center justify-between gap-2">
               <span
-                class="rounded border px-1.5 py-0.2 text-[9px] font-semibold uppercase tracking-wider"
+                class="inline-flex items-center justify-center shrink-0 rounded border px-1.5 py-0.2 text-[9px] font-semibold uppercase tracking-wider font-mono"
                 :class="roleBadgeClass(agent)"
               >
                 {{ role(agent) }}
@@ -328,13 +329,13 @@ const handleCardClick = (sessionId: string) => {
         </div>
         <p
           v-if="agent.stepInfo"
-          class="mt-2 truncate text-[10px] text-zinc-400"
+          class="mt-2 truncate text-[10px] text-zinc-400 font-mono"
           :title="agent.stepInfo"
         >
           {{ agent.stepInfo }}
         </p>
         <p
-          class="mt-2 truncate border-t border-white/5 pt-2 font-mono text-[10px] text-zinc-500"
+          class="mt-2 truncate border-t border-[#141b2d] pt-2 font-mono text-[10px] text-zinc-500"
           :title="agent.cwd"
         >
           {{ agent.cwd || agent.sessionId }}
@@ -343,7 +344,7 @@ const handleCardClick = (sessionId: string) => {
     </div>
     <p
       v-else
-      class="rounded-lg border border-dashed border-white/10 bg-black/10 px-3 py-2 text-xs text-zinc-500"
+      class="rounded-lg border border-dashed border-[#141b2d] bg-[#0c1220] px-3 py-2 text-xs text-zinc-500 font-mono"
     >
       No persistent agents yet. Launch an agent to add its session to this room.
     </p>

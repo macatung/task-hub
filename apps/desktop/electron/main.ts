@@ -50,6 +50,9 @@ type AgentSession = {
   caoSessionName?: string;
   caoLastStatus?: string;
   caoLastOutput?: string;
+  caoState?: 'starting' | 'running' | 'waiting_workers' | 'completed' | 'failed' | 'stale';
+  caoPollFailures?: number;
+  caoNextPollAt?: number;
   lastOutputChangeTime?: number;
   idlePingsCount?: number;
   promptAutoFed?: boolean;
@@ -167,7 +170,7 @@ function stageAgentPrompt(cwd: string, sessionId: string, prompt?: string) {
     '1. Read and follow the complete task instructions from this exact local file:',
     promptFile,
     '2. Do not report the task as completed until those instructions have been read and the requested work is done.',
-    '3. If the file cannot be read, stop and respond exactly with `TASK_HUB_RUN_BLOCKED: unable to read staged task instructions` plus the reason. Do not claim success.',
+    '3. If the file cannot be read, stop and respond exactly with the literal marker TASK_HUB_RUN_BLOCKED: unable to read staged task instructions plus the reason. Do not claim success.',
   ].join('\n');
 }
 function workspaceSessionIndexPath(cwd: string) {
@@ -238,7 +241,9 @@ export type PersistedSessionData = {
   streamCards?: Array<any>;
   timeline?: Array<any>;
   handoff?: any;
-  status: 'running' | 'completed' | 'interrupted' | 'failed';
+  status: 'running' | 'completed' | 'interrupted' | 'failed' | 'stale';
+  caoState?: 'starting' | 'running' | 'waiting_workers' | 'completed' | 'failed' | 'stale';
+  caoPollFailures?: number;
   exitCode?: number | null;
   startedAt: string;
   updatedAt: string;
@@ -1971,6 +1976,17 @@ function setupAutoUpdater() {
 
 const CAO_DEFAULT_PORT = 9889;
 let caoDaemonProcess: ChildProcess | null = null;
+let caoRuntimeOperation: Promise<any> | null = null;
+let caoRuntimeStatus: {
+  runtimeHome?: string;
+  serverPid?: number;
+  health: 'unknown' | 'ok' | 'failed';
+  sessionApi: 'unknown' | 'ok' | 'failed';
+  provider: 'unknown' | 'ok' | 'failed';
+  fifo: 'unknown' | 'ok' | 'failed';
+  lastError?: string;
+  restarting: boolean;
+} = { health: 'unknown', sessionApi: 'unknown', provider: 'unknown', fifo: 'unknown', restarting: false };
 type CaoRuntime =
   | { kind: 'native'; executable: string }
   | { kind: 'wsl'; executable: string; distro?: string };
@@ -1984,7 +2000,14 @@ type CaoPortOwnerInfo =
   | { kind: 'other'; pid: number };
 
 let caoRuntime: CaoRuntime | null | undefined;
-const CAO_WSL_BOOTSTRAP = 'export PATH="$HOME/.local/bin:$PATH"; export CAO_HOME_DIR="${TASK_HUB_CAO_WSL_HOME:-$HOME/.task-hub-cao}";';
+// CAO must run from Linux ext4.  `$HOME/.aws` and other Windows-mounted
+// paths do not support the FIFO primitives used by cao-server.  Keep this
+// value literal so every WSL invocation (CLI, server and probes) shares the
+// same runtime home regardless of the caller's shell environment.  The old
+// TASK_HUB_CAO_WSL_HOME override is intentionally ignored (kept in this note
+// for backwards-compatible diagnostics and migration guidance).
+const CAO_WSL_HOME = '/home/rss/.task-hub-cao';
+const CAO_WSL_BOOTSTRAP = `export PATH="$HOME/.local/bin:$PATH"; export CAO_HOME_DIR=${shellQuote(CAO_WSL_HOME)};`;
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'"'"'`)}'`;
@@ -2016,11 +2039,16 @@ function runWslShell(script: string, timeoutMs = 5_000): Promise<CaoCommandResul
 
 async function resolveCaoRuntime(): Promise<CaoRuntime | null> {
   if (caoRuntime !== undefined) return caoRuntime;
+  // On Windows, always prefer the WSL runtime so cao-server, provider CLIs
+  // and FIFO-backed session state live in the same ext4 environment.  A
+  // native binary remains a fallback only when WSL is unavailable.
+  if (wslExecutable()) {
+    const probe = await runWslShell('command -v cao >/dev/null && command -v cao-server >/dev/null', 8_000);
+    if (probe.ok) return (caoRuntime = { kind: 'wsl', executable: wslExecutable()!, distro: process.env.TASK_HUB_CAO_WSL_DISTRO });
+  }
   const native = resolveCli('cao');
   if (native) return (caoRuntime = { kind: 'native', executable: native });
-  if (!wslExecutable()) return (caoRuntime = null);
-  const probe = await runWslShell('command -v cao >/dev/null && command -v cao-server >/dev/null', 5_000);
-  return (caoRuntime = probe.ok ? { kind: 'wsl', executable: wslExecutable()!, distro: process.env.TASK_HUB_CAO_WSL_DISTRO } : null);
+  return (caoRuntime = null);
 }
 
 async function wslPathFor(windowsPath: string): Promise<string | null> {
@@ -2030,7 +2058,7 @@ async function wslPathFor(windowsPath: string): Promise<string | null> {
 
 async function probeCaoWslHome(runtime?: ResolvedCaoRuntime | null): Promise<{ valid: boolean; home: string; error?: string }> {
   const script = `
-    home="\${TASK_HUB_CAO_WSL_HOME:-$HOME/.task-hub-cao}"
+    home="${CAO_WSL_HOME}"
     mkdir -p "$home/fifos" || { echo "CAO_HOME_INVALID:$home"; exit 1; }
     probe="$home/fifos/.probe-$$"
     if ! mkfifo "$probe" 2>/dev/null; then
@@ -2099,7 +2127,37 @@ async function isCaoPortOpen(port = caoServerPort(), timeoutMs = 3000): Promise<
 async function inspectCaoPortOwner(port = caoServerPort()): Promise<CaoPortOwnerInfo> {
   const open = await isCaoPortOpen(port);
   if (!open) return { kind: 'none', pid: 0 };
+  if (caoDaemonProcess?.pid) return { kind: 'self', pid: caoDaemonProcess.pid };
+  const runtime = await resolveCaoRuntime();
+  if (runtime?.kind === 'wsl') {
+    const result = await runWslShell(`for pid in $(pgrep -f cao-server || pgrep -x cao-server || true); do cmd=$(tr "\\0" " " </proc/$pid/cmdline 2>/dev/null || true); case "$cmd" in *"--port ${port}"*) home=$(tr "\\0" "\\n" </proc/$pid/environ 2>/dev/null | sed -n 's/^CAO_HOME_DIR=//p'); echo "CAO_PID:$pid CAO_HOME:$home"; exit 0;; esac; done`, 10_000);
+    const pid = Number(result.output.match(/CAO_PID:(\d+)/)?.[1] || 0);
+    const home = result.output.match(/CAO_HOME:([^\s\r\n]*)/)?.[1] || '';
+    if (!pid) return { kind: 'other', pid: 0 };
+    // A server launched by this manager carries the fixed ext4 home. Treat
+    // it as self even after a renderer reload so we do not restart healthy
+    // sessions unnecessarily.
+    return home === CAO_WSL_HOME ? { kind: 'self', pid } : { kind: 'conflicting_cao', pid };
+  }
   return { kind: 'conflicting_cao', pid: 0 };
+}
+
+async function stopCaoPid(pid: number, runtime?: CaoRuntime | null) {
+  if (!pid) return false;
+  if (runtime?.kind === 'wsl') {
+    const result = await runWslShell(`kill ${Math.floor(pid)} 2>/dev/null || true`, 10_000);
+    return result.ok;
+  }
+  try { process.kill(pid); return true; } catch { return false; }
+}
+
+async function readCaoServerPid(runtime: CaoRuntime | null, port = caoServerPort()): Promise<number | undefined> {
+  if (runtime?.kind === 'wsl') {
+    const result = await runWslShell(`for pid in $(pgrep -f cao-server || pgrep -x cao-server || true); do cmd=$(tr "\\0" " " </proc/$pid/cmdline 2>/dev/null || true); case "$cmd" in *"--port ${port}"*) echo "$pid"; exit 0;; esac; done`, 5_000);
+    const pid = Number(result.output.trim().split(/\s+/).find((value) => /^\d+$/.test(value)) || 0);
+    return pid || undefined;
+  }
+  return caoDaemonProcess?.pid || undefined;
 }
 
 async function stopConflictingCaoDaemon(port = caoServerPort()): Promise<{ stopped: boolean; reason: string }> {
@@ -2109,6 +2167,15 @@ async function stopConflictingCaoDaemon(port = caoServerPort()): Promise<{ stopp
       try { caoDaemonProcess.kill(); } catch { /* ignore */ }
       caoDaemonProcess = null;
     }
+    const runtime = await resolveCaoRuntime();
+    await stopCaoPid(owner.pid, runtime);
+    appendWorkspaceAgentLog(process.cwd(), 'cao-runtime', 'cao_server_replaced', {
+      pid: owner.pid,
+      port,
+      runtimeHome: runtime?.kind === 'wsl' ? CAO_WSL_HOME : undefined,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    caoRuntimeStatus.lastError = undefined;
     return { stopped: true, reason: 'Conflicting CAO daemon stopped.' };
   }
   if (owner.kind === 'other') {
@@ -2131,19 +2198,47 @@ async function isCaoProviderAvailable(provider: AgentRuntimeProvider, runtime?: 
   return Boolean(local);
 }
 
-async function startCaoDaemon() {
+async function probeCaoSessionApi(cwd: string): Promise<boolean> {
+  const result = await runCaoCommand(['session', 'list', '--json'], cwd, 8_000);
+  return result.ok;
+}
+
+async function startCaoDaemonInternal() {
   try {
     const port = caoServerPort();
-    const alreadyRunning = await isCaoPortOpen(port);
-    if (alreadyRunning) {
-      console.log(`[CAO Daemon] Existing cao-server detected on port ${port}.`);
-      return { status: 'running', source: 'external', port };
-    }
-
     const runtime = await resolveCaoRuntime();
     if (!runtime) {
+      caoRuntimeStatus.health = 'failed';
+      caoRuntimeStatus.lastError = 'CAO CLI/server runtime was not found.';
       console.log('[CAO Daemon] Standalone CAO binary not found; CAO is required for all agent runs.');
       return { status: 'offline', message: 'CAO runtime unavailable', port };
+    }
+
+    caoRuntimeStatus.restarting = true;
+    const homeProbe: { valid: boolean; home?: string; error?: string } = runtime.kind === 'wsl'
+      ? await probeCaoWslHome(runtime)
+      : { valid: true };
+    caoRuntimeStatus.runtimeHome = homeProbe.home || (runtime.kind === 'native' ? process.env.CAO_HOME_DIR : undefined);
+    caoRuntimeStatus.fifo = homeProbe.valid ? 'ok' : 'failed';
+    if (!homeProbe.valid) {
+      caoRuntimeStatus.lastError = homeProbe.error;
+      caoRuntimeStatus.restarting = false;
+      return { status: 'error', message: homeProbe.error, port };
+    }
+
+    const owner = await inspectCaoPortOwner(port);
+    if (owner.kind === 'conflicting_cao') {
+      await stopConflictingCaoDaemon(port);
+    } else if (owner.kind === 'other') {
+      const message = `Port ${port} is occupied by a non-CAO process.`;
+      caoRuntimeStatus.lastError = message;
+      caoRuntimeStatus.restarting = false;
+      return { status: 'error', message, port };
+    } else if (owner.kind === 'self') {
+      caoRuntimeStatus.serverPid = await readCaoServerPid(runtime, port) || owner.pid;
+      caoRuntimeStatus.health = 'ok';
+      caoRuntimeStatus.restarting = false;
+      return { status: 'running', source: 'embedded', port };
     }
 
     console.log('[CAO Daemon] Spawning official CAO daemon through:', runtime.kind, 'on port:', port);
@@ -2152,30 +2247,115 @@ async function startCaoDaemon() {
     const isWsl = runtime.kind === 'wsl';
     const executable = isWsl ? runtime.executable : (resolveCaoExecutable() || runtime.executable);
     const args = isWsl
-      ? [...(runtime.distro ? ['-d', runtime.distro] : []), '--', '/bin/bash', '-lc', `${CAO_WSL_BOOTSTRAP} exec cao-server --port ${port}`]
-      : ['--port', String(port)];
+      ? [...(runtime.distro ? ['-d', runtime.distro] : []), '--', '/bin/bash', '-lc', `${CAO_WSL_BOOTSTRAP} exec cao-server --host 0.0.0.0 --port ${port}`]
+      : ['--host', '0.0.0.0', '--port', String(port)];
     caoDaemonProcess = spawn(executable, args, {
-      stdio: 'ignore',
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       detached: false,
       env: { ...nativeAgentEnvironment(), CAO_API_PORT: String(port) },
     });
 
+    let stderrBuffer = '';
+    caoDaemonProcess.stderr?.on('data', (chunk) => {
+      const text = String(chunk);
+      stderrBuffer = (stderrBuffer + text).slice(-2000);
+      console.warn('[CAO Daemon stderr]', text.trim());
+    });
+
     caoDaemonProcess.on('error', (err: Error) => {
       console.warn('[CAO Daemon] Failed to start:', err.message);
+      caoRuntimeStatus.health = 'failed';
+      caoRuntimeStatus.lastError = err.message;
+      caoRuntimeStatus.restarting = false;
       caoDaemonProcess = null;
     });
 
     caoDaemonProcess.on('exit', (code: number | null) => {
       console.log('[CAO Daemon] Process exited with code:', code);
+      if (code !== 0) {
+        caoRuntimeStatus.health = 'failed';
+        caoRuntimeStatus.lastError = stderrBuffer.trim() || `cao-server exited with code ${code ?? 'unknown'}.`;
+      }
       caoDaemonProcess = null;
     });
 
+    const ready = await (async () => {
+      for (let attempt = 0; attempt < 25; attempt += 1) {
+        if (await isCaoPortOpen(port, 1500)) return true;
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+      return false;
+    })();
+    caoRuntimeStatus.health = ready ? 'ok' : 'failed';
+    caoRuntimeStatus.serverPid = await readCaoServerPid(runtime, port) || caoDaemonProcess?.pid;
+    caoRuntimeStatus.restarting = false;
+    if (!ready) {
+      caoRuntimeStatus.lastError = stderrBuffer.trim() || `CAO server did not become healthy on port ${port}.`;
+      return { status: 'error', message: caoRuntimeStatus.lastError, port };
+    }
     return { status: 'running', source: 'embedded', executable, runtime: runtime.kind, port };
   } catch (error: any) {
     console.warn('[CAO Daemon] Launch exception:', error?.message);
+    caoRuntimeStatus.health = 'failed';
+    caoRuntimeStatus.lastError = error?.message || 'CAO daemon launch failed.';
+    caoRuntimeStatus.restarting = false;
     return { status: 'error', message: error?.message };
   }
+}
+
+async function startCaoDaemon() {
+  if (caoRuntimeOperation) return caoRuntimeOperation;
+  caoRuntimeOperation = startCaoDaemonInternal();
+  try { return await caoRuntimeOperation; } finally { caoRuntimeOperation = null; }
+}
+
+async function getCaoStatusPayload() {
+  const port = caoServerPort();
+  const binary = resolveCaoExecutable();
+  const runtime = await resolveCaoRuntime();
+  if (runtime?.kind === 'wsl' && caoRuntimeStatus.fifo !== 'ok') {
+    const homeProbe = await probeCaoWslHome(runtime);
+    caoRuntimeStatus.runtimeHome = homeProbe.home;
+    caoRuntimeStatus.fifo = homeProbe.valid ? 'ok' : 'failed';
+    if (!homeProbe.valid) caoRuntimeStatus.lastError = homeProbe.error;
+  }
+  let isRunning = await isCaoPortOpen(port);
+  if (isRunning) {
+    const owner = await inspectCaoPortOwner(port);
+    if (owner.kind === 'conflicting_cao') {
+      const restarted = await startCaoDaemon();
+      isRunning = restarted.status === 'running' && await isCaoPortOpen(port);
+    }
+  }
+  if (!isRunning && runtime && !caoDaemonProcess) {
+    const started = await startCaoDaemon();
+    isRunning = started.status === 'running' && await isCaoPortOpen(port);
+  }
+  const sessionApi = isRunning ? await probeCaoSessionApi(process.cwd()) : false;
+  const provider = runtime ? await isCaoProviderAvailable('codex', runtime) : false;
+  if (runtime?.kind === 'native' && caoRuntimeStatus.fifo === 'unknown') caoRuntimeStatus.fifo = 'ok';
+  caoRuntimeStatus.health = isRunning ? 'ok' : 'failed';
+  caoRuntimeStatus.sessionApi = sessionApi ? 'ok' : 'failed';
+  caoRuntimeStatus.provider = provider ? 'ok' : 'failed';
+  if (isRunning && sessionApi && provider && caoRuntimeStatus.fifo !== 'failed') caoRuntimeStatus.lastError = undefined;
+  const cli = runtime ? (runtime.kind === 'wsl' ? `WSL${runtime.distro ? ` (${runtime.distro})` : ''}: cao` : runtime.executable) : null;
+  return {
+    running: isRunning,
+    port,
+    cli,
+    available: Boolean(isRunning && runtime && sessionApi && provider && caoRuntimeStatus.fifo !== 'failed'),
+    embeddedBinary: binary,
+    source: isRunning ? (caoDaemonProcess ? 'embedded' : 'external') : 'offline',
+    runtimeHome: caoRuntimeStatus.runtimeHome,
+    serverPid: caoRuntimeStatus.serverPid,
+    health: caoRuntimeStatus.health,
+    sessionApi: caoRuntimeStatus.sessionApi,
+    provider: caoRuntimeStatus.provider,
+    fifo: caoRuntimeStatus.fifo,
+    restarting: caoRuntimeStatus.restarting,
+    lastError: caoRuntimeStatus.lastError,
+  };
 }
 
 type CaoCommandResult = { ok: boolean; output: string; error?: string };
@@ -2224,17 +2404,61 @@ async function runCaoCommand(args: string[], cwd: string, timeoutMs = 15_000): P
   });
 }
 
-async function ensureCaoReady(cwd: string): Promise<boolean> {
-  if (!await resolveCaoRuntime()) return false;
-  if (await isCaoPortOpen()) return true;
-  const started = await startCaoDaemon();
-  if (started.status === 'error' || started.status === 'offline') return false;
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    if (await isCaoPortOpen()) return true;
-    await new Promise((resolve) => setTimeout(resolve, 500));
+async function ensureCaoReady(cwd: string, provider: AgentProvider = 'codex'): Promise<boolean> {
+  const runtime = await resolveCaoRuntime();
+  if (!runtime) {
+    caoRuntimeStatus.health = 'failed';
+    caoRuntimeStatus.lastError = 'CAO runtime was not found in the configured WSL/native environment.';
+    return false;
   }
-  appendWorkspaceAgentLog(cwd, 'cao-runtime', 'cao_unavailable', { port: caoServerPort(), started });
-  return false;
+  if (runtime.kind === 'wsl' && caoRuntimeStatus.fifo !== 'ok') {
+    const homeProbe = await probeCaoWslHome(runtime);
+    caoRuntimeStatus.runtimeHome = homeProbe.home;
+    caoRuntimeStatus.fifo = homeProbe.valid ? 'ok' : 'failed';
+    if (!homeProbe.valid) {
+      caoRuntimeStatus.lastError = homeProbe.error;
+      appendWorkspaceAgentLog(cwd, 'cao-runtime', 'cao_fifo_unavailable', { error: homeProbe.error, home: homeProbe.home });
+      return false;
+    }
+  }
+  let healthy = await isCaoPortOpen();
+  // A healthy HTTP port can still belong to a CAO process started with a
+  // Windows-mounted/legacy home. Inspect the actual owner before accepting
+  // it, and let the serialized daemon start path replace only that CAO PID.
+  if (healthy) {
+    const owner = await inspectCaoPortOwner();
+    if (owner.kind === 'conflicting_cao') {
+      const restarted = await startCaoDaemon();
+      healthy = restarted.status === 'running' && await isCaoPortOpen();
+    }
+  }
+  if (!healthy) {
+    const started = await startCaoDaemon();
+    if (started.status === 'error' || started.status === 'offline') {
+      appendWorkspaceAgentLog(cwd, 'cao-runtime', 'cao_unavailable', { port: caoServerPort(), started });
+      return false;
+    }
+    healthy = await isCaoPortOpen();
+  }
+  caoRuntimeStatus.health = healthy ? 'ok' : 'failed';
+  if (!healthy) {
+    caoRuntimeStatus.lastError = `CAO server is not responding on port ${caoServerPort()}.`;
+    return false;
+  }
+  const providerReady = await isCaoProviderAvailable(provider, runtime);
+  caoRuntimeStatus.provider = providerReady ? 'ok' : 'failed';
+  if (!providerReady) {
+    caoRuntimeStatus.lastError = `Provider ${provider} is unavailable inside the CAO runtime.`;
+    return false;
+  }
+  const sessionApiReady = await probeCaoSessionApi(cwd);
+  caoRuntimeStatus.sessionApi = sessionApiReady ? 'ok' : 'failed';
+  if (!sessionApiReady) {
+    caoRuntimeStatus.lastError = 'CAO health passed but the session API is not responding.';
+    return false;
+  }
+  caoRuntimeStatus.lastError = undefined;
+  return true;
 }
 
 function caoProvider(provider: AgentProvider): string {
@@ -2312,11 +2536,32 @@ function parseCaoSessionStatus(raw: string): CaoSessionStatus {
 function pollCaoSession(sessionId: string) {
   const session = agentProcesses.get(sessionId);
   if (!session?.caoSessionName) return stopCaoSessionPoller(sessionId);
+  const now = Date.now();
+  if (session.caoNextPollAt && now < session.caoNextPollAt) return;
   void runCaoCommand(['session', 'status', session.caoSessionName, '--workers', '--json'], session.cwd, 10_000).then((result) => {
     const current = agentProcesses.get(sessionId);
-    if (!current || !result.ok) return;
+    if (!current) return;
+    if (!result.ok) {
+      current.caoPollFailures = (current.caoPollFailures || 0) + 1;
+      current.caoNextPollAt = Date.now() + Math.min(30_000, 1_500 * current.caoPollFailures);
+      const missing = /(?:not found|no active session|unknown session|does not exist)/i.test(`${result.error || ''}\n${result.output || ''}`);
+      if (missing) {
+        current.caoState = 'stale';
+        stopCaoSessionPoller(sessionId);
+        persistSessionUpdate({ sessionId, status: 'stale', caoState: 'stale', output: current.output, caoSessionName: current.caoSessionName });
+        safeSend(win, 'agent-output', { sessionId, stream: 'event', text: '', event: { type: 'cao.session.stale', session: current.caoSessionName, error: result.error || 'Session no longer exists.' } });
+        agentProcesses.delete(sessionId);
+        return;
+      }
+      persistSessionUpdate({ sessionId, status: 'running', caoState: current.caoState || 'running', caoPollFailures: current.caoPollFailures });
+      safeSend(win, 'agent-output', { sessionId, stream: 'event', text: '', event: { type: 'cao.session.reconnecting', session: current.caoSessionName, attempt: current.caoPollFailures, error: result.error || 'Temporary CAO status timeout.' } });
+      return;
+    }
+    current.caoPollFailures = 0;
+    current.caoNextPollAt = undefined;
     const status = parseCaoSessionStatus(result.output);
     const now = Date.now();
+    if (!isCaoTerminalState(status.state)) current.caoState = 'running';
 
     if (status.output && status.output !== current.caoLastOutput) {
       const previous = current.caoLastOutput || '';
@@ -2326,6 +2571,7 @@ function pollCaoSession(sessionId: string) {
       if (delta) {
         current.output = `${current.output}\n${delta}`.slice(-250000);
         appendWorkspaceAgentLog(current.cwd, sessionId, 'cao_output', delta);
+        extractAndRecordTokensFromText(current.provider, delta);
         safeSend(win, 'agent-output', { sessionId, stream: 'stdout', text: `${delta}\n`, event: { type: 'cao.session.output', session: current.caoSessionName } });
         persistSessionUpdate({ sessionId, output: current.output, caoSessionName: current.caoSessionName, caoLastOutput: current.caoLastOutput, status: 'running' });
       }
@@ -2365,6 +2611,7 @@ function pollCaoSession(sessionId: string) {
       // are still running. Keep polling until every worker is terminal,
       // including workers whose status is temporarily unknown (state "").
       if (liveWorkers.length > 0) {
+        current.caoState = 'waiting_workers';
         appendWorkspaceAgentLog(current.cwd, sessionId, 'cao_waiting_workers', { workers: liveWorkers });
         safeSend(win, 'agent-output', {
           sessionId,
@@ -2382,13 +2629,15 @@ function pollCaoSession(sessionId: string) {
 
       const failed = /^(error|failed|cancelled|terminated|dead|stopped)$/.test(status.state) ||
         status.workers.some((worker) => /^(error|failed|cancelled|terminated|dead|stopped)$/.test(worker.state));
+      current.caoState = failed ? 'failed' : 'completed';
       stopCaoSessionPoller(sessionId);
-      persistSessionUpdate({ sessionId, status: failed ? 'failed' : 'completed', exitCode: failed ? 1 : 0, output: current.output, caoSessionName: caoTargetSession, caoLastOutput: current.caoLastOutput });
+      persistSessionUpdate({ sessionId, status: failed ? 'failed' : 'completed', caoState: current.caoState, exitCode: failed ? 1 : 0, output: current.output, caoSessionName: caoTargetSession, caoLastOutput: current.caoLastOutput });
       agentProcesses.delete(sessionId);
       safeSend(win, 'agent-exit', { sessionId, code: failed ? 1 : 0, signal: hasReviewVerdict ? 'AUTO_REVIEW_COMPLETED' : 'CAO_TURN_COMPLETED' });
       return;
     }
 
+    // Layer 3: Watchdog Ping if silent for >60 seconds without completing
     // Layer 3: Watchdog Ping if silent for >60 seconds without completing
     if (silentDurationMs > 60_000 && (current.idlePingsCount || 0) < 3 && cleanOutput.length > 100) {
       current.idlePingsCount = (current.idlePingsCount || 0) + 1;
@@ -2410,16 +2659,19 @@ function pollCaoSession(sessionId: string) {
 }
 
 async function waitForCaoSession(sessionName: string, cwd: string): Promise<CaoCommandResult | null> {
-  for (let attempt = 0; attempt < 6; attempt += 1) {
-    const status = await runCaoCommand(['session', 'status', sessionName, '--json'], cwd, 5_000);
+  const deadline = Date.now() + 90_000;
+  let attempt = 0;
+  while (Date.now() < deadline) {
+    attempt += 1;
+    const status = await runCaoCommand(['session', 'status', sessionName, '--json'], cwd, 8_000);
     if (status.ok) return status;
-    await new Promise((resolve) => setTimeout(resolve, 750));
+    await new Promise((resolve) => setTimeout(resolve, Math.min(2_000, 500 + attempt * 150)));
   }
   return null;
 }
 
 async function tryStartCaoAgent(payload: { provider: AgentProvider; cwd: string; prompt?: string; kind: 'task' | 'docs'; model?: string; executionPolicy: AgentExecutionPolicy }) {
-  if (!await ensureCaoReady(payload.cwd)) return null;
+  if (!await ensureCaoReady(payload.cwd, payload.provider)) return null;
   const suffix = `task-hub-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const sessionId = `cao-${suffix}`;
   const stagedPrompt = stageAgentPrompt(payload.cwd, sessionId, payload.prompt);
@@ -2431,16 +2683,24 @@ async function tryStartCaoAgent(payload: { provider: AgentProvider; cwd: string;
   const args = [
     'launch', prompt,
     '--agents', profile,
-    '--session-name', suffix,
+    '--session-name', sessionId,
     '--provider', caoProvider(payload.provider),
     '--headless', '--async', '--auto-approve',
     '--working-directory', payload.cwd,
   ];
+  if (payload.model) {
+    args.push('--env', `MODEL=${payload.model}`);
+    if (payload.provider === 'antigravity') {
+      args.push('--env', `GEMINI_MODEL=${payload.model}`);
+    } else if (payload.provider === 'codex') {
+      args.push('--env', `CODEX_MODEL=${payload.model}`);
+    }
+  }
   if (payload.executionPolicy === 'full_access') args.push('--yolo');
   // The CAO CLI can return an HTTP timeout while the detached supervisor is
   // still being created. Treat a verifiably existing session as success so
   // the UI does not report a false failure or lose the live CAO session.
-  const launched = await runCaoCommand(args, payload.cwd, 45_000);
+  const launched = await runCaoCommand(args, payload.cwd, 15_000);
   let launchOutput = launched.output;
   if (!launched.ok) {
     const recovered = await waitForCaoSession(sessionId, payload.cwd);
@@ -2459,6 +2719,8 @@ async function tryStartCaoAgent(payload: { provider: AgentProvider; cwd: string;
     route: 'cao',
     executionPolicy: payload.executionPolicy,
     caoSessionName: sessionId,
+    caoState: 'starting',
+    caoPollFailures: 0,
     lastOutputChangeTime: Date.now(),
     idlePingsCount: 0,
     promptAutoFed: false,
@@ -2467,7 +2729,7 @@ async function tryStartCaoAgent(payload: { provider: AgentProvider; cwd: string;
   agentProcesses.set(sessionId, session);
   persistSessionUpdate({
     sessionId, provider: payload.provider, model: payload.model, cwd: payload.cwd, mode: 'exec', kind: payload.kind,
-    status: 'running', startedAt: new Date().toISOString(), output: launchOutput, events: [], route: 'cao',
+    status: 'running', caoState: 'starting', startedAt: new Date().toISOString(), output: launchOutput, events: [], route: 'cao',
     executionPolicy: payload.executionPolicy, caoSessionName: sessionId,
   });
   appendWorkspaceAgentLog(payload.cwd, sessionId, 'cao_session_started', { profile, provider: caoProvider(payload.provider), model: payload.model, execution_policy: payload.executionPolicy, cao_session: sessionId });
@@ -2486,14 +2748,24 @@ async function reconnectCaoSession(sessionId: string) {
   const caoSessionName = saved.caoSessionName || saved.sessionId;
   const cwd = saved.cwd || process.cwd();
 
+  if (!await ensureCaoReady(cwd, saved.provider || 'codex')) {
+    // Runtime health failures are not proof that the CAO session disappeared:
+    // WSL startup and the session API can be temporarily unavailable while a
+    // worker is still alive. Preserve the saved running session so a later
+    // reconnect can reattach instead of incorrectly marking it stale.
+    persistSessionUpdate({ sessionId: saved.sessionId, status: 'running', caoState: saved.caoState || 'starting' });
+    throw new Error(`CAO runtime is unavailable while reconnecting ${caoSessionName}: ${caoRuntimeStatus.lastError || 'runtime health check failed'}`);
+  }
+
   if (repairWorktreeForCao(cwd)) {
     appendWorkspaceAgentLog(cwd, 'cao-runtime', 'worktree_metadata_normalized', { cwd });
   }
 
   const statusResult = await runCaoCommand(['session', 'status', caoSessionName, '--workers', '--json'], cwd, 10_000);
   if (!statusResult.ok) {
-    persistSessionUpdate({ sessionId: saved.sessionId, status: 'completed' });
-    throw new Error(`CAO session ${caoSessionName} is not active: ${statusResult.error || 'No active terminals'}`);
+    const missing = /(?:not found|no active session|unknown session|does not exist)/i.test(`${statusResult.error || ''}\n${statusResult.output || ''}`);
+    persistSessionUpdate({ sessionId: saved.sessionId, status: missing ? 'stale' : 'running', caoState: missing ? 'stale' : 'starting' });
+    throw new Error(`CAO session ${caoSessionName} could not be reconnected: ${statusResult.error || 'session status timed out'}`);
   }
 
   const parsed = parseCaoSessionStatus(statusResult.output);
@@ -2510,8 +2782,11 @@ async function reconnectCaoSession(sessionId: string) {
     caoSessionName,
     caoLastOutput: parsed.output,
     caoLastStatus: parsed.state,
+    caoState: isCaoTerminalState(parsed.state) ? (parsed.state === 'completed' ? 'completed' : 'failed') : 'running',
+    caoPollFailures: 0,
   };
   agentProcesses.set(saved.sessionId, session);
+  persistSessionUpdate({ sessionId: saved.sessionId, status: 'running', caoState: session.caoState, caoPollFailures: 0, caoSessionName, caoLastOutput: parsed.output });
 
   stopCaoSessionPoller(saved.sessionId);
   const poller = setInterval(() => pollCaoSession(saved.sessionId), 3_000);
@@ -2522,8 +2797,19 @@ async function reconnectCaoSession(sessionId: string) {
     sessionId: saved.sessionId,
     route: 'cao' as const,
     status: parsed.state,
-    workers: [],
+    workers: parsed.workers,
   };
+}
+
+async function rehydrateCaoSessions() {
+  const candidates = readAllSavedSessions().filter((session) => session.route === 'cao' && session.status === 'running');
+  for (const saved of candidates.slice(0, 12)) {
+    try {
+      await reconnectCaoSession(saved.sessionId);
+    } catch (error: any) {
+      appendWorkspaceAgentLog(saved.cwd, saved.sessionId, 'cao_reconnect_failed', { error: error?.message || String(error) });
+    }
+  }
 }
 
 function stopCaoDaemon() {
@@ -2537,9 +2823,6 @@ function stopCaoDaemon() {
     caoDaemonProcess = null;
   }
 }
-
-const DEFAULT_WIDTH = 640;
-const DEFAULT_HEIGHT = 520;
 
 function getIconImage() {
   const possiblePaths = [
@@ -2605,123 +2888,33 @@ function getPreloadPath() {
   return path.join(__dirname, 'preload.js');
 }
 
-export type AppMode = 'ide' | 'mascot';
-let currentMode: AppMode = 'ide';
-
-function appModeConfigPath(): string {
-  return path.join(app.getPath('userData'), 'app-mode.json');
-}
-
-function readSavedAppMode(): AppMode {
-  try {
-    for (const arg of process.argv) {
-      if (arg.startsWith('--mode=')) {
-        const val = arg.split('=')[1]?.trim().toLowerCase();
-        if (val === 'ide' || val === 'mascot') return val;
-      }
-      if (arg === '--ide') return 'ide';
-      if (arg === '--mascot') return 'mascot';
-    }
-    const envMode = process.env.VITE_APP_MODE || process.env.APP_MODE;
-    if (envMode === 'ide' || envMode === 'mascot') return envMode;
-
-    const file = appModeConfigPath();
-    if (fs.existsSync(file)) {
-      const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-      if (data?.mode === 'ide' || data?.mode === 'mascot') return data.mode;
-    }
-  } catch (e) {
-    console.warn('Failed to read saved app mode:', e);
-  }
-  return 'ide';
-}
-
-function writeSavedAppMode(mode: AppMode) {
-  try {
-    const file = appModeConfigPath();
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, JSON.stringify({ mode, updatedAt: new Date().toISOString() }, null, 2), 'utf8');
-  } catch (e) {
-    console.warn('Failed to write saved app mode:', e);
-  }
-}
-
-function applyAppMode(mode: AppMode) {
-  currentMode = mode;
-  writeSavedAppMode(mode);
-
-  if (!win) return currentMode;
-
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { x: workAreaX, y: workAreaY, width: screenWidth, height: screenHeight } = primaryDisplay.workArea;
-
-  if (mode === 'ide') {
-    const ideWidth = Math.min(1360, Math.max(1024, screenWidth - 100));
-    const ideHeight = Math.min(880, Math.max(700, screenHeight - 60));
-    const x = workAreaX + Math.max(0, Math.round((screenWidth - ideWidth) / 2));
-    const y = workAreaY + Math.max(0, Math.round((screenHeight - ideHeight) / 2));
-
-    // IDE is a normal desktop application: it must not obscure other windows or the taskbar.
-    win.setFullScreen(false);
-    win.setAlwaysOnTop(false);
-    win.setMinimumSize(960, 600);
-    win.setBounds({ x, y, width: ideWidth, height: ideHeight });
-    win.show();
-    win.focus();
-  } else {
-    const mascotWidth = 640;
-    const mascotHeight = 520;
-    const x = workAreaX + Math.max(0, screenWidth - mascotWidth - 20);
-    const y = workAreaY + Math.max(0, screenHeight - mascotHeight - 20);
-
-    // Keep the companion available without forcing it above the user's active apps.
-    win.setFullScreen(false);
-    win.setAlwaysOnTop(false);
-    win.setMinimumSize(320, 240);
-    win.setBounds({ x, y, width: mascotWidth, height: mascotHeight });
-    win.show();
-  }
-
-  safeSend(win, 'app-mode-changed', currentMode);
-  return currentMode;
-}
-
 function createWindow() {
-  // The desktop is now a single control-center surface; legacy mascot mode is
-  // deliberately ignored even if an older installation saved it.
-  currentMode = 'ide';
   const primaryDisplay = screen.getPrimaryDisplay();
   const { x: workAreaX, y: workAreaY, width: screenWidth, height: screenHeight } = primaryDisplay.workArea;
   const appIcon = getIconImage();
   const preloadFile = getPreloadPath();
 
-  const isIde = currentMode === 'ide';
-  const initialWidth = isIde ? Math.min(1360, Math.max(1024, screenWidth - 100)) : DEFAULT_WIDTH;
-  const initialHeight = isIde ? Math.min(880, Math.max(700, screenHeight - 60)) : DEFAULT_HEIGHT;
-  const initialX = isIde
-    ? workAreaX + Math.max(0, Math.round((screenWidth - initialWidth) / 2))
-    : workAreaX + Math.max(0, screenWidth - DEFAULT_WIDTH - 20);
-  const initialY = isIde
-    ? workAreaY + Math.max(0, Math.round((screenHeight - initialHeight) / 2))
-    : workAreaY + Math.max(0, screenHeight - DEFAULT_HEIGHT - 20);
+  const initialWidth = Math.min(1360, Math.max(1024, screenWidth - 100));
+  const initialHeight = Math.min(880, Math.max(700, screenHeight - 60));
+  const initialX = workAreaX + Math.max(0, Math.round((screenWidth - initialWidth) / 2));
+  const initialY = workAreaY + Math.max(0, Math.round((screenHeight - initialHeight) / 2));
 
   win = new BrowserWindow({
     width: initialWidth,
     height: initialHeight,
     x: initialX,
     y: initialY,
-    minWidth: isIde ? 960 : 320,
-    minHeight: isIde ? 600 : 240,
-    transparent: !isIde,
+    minWidth: 960,
+    minHeight: 600,
+    transparent: false,
     frame: false,
-    // Never make the normal IDE or the companion permanently cover other apps.
     alwaysOnTop: false,
     hasShadow: true,
     resizable: true,
     skipTaskbar: false,
     icon: appIcon,
     show: true,
-    backgroundColor: isIde ? '#1e1e1e' : undefined,
+    backgroundColor: '#04070d',
     webPreferences: {
       preload: preloadFile,
       nodeIntegration: false,
@@ -2742,8 +2935,7 @@ function createWindow() {
   win.focus();
 
   win.webContents.on('did-finish-load', () => {
-    console.log('[Electron] Page finished loading. App mode:', currentMode);
-    safeSend(win, 'app-mode-changed', currentMode);
+    console.log('[Electron] Page finished loading.');
   });
 
   win.webContents.on('console-message', (_event, level, message, line, sourceId) => {
@@ -2775,9 +2967,6 @@ function createWindow() {
     }
   });
 
-  ipcMain.handle('app-get-mode', () => currentMode);
-  ipcMain.handle('app-set-mode', (_event, mode: AppMode) => applyAppMode(mode));
-  ipcMain.handle('app-toggle-mode', () => applyAppMode(currentMode === 'ide' ? 'mascot' : 'ide'));
   ipcMain.handle('app-get-system-info', () => ({
     hostname: os.hostname(),
     platform: process.platform,
@@ -2910,30 +3099,60 @@ function createWindow() {
   ipcMain.handle('updater-check', async () => {
     return checkForUpdates();
   });
+
   ipcMain.handle('cao-get-status', async () => {
-    const port = caoServerPort();
-    const isRunning = await isCaoPortOpen(port);
-    const binary = resolveCaoExecutable();
-    const runtime = await resolveCaoRuntime();
-    if (!isRunning && runtime && !caoDaemonProcess) {
-      void startCaoDaemon();
-    }
-    const cli = runtime ? (runtime.kind === 'wsl' ? `WSL${runtime.distro ? ` (${runtime.distro})` : ''}: cao` : runtime.executable) : null;
-    return {
-      running: isRunning,
-      port,
-      cli,
-      available: Boolean(isRunning && runtime),
-      embeddedBinary: binary,
-      source: isRunning ? (caoDaemonProcess ? 'embedded' : 'external') : 'offline',
-    };
+    return await getCaoStatusPayload();
   });
   ipcMain.handle('cao-restart-daemon', async () => {
     stopCaoDaemon();
+    const runtime = await resolveCaoRuntime();
+    if (runtime?.kind === 'wsl') {
+      await runWslShell('pkill -f cao-server 2>/dev/null || true', 5000);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
     // Re-probe after an operator installs CAO or changes the WSL distro while
     // the desktop process is still open.
     caoRuntime = undefined;
-    return await startCaoDaemon();
+    const res = await startCaoDaemon();
+    if (win) {
+      const status = await getCaoStatusPayload();
+      safeSend(win, 'cao-status-updated', status);
+    }
+    return res;
+  });
+  ipcMain.handle('cao-workflow-run', async (_event, { workflowSpecYaml, inputs, cwd }: { workflowSpecYaml: string; inputs?: Record<string, any>; cwd?: string }) => {
+    const workingDir = cwd || process.cwd();
+    const tempWorkflowPath = path.join(os.tmpdir(), `cao-workflow-${Date.now()}.yaml`);
+    fs.writeFileSync(tempWorkflowPath, workflowSpecYaml, 'utf8');
+    const inputArgs = inputs ? Object.entries(inputs).flatMap(([k, v]) => ['--input', `${k}=${v}`]) : [];
+    const result = await runCaoCommand(['workflow', 'run', tempWorkflowPath, ...inputArgs], workingDir, 120_000);
+    try { fs.unlinkSync(tempWorkflowPath); } catch { /* ignore */ }
+    return result;
+  });
+  ipcMain.handle('cao-workflow-resume', async (_event, { runId, cwd }: { runId: string; cwd?: string }) => {
+    const workingDir = cwd || process.cwd();
+    return await runCaoCommand(['workflow', 'resume', runId], workingDir, 120_000);
+  });
+  ipcMain.handle('cao-workflow-status', async (_event, { runId, cwd }: { runId: string; cwd?: string }) => {
+    const workingDir = cwd || process.cwd();
+    return await runCaoCommand(['workflow', 'status', runId], workingDir, 15_000);
+  });
+  ipcMain.handle('cao-answer-user-prompt', async (_event, { terminalId, answer, sessionId }: { terminalId?: string; answer: string; sessionId?: string }) => {
+    if (sessionId) {
+      const session = agentProcesses.get(sessionId);
+      if (session?.process && 'write' in session.process) {
+        (session.process as any).write(`${answer}\r\n`);
+        return { ok: true };
+      }
+    }
+    if (terminalId) {
+      const runtime = await resolveCaoRuntime();
+      if (runtime?.kind === 'wsl') {
+        await runWslShell(`cao session send --terminal ${terminalId} "${answer.replace(/"/g, '\\"')}"`, 5_000);
+        return { ok: true };
+      }
+    }
+    return { ok: false, error: 'Target session/terminal not found' };
   });
   ipcMain.handle('agent-router-get', () => getPublicLocalRouterConfig());
   ipcMain.handle('agent-router-save', (_event, config: { enabled: boolean; apiKey?: string }) => saveLocalRouterConfig(config));
@@ -4011,7 +4230,7 @@ function formatAgyEvent(event: any): string {
     }
 
     if (session.process && 'write' in session.process) {
-      (session.process as IPty).write(input.endsWith('\r') || input.endsWith('\n') ? input : `${input}\r\n`);
+      (session.process as any).write(input.endsWith('\r') || input.endsWith('\n') ? input : `${input}\r\n`);
     }
   });
 
@@ -4101,20 +4320,20 @@ process.on('uncaughtException', (error) => {
 });
 
 app.whenReady().then(() => {
-  // First-run bootstrap is intentionally non-blocking: the desktop shell opens
-  // immediately while missing provider CLIs are installed from their official
-  // installers in the background. The Settings repair action can retry later.
   void bootstrapAgentRuntimes().catch((error) => console.warn('Agent CLI bootstrap failed:', error));
-  // Warm the local AGY model inventory before the Agent Workspace is opened.
-  // This migrates stale saved selections away from generic model IDs that the
-  // current agy CLI no longer accepts.
   void getAvailableModels('antigravity', { forceRefresh: true }).catch((error) => {
     console.warn('Failed to warm Antigravity model inventory:', error);
   });
   createWindow();
   createTray();
   setupAutoUpdater();
-  void startCaoDaemon();
+  void startCaoDaemon().then(async () => {
+    rehydrateCaoSessions();
+    if (win) {
+      const status = await getCaoStatusPayload();
+      safeSend(win, 'cao-status-updated', status);
+    }
+  });
   setTimeout(() => {
     void checkForUpdates();
   }, 10_000);
@@ -4126,18 +4345,8 @@ app.whenReady().then(() => {
     } catch { /* ignore */ }
   }, 15_000);
 
-  app.on('second-instance', (_event, argv) => {
+  app.on('second-instance', () => {
     if (win) {
-      for (const arg of argv) {
-        if (arg.startsWith('--mode=')) {
-          const val = arg.split('=')[1]?.trim().toLowerCase();
-          if (val === 'ide' || val === 'mascot') {
-            applyAppMode(val);
-          }
-        }
-        if (arg === '--ide') applyAppMode('ide');
-        if (arg === '--mascot') applyAppMode('mascot');
-      }
       if (win.isMinimized()) win.restore();
       win.show();
       win.focus();

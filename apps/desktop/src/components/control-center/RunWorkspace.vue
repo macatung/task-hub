@@ -546,6 +546,28 @@ const permissionTone = computed(() => {
   return "cc-permission-tone--readonly";
 });
 
+const displayResponse = computed(() => props.output || '');
+
+const copyTechnicalOutput = async () => {
+  if (!props.output) return;
+  try {
+    await navigator.clipboard.writeText(props.output);
+  } catch (e) {
+    console.warn('Failed to copy technical output', e);
+  }
+};
+
+const downloadTechnicalOutput = () => {
+  if (!props.output) return;
+  const blob = new Blob([props.output], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `terminal-output-${Date.now()}.log`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 const submit = () => {
   emit("handoff", {
     summary: summary.value,
@@ -566,19 +588,19 @@ const submit = () => {
 
 <template>
   <section
-    class="flex flex-1 flex-col overflow-hidden bg-[#12100e] select-none"
+    class="flex flex-1 flex-col overflow-hidden bg-[#04070d] select-none"
   >
     <!-- Active Agent Header Banner (AgentsRoom style) -->
     <header
-      class="cc-run-header flex items-center justify-between border-b border-[#251e18] bg-[#161310] px-5 py-2.5"
+      class="cc-run-header flex items-center justify-between border-b border-[#141b2d] bg-[#070b14] px-5 py-2.5"
     >
       <div
         class="cc-run-header__identity flex items-center gap-3 min-w-0 flex-1 mr-3"
       >
         <!-- Avatar with status dot -->
-        <div class="relative shrink-0">
+        <div class="relative shrink-0 flex items-center justify-center">
           <div
-            class="cc-task-avatar grid h-10 w-10 place-items-center rounded-2xl text-white font-black text-xs ring-2 ring-white/10"
+            class="cc-task-avatar inline-flex items-center justify-center shrink-0 h-10 w-10 rounded-2xl text-white font-black text-xs ring-2 ring-white/10"
             :class="
               task?.issue_type === 'epic'
                 ? 'cc-task-avatar--epic'
@@ -590,7 +612,7 @@ const submit = () => {
             "
           >
             <i
-              class="codicon text-lg"
+              class="codicon text-lg shrink-0"
               :class="
                 task?.issue_type === 'epic'
                   ? 'codicon-layers'
@@ -603,7 +625,7 @@ const submit = () => {
             ></i>
           </div>
           <span
-            class="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-[#161310]"
+            class="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-[#070b14] shrink-0"
             :class="
               running
                 ? 'cc-dot--active'
@@ -618,14 +640,14 @@ const submit = () => {
         <div class="min-w-0 flex-1 flex flex-col justify-center">
           <div class="flex items-center gap-2 min-w-0">
             <h2
-              class="text-sm font-bold text-zinc-100 truncate"
+              class="text-sm font-bold text-zinc-100 truncate font-['Space_Grotesk'] leading-tight"
               :title="task ? task.title : 'Chưa chọn tác vụ'"
             >
               {{ task ? task.title : "Chưa chọn tác vụ" }}
             </h2>
             <span
               v-if="task?.priority === 'high'"
-              class="cc-status-chip cc-status-chip--danger shrink-0 grid h-4 px-1.5 place-items-center rounded-full text-[9px] font-bold"
+              class="cc-status-chip cc-status-chip--danger shrink-0 inline-flex items-center justify-center h-4 px-1.5 rounded-full text-[9px] font-bold"
             >
               ƯU TIÊN
             </span>
@@ -635,7 +657,7 @@ const submit = () => {
             class="cc-run-header__meta flex items-center gap-2 mt-0.5 min-w-0 flex-wrap"
           >
             <span
-              class="cc-status-chip cc-status-chip--accent shrink-0 rounded-full px-2 py-0.2 text-[9px] font-bold tracking-wide uppercase"
+              class="cc-status-chip cc-status-chip--accent shrink-0 rounded-full px-2 py-0.2 text-[9px] font-bold tracking-wide uppercase font-mono inline-flex items-center justify-center"
             >
               ●
               {{ task ? task.issue_key || `#${task.id}` : "CHƯA CHỌN TASK" }}
@@ -644,7 +666,7 @@ const submit = () => {
             <!-- Multi-Agent Role Badge -->
             <span
               v-if="agentRole"
-              class="cc-status-chip shrink-0 rounded-full px-2 py-0.2 text-[9px] font-bold tracking-wide uppercase border"
+              class="cc-status-chip shrink-0 rounded-full px-2 py-0.2 text-[9px] font-bold tracking-wide uppercase border inline-flex items-center justify-center font-mono"
               :class="roleBadgeClass"
               :title="`Multi-agent role: ${agentRole}`"
             >
@@ -654,17 +676,17 @@ const submit = () => {
             <!-- Live Token Usage Telemetry Widget -->
             <span
               v-if="tokenUsage && tokenUsage.totalTokens > 0"
-              class="shrink-0 hidden sm:inline-flex items-center gap-1 text-[10px] font-mono text-zinc-300 bg-[#1e1915] border border-[#332a21] rounded-full px-2 py-0.2"
+              class="shrink-0 hidden sm:inline-flex items-center gap-1 text-[10px] font-mono text-zinc-300 bg-[#0c1220] border border-[#141b2d] rounded-full px-2 py-0.2"
               :title="`Token usage: Prompt: ${formatTokens(tokenUsage.promptTokens)} · Completion: ${formatTokens(tokenUsage.completionTokens)} · Total: ${formatTokens(tokenUsage.totalTokens)}`"
             >
               <i
-                class="codicon codicon-dashboard text-[10px] text-orange-400"
+                class="codicon codicon-dashboard text-[10px] text-[#00f5a0] shrink-0"
               ></i>
-              <span
+              <span class="leading-none"
                 >Tokens: <b>{{ formatTokens(tokenUsage.totalTokens) }}</b></span
               >
               <span
-                class="text-zinc-500 text-[9px] hidden md:inline"
+                class="text-zinc-500 text-[9px] hidden md:inline leading-none"
                 >(P: {{ formatTokens(tokenUsage.promptTokens) }} · C:
                 {{ formatTokens(tokenUsage.completionTokens) }})</span
               >
@@ -674,17 +696,17 @@ const submit = () => {
               class="cc-run-header__workspace-meta shrink-0 hidden sm:inline-flex items-center gap-1 text-[10px] font-medium text-zinc-400"
             >
               <span
-                class="h-1.5 w-1.5 rounded-full"
+                class="h-1.5 w-1.5 rounded-full shrink-0"
                 :class="workspace ? 'cc-dot--success' : 'cc-dot--warning'"
               ></span>
-              <span>{{
+              <span class="leading-none">{{
                 workspace
                   ? workspace.split(/[\\/]/).pop() || "Workspace"
                   : "Chưa chọn thư mục"
               }}</span>
             </span>
             <span
-              class="cc-run-header__phase-meta text-[10px] text-zinc-500 truncate hidden md:inline"
+              class="cc-run-header__phase-meta text-[10px] text-zinc-500 truncate hidden md:inline leading-none"
             >
               {{ phase }} ·
               {{
@@ -697,21 +719,21 @@ const submit = () => {
 
       <!-- Header Controls: primary action plus secondary controls that move into overflow on narrow widths. -->
       <div class="cc-run-header__actions flex items-center gap-2 shrink-0">
-        <details class="cc-overflow-menu cc-run-header-overflow">
+        <details class="cc-overflow-menu cc-run-header-overflow shrink-0">
           <summary
-            class="cc-run-header-overflow__trigger grid h-7 w-7 place-items-center rounded-lg text-zinc-400 hover:bg-[#251e18] hover:text-zinc-200 transition"
+            class="cc-run-header-overflow__trigger grid h-7 w-7 place-items-center rounded-lg text-zinc-400 hover:bg-[#11182c] hover:text-zinc-200 transition shrink-0"
             title="Tùy chọn agent"
             aria-label="Tùy chọn agent"
           >
-            <i class="codicon codicon-kebab-vertical text-xs"></i>
+            <i class="codicon codicon-kebab-vertical text-xs shrink-0"></i>
           </summary>
           <div
-            class="cc-overflow-menu__panel cc-run-header-overflow__panel"
+            class="cc-overflow-menu__panel cc-run-header-overflow__panel bg-[#070b14] border border-[#141b2d]"
           >
             <div
-              class="cc-run-header-control cc-run-header-control--model flex items-center gap-1 rounded-full bg-[#1e1915] border border-[#332a21] px-3 py-1 text-xs"
+              class="cc-run-header-control cc-run-header-control--model flex items-center gap-1 rounded-full bg-[#0c1220] border border-[#141b2d] px-3 py-1 text-xs shrink-0"
             >
-              <span class="h-2 w-2 rounded-full cc-dot--accent"></span>
+              <span class="h-2 w-2 rounded-full cc-dot--accent shrink-0"></span>
               <select
                 :value="activeModelValue"
                 class="bg-transparent text-xs font-semibold text-zinc-200 focus:outline-none cursor-pointer"
@@ -728,7 +750,7 @@ const submit = () => {
                   v-for="m in availableModels"
                   :key="m.id"
                   :value="m.id"
-                  class="bg-[#181411] text-zinc-200"
+                  class="bg-[#070b14] text-zinc-200"
                 >
                   {{ m.name }}
                 </option>
@@ -737,7 +759,7 @@ const submit = () => {
 
             <select
               :value="provider"
-              class="cc-run-header-control rounded-full bg-[#1e1915] border border-[#332a21] px-2.5 py-1 text-xs font-medium text-zinc-300 focus:outline-none"
+              class="cc-run-header-control rounded-full bg-[#0c1220] border border-[#141b2d] px-2.5 py-1 text-xs font-medium text-zinc-300 focus:outline-none"
               aria-label="Provider"
               @change="
                 $emit(
@@ -746,18 +768,18 @@ const submit = () => {
                 )
               "
             >
-              <option value="codex" class="bg-[#181411]">Codex</option>
-              <option value="claude_code" class="bg-[#181411]">
+              <option value="codex" class="bg-[#070b14]">Codex</option>
+              <option value="claude_code" class="bg-[#070b14]">
                 Claude Code
               </option>
-              <option value="antigravity" class="bg-[#181411]">
+              <option value="antigravity" class="bg-[#070b14]">
                 Antigravity
               </option>
             </select>
 
             <select
               :value="executionPolicy"
-              class="cc-run-header-control rounded-full bg-[#1e1915] border border-[#332a21] px-2.5 py-1 text-xs font-medium text-zinc-300 focus:outline-none"
+              class="cc-run-header-control rounded-full bg-[#0c1220] border border-[#141b2d] px-2.5 py-1 text-xs font-medium text-zinc-300 focus:outline-none"
               title="Execution permission"
               aria-label="Execution permission"
               @change="
@@ -767,13 +789,13 @@ const submit = () => {
                 )
               "
             >
-              <option value="restricted" class="bg-[#181411]">
+              <option value="restricted" class="bg-[#070b14]">
                 Read only
               </option>
-              <option value="workspace_write" class="bg-[#181411]">
+              <option value="workspace_write" class="bg-[#070b14]">
                 Workspace write
               </option>
-              <option value="full_access" class="bg-[#181411]">
+              <option value="full_access" class="bg-[#070b14]">
                 Full access
               </option>
             </select>
@@ -795,51 +817,51 @@ const submit = () => {
         </details>
 
         <!-- Header Sub-Tabs Switcher: Phân bước AI / Cuộc trò chuyện / Terminal / Timeline -->
-        <div class="flex items-center gap-1 rounded-xl bg-[#090d16] border border-[#1b293e] p-1 shadow-sm shrink-0">
+        <div class="flex items-center gap-1 rounded-xl bg-[#0c1220] border border-[#141b2d] p-1 shadow-sm shrink-0">
           <button
-            class="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition"
+            class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition"
             :class="
               activeSubTab === 'cards'
-                ? 'bg-[#121c35] border border-indigo-500/60 text-indigo-300 shadow-sm'
+                ? 'bg-[#11182c] border border-indigo-500/60 text-indigo-300 shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
             "
             @click="activeSubTab = 'cards'"
           >
-            <span>🗂️ Phân bước AI (4)</span>
+            <span class="leading-none">🗂️ Phân bước AI (4)</span>
           </button>
           <button
-            class="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition"
+            class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition"
             :class="
               activeSubTab === 'conversation'
-                ? 'bg-[#0f281d] border border-[#00f5a0]/60 text-[#00f5a0] shadow-sm'
+                ? 'bg-[#0b1d16] border border-[#00f5a0]/60 text-[#00f5a0] shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
             "
             @click="activeSubTab = 'conversation'"
           >
-            <span>💬 Cuộc trò chuyện ({{ thread.messages.value.length }})</span>
+            <span class="leading-none">💬 Cuộc trò chuyện ({{ thread.messages.value.length }})</span>
           </button>
           <button
-            class="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition"
+            class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition"
             :class="
               activeSubTab === 'terminal'
-                ? 'bg-[#241d18] border border-orange-500/50 text-orange-400 shadow-sm'
+                ? 'bg-[#11182c] border border-[#00f5d4]/50 text-[#00f5d4] shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
             "
             @click="activeSubTab = 'terminal'"
           >
-            <span>>_ Terminal</span>
+            <span class="leading-none">>_ Terminal</span>
           </button>
           <button
-            class="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-zinc-400 hover:text-zinc-200 transition"
+            class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-zinc-400 hover:text-zinc-200 transition"
             @click="$emit('timeline')"
           >
-            <span>⏱ Timeline</span>
+            <span class="leading-none">⏱ Timeline</span>
           </button>
         </div>
 
         <!-- Launch / Run Button -->
         <button
-          class="cc-primary cc-run-header__launch text-xs"
+          class="cc-primary cc-run-header__launch text-xs shrink-0"
           :disabled="!canLaunch"
           @click="$emit('launch')"
         >
@@ -848,10 +870,10 @@ const submit = () => {
 
         <!-- Header Actions: fullscreen -->
         <button
-          class="grid h-7 w-7 place-items-center rounded-lg text-zinc-400 hover:bg-[#251e18] hover:text-zinc-200 transition"
+          class="grid h-7 w-7 place-items-center rounded-lg text-zinc-400 hover:bg-[#11182c] hover:text-zinc-200 transition shrink-0"
           title="Toàn màn hình"
         >
-          <i class="codicon codicon-screen-full text-xs"></i>
+          <i class="codicon codicon-screen-full text-xs shrink-0"></i>
         </button>
       </div>
     </header>
@@ -1000,26 +1022,26 @@ const submit = () => {
           <div v-if="isEpicContext || isEpicBlocked" class="flex flex-wrap items-center gap-2 pt-2">
             <button
               type="button"
-              class="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3 py-1 font-semibold text-white shadow transition text-xs"
+              class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3 py-1 font-semibold text-white shadow transition text-xs"
               @click="$emit('skip-review-and-continue-epic'); $emit('skipReviewAndContinueEpic')"
             >
-              <i class="codicon codicon-pass-filled"></i>
+              <i class="codicon codicon-pass-filled shrink-0"></i>
               <span>Bỏ qua review & Chạy tiếp Epic</span>
             </button>
             <button
               type="button"
-              class="flex items-center gap-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 px-3 py-1 font-semibold text-white shadow transition text-xs"
+              class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg bg-[#00f5a0] hover:bg-[#00f5d4] px-3 py-1 font-bold text-black shadow transition text-xs"
               @click="$emit('retry-epic-task'); $emit('retryEpicTask')"
             >
-              <i class="codicon codicon-debug-restart"></i>
+              <i class="codicon codicon-debug-restart shrink-0"></i>
               <span>Thử lại task</span>
             </button>
             <button
               type="button"
-              class="flex items-center gap-1.5 rounded-lg bg-[#2b211d] hover:bg-[#382b26] border border-[#4a362f] px-3 py-1 font-semibold text-zinc-300 hover:text-white transition text-xs"
+              class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg bg-[#11182c] hover:bg-[#16203a] border border-[#141b2d] px-3 py-1 font-semibold text-zinc-300 hover:text-white transition text-xs"
               @click="$emit('skip-epic-task'); $emit('skipEpicTask')"
             >
-              <i class="codicon codicon-debug-step-over"></i>
+              <i class="codicon codicon-debug-step-over shrink-0"></i>
               <span>Bỏ qua task</span>
             </button>
           </div>
@@ -1110,11 +1132,11 @@ const submit = () => {
           <span class="cc-run-context__title">{{
             isStreaming ? "Đang stream" : "Execution context"
           }}</span>
-          <span class="cc-run-context__meta">{{ displayModelName }} · {{ displayDirectory.split(/[\\/]/).pop() || 'workspace' }}</span>
-          <span class="cc-run-context__action">
+          <span class="cc-run-context__meta font-mono">{{ displayModelName }} · {{ displayDirectory.split(/[\\/]/).pop() || 'workspace' }}</span>
+          <span class="cc-run-context__action inline-flex items-center gap-1">
             {{ showRunContext ? 'Thu gọn' : 'Chi tiết' }}
             <i
-              class="codicon text-[10px]"
+              class="codicon text-[10px] shrink-0"
               :class="
                 showRunContext ? 'codicon-chevron-up' : 'codicon-chevron-down'
               "
@@ -1125,18 +1147,18 @@ const submit = () => {
         <div v-if="showRunContext" class="cc-run-context__body">
           <div class="cc-run-context__identity">
             <span class="cc-run-context__provider">{{ providerTitle }}</span>
-            <span class="cc-run-context__version">{{ providerVersion }}</span>
+            <span class="cc-run-context__version font-mono">{{ providerVersion }}</span>
           </div>
           <div class="cc-run-context__details">
             <div>
               <span>Model</span
-              ><strong :class="providerTone.highlight">{{
+              ><strong :class="providerTone.highlight" class="font-mono">{{
                 displayModelName
               }}</strong>
             </div>
             <div>
               <span>Directory</span
-              ><strong :title="displayDirectory">{{ displayDirectory }}</strong>
+              ><strong :title="displayDirectory" class="font-mono">{{ displayDirectory }}</strong>
             </div>
             <div>
               <span>Permissions</span
@@ -1147,7 +1169,7 @@ const submit = () => {
             <div v-if="task">
               <span>Task</span
               ><strong :title="task.title"
-                >{{ task.issue_key || `#${task.id}` }} ·
+                ><span class="font-mono text-[#00f5a0]">{{ task.issue_key || `#${task.id}` }}</span> ·
                 {{ task.title }}</strong
               >
             </div>
@@ -1164,19 +1186,19 @@ const submit = () => {
         <!-- Epic Sequence Blocked Recovery Banner -->
         <div
           v-if="isEpicBlocked || (isEpicContext && runStatus === 'failed')"
-          class="rounded-xl border border-rose-500/40 bg-gradient-to-r from-rose-950/40 via-[#261515] to-[#1a1212] p-4 text-xs shadow-lg space-y-3"
+          class="rounded-xl border border-rose-500/40 bg-gradient-to-r from-rose-950/40 via-[#190d14] to-[#070b14] p-4 text-xs shadow-lg space-y-3"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="flex items-start gap-2.5">
               <i class="codicon codicon-warning text-rose-400 text-base mt-0.5 shrink-0"></i>
               <div>
-                <b class="text-rose-200 text-sm font-semibold block">Chuỗi Epic đang bị tạm dừng (Epic Sequence Blocked)</b>
+                <b class="text-rose-200 text-sm font-semibold block font-['Space_Grotesk']">Chuỗi Epic đang bị tạm dừng (Epic Sequence Blocked)</b>
                 <p class="text-zinc-400 text-xs mt-1 leading-relaxed">
                   {{ epicBlockedReason || error || "Lượt chạy gặp lỗi hoặc chưa hoàn tất phản hồi cuối cùng từ agent. Bạn có thể thử lại task này hoặc bỏ qua để tiếp tục các task độc lập khác." }}
                 </p>
               </div>
             </div>
-            <span class="rounded-full bg-rose-900/60 border border-rose-500/50 px-2.5 py-0.5 text-[10px] font-mono font-semibold text-rose-200 shrink-0">
+            <span class="rounded-full bg-rose-900/60 border border-rose-500/50 px-2.5 py-0.5 text-[10px] font-mono font-semibold text-rose-200 shrink-0 inline-flex items-center justify-center">
               BLOCKED
             </span>
           </div>
@@ -1184,26 +1206,26 @@ const submit = () => {
           <div class="flex items-center flex-wrap gap-2 pt-1 border-t border-rose-500/20">
             <button
               type="button"
-              class="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3.5 py-1.5 font-semibold text-white shadow transition text-xs"
+              class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3.5 py-1.5 font-semibold text-white shadow transition text-xs"
               @click="$emit('skip-review-and-continue-epic'); $emit('skipReviewAndContinueEpic')"
             >
-              <i class="codicon codicon-pass-filled"></i>
+              <i class="codicon codicon-pass-filled shrink-0"></i>
               <span>Bỏ qua review & Tiếp tục Epic</span>
             </button>
             <button
               type="button"
-              class="flex items-center gap-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 px-3.5 py-1.5 font-semibold text-white shadow transition text-xs"
+              class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg bg-[#00f5a0] hover:bg-[#00f5d4] px-3.5 py-1.5 font-bold text-black shadow transition text-xs"
               @click="$emit('retry-epic-task'); $emit('retryEpicTask')"
             >
-              <i class="codicon codicon-debug-restart"></i>
+              <i class="codicon codicon-debug-restart shrink-0"></i>
               <span>Thử lại task này (Giữ worktree)</span>
             </button>
             <button
               type="button"
-              class="flex items-center gap-1.5 rounded-lg bg-[#2b211d] hover:bg-[#382b26] border border-[#4a362f] px-3.5 py-1.5 font-semibold text-zinc-300 hover:text-white transition text-xs"
+              class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg bg-[#11182c] hover:bg-[#16203a] border border-[#141b2d] px-3.5 py-1.5 font-semibold text-zinc-300 hover:text-white transition text-xs"
               @click="$emit('skip-epic-task'); $emit('skipEpicTask')"
             >
-              <i class="codicon codicon-debug-step-over"></i>
+              <i class="codicon codicon-debug-step-over shrink-0"></i>
               <span>Bỏ qua & Tiếp tục Epic (DAG)</span>
             </button>
           </div>
@@ -1213,12 +1235,12 @@ const submit = () => {
         <div class="cc-run-statusline">
           <div class="cc-run-statusline__items">
             <div class="flex items-center gap-1.5">
-              <i class="codicon codicon-pass text-xs cc-icon--success"></i>
+              <i class="codicon codicon-pass text-xs cc-icon--success shrink-0"></i>
               <span>Task Hub Protocol · <b>Đã sẵn sàng</b></span>
             </div>
             <div class="flex items-center gap-1.5">
               <i
-                class="codicon codicon-server-process text-xs"
+                class="codicon codicon-server-process text-xs shrink-0"
                 :class="
                   isCaoReconnecting
                     ? 'text-amber-400 animate-spin'
@@ -1237,7 +1259,7 @@ const submit = () => {
               :class="executionRoute === 'cao' ? 'cc-run-route--cao' : ''"
             >
               <i
-                class="codicon"
+                class="codicon shrink-0"
                 :class="
                   executionRoute === 'cao'
                     ? 'codicon-broadcast'
@@ -1253,16 +1275,16 @@ const submit = () => {
             </div>
           </div>
           <span
-            class="cc-run-statusline__state"
+            class="cc-run-statusline__state shrink-0 inline-flex items-center gap-1.5"
             :class="`cc-run-statusline__state--${runStatus}`"
           >
-            <i class="h-1.5 w-1.5 rounded-full bg-current"></i
+            <i class="h-1.5 w-1.5 rounded-full bg-current shrink-0"></i
             >{{ statusLabel }}
           </span>
         </div>
 
         <!-- Step-by-Step Multi-Agent Cards Tab (Default Stream View) -->
-        <div v-if="activeSubTab === 'cards'" class="flex-1 min-h-[480px] h-full rounded-xl border border-[#17253b] bg-[#050911] shadow-inner overflow-hidden flex flex-col">
+        <div v-if="activeSubTab === 'cards'" class="flex-1 min-h-[480px] h-full rounded-xl border border-[#141b2d] bg-[#070b14] shadow-inner overflow-hidden flex flex-col">
           <StreamCardsView
             :stage-executions="autoPilotStore.stageExecutions.value"
             :context-packages="autoPilotStore.contextPackages.value"
@@ -1273,11 +1295,11 @@ const submit = () => {
         </div>
 
         <!-- Conversation Thread Tab (Linear Chat View) -->
-        <div v-else-if="activeSubTab === 'conversation'" class="flex-1 min-h-[480px] h-full rounded-xl border border-[#17253b] bg-[#050911] shadow-inner overflow-hidden flex flex-col">
+        <div v-else-if="activeSubTab === 'conversation'" class="flex-1 min-h-[480px] h-full rounded-xl border border-[#141b2d] bg-[#070b14] shadow-inner overflow-hidden flex flex-col">
           <ConversationThread
             :messages="thread.messages.value"
             :running="running"
-            :streaming-text="output"
+            :streaming-text="displayResponse"
             :provider="provider"
             :model="model"
             :role="(agentRole as any)"
@@ -1291,16 +1313,38 @@ const submit = () => {
         <div v-else-if="activeSubTab === 'terminal'" class="flex-1 min-h-[480px] h-full space-y-2 flex flex-col">
           <div class="cc-run-section-heading">
             <span class="flex items-center gap-2">
-              <i class="codicon codicon-terminal text-orange-400"></i>
-              <span>Luồng Terminal Output</span>
+              <i class="codicon codicon-terminal text-[#00f5a0] shrink-0"></i>
+              <span class="font-['Space_Grotesk'] font-bold">Chi tiết kỹ thuật</span>
             </span>
-            <span class="text-[11px] text-[#8e938f] font-mono">{{
-              output ? `${output.length} ký tự` : "Chưa có output"
-            }}</span>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] text-zinc-400 font-mono">{{
+                output ? `${output.length} ký tự` : "Chưa có output"
+              }}</span>
+              <button
+                v-if="output"
+                type="button"
+                class="inline-flex items-center justify-center shrink-0 px-2 py-0.5 rounded bg-[#11182c] hover:bg-[#18233f] text-[11px] text-zinc-300 gap-1 border border-[#141b2d] cursor-pointer"
+                title="Sao chép output"
+                @click="copyTechnicalOutput"
+              >
+                <i class="codicon codicon-copy shrink-0"></i>
+                <span>Copy</span>
+              </button>
+              <button
+                v-if="output"
+                type="button"
+                class="inline-flex items-center justify-center shrink-0 px-2 py-0.5 rounded bg-[#11182c] hover:bg-[#18233f] text-[11px] text-zinc-300 gap-1 border border-[#141b2d] cursor-pointer"
+                title="Tải log về"
+                @click="downloadTechnicalOutput"
+              >
+                <i class="codicon codicon-cloud-download shrink-0"></i>
+                <span>Download</span>
+              </button>
+            </div>
           </div>
 
           <div
-            class="flex-1 min-h-0 rounded-xl border border-[#2b231c] bg-[#0c0a09] p-3.5 font-mono text-xs text-zinc-300 shadow-inner overflow-auto"
+            class="flex-1 min-h-0 rounded-xl border border-[#141b2d] bg-[#04070d] p-3.5 font-mono text-xs text-zinc-300 shadow-inner overflow-auto"
           >
             <pre
               v-if="output"
@@ -1310,7 +1354,7 @@ const submit = () => {
             <div v-else class="py-10 text-center text-xs text-zinc-500">
               <div v-if="running" class="inline-flex flex-col items-center gap-2">
                 <span class="inline-flex items-center gap-2 font-medium cc-state--active">
-                  <i class="h-2 w-2 rounded-full cc-dot--active"></i>Đang chờ dữ liệu streaming từ CAO…
+                  <i class="h-2 w-2 rounded-full cc-dot--active shrink-0"></i>Đang chờ dữ liệu streaming từ CAO…
                 </span>
               </div>
               <p v-else>Chưa có dữ liệu terminal output từ phiên làm việc này.</p>
@@ -1321,8 +1365,8 @@ const submit = () => {
         <!-- Dynamic Agent Turns & Execution Logs (Turns Tab) -->
         <div v-else class="space-y-4">
           <div class="cc-run-section-heading">
-            <span>Hoạt động & Lượt phản hồi</span>
-            <span class="text-[11px] text-[#8e938f]">{{
+            <span class="font-['Space_Grotesk'] font-bold">Hoạt động & Lượt phản hồi</span>
+            <span class="text-[11px] text-zinc-400 font-mono">{{
               responseTurns.length
                 ? `${responseTurns.length} lượt`
                 : "Chưa có lượt"
@@ -1338,7 +1382,7 @@ const submit = () => {
               <span
                 class="inline-flex items-center gap-2 font-medium cc-state--active"
               >
-                <i class="h-2 w-2 rounded-full cc-dot--active"></i>Đang thực thi
+                <i class="h-2 w-2 rounded-full cc-dot--active shrink-0"></i>Đang thực thi
                 và streaming dữ liệu…
               </span>
               <span class="text-[11px] text-zinc-500"
@@ -1357,16 +1401,16 @@ const submit = () => {
             <article
               v-for="(turn, index) in responseTurns"
               :key="index"
-              class="cc-response-card rounded-xl p-3.5 space-y-2.5"
+              class="cc-response-card rounded-xl p-3.5 space-y-2.5 bg-[#0c1220] border border-[#141b2d]"
             >
               <div
-                class="flex items-center justify-between gap-3 text-xs text-zinc-400 border-b border-[#241c16] pb-2"
+                class="flex items-center justify-between gap-3 text-xs text-zinc-400 border-b border-[#141b2d] pb-2"
               >
                 <span
                   class="font-semibold flex items-center gap-1.5 text-zinc-200"
                 >
                   <span
-                    class="h-2 w-2 rounded-full"
+                    class="h-2 w-2 rounded-full shrink-0"
                     :class="
                       turn.pending
                         ? 'cc-dot--active'
@@ -1381,7 +1425,7 @@ const submit = () => {
                   ></span>
                   <span>{{ responseLabel(turn) }}</span>
                 </span>
-                <span class="text-[11px] text-zinc-500"
+                <span class="text-[11px] text-zinc-500 font-mono"
                   >Step {{ index + 1 }}</span
                 >
               </div>
@@ -1461,11 +1505,11 @@ const submit = () => {
 
     <!-- Floating Command Input Bar & Sub-Tabs Footer -->
     <footer
-      class="border-t border-[#251e18] bg-[#14110f] px-5 py-3 space-y-2.5"
+      class="border-t border-[#141b2d] bg-[#070b14] px-5 py-3 space-y-2.5"
     >
       <!-- Rich Input Box (Large rounded-2xl container) -->
       <div
-        class="rounded-2xl border border-[#2d251e] bg-[#191512] p-3 shadow-lg focus-within:border-orange-500/80 focus-within:ring-1 focus-within:ring-orange-500/40 transition-all"
+        class="rounded-2xl border border-[#141b2d] bg-[#0c1220] p-3 shadow-lg focus-within:border-[#00f5a0]/80 focus-within:ring-1 focus-within:ring-[#00f5a0]/40 transition-all"
       >
         <textarea
           v-model="followUp"
@@ -1488,26 +1532,26 @@ const submit = () => {
 
         <!-- Command Toolbar & Action Pill -->
         <div
-          class="mt-2 flex items-center justify-between pt-1 border-t border-[#251e18]"
+          class="mt-2 flex items-center justify-between pt-1 border-t border-[#141b2d]"
         >
           <!-- Left Tool Icons: Snippet, Format, Code, File, Task -->
           <div class="flex items-center gap-1.5 text-zinc-400">
             <button
-              class="grid h-7 w-7 place-items-center rounded-lg hover:bg-[#251e18] hover:text-orange-400 transition"
+              class="grid h-7 w-7 place-items-center rounded-lg hover:bg-[#11182c] hover:text-[#00f5a0] transition shrink-0"
               title="Chèn kế hoạch /plan"
               @click="insertSnippet('/plan ')"
             >
-              <i class="codicon codicon-sparkle text-xs"></i>
+              <i class="codicon codicon-sparkle text-xs shrink-0"></i>
             </button>
             <button
-              class="grid h-7 w-7 place-items-center rounded-lg hover:bg-[#251e18] hover:text-orange-400 transition"
+              class="grid h-7 w-7 place-items-center rounded-lg hover:bg-[#11182c] hover:text-[#00f5a0] transition shrink-0"
               title="Chèn khối code"
               @click="insertSnippet('```\n\n```')"
             >
-              <i class="codicon codicon-code text-xs"></i>
+              <i class="codicon codicon-code text-xs shrink-0"></i>
             </button>
             <button
-              class="grid h-7 w-7 place-items-center rounded-lg hover:bg-[#251e18] hover:text-orange-400 transition"
+              class="grid h-7 w-7 place-items-center rounded-lg hover:bg-[#11182c] hover:text-[#00f5a0] transition shrink-0"
               title="Tham chiếu task"
               @click="
                 insertSnippet(
@@ -1515,14 +1559,14 @@ const submit = () => {
                 )
               "
             >
-              <i class="codicon codicon-mention text-xs"></i>
+              <i class="codicon codicon-mention text-xs shrink-0"></i>
             </button>
             <button
-              class="grid h-7 w-7 place-items-center rounded-lg hover:bg-[#251e18] hover:text-orange-400 transition"
+              class="grid h-7 w-7 place-items-center rounded-lg hover:bg-[#11182c] hover:text-[#00f5a0] transition shrink-0"
               title="Chèn đường dẫn tệp"
               @click="insertSnippet('@file: ')"
             >
-              <i class="codicon codicon-file text-xs"></i>
+              <i class="codicon codicon-file text-xs shrink-0"></i>
             </button>
           </div>
 
@@ -1530,17 +1574,17 @@ const submit = () => {
           <div class="flex items-center gap-2">
             <!-- 3-in-1 Action Pill Button (Plan, Prompt, Send) -->
             <div
-              class="flex items-center rounded-full bg-gradient-to-r from-orange-500 to-amber-500 p-0.5 shadow-[0_0_14px_rgba(249,115,22,0.4)] hover:shadow-[0_0_18px_rgba(249,115,22,0.55)] transition"
+              class="flex items-center rounded-full bg-gradient-to-r from-[#00f5a0] to-[#00f5d4] p-0.5 shadow-[0_0_14px_rgba(0,245,160,0.35)] hover:shadow-[0_0_18px_rgba(0,245,160,0.55)] transition"
             >
               <button
-                class="grid h-6 w-6 place-items-center text-black/80 hover:text-black transition"
+                class="grid h-6 w-6 place-items-center text-black/80 hover:text-black transition shrink-0"
                 title="Thêm tiền tố kế hoạch (/plan)"
                 @click="insertSnippet('/plan ')"
               >
-                <i class="codicon codicon-menu text-xs"></i>
+                <i class="codicon codicon-menu text-xs shrink-0"></i>
               </button>
               <button
-                class="grid h-7 w-7 place-items-center rounded-full bg-orange-600 text-black hover:bg-orange-700 font-bold transition ml-0.5"
+                class="grid h-7 w-7 place-items-center rounded-full bg-[#00f5a0] text-black hover:brightness-110 font-black transition ml-0.5 shrink-0"
                 title="Gửi lệnh cho tác nhân (Enter)"
                 :disabled="!followUp && !running && !canLaunch"
                 @click="
@@ -1551,14 +1595,14 @@ const submit = () => {
                       : null
                 "
               >
-                <i class="codicon codicon-send text-xs"></i>
+                <i class="codicon codicon-send text-xs shrink-0"></i>
               </button>
             </div>
 
             <!-- Cancel Button if Running -->
             <button
               v-if="running"
-              class="cc-danger text-xs"
+              class="cc-danger text-xs shrink-0"
               @click="$emit('cancel')"
             >
               Cancel
@@ -1607,7 +1651,7 @@ const submit = () => {
           showHandoff &&
           !(isEpicContext && (epicSequenceRunning || epicFinalizing))
         "
-        class="mt-3 grid grid-cols-2 gap-2.5 rounded-xl bg-[#181411] border border-[#2a221b] p-3.5 text-xs"
+        class="mt-3 grid grid-cols-2 gap-2.5 rounded-xl bg-[#0c1220] border border-[#141b2d] p-3.5 text-xs"
         @submit.prevent="submit"
       >
         <textarea
@@ -1617,15 +1661,15 @@ const submit = () => {
         ></textarea>
         <textarea
           v-model="changedFiles"
-          class="cc-input min-h-16"
+          class="cc-input min-h-16 font-mono"
           placeholder="Danh sách tệp thay đổi (mỗi dòng 1 tệp)"
         ></textarea>
         <textarea
           v-model="tests"
-          class="cc-input min-h-16"
+          class="cc-input min-h-16 font-mono"
           placeholder="Bằng chứng kiểm thử"
         ></textarea>
-        <select v-model="testStatus" class="cc-select">
+        <select v-model="testStatus" class="cc-select font-mono">
           <option value="passed">Đã vượt qua (Passed)</option>
           <option value="failed">Thất bại (Failed)</option>
           <option value="skipped">Bỏ qua (Skipped)</option>
@@ -1637,12 +1681,12 @@ const submit = () => {
         />
         <input
           v-model="commitSha"
-          class="cc-input"
+          class="cc-input font-mono"
           placeholder="Commit SHA"
         />
         <input
           v-model="pullRequestUrl"
-          class="cc-input"
+          class="cc-input font-mono"
           placeholder="Pull request URL"
         />
         <textarea

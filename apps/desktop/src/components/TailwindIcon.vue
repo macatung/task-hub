@@ -91,7 +91,7 @@ const pixelSize = computed(() => {
     :stroke-width="strokeWidth"
     stroke-linecap="round"
     stroke-linejoin="round"
-    :class="['inline-block shrink-0 align-middle', props.class]"
+    :class="['inline-block shrink-0', props.class]"
     aria-hidden="true"
   >
     <!-- Check -->

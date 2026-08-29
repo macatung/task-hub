@@ -478,3 +478,13 @@ export function createSafetyInterceptEvent(
     ...extra,
   };
 }
+
+/**
+ * Creates a safety guardrail instance for checking command safety.
+ */
+export function createSafetyGuardrails(options: { strictMode?: boolean } = {}) {
+  return {
+    isDangerous: (cmd: string): boolean => isDangerousCommand(cmd),
+    inspect: (cmd: string) => inspectCommand(cmd),
+  };
+}

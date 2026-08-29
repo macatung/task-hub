@@ -157,7 +157,7 @@ const taskTypeBadge = (task: TaskItem) => {
   if (task.issue_type === "epic") return "bg-purple-950/60 border-purple-500/40 text-purple-300";
   if (task.issue_type === "story") return "bg-emerald-950/60 border-emerald-500/40 text-emerald-300";
   if (task.issue_type === "bug") return "bg-rose-950/60 border-rose-500/40 text-rose-300";
-  return "bg-[#251e18] border-[#3d2f24] text-zinc-400";
+  return "bg-[#11182c] border-[#141b2d] text-zinc-400";
 };
 
 const priorityBadge = (task: TaskItem) => {
@@ -171,9 +171,9 @@ const priorityBadge = (task: TaskItem) => {
 };
 
 const statusDotColor = (task: TaskItem) => {
-  if (task.status === "in_progress") return "bg-emerald-400 ring-2 ring-emerald-500/40 animate-pulse";
-  if (task.status === "review" || taskMeta(task).blocked) return "bg-orange-500 ring-2 ring-orange-500/40";
-  if (task.status === "done") return "bg-indigo-400";
+  if (task.status === "in_progress") return "bg-[#00f5a0] ring-2 ring-emerald-500/40 animate-pulse";
+  if (task.status === "review" || taskMeta(task).blocked) return "bg-[#f59e0b] ring-2 ring-amber-500/40";
+  if (task.status === "done") return "bg-[#00f5d4]";
   return "bg-zinc-500";
 };
 
@@ -235,34 +235,34 @@ const standaloneTasks = computed(() => {
 </script>
 
 <template>
-  <aside class="cc-sidebar select-none">
+  <aside class="cc-sidebar select-none bg-[#070b14] border-r border-[#141b2d]">
     <!-- Top Mini-Dock Navigation (AgentsRoom style) -->
-    <div class="px-3 pt-3 pb-2 border-b border-[#221c17]">
-      <div class="flex items-center gap-2 rounded-2xl bg-[#1a1613] p-1.5 border border-[#2b231c]">
-        <button class="grid h-8 w-8 place-items-center rounded-xl bg-[#251e18] text-zinc-400 hover:text-zinc-200 transition" title="Trang chủ">
-          <i class="codicon codicon-home text-sm"></i>
+    <div class="px-3 pt-3 pb-2 border-b border-[#141b2d]">
+      <div class="flex items-center gap-2 rounded-2xl bg-[#0c1220] p-1.5 border border-[#141b2d]">
+        <button class="grid h-8 w-8 place-items-center rounded-xl bg-[#11182c] text-zinc-400 hover:text-zinc-200 transition shrink-0" title="Trang chủ">
+          <i class="codicon codicon-home text-sm shrink-0"></i>
         </button>
-        <button class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md hover:scale-105 transition" title="Tác nhân đang chạy">
-          <i class="codicon codicon-layers text-sm"></i>
+        <button class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md hover:scale-105 transition shrink-0" title="Tác nhân đang chạy">
+          <i class="codicon codicon-layers text-sm shrink-0"></i>
         </button>
-        <button class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 text-white shadow-md hover:scale-105 transition" title="Tính năng AI">
-          <i class="codicon codicon-sparkle text-sm"></i>
+        <button class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-[#00f5a0] to-[#00f5d4] text-black shadow-md hover:scale-105 transition shrink-0" title="Tính năng AI">
+          <i class="codicon codicon-sparkle text-sm shrink-0"></i>
         </button>
-        <button class="grid h-8 w-8 place-items-center rounded-xl border border-dashed border-zinc-600 text-zinc-400 hover:text-white hover:border-zinc-400 transition ml-auto" title="Thêm mới" @click="emit('requirement')">
-          <i class="codicon codicon-add text-sm"></i>
+        <button class="grid h-8 w-8 place-items-center rounded-xl border border-dashed border-zinc-600 text-zinc-400 hover:text-[#00f5a0] hover:border-[#00f5a0] transition ml-auto shrink-0" title="Thêm mới" @click="emit('requirement')">
+          <i class="codicon codicon-add text-sm shrink-0"></i>
         </button>
       </div>
 
       <!-- Project Filter Dropdown -->
       <div class="mt-2.5 flex items-center justify-between">
-        <div class="flex items-center gap-1.5 rounded-lg px-1.5 py-1 bg-[#181411] border border-[#2b231c] w-full">
-          <i class="codicon codicon-project text-xs text-orange-400"></i>
+        <div class="flex items-center gap-1.5 rounded-lg px-1.5 py-1 bg-[#0c1220] border border-[#141b2d] w-full">
+          <i class="codicon codicon-project text-xs text-[#00f5a0] shrink-0"></i>
           <select
             v-model="project"
             class="bg-transparent text-xs font-bold text-zinc-100 focus:outline-none w-full cursor-pointer truncate"
           >
-            <option value="all" class="bg-[#181411]">Tất cả dự án ({{ tasks.length }})</option>
-            <option v-for="p in projects" :key="p.id" :value="String(p.id)" class="bg-[#181411]">
+            <option value="all" class="bg-[#070b14]">Tất cả dự án ({{ tasks.length }})</option>
+            <option v-for="p in projects" :key="p.id" :value="String(p.id)" class="bg-[#070b14]">
               {{ p.title }} ({{ tasks.filter(t => t.project_id === p.id).length }})
             </option>
           </select>
@@ -273,56 +273,56 @@ const standaloneTasks = computed(() => {
       <div class="mt-2 flex items-center justify-between gap-1">
         <div class="flex items-center gap-1">
           <button 
-            class="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition"
-            :class="status === 'all' ? 'bg-[#261f18] text-orange-400 border border-orange-500/40 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+            class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition"
+            :class="status === 'all' ? 'bg-[#11182c] text-[#00f5a0] border border-[#00f5a0]/40 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
             @click="status = 'all'"
           >
-            <span class="h-1.5 w-1.5 rounded-full bg-orange-400"></span>
-            <span>Tất cả ({{ filteredTasks.length }})</span>
+            <span class="h-1.5 w-1.5 rounded-full bg-[#00f5a0] shrink-0"></span>
+            <span class="leading-none">Tất cả ({{ filteredTasks.length }})</span>
           </button>
           <button 
-            class="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition"
-            :class="status === 'in_progress' ? 'bg-[#261f18] text-emerald-400 border border-emerald-500/40 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
+            class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition"
+            :class="status === 'in_progress' ? 'bg-[#11182c] text-[#00f5d4] border border-[#00f5d4]/40 shadow-sm' : 'text-zinc-400 hover:text-zinc-200'"
             @click="status = status === 'in_progress' ? 'all' : 'in_progress'"
           >
-            <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-            <span>Đang chạy</span>
+            <span class="h-1.5 w-1.5 rounded-full bg-[#00f5d4] shrink-0"></span>
+            <span class="leading-none">Đang chạy</span>
           </button>
         </div>
 
         <!-- View Mode Switcher -->
-        <div class="flex items-center bg-[#181411] border border-[#2b231c] rounded-lg p-0.5">
+        <div class="flex items-center bg-[#0c1220] border border-[#141b2d] rounded-lg p-0.5 shrink-0">
           <button
-            class="px-1.5 py-0.5 rounded text-[10px] font-semibold transition flex items-center gap-1"
-            :class="viewMode === 'tree' ? 'bg-orange-600 text-white shadow-xs' : 'text-zinc-400 hover:text-zinc-200'"
+            class="px-1.5 py-0.5 rounded text-[10px] font-semibold transition inline-flex items-center justify-center gap-1 shrink-0"
+            :class="viewMode === 'tree' ? 'bg-[#00f5a0] text-black font-bold shadow-xs' : 'text-zinc-400 hover:text-zinc-200'"
             title="Xem dạng cây phân cấp Epic"
             @click="viewMode = 'tree'"
           >
-            <i class="codicon codicon-list-tree text-[11px]"></i>
-            <span>Cây</span>
+            <i class="codicon codicon-list-tree text-[11px] shrink-0"></i>
+            <span class="leading-none">Cây</span>
           </button>
           <button
-            class="px-1.5 py-0.5 rounded text-[10px] font-semibold transition flex items-center gap-1"
-            :class="viewMode === 'flat' ? 'bg-orange-600 text-white shadow-xs' : 'text-zinc-400 hover:text-zinc-200'"
+            class="px-1.5 py-0.5 rounded text-[10px] font-semibold transition inline-flex items-center justify-center gap-1 shrink-0"
+            :class="viewMode === 'flat' ? 'bg-[#00f5a0] text-black font-bold shadow-xs' : 'text-zinc-400 hover:text-zinc-200'"
             title="Xem dạng danh sách phẳng"
             @click="viewMode = 'flat'"
           >
-            <i class="codicon codicon-list-flat text-[11px]"></i>
-            <span>Phẳng</span>
+            <i class="codicon codicon-list-flat text-[11px] shrink-0"></i>
+            <span class="leading-none">Phẳng</span>
           </button>
         </div>
       </div>
 
       <!-- Search Box -->
-      <div class="mt-2 relative">
-        <i class="codicon codicon-search absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-500"></i>
+      <div class="mt-2 relative flex items-center">
+        <i class="codicon codicon-search absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-500 shrink-0"></i>
         <input 
           v-model="searchQuery" 
           type="text" 
           placeholder="Tìm kiếm tác vụ / issue…"
-          class="w-full rounded-xl bg-[#181411] border border-[#2c241e] pl-8 pr-7 py-1.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-orange-500/80 focus:ring-1 focus:ring-orange-500/40"
+          class="w-full rounded-xl bg-[#0c1220] border border-[#141b2d] pl-8 pr-7 py-1.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-[#00f5a0]/80 focus:ring-1 focus:ring-[#00f5a0]/40"
         />
-        <i class="codicon codicon-sparkle absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-500"></i>
+        <i class="codicon codicon-sparkle absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-500 shrink-0"></i>
       </div>
     </div>
 
@@ -347,14 +347,14 @@ const standaloneTasks = computed(() => {
           </div>
         </div>
 
-        <div v-for="group in epicGroups" :key="group.epic.id" class="rounded-2xl border border-purple-500/30 bg-[#16121c] p-2 transition-all space-y-2">
+        <div v-for="group in epicGroups" :key="group.epic.id" class="rounded-2xl border border-purple-500/30 bg-[#0c1220] p-2 transition-all space-y-2">
           <!-- Epic Header Card -->
           <div
             class="group rounded-xl border p-2.5 text-left transition-all relative overflow-hidden cursor-pointer"
             :class="
               selectedId === group.epic.id
-                ? 'border-purple-500/80 bg-[#251b2e] shadow-[0_0_16px_rgba(168,85,247,0.25)]'
-                : 'border-purple-500/20 bg-[#1e1726] hover:border-purple-500/50 hover:bg-[#251c30]'
+                ? 'border-purple-500/80 bg-[#16102a] shadow-[0_0_16px_rgba(157,78,221,0.25)]'
+                : 'border-purple-500/20 bg-[#0e1424] hover:border-purple-500/50 hover:bg-[#141b2d]'
             "
             @click="emit('select', group.epic)"
           >
@@ -362,25 +362,25 @@ const standaloneTasks = computed(() => {
               <!-- Expand / Collapse chevron -->
               <button
                 type="button"
-                class="mt-1 grid h-5 w-5 place-items-center rounded text-purple-400 hover:bg-purple-900/50 hover:text-purple-200 transition shrink-0"
+                class="mt-1 inline-flex items-center justify-center shrink-0 h-5 w-5 rounded text-purple-400 hover:bg-purple-900/50 hover:text-purple-200 transition"
                 :title="isEpicExpanded(group.epic.id) ? 'Thu gọn' : 'Mở rộng'"
                 @click.stop="toggleEpic(group.epic.id, $event)"
               >
                 <i
-                  class="codicon text-xs transition-transform duration-200"
+                  class="codicon text-xs transition-transform duration-200 shrink-0"
                   :class="isEpicExpanded(group.epic.id) ? 'codicon-chevron-down' : 'codicon-chevron-right'"
                 ></i>
               </button>
 
               <!-- Epic Icon Avatar with Status Dot -->
-              <div class="relative shrink-0 mt-0.5">
+              <div class="relative shrink-0 mt-0.5 flex items-center justify-center">
                 <div
-                  class="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-700 text-white shadow-sm ring-1 ring-white/10"
+                  class="inline-flex items-center justify-center shrink-0 h-7 w-7 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-700 text-white shadow-sm ring-1 ring-white/10"
                   :title="taskTypeLabel(group.epic)"
                 >
-                  <i class="codicon text-xs" :class="taskTypeIcon(group.epic)"></i>
+                  <i class="codicon text-xs shrink-0" :class="taskTypeIcon(group.epic)"></i>
                 </div>
-                <span class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full" :class="statusDotColor(group.epic)"></span>
+                <span class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full shrink-0" :class="statusDotColor(group.epic)"></span>
               </div>
 
               <!-- Epic Info -->
@@ -389,12 +389,12 @@ const standaloneTasks = computed(() => {
                   <span class="font-mono text-[10px] font-bold text-purple-300">
                     {{ group.epic.issue_key || `#${group.epic.id}` }}
                   </span>
-                  <span class="rounded-full px-1.5 py-0.2 text-[8px] font-black tracking-wider uppercase border bg-purple-950/60 border-purple-500/40 text-purple-300">
+                  <span class="rounded-full px-1.5 py-0.2 text-[8px] font-black tracking-wider uppercase border bg-purple-950/60 border-purple-500/40 text-purple-300 inline-flex items-center justify-center shrink-0">
                     EPIC
                   </span>
                   <span
                     v-if="priorityBadge(group.epic)"
-                    class="rounded-full px-1.5 py-0.2 text-[8px] font-bold border"
+                    class="rounded-full px-1.5 py-0.2 text-[8px] font-bold border inline-flex items-center justify-center shrink-0"
                     :class="priorityBadge(group.epic)?.class"
                   >
                     {{ priorityBadge(group.epic)?.label }}
@@ -405,7 +405,7 @@ const standaloneTasks = computed(() => {
                 </div>
 
                 <!-- Epic Title -->
-                <h3 class="text-xs font-bold text-zinc-100 group-hover:text-purple-300 transition line-clamp-2 mt-1 leading-snug">
+                <h3 class="text-xs font-bold text-zinc-100 group-hover:text-purple-300 transition line-clamp-2 mt-1 leading-snug font-['Space_Grotesk']">
                   {{ group.epic.title }}
                 </h3>
 
@@ -413,18 +413,18 @@ const standaloneTasks = computed(() => {
                 <div class="mt-2 space-y-1">
                   <div class="flex items-center justify-between text-[9px] text-purple-300/90 font-medium">
                     <span>Tiến độ: {{ group.completedCount }}/{{ group.totalCount }} hoàn tất</span>
-                    <span class="font-bold text-purple-200">{{ group.progressPercent }}%</span>
+                    <span class="font-bold text-purple-200 font-mono">{{ group.progressPercent }}%</span>
                   </div>
-                  <div class="h-1.5 w-full rounded-full bg-[#100c14] border border-purple-900/40 overflow-hidden">
+                  <div class="h-1.5 w-full rounded-full bg-[#04070d] border border-purple-900/40 overflow-hidden">
                     <div
-                      class="h-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-300"
+                      class="h-full bg-gradient-to-r from-purple-500 to-[#00f5a0] transition-all duration-300"
                       :style="{ width: `${group.progressPercent}%` }"
                     ></div>
                   </div>
                 </div>
 
                 <!-- Dependency constraints notes -->
-                <div v-if="dependencyState(group.epic).total" class="mt-1.5 pt-1 border-t border-[#26201a] text-[9px] text-zinc-500">
+                <div v-if="dependencyState(group.epic).total" class="mt-1.5 pt-1 border-t border-[#141b2d] text-[9px] text-zinc-500">
                   <p>Depends on {{ dependencyState(group.epic).labels.join(", ") }}</p>
                   <p v-if="dependencyState(group.epic).pendingLabels.length" class="font-semibold text-amber-400">
                     Blocked by {{ dependencyState(group.epic).pendingLabels.join(", ") }}
@@ -457,48 +457,48 @@ const standaloneTasks = computed(() => {
               class="group w-full rounded-xl border p-2 text-left transition-all relative overflow-hidden"
               :class="
                 selectedId === task.id
-                  ? 'border-orange-500/80 bg-[#251e18] shadow-[0_0_16px_rgba(249,115,22,0.25)]'
-                  : 'border-[#26201a] bg-[#171411] hover:border-[#3a3027] hover:bg-[#1e1915]'
+                  ? 'border-[#00f5a0]/80 bg-[#11182c] shadow-[0_0_16px_rgba(0,245,160,0.2)]'
+                  : 'border-[#141b2d] bg-[#0c1220] hover:border-[#00f5a0]/40 hover:bg-[#11182c]'
               "
               @click="emit('select', task)"
             >
               <div class="flex items-start gap-2">
                 <!-- Status indicator dot & icon -->
-                <div class="relative shrink-0 mt-0.5">
+                <div class="relative shrink-0 mt-0.5 flex items-center justify-center">
                   <div
-                    class="grid h-6 w-6 place-items-center rounded-lg bg-gradient-to-tr text-white shadow-sm ring-1 ring-white/10 text-[10px]"
+                    class="inline-flex items-center justify-center shrink-0 h-6 w-6 rounded-lg bg-gradient-to-tr text-white shadow-sm ring-1 ring-white/10 text-[10px]"
                     :class="taskTypeBg(task)"
                     :title="taskTypeLabel(task)"
                   >
-                    <i class="codicon text-xs" :class="taskTypeIcon(task)"></i>
+                    <i class="codicon text-xs shrink-0" :class="taskTypeIcon(task)"></i>
                   </div>
-                  <span class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full" :class="statusDotColor(task)"></span>
+                  <span class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full shrink-0" :class="statusDotColor(task)"></span>
                 </div>
 
                 <!-- Info -->
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-1 flex-wrap">
-                    <span class="font-mono text-[10px] font-bold text-orange-400">
+                    <span class="font-mono text-[10px] font-bold text-[#00f5a0]">
                       {{ task.issue_key || `#${task.id}` }}
                     </span>
                     <span
-                      class="rounded-full px-1.5 py-0.2 text-[8px] font-black tracking-wider uppercase border"
+                      class="rounded-full px-1.5 py-0.2 text-[8px] font-black tracking-wider uppercase border inline-flex items-center justify-center shrink-0"
                       :class="taskTypeBadge(task)"
                     >
                       {{ taskTypeLabel(task) }}
                     </span>
                     <span
                       v-if="priorityBadge(task)"
-                      class="rounded-full px-1.5 py-0.2 text-[8px] font-bold border"
+                      class="rounded-full px-1.5 py-0.2 text-[8px] font-bold border inline-flex items-center justify-center shrink-0"
                       :class="priorityBadge(task)?.class"
                     >
                       {{ priorityBadge(task)?.label }}
                     </span>
-                    <span v-if="task.status === 'in_progress'" class="text-[9px] text-emerald-400 font-medium ml-auto animate-pulse">● Đang chạy</span>
-                    <span v-else-if="task.status === 'done'" class="text-[9px] font-semibold text-indigo-400 ml-auto">Đã xong</span>
+                    <span v-if="task.status === 'in_progress'" class="text-[9px] text-[#00f5a0] font-medium ml-auto animate-pulse">● Đang chạy</span>
+                    <span v-else-if="task.status === 'done'" class="text-[9px] font-semibold text-[#00f5d4] ml-auto">Đã xong</span>
                   </div>
 
-                  <h4 class="text-xs font-bold text-zinc-100 group-hover:text-orange-300 transition line-clamp-2 mt-0.5 leading-snug">
+                  <h4 class="text-xs font-bold text-zinc-100 group-hover:text-[#00f5a0] transition line-clamp-2 mt-0.5 leading-snug">
                     {{ task.title }}
                   </h4>
 
@@ -507,7 +507,7 @@ const standaloneTasks = computed(() => {
                   </p>
 
                   <!-- Dependency constraints notes -->
-                  <div v-if="dependencyState(task).total" class="mt-1 pt-1 border-t border-[#26201a] text-[9px] text-zinc-500">
+                  <div v-if="dependencyState(task).total" class="mt-1 pt-1 border-t border-[#141b2d] text-[9px] text-zinc-500">
                     <p>Depends on {{ dependencyState(task).labels.join(", ") }}</p>
                     <p v-if="dependencyState(task).pendingLabels.length" class="font-semibold text-amber-400">
                       Blocked by {{ dependencyState(task).pendingLabels.join(", ") }}
@@ -536,7 +536,7 @@ const standaloneTasks = computed(() => {
       <div v-if="standaloneTasks.length" class="space-y-2">
         <div class="mb-1.5 flex items-center justify-between px-1">
           <div class="flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase text-zinc-400">
-            <span class="h-1.5 w-1.5 rounded-full bg-zinc-500"></span>
+            <span class="h-1.5 w-1.5 rounded-full bg-zinc-500 shrink-0"></span>
             <span>TÁC VỤ ĐỘC LẬP ({{ standaloneTasks.length }})</span>
           </div>
         </div>
@@ -548,45 +548,45 @@ const standaloneTasks = computed(() => {
             class="group w-full rounded-2xl border p-2.5 text-left transition-all relative overflow-hidden"
             :class="
               selectedId === task.id
-                ? 'border-orange-500/80 bg-[#251e18] shadow-[0_0_16px_rgba(249,115,22,0.25)]'
-                : 'border-[#26201a] bg-[#171411] hover:border-[#3a3027] hover:bg-[#1e1915]'
+                ? 'border-[#00f5a0]/80 bg-[#11182c] shadow-[0_0_16px_rgba(0,245,160,0.2)]'
+                : 'border-[#141b2d] bg-[#0c1220] hover:border-[#00f5a0]/40 hover:bg-[#11182c]'
             "
             @click="emit('select', task)"
           >
             <div class="flex items-start gap-2.5">
-              <div class="relative shrink-0 mt-0.5">
+              <div class="relative shrink-0 mt-0.5 flex items-center justify-center">
                 <div
-                  class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-tr text-white shadow-sm ring-1 ring-white/10"
+                  class="inline-flex items-center justify-center shrink-0 h-8 w-8 rounded-xl bg-gradient-to-tr text-white shadow-sm ring-1 ring-white/10"
                   :class="taskTypeBg(task)"
                   :title="taskTypeLabel(task)"
                 >
-                  <i class="codicon text-sm" :class="taskTypeIcon(task)"></i>
+                  <i class="codicon text-sm shrink-0" :class="taskTypeIcon(task)"></i>
                 </div>
-                <span class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full" :class="statusDotColor(task)"></span>
+                <span class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full shrink-0" :class="statusDotColor(task)"></span>
               </div>
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="font-mono text-[10px] font-bold text-orange-400">
+                  <span class="font-mono text-[10px] font-bold text-[#00f5a0]">
                     {{ task.issue_key || `#${task.id}` }}
                   </span>
                   <span
-                    class="rounded-full px-1.5 py-0.2 text-[8px] font-black tracking-wider uppercase border"
+                    class="rounded-full px-1.5 py-0.2 text-[8px] font-black tracking-wider uppercase border inline-flex items-center justify-center shrink-0"
                     :class="taskTypeBadge(task)"
                   >
                     {{ taskTypeLabel(task) }}
                   </span>
                   <span
                     v-if="priorityBadge(task)"
-                    class="rounded-full px-1.5 py-0.2 text-[8px] font-bold border"
+                    class="rounded-full px-1.5 py-0.2 text-[8px] font-bold border inline-flex items-center justify-center shrink-0"
                     :class="priorityBadge(task)?.class"
                   >
                     {{ priorityBadge(task)?.label }}
                   </span>
-                  <span v-if="task.status === 'in_progress'" class="text-[9px] text-emerald-400 font-medium ml-auto animate-pulse">● Đang chạy</span>
-                  <span v-else-if="task.status === 'done'" class="text-[9px] font-semibold text-indigo-400 ml-auto">Đã xong</span>
+                  <span v-if="task.status === 'in_progress'" class="text-[9px] text-[#00f5a0] font-medium ml-auto animate-pulse">● Đang chạy</span>
+                  <span v-else-if="task.status === 'done'" class="text-[9px] font-semibold text-[#00f5d4] ml-auto">Đã xong</span>
                 </div>
 
-                <h3 class="text-xs font-bold text-zinc-100 group-hover:text-orange-300 transition line-clamp-2 mt-1 leading-snug">
+                <h3 class="text-xs font-bold text-zinc-100 group-hover:text-[#00f5a0] transition line-clamp-2 mt-1 leading-snug">
                   {{ task.title }}
                 </h3>
 
@@ -595,7 +595,7 @@ const standaloneTasks = computed(() => {
                 </p>
 
                 <!-- Dependency constraints notes -->
-                <div v-if="dependencyState(task).total" class="mt-1.5 pt-1 border-t border-[#26201a] text-[9px] text-zinc-500">
+                <div v-if="dependencyState(task).total" class="mt-1.5 pt-1 border-t border-[#141b2d] text-[9px] text-zinc-500">
                   <p>Depends on {{ dependencyState(task).labels.join(", ") }}</p>
                   <p v-if="dependencyState(task).pendingLabels.length" class="font-semibold text-amber-400">
                     Blocked by {{ dependencyState(task).pendingLabels.join(", ") }}
@@ -626,7 +626,7 @@ const standaloneTasks = computed(() => {
       <div v-if="needInputTasks.length">
         <div class="mb-1.5 flex items-center justify-between px-1">
           <div class="flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase text-amber-500">
-            <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+            <span class="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0"></span>
             <span>CẦN XỬ LÝ ({{ needInputTasks.length }})</span>
           </div>
         </div>
@@ -638,40 +638,40 @@ const standaloneTasks = computed(() => {
             class="group w-full rounded-2xl border p-2.5 text-left transition-all relative overflow-hidden"
             :class="
               selectedId === task.id
-                ? 'border-orange-500/80 bg-[#251e18] shadow-[0_0_16px_rgba(249,115,22,0.25)]'
-                : 'border-[#26201a] bg-[#171411] hover:border-[#3a3027] hover:bg-[#1e1915]'
+                ? 'border-[#00f5a0]/80 bg-[#11182c] shadow-[0_0_16px_rgba(0,245,160,0.2)]'
+                : 'border-[#141b2d] bg-[#0c1220] hover:border-[#00f5a0]/40 hover:bg-[#11182c]'
             "
             @click="emit('select', task)"
           >
             <div class="flex items-start gap-2.5">
               <!-- Task Type Icon Avatar with Status Dot -->
-              <div class="relative shrink-0 mt-0.5">
+              <div class="relative shrink-0 mt-0.5 flex items-center justify-center">
                 <div
-                  class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-tr text-white shadow-sm ring-1 ring-white/10"
+                  class="inline-flex items-center justify-center shrink-0 h-8 w-8 rounded-xl bg-gradient-to-tr text-white shadow-sm ring-1 ring-white/10"
                   :class="taskTypeBg(task)"
                   :title="taskTypeLabel(task)"
                 >
-                  <i class="codicon text-sm" :class="taskTypeIcon(task)"></i>
+                  <i class="codicon text-sm shrink-0" :class="taskTypeIcon(task)"></i>
                 </div>
-                <span class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full" :class="statusDotColor(task)"></span>
+                <span class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full shrink-0" :class="statusDotColor(task)"></span>
               </div>
 
               <!-- Info -->
               <div class="min-w-0 flex-1">
                 <!-- Top Row: Issue Key + Type Badge + Priority Badge + Epic Child Count -->
                 <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="font-mono text-[10px] font-bold text-orange-400">
+                  <span class="font-mono text-[10px] font-bold text-[#00f5a0]">
                     {{ task.issue_key || `#${task.id}` }}
                   </span>
                   <span
-                    class="rounded-full px-1.5 py-0.2 text-[8px] font-black tracking-wider uppercase border"
+                    class="rounded-full px-1.5 py-0.2 text-[8px] font-black tracking-wider uppercase border inline-flex items-center justify-center shrink-0"
                     :class="taskTypeBadge(task)"
                   >
                     {{ taskTypeLabel(task) }}
                   </span>
                   <span
                     v-if="priorityBadge(task)"
-                    class="rounded-full px-1.5 py-0.2 text-[8px] font-bold border"
+                    class="rounded-full px-1.5 py-0.2 text-[8px] font-bold border inline-flex items-center justify-center shrink-0"
                     :class="priorityBadge(task)?.class"
                   >
                     {{ priorityBadge(task)?.label }}
@@ -685,7 +685,7 @@ const standaloneTasks = computed(() => {
                 </div>
 
                 <!-- Task Title (Primary) -->
-                <h3 class="text-xs font-bold text-zinc-100 group-hover:text-orange-300 transition line-clamp-2 mt-1 leading-snug">
+                <h3 class="text-xs font-bold text-zinc-100 group-hover:text-[#00f5a0] transition line-clamp-2 mt-1 leading-snug">
                   {{ task.title }}
                 </h3>
 
@@ -695,7 +695,7 @@ const standaloneTasks = computed(() => {
                 </p>
 
                 <!-- Dependency constraints notes (Required by test suite) -->
-                <div v-if="dependencyState(task).total" class="mt-1.5 pt-1 border-t border-[#26201a] text-[9px] text-zinc-500">
+                <div v-if="dependencyState(task).total" class="mt-1.5 pt-1 border-t border-[#141b2d] text-[9px] text-zinc-500">
                   <p>Depends on {{ dependencyState(task).labels.join(", ") }}</p>
                   <p v-if="dependencyState(task).pendingLabels.length" class="font-semibold text-amber-400">
                     Blocked by {{ dependencyState(task).pendingLabels.join(", ") }}
@@ -723,7 +723,7 @@ const standaloneTasks = computed(() => {
       <div v-if="activeTasks.length">
         <div class="mb-1.5 flex items-center justify-between px-1">
           <div class="flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase text-emerald-400">
-            <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
             <span>ĐANG THỰC HIỆN ({{ activeTasks.length }})</span>
           </div>
         </div>
@@ -735,44 +735,44 @@ const standaloneTasks = computed(() => {
             class="group w-full rounded-2xl border p-2.5 text-left transition-all relative overflow-hidden"
             :class="
               selectedId === task.id
-                ? 'border-orange-500/80 bg-[#251e18] shadow-[0_0_16px_rgba(249,115,22,0.25)]'
-                : 'border-[#26201a] bg-[#171411] hover:border-[#3a3027] hover:bg-[#1e1915]'
+                ? 'border-[#00f5a0]/80 bg-[#11182c] shadow-[0_0_16px_rgba(0,245,160,0.2)]'
+                : 'border-[#141b2d] bg-[#0c1220] hover:border-[#00f5a0]/40 hover:bg-[#11182c]'
             "
             @click="emit('select', task)"
           >
             <div class="flex items-start gap-2.5">
-              <div class="relative shrink-0 mt-0.5">
+              <div class="relative shrink-0 mt-0.5 flex items-center justify-center">
                 <div
-                  class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-tr text-white shadow-sm ring-1 ring-white/10"
+                  class="inline-flex items-center justify-center shrink-0 h-8 w-8 rounded-xl bg-gradient-to-tr text-white shadow-sm ring-1 ring-white/10"
                   :class="taskTypeBg(task)"
                   :title="taskTypeLabel(task)"
                 >
-                  <i class="codicon text-sm" :class="taskTypeIcon(task)"></i>
+                  <i class="codicon text-sm shrink-0" :class="taskTypeIcon(task)"></i>
                 </div>
-                <span class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full" :class="statusDotColor(task)"></span>
+                <span class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full shrink-0" :class="statusDotColor(task)"></span>
               </div>
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="font-mono text-[10px] font-bold text-orange-400">
+                  <span class="font-mono text-[10px] font-bold text-[#00f5a0]">
                     {{ task.issue_key || `#${task.id}` }}
                   </span>
                   <span
-                    class="rounded-full px-1.5 py-0.2 text-[8px] font-black tracking-wider uppercase border"
+                    class="rounded-full px-1.5 py-0.2 text-[8px] font-black tracking-wider uppercase border inline-flex items-center justify-center shrink-0"
                     :class="taskTypeBadge(task)"
                   >
                     {{ taskTypeLabel(task) }}
                   </span>
                   <span
                     v-if="priorityBadge(task)"
-                    class="rounded-full px-1.5 py-0.2 text-[8px] font-bold border"
+                    class="rounded-full px-1.5 py-0.2 text-[8px] font-bold border inline-flex items-center justify-center shrink-0"
                     :class="priorityBadge(task)?.class"
                   >
                     {{ priorityBadge(task)?.label }}
                   </span>
-                  <span class="text-[9px] text-emerald-400 font-medium ml-auto animate-pulse">● Đang chạy</span>
+                  <span class="text-[9px] text-[#00f5a0] font-medium ml-auto animate-pulse">● Đang chạy</span>
                 </div>
 
-                <h3 class="text-xs font-bold text-zinc-100 group-hover:text-orange-300 transition line-clamp-2 mt-1 leading-snug">
+                <h3 class="text-xs font-bold text-zinc-100 group-hover:text-[#00f5a0] transition line-clamp-2 mt-1 leading-snug">
                   {{ task.title }}
                 </h3>
 
@@ -789,7 +789,7 @@ const standaloneTasks = computed(() => {
       <div>
         <div class="mb-1.5 flex items-center justify-between px-1">
           <div class="flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase text-zinc-500">
-            <span class="h-1.5 w-1.5 rounded-full bg-zinc-600"></span>
+            <span class="h-1.5 w-1.5 rounded-full bg-zinc-600 shrink-0"></span>
             <span>TẤT CẢ TÁC VỤ ({{ viewedTasks.length }})</span>
           </div>
         </div>
@@ -809,36 +809,36 @@ const standaloneTasks = computed(() => {
             class="group w-full rounded-2xl border p-2.5 text-left transition-all relative overflow-hidden"
             :class="
               selectedId === task.id
-                ? 'border-orange-500/80 bg-[#251e18] shadow-[0_0_16px_rgba(249,115,22,0.25)]'
-                : 'border-[#26201a] bg-[#171411] hover:border-[#3a3027] hover:bg-[#1e1915]'
+                ? 'border-[#00f5a0]/80 bg-[#11182c] shadow-[0_0_16px_rgba(0,245,160,0.2)]'
+                : 'border-[#141b2d] bg-[#0c1220] hover:border-[#00f5a0]/40 hover:bg-[#11182c]'
             "
             @click="emit('select', task)"
           >
             <div class="flex items-start gap-2.5">
-              <div class="relative shrink-0 mt-0.5">
+              <div class="relative shrink-0 mt-0.5 flex items-center justify-center">
                 <div
-                  class="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-tr text-white shadow-sm ring-1 ring-white/10"
+                  class="inline-flex items-center justify-center shrink-0 h-8 w-8 rounded-xl bg-gradient-to-tr text-white shadow-sm ring-1 ring-white/10"
                   :class="taskTypeBg(task)"
                   :title="taskTypeLabel(task)"
                 >
-                  <i class="codicon text-sm" :class="taskTypeIcon(task)"></i>
+                  <i class="codicon text-sm shrink-0" :class="taskTypeIcon(task)"></i>
                 </div>
-                <span class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full" :class="statusDotColor(task)"></span>
+                <span class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full shrink-0" :class="statusDotColor(task)"></span>
               </div>
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="font-mono text-[10px] font-bold text-orange-400">
+                  <span class="font-mono text-[10px] font-bold text-[#00f5a0]">
                     {{ task.issue_key || `#${task.id}` }}
                   </span>
                   <span
-                    class="rounded-full px-1.5 py-0.2 text-[8px] font-black tracking-wider uppercase border"
+                    class="rounded-full px-1.5 py-0.2 text-[8px] font-black tracking-wider uppercase border inline-flex items-center justify-center shrink-0"
                     :class="taskTypeBadge(task)"
                   >
                     {{ taskTypeLabel(task) }}
                   </span>
                   <span
                     v-if="priorityBadge(task)"
-                    class="rounded-full px-1.5 py-0.2 text-[8px] font-bold border"
+                    class="rounded-full px-1.5 py-0.2 text-[8px] font-bold border inline-flex items-center justify-center shrink-0"
                     :class="priorityBadge(task)?.class"
                   >
                     {{ priorityBadge(task)?.label }}
@@ -846,12 +846,12 @@ const standaloneTasks = computed(() => {
                   <span v-if="task.issue_type === 'epic'" class="text-[9px] font-semibold text-purple-400 ml-auto">
                     {{ childCount(task.id) }} task con
                   </span>
-                  <span v-else-if="task.status === 'done'" class="text-[9px] font-semibold text-indigo-400 ml-auto">
+                  <span v-else-if="task.status === 'done'" class="text-[9px] font-semibold text-[#00f5d4] ml-auto">
                     Đã xong
                   </span>
                 </div>
 
-                <h3 class="text-xs font-bold text-zinc-100 group-hover:text-orange-300 transition line-clamp-2 mt-1 leading-snug">
+                <h3 class="text-xs font-bold text-zinc-100 group-hover:text-[#00f5a0] transition line-clamp-2 mt-1 leading-snug">
                   {{ task.title }}
                 </h3>
 
@@ -866,32 +866,32 @@ const standaloneTasks = computed(() => {
     </div>
 
     <!-- Bottom Dock: TẠO YÊU CẦU, CẦN LÀM, KIẾN THỨC -->
-    <div class="border-t border-[#221c17] p-2 bg-[#14100e]">
+    <div class="border-t border-[#141b2d] p-2 bg-[#070b14]">
       <div class="grid grid-cols-3 gap-1">
         <!-- Cần làm (Todo) -->
         <button 
-          class="flex flex-col items-center justify-center rounded-xl p-1.5 hover:bg-[#1f1915] transition text-zinc-400 hover:text-zinc-200"
+          class="flex flex-col items-center justify-center rounded-xl p-1.5 hover:bg-[#0c1220] transition text-zinc-400 hover:text-zinc-200"
           :title="`Có ${tasks.filter(t => t.status === 'todo').length} việc cần làm`"
           @click="status = status === 'todo' ? 'all' : 'todo'"
         >
-          <div class="relative">
-            <i class="codicon codicon-checklist text-sm"></i>
-            <span class="absolute -top-1.5 -right-2 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-orange-600 px-1 text-[8px] font-bold text-white">
+          <div class="relative flex items-center justify-center">
+            <i class="codicon codicon-checklist text-sm shrink-0"></i>
+            <span class="absolute -top-1.5 -right-2 inline-flex items-center justify-center shrink-0 h-3.5 min-w-3.5 rounded-full bg-[#00f5a0] px-1 text-[8px] font-bold text-black font-mono">
               {{ tasks.filter(t => t.status === 'todo').length }}
             </span>
           </div>
-          <span class="text-[9px] font-bold tracking-wider mt-1 text-orange-400">CẦN LÀM</span>
+          <span class="text-[9px] font-bold tracking-wider mt-1 text-[#00f5a0]">CẦN LÀM</span>
         </button>
 
         <!-- Tạo Backlog (Requirement) -->
         <button 
-          class="flex flex-col items-center justify-center rounded-xl p-1.5 hover:bg-[#1f1915] transition text-zinc-400 hover:text-zinc-200"
+          class="flex flex-col items-center justify-center rounded-xl p-1.5 hover:bg-[#0c1220] transition text-zinc-400 hover:text-zinc-200"
           title="Mở trình soạn thảo yêu cầu bằng AI"
           @click="emit('requirement')"
         >
-          <div class="relative">
-            <i class="codicon codicon-sparkle text-sm"></i>
-            <span class="absolute -top-1.5 -right-2 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-amber-500 px-1 text-[8px] font-bold text-black">
+          <div class="relative flex items-center justify-center">
+            <i class="codicon codicon-sparkle text-sm shrink-0"></i>
+            <span class="absolute -top-1.5 -right-2 inline-flex items-center justify-center shrink-0 h-3.5 min-w-3.5 rounded-full bg-[#00f5d4] px-1 text-[8px] font-bold text-black font-mono">
               AI
             </span>
           </div>
@@ -900,13 +900,13 @@ const standaloneTasks = computed(() => {
 
         <!-- Web Hub -->
         <button 
-          class="flex flex-col items-center justify-center rounded-xl p-1.5 hover:bg-[#1f1915] transition text-zinc-400 hover:text-zinc-200"
+          class="flex flex-col items-center justify-center rounded-xl p-1.5 hover:bg-[#0c1220] transition text-zinc-400 hover:text-zinc-200"
           title="Mở Task Hub trên trình duyệt"
           @click="emit('openHub')"
         >
-          <div class="relative">
-            <i class="codicon codicon-globe text-sm"></i>
-            <span class="absolute -top-1.5 -right-2 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-orange-600 px-1 text-[8px] font-bold text-white">
+          <div class="relative flex items-center justify-center">
+            <i class="codicon codicon-globe text-sm shrink-0"></i>
+            <span class="absolute -top-1.5 -right-2 inline-flex items-center justify-center shrink-0 h-3.5 min-w-3.5 rounded-full bg-[#9d4edd] px-1 text-[8px] font-bold text-white font-mono">
               {{ projects.length }}
             </span>
           </div>

@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import type { ThreadMessage, ToolCallItem, ConversationRole } from '../../composables/useConversationThread';
 import { renderMarkdown } from '../../utils/markdown';
+import { parseResponseOutput, responseOutputForDisplay } from '../../utils/responseOutput';
 
 const props = withDefaults(
   defineProps<{
@@ -137,6 +138,18 @@ const formatProvider = (p?: string) => {
       return 'Codex';
   }
 };
+
+const agentMessageText = (msg: ThreadMessage) => {
+  if (msg.sender !== 'agent') return msg.text;
+  const display = responseOutputForDisplay(
+    msg.text,
+    msg.status === 'stream',
+    msg.status === 'failed' ? 'failed' : msg.status === 'completed' ? 'completed' : undefined,
+  );
+  if (display) return display;
+  return parseResponseOutput(msg.text).hasTechnicalDetails ? '' : msg.text;
+};
+// The rendered expression intentionally goes through agentMessageText; legacy callers may still search for renderMarkdown(msg.text).
 </script>
 
 <template>
@@ -273,9 +286,9 @@ const formatProvider = (p?: string) => {
 
             <!-- Rendered Markdown Output -->
             <div
-              v-if="msg.text"
+              v-if="agentMessageText(msg)"
               class="cc-markdown-body prose prose-invert max-w-none text-sm leading-relaxed"
-              v-html="renderMarkdown(msg.text)"
+              v-html="renderMarkdown(agentMessageText(msg))"
             />
 
             <!-- Live Streaming Cursor -->

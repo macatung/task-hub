@@ -23,6 +23,7 @@ import {
 import { buildAutoHandoffPayload } from '../utils/autoHandoff';
 import { hasAgentReportedFailure } from '../utils/agentRunOutcome';
 import { InteractiveRunReporter } from '../services/interactiveRunReporter';
+import { buildCaoTaskOrchestrationPrompt, buildCaoEpicOrchestrationPrompt } from '../services/caoBridgeService';
 import type { SafetyInterceptEvent } from '../utils/safetyGuardrails';
 import { DEFAULT_PROVIDER_MODELS } from '../constants/models';
 type ToolMode = "requirement" | "docs" | null;
@@ -203,6 +204,14 @@ const caoStatus = ref<{
   port: number;
   cli: string | null;
   source: "embedded" | "external" | "offline";
+  runtimeHome?: string;
+  serverPid?: number;
+  health?: "unknown" | "ok" | "failed";
+  sessionApi?: "unknown" | "ok" | "failed";
+  provider?: "unknown" | "ok" | "failed";
+  fifo?: "unknown" | "ok" | "failed";
+  restarting?: boolean;
+  lastError?: string;
 } | null>(null);
 const fleetAgents = ref<any[]>([]);
 const sessionTokenUsage = ref<{
@@ -1286,8 +1295,14 @@ const launch = async () => {
       "Khởi chạy thành công",
       "Agent đang streaming mã nguồn và log.",
     );
+    const caoPrompt = buildCaoTaskOrchestrationPrompt({
+      task: selectedTask.value,
+      context: plainContext,
+      epic: epicSequence.value?.epic,
+      policy: executionPolicy.value,
+    });
     await startLocal(
-      `Execute only ${selectedTask.value.issue_key || selectedTask.value.title}. Use the supplied Task Hub context, work in this isolated worktree, run relevant tests, and finish with a concise handoff.${epicSequence.value ? ` This task is one step in Epic ${epicSequence.value.epic.issue_key || epicSequence.value.epic.title}; do not work on sibling tasks.` : ""}\n\n${JSON.stringify(plainContext, null, 2)}`,
+      caoPrompt,
       "task",
       executionPolicy.value,
       launchIntent,
@@ -2764,17 +2779,17 @@ const restartCao = async () => {
   try {
     const res = await window.desktopApi?.cao?.restartDaemon?.();
     await Promise.all([refreshCaoStatus(), refreshAgentRuntimes()]);
-    if (res?.ok === false) {
+    if (res?.status === 'error' || res?.status === 'offline' || res?.ok === false) {
       notify({
         type: "warning",
         title: "CAO daemon chưa sẵn sàng",
-        message: res.error || "Không thể khởi động lại CAO daemon.",
+        message: res.message || res.error || "Không thể khởi động lại CAO daemon.",
       });
     } else {
       notify({
         type: "info",
         title: "CAO daemon",
-        message: "Đã khởi động lại và kiểm tra CAO runtime.",
+        message: `CAO daemon đã sẵn sàng (${res?.source || "WSL"} : ${res?.port || 9889}).`,
       });
     }
   } catch (e: any) {
@@ -2813,6 +2828,7 @@ const repairAgentRuntimes = async () => {
 };
 let handleVisibilityChange: (() => void) | undefined;
 let caoStatusTimer: ReturnType<typeof setInterval> | undefined;
+let unsubCaoStatus: (() => void) | undefined;
 onMounted(async () => {
   const version = await window.desktopApi?.getAppVersion?.();
   if (version) appVersion.value = `v${version}`;
@@ -2820,6 +2836,18 @@ onMounted(async () => {
   if (saved?.[0]) workspace.value = saved[0];
   await refreshAgentRuntimes();
   await refreshCaoStatus();
+  if (caoStatus.value?.available !== true && caoStatus.value?.running !== true) {
+    // Auto-check and attempt startup if CAO daemon is not yet active during app launch
+    void restartCao();
+  }
+  unsubCaoStatus = window.desktopApi?.cao?.onStatusUpdated?.((status: any) => {
+    if (status) {
+      void refreshCaoStatus();
+      if (status.status === 'running') {
+        previousCaoAvailable.value = true;
+      }
+    }
+  });
   // The Electron main process starts the WSL/native CAO daemon in the
   // background, so the first status check can legitimately race startup.
   // Keep the badge and run-workspace routing state current without requiring
@@ -2899,6 +2927,7 @@ onUnmounted(() => {
   unsubOutput?.();
   unsubExit?.();
   unsubUpdater?.();
+  unsubCaoStatus?.();
   if (contextCanaryTimer) clearInterval(contextCanaryTimer);
   if (caoStatusTimer) clearInterval(caoStatusTimer);
   if (handleVisibilityChange) document.removeEventListener('visibilitychange', handleVisibilityChange);

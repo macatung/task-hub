@@ -8,6 +8,7 @@ import type {
 import { useAutoPilotStore } from '../../stores/useAutoPilotStore';
 import { ROLE_METADATA } from '../../utils/autoPilotRunner';
 import { renderMarkdown } from '../../utils/markdown';
+import { parseResponseOutput } from '../../utils/responseOutput';
 
 export interface StreamCardsViewProps {
   stageExecutions?: AgentStageExecution[];
@@ -40,10 +41,10 @@ const expandedCards = ref<Record<AgentRoleType, boolean>>({
 
 // Scoped accordions: terminal logs and tool calls per card
 const expandedLogs = ref<Record<AgentRoleType, boolean>>({
-  architect: true,
-  implementer: true,
-  tester: true,
-  auditor: true,
+  architect: false,
+  implementer: false,
+  tester: false,
+  auditor: false,
 });
 
 const expandedTools = ref<Record<AgentRoleType, boolean>>({
@@ -295,6 +296,13 @@ const completedStepsCount = computed(() => {
 const progressPercent = computed(() => {
   return Math.round((completedStepsCount.value / 4) * 100);
 });
+
+const latestStageProgress = (role: AgentRoleType) => {
+  const logs = getStageExecution(role).terminalLogs || [];
+  if (!logs.length) return '';
+  const parsed = parseResponseOutput(logs.join('\n'));
+  return parsed.latestResponse || parsed.latestProgress || '';
+};
 </script>
 
 <template>
@@ -656,6 +664,13 @@ const progressPercent = computed(() => {
                   Chưa có biên bản bàn giao. Evidence Auditor sẽ thẩm định toàn diện sau khi các bước trước thành công.
                 </p>
               </div>
+            </div>
+
+            <div
+              v-if="latestStageProgress(role)"
+              class="rounded-lg border border-[#18263a] bg-[#060b14] px-3 py-2 text-[11px] leading-relaxed text-zinc-400"
+            >
+              <span class="mr-1.5 font-semibold text-zinc-300">Cập nhật:</span>{{ latestStageProgress(role) }}
             </div>
 
             <!-- 2. Tool Calls Scoped Accordion -->

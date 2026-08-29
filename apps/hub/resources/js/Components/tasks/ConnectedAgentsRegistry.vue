@@ -134,26 +134,19 @@ const setupEventSource = () => {
   } catch {}
 };
 
-const getOsBadge = (platform?: string | null) => {
-  const p = (platform || '').toLowerCase();
-  if (p.includes('win') || p === 'win32') {
-    return { icon: '🪟', name: 'Windows', class: 'bg-sky-500/10 text-sky-400 border-sky-500/30' };
-  }
-  if (p.includes('darwin') || p.includes('mac') || p.includes('apple')) {
-    return { icon: '🍎', name: 'macOS', class: 'bg-zinc-500/10 text-zinc-300 border-zinc-500/30' };
-  }
-  if (p.includes('linux')) {
-    return { icon: '🐧', name: 'Linux', class: 'bg-amber-500/10 text-amber-400 border-amber-500/30' };
-  }
-  return { icon: '💻', name: 'Desktop', class: 'bg-slate-500/10 text-slate-400 border-slate-500/30' };
+const getOsBadge = (os?: string) => {
+  const normalized = (os || '').toLowerCase();
+  if (normalized.includes('win')) return { label: 'WINDOWS', icon: 'Laptop', class: 'text-sky-400 bg-sky-950/40 border-sky-800/60' };
+  if (normalized.includes('mac') || normalized.includes('darwin')) return { label: 'MACOS', icon: 'Laptop', class: 'text-purple-400 bg-purple-950/40 border-purple-800/60' };
+  return { label: 'LINUX', icon: 'Terminal', class: 'text-amber-400 bg-amber-950/40 border-amber-800/60' };
 };
 
 const getLatencyBadge = (latency?: number | null) => {
   if (latency === null || latency === undefined) {
-    return { text: '-- ms', class: 'text-slate-500 bg-slate-800/40 border-slate-700' };
+    return { text: '-- ms', class: 'text-slate-500 bg-midnight-900/80 border-midnight-800' };
   }
   if (latency < 40) {
-    return { text: `${latency}ms`, class: 'text-emerald-400 bg-emerald-950/60 border-emerald-800/60' };
+    return { text: `${latency}ms`, class: 'text-phantom-mint bg-emerald-950/60 border-emerald-800/60' };
   }
   if (latency < 120) {
     return { text: `${latency}ms`, class: 'text-amber-400 bg-amber-950/60 border-amber-800/60' };
@@ -207,7 +200,7 @@ onBeforeUnmount(() => {
     class="connected-agents-registry mx-3 sm:mx-6 mt-2.5 rounded-2xl border transition-all duration-200 overflow-hidden shadow-xs backdrop-blur-md"
     :class="[
       isDarkMode
-        ? 'border-slate-800/90 bg-[#0a0f1d]/90 text-slate-100 shadow-slate-950/40'
+        ? 'border-midnight-800/80 bg-midnight-900/90 text-slate-100 shadow-midnight-950/40'
         : 'border-slate-200/90 bg-white/90 text-slate-900 shadow-slate-200/40'
     ]"
   >
@@ -216,19 +209,19 @@ onBeforeUnmount(() => {
       <!-- Left: Glowing Live Beacon & Registry Title -->
       <div class="flex items-center gap-3 min-w-0">
         <!-- Glowing Beacon -->
-        <div class="relative flex items-center justify-center h-4 w-4">
+        <div class="relative inline-flex items-center justify-center shrink-0 h-4 w-4">
           <span
             v-if="onlineCount > 0"
-            class="animate-ping absolute inline-flex h-3.5 w-3.5 rounded-full opacity-75"
-            :class="busyCount > 0 ? 'bg-amber-400' : 'bg-emerald-400'"
+            class="animate-ping absolute inline-flex h-3.5 w-3.5 rounded-full opacity-75 shrink-0"
+            :class="busyCount > 0 ? 'bg-amber-400' : 'bg-emerald-400 bg-phantom-mint'"
           />
           <span
-            class="relative inline-flex rounded-full h-2.5 w-2.5 shadow-sm"
+            class="relative inline-flex rounded-full h-2.5 w-2.5 shadow-sm shrink-0"
             :class="[
               busyCount > 0
                 ? 'bg-amber-500 shadow-amber-500/50 ring-2 ring-amber-400/20'
                 : onlineCount > 0
-                ? 'bg-emerald-500 shadow-emerald-500/50 ring-2 ring-emerald-400/20'
+                ? 'bg-phantom-mint shadow-[0_0_10px_rgba(0,245,160,0.5)] ring-2 ring-phantom-mint/30'
                 : 'bg-slate-500'
             ]"
           />
@@ -238,10 +231,10 @@ onBeforeUnmount(() => {
           <span class="font-bold text-xs font-display tracking-tight">Connected Desktop Agents</span>
           <div class="flex items-center gap-1.5 font-mono text-[10px]">
             <span
-              class="px-2 py-0.5 rounded-full font-bold border transition-colors"
+              class="px-2 py-0.5 rounded-full font-bold border transition-colors inline-flex items-center justify-center shrink-0"
               :class="[
                 onlineCount > 0
-                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                  ? 'bg-emerald-500/10 text-emerald-400 dark:text-phantom-mint border-emerald-500/30 dark:border-phantom-mint/30'
                   : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
               ]"
             >
@@ -249,7 +242,7 @@ onBeforeUnmount(() => {
             </span>
             <span
               v-if="busyCount > 0"
-              class="px-2 py-0.5 rounded-full font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30"
+              class="px-2 py-0.5 rounded-full font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 inline-flex items-center justify-center shrink-0"
             >
               {{ busyCount }} Busy
             </span>
@@ -267,44 +260,44 @@ onBeforeUnmount(() => {
       <div class="flex items-center gap-2 shrink-0">
         <!-- Live SSE Beacon -->
         <span
-          class="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1"
+          class="font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border inline-flex items-center gap-1 shrink-0"
           :class="[
             isConnected
-              ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60 shadow-xs'
+              ? 'bg-emerald-950/60 text-phantom-mint border-phantom-mint/40 shadow-xs'
               : 'bg-amber-950/40 text-amber-400 border-amber-800/50'
           ]"
           :title="isConnected ? 'Real-time Server-Sent Events live stream connected' : 'Connecting to live stream... Fallback polling active'"
         >
-          <span class="inline-block w-1.5 h-1.5 rounded-full" :class="isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'" />
-          <span>{{ isConnected ? 'SSE Live' : 'Polling (10s)' }}</span>
+          <span class="inline-block w-1.5 h-1.5 rounded-full shrink-0" :class="isConnected ? 'bg-phantom-mint animate-pulse' : 'bg-amber-400'" />
+          <span class="leading-none">{{ isConnected ? 'SSE Live' : 'Polling (10s)' }}</span>
         </span>
 
         <!-- Refresh Button -->
         <button
           @click="() => fetchRunners(true)"
           :disabled="isRefreshing"
-          class="p-1.5 rounded-lg border text-[11px] transition-all cursor-pointer flex items-center justify-center"
+          class="h-7 w-7 rounded-lg border text-[11px] transition-all cursor-pointer inline-flex items-center justify-center shrink-0"
           :class="[
             isDarkMode
-              ? 'border-slate-800 bg-slate-900/80 text-slate-400 hover:text-white hover:border-slate-700'
+              ? 'border-midnight-800 bg-midnight-850 text-slate-400 hover:text-white hover:border-midnight-700'
               : 'border-slate-200 bg-slate-100 text-slate-600 hover:text-slate-900 hover:border-slate-300'
           ]"
           title="Refresh connected agents registry"
         >
-          <Icons name="Refresh" :size="14" :class="['transition-transform', isRefreshing ? 'animate-spin text-emerald-400' : '']" />
+          <Icons name="Refresh" :size="14" :class="['transition-transform', isRefreshing ? 'animate-spin text-phantom-mint' : '']" />
         </button>
 
         <!-- Toggle Workstations Grid -->
         <button
           @click="isExpanded = !isExpanded"
-          class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 border"
+          class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 border shrink-0"
           :class="[
             isExpanded
-              ? 'bg-blue-600/15 text-blue-400 border-blue-500/40'
-              : (isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white' : 'bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-950')
+              ? 'bg-emerald-500/15 text-phantom-mint border-phantom-mint/40'
+              : (isDarkMode ? 'bg-midnight-850 border-midnight-800 text-slate-300 hover:text-white' : 'bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-950')
           ]"
         >
-          <span>{{ isExpanded ? 'Hide Workstations' : 'View Workstations' }}</span>
+          <span class="leading-none">{{ isExpanded ? 'Hide Workstations' : 'View Workstations' }}</span>
           <Icons :name="isExpanded ? 'ChevronUp' : 'ChevronDown'" :size="12" />
         </button>
       </div>
@@ -314,7 +307,7 @@ onBeforeUnmount(() => {
     <div
       v-if="isExpanded"
       class="border-t px-4 py-3 space-y-3"
-      :class="isDarkMode ? 'border-slate-800/80 bg-slate-950/50' : 'border-slate-200/80 bg-slate-50/50'"
+      :class="isDarkMode ? 'border-midnight-800/80 bg-midnight-950/60' : 'border-slate-200/80 bg-slate-50/50'"
     >
       <!-- Workstation Cards Grid -->
       <div v-if="runners.length" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -324,20 +317,27 @@ onBeforeUnmount(() => {
           class="workstation-card rounded-2xl border p-3.5 space-y-2.5 transition-all duration-200 shadow-xs relative overflow-hidden"
           :class="[
             runner.health === 'offline'
-              ? (isDarkMode ? 'bg-slate-900/30 border-slate-800/60 opacity-60' : 'bg-slate-100/60 border-slate-200 opacity-60')
+              ? (isDarkMode ? 'bg-midnight-900/40 border-midnight-800/60 opacity-60' : 'bg-slate-100/60 border-slate-200 opacity-60')
               : runner.health === 'busy'
               ? (isDarkMode ? 'bg-amber-950/15 border-amber-500/40 shadow-amber-950/20' : 'bg-amber-50/60 border-amber-300')
-              : (isDarkMode ? 'bg-[#0d1424] border-slate-800 hover:border-emerald-500/50 hover:shadow-md' : 'bg-white border-slate-200 hover:border-emerald-500 hover:shadow-md')
+              : (isDarkMode ? 'bg-midnight-850 border-midnight-800/80 hover:border-phantom-mint/60 hover:shadow-md' : 'bg-white border-slate-200 hover:border-emerald-500 hover:shadow-md')
           ]"
         >
           <!-- Card Header: Machine Name, OS Badge & Status -->
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0 space-y-0.5">
-              <div class="flex items-center gap-1.5">
-                <Icons name="Desktop" :size="14" class="text-blue-400 shrink-0" />
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <Icons name="Desktop" :size="14" class="text-cyan-400 shrink-0" />
                 <h4 class="font-bold text-xs truncate tracking-tight" :class="isDarkMode ? 'text-white' : 'text-slate-950'">
                   {{ runner.machine_name || runner.name }}
                 </h4>
+                <span
+                  v-if="runner.os_platform"
+                  class="font-mono text-[9px] font-bold px-1.5 py-0.2 rounded border shrink-0"
+                  :class="getOsBadge(runner.os_platform).class"
+                >
+                  {{ getOsBadge(runner.os_platform).label }}
+                </span>
               </div>
               <p class="font-mono text-[10px] text-slate-500 truncate" :title="runner.hostname || runner.client_id || ''">
                 {{ runner.hostname || (runner.client_id ? `ID: ${runner.client_id.slice(0, 8)}` : 'localhost') }}
@@ -360,7 +360,7 @@ onBeforeUnmount(() => {
               <span class="font-bold text-slate-400">AI:</span>
               <span
                 class="font-mono px-1.5 py-0.2 rounded border truncate"
-                :class="isDarkMode ? 'bg-slate-900 border-slate-700 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-800'"
+                :class="isDarkMode ? 'bg-midnight-900 border-midnight-700 text-cyan-300' : 'bg-blue-50 border-blue-200 text-blue-800'"
               >
                 {{ runner.active_provider ? runner.active_provider.toUpperCase() : 'ANTIGRAVITY' }}
               </span>
@@ -371,7 +371,7 @@ onBeforeUnmount(() => {
 
             <!-- Ping Latency Badge -->
             <span
-              class="font-mono text-[9px] font-bold px-1.5 py-0.2 rounded border shrink-0"
+              class="font-mono text-[9px] font-bold px-1.5 py-0.2 rounded border shrink-0 inline-flex items-center justify-center"
               :class="getLatencyBadge(runner.ping_latency_ms).class"
               :title="`Heartbeat ping round-trip latency: ${runner.ping_latency_ms || 0}ms`"
             >
@@ -383,20 +383,20 @@ onBeforeUnmount(() => {
           <div
             v-if="runner.workspace_cwd"
             class="flex items-center justify-between gap-1.5 p-1.5 rounded-xl border font-mono text-[10px]"
-            :class="isDarkMode ? 'bg-slate-950/80 border-slate-800 text-slate-300' : 'bg-slate-100/90 border-slate-200 text-slate-700'"
+            :class="isDarkMode ? 'bg-midnight-900/90 border-midnight-800 text-slate-300' : 'bg-slate-100/90 border-slate-200 text-slate-700'"
           >
-            <span class="truncate text-[9.5px] flex items-center gap-1" :title="runner.workspace_cwd">
+            <span class="truncate text-[9.5px] flex items-center gap-1 min-w-0" :title="runner.workspace_cwd">
               <Icons name="Folder" :size="12" class="text-amber-400 shrink-0" />
               <span class="truncate">{{ runner.workspace_cwd }}</span>
             </span>
             <button
               @click="copyCwd(runner)"
-              class="shrink-0 p-0.5 text-[9px] text-slate-400 hover:text-white cursor-pointer font-sans flex items-center gap-1"
+              class="shrink-0 p-0.5 text-[9px] text-slate-400 hover:text-white cursor-pointer font-sans inline-flex items-center gap-1"
               :title="'Copy workspace directory path'"
             >
-              <Icons v-if="copiedCwdId === runner.id" name="Check" :size="11" class="text-emerald-400" />
+              <Icons v-if="copiedCwdId === runner.id" name="Check" :size="11" class="text-phantom-mint" />
               <Icons v-else name="Copy" :size="11" class="text-slate-400" />
-              <span>{{ copiedCwdId === runner.id ? 'Copied' : '' }}</span>
+              <span v-if="copiedCwdId === runner.id" class="text-phantom-mint font-bold leading-none">Copied</span>
             </button>
           </div>
 
@@ -410,7 +410,7 @@ onBeforeUnmount(() => {
                   {{ runner.quota_metrics?.gemini?.weekly_percent ?? 100 }}% left
                 </span>
               </div>
-              <div class="h-1.5 w-full rounded-full bg-slate-800/80 overflow-hidden flex">
+              <div class="h-1.5 w-full rounded-full bg-midnight-900 overflow-hidden flex border border-midnight-800/80">
                 <div
                   class="h-full transition-all duration-300"
                   :class="[
@@ -433,9 +433,9 @@ onBeforeUnmount(() => {
                   {{ runner.quota_metrics?.gemini?.five_hour_percent ?? 100 }}% left
                 </span>
               </div>
-              <div class="h-1.5 w-full rounded-full bg-slate-800/80 overflow-hidden flex">
+              <div class="h-1.5 w-full rounded-full bg-midnight-900 overflow-hidden flex border border-midnight-800/80">
                 <div
-                  class="h-full bg-cyan-500 transition-all duration-300"
+                  class="h-full bg-cyan-400 transition-all duration-300"
                   :style="{ width: `${Math.min(100, Math.max(0, runner.quota_metrics?.gemini?.five_hour_percent ?? 100))}%` }"
                 />
               </div>
@@ -450,16 +450,16 @@ onBeforeUnmount(() => {
             <button
               @click="handleDispatchClick(runner)"
               :disabled="runner.health === 'offline'"
-              class="px-2.5 py-1 rounded-xl text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1.5 border shadow-xs"
+              class="px-2.5 py-1 rounded-xl text-[10px] font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 border shadow-xs shrink-0"
               :class="[
                 runner.health === 'offline'
-                  ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-emerald-500/50 shadow-emerald-950/40 active:scale-95'
+                  ? 'bg-midnight-900 text-slate-500 border-midnight-800 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 font-extrabold border-emerald-400/50 shadow-emerald-950/40 active:scale-95'
               ]"
               title="⚡ Dispatch Task"
             >
-              <Icons name="Zap" :size="12" class="text-amber-300" />
-              <span>⚡ Dispatch Task</span>
+              <Icons name="Zap" :size="12" class="text-midnight-950" />
+              <span class="leading-none">Dispatch Task</span>
             </button>
           </div>
         </article>
@@ -469,9 +469,11 @@ onBeforeUnmount(() => {
       <div
         v-else
         class="py-6 px-4 rounded-2xl border border-dashed text-center space-y-2"
-        :class="isDarkMode ? 'border-slate-800 bg-slate-900/30' : 'border-slate-300 bg-slate-50'"
+        :class="isDarkMode ? 'border-midnight-800 bg-midnight-900/30' : 'border-slate-300 bg-slate-50'"
       >
-        <Icons name="Desktop" :size="32" class="mx-auto text-slate-500" />
+        <div class="w-10 h-10 mx-auto rounded-xl bg-midnight-850 border border-midnight-800 flex items-center justify-center text-slate-400 shrink-0">
+          <Icons name="Desktop" :size="20" />
+        </div>
         <h4 class="font-bold text-xs" :class="isDarkMode ? 'text-slate-200' : 'text-slate-800'">No Desktop Agents Connected</h4>
         <p class="text-[11px] text-slate-400 max-w-md mx-auto leading-relaxed">
           Open Midnight Hub Desktop on your workstation to automatically connect and receive remote task dispatches in under 2 seconds.
@@ -486,7 +488,7 @@ onBeforeUnmount(() => {
         </div>
         <pre
           class="max-h-20 overflow-auto rounded-xl p-2.5 text-[10px] font-mono border leading-relaxed select-all"
-          :class="isDarkMode ? 'bg-black text-emerald-400 border-slate-800' : 'bg-slate-950 text-emerald-300 border-slate-800'"
+          :class="isDarkMode ? 'bg-midnight-950 text-phantom-mint border-midnight-800' : 'bg-slate-950 text-emerald-300 border-slate-800'"
         >{{ latestLog }}</pre>
       </div>
     </div>

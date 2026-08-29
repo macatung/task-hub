@@ -238,3 +238,54 @@ export function formatHandoffMarkdown(payload: AgentHandoffPayload): string {
     `- **Blockers**: ${payload.blockers || 'None'}`,
   ].join('\n');
 }
+
+export interface ExtractedHandoff {
+  observation?: string;
+  logicChain?: string;
+  caveats?: string;
+  conclusion?: string;
+  verificationMethod?: string;
+}
+
+/**
+ * Extracts 5-component handoff sections from Markdown turn text.
+ */
+export function extractHandoffFromText(text: string): ExtractedHandoff | null {
+  if (!text || !text.includes('## Observation')) return null;
+
+  const extractSection = (heading: string, nextHeading?: string): string => {
+    const startIdx = text.indexOf(`## ${heading}`);
+    if (startIdx === -1) return '';
+    const contentStart = startIdx + `## ${heading}`.length;
+    let endIdx = nextHeading ? text.indexOf(`## ${nextHeading}`, contentStart) : text.length;
+    if (endIdx === -1) endIdx = text.length;
+    return text.slice(contentStart, endIdx).trim();
+  };
+
+  const observation = extractSection('Observation', 'Logic Chain');
+  const logicChain = extractSection('Logic Chain', 'Caveats');
+  const caveats = extractSection('Caveats', 'Conclusion');
+  const conclusion = extractSection('Conclusion', 'Verification Method');
+  const verificationMethod = extractSection('Verification Method');
+
+  return {
+    observation,
+    logicChain,
+    caveats,
+    conclusion,
+    verificationMethod,
+  };
+}
+
+/**
+ * Validates whether all required sections of a handoff report are populated.
+ */
+export function validateHandoffCompleteness(handoff: ExtractedHandoff | null): boolean {
+  if (!handoff) return false;
+  return Boolean(
+    handoff.observation &&
+    handoff.logicChain &&
+    handoff.conclusion &&
+    handoff.verificationMethod
+  );
+}

@@ -6,8 +6,6 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "dev:ide": "vite --mode=ide",
-    "dev:mascot": "vite --mode=mascot",
     "postinstall": "electron-rebuild -f -w node-pty",
     "typecheck": "vue-tsc --noEmit",
     "build": "vue-tsc --noEmit && vite build && electron-builder --win",

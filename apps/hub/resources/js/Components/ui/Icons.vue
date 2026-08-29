@@ -98,9 +98,37 @@ const resolvedIcon = computed(() => {
     Box: LucideIcons.Box,
     ListChecks: LucideIcons.ListChecks,
     ArrowRight: LucideIcons.ArrowRight,
+    ArrowUpRight: LucideIcons.ArrowUpRight,
     Agent: LucideIcons.Bot || LucideIcons.Cpu,
     AlertCircle: LucideIcons.AlertCircle || LucideIcons.CircleAlert,
     AlertTriangle: LucideIcons.AlertTriangle || LucideIcons.TriangleAlert,
+    CircleAlert: LucideIcons.CircleAlert || LucideIcons.AlertCircle,
+    TriangleAlert: LucideIcons.TriangleAlert || LucideIcons.AlertTriangle,
+    PanelLeftClose: LucideIcons.PanelLeftClose || LucideIcons.SidebarClose || LucideIcons.Menu,
+    PanelLeftOpen: LucideIcons.PanelLeftOpen || LucideIcons.SidebarOpen || LucideIcons.Menu,
+    Plus: LucideIcons.Plus,
+    Trash: LucideIcons.Trash2 || LucideIcons.Trash,
+    Trash2: LucideIcons.Trash2 || LucideIcons.Trash,
+    Edit: LucideIcons.Edit3 || LucideIcons.Edit2 || LucideIcons.Edit,
+    Edit2: LucideIcons.Edit2 || LucideIcons.Edit,
+    Edit3: LucideIcons.Edit3 || LucideIcons.Edit,
+    MoreVertical: LucideIcons.MoreVertical,
+    MoreHorizontal: LucideIcons.MoreHorizontal,
+    Rocket: LucideIcons.Rocket,
+    FileText: LucideIcons.FileText || LucideIcons.File,
+    FileSpreadsheet: LucideIcons.FileSpreadsheet || LucideIcons.Sheet || LucideIcons.FileText,
+    LoaderCircle: LucideIcons.LoaderCircle || LucideIcons.Loader2 || LucideIcons.Loader,
+    Maximize2: LucideIcons.Maximize2 || LucideIcons.Maximize,
+    Minimize2: LucideIcons.Minimize2 || LucideIcons.Minimize,
+    Briefcase: LucideIcons.Briefcase,
+    Settings: LucideIcons.Settings || LucideIcons.Sliders,
+    Plug: LucideIcons.Plug || LucideIcons.Zap,
+    Bell: LucideIcons.Bell,
+    ChevronLeft: LucideIcons.ChevronLeft,
+    Calendar: LucideIcons.Calendar,
+    FolderSync: LucideIcons.FolderSync || LucideIcons.RefreshCw || LucideIcons.Folder,
+    User: LucideIcons.User,
+    Users: LucideIcons.Users,
   };
 
   return fallbackMap[pascalName] || fallbackMap[rawName] || LucideIcons.HelpCircle || LucideIcons.CircleHelp || LucideIcons.Circle;
@@ -112,6 +140,6 @@ const resolvedIcon = computed(() => {
     :is="resolvedIcon"
     :size="size"
     :stroke-width="strokeWidth"
-    :class="props.class"
+    :class="['shrink-0', props.class]"
   />
 </template>

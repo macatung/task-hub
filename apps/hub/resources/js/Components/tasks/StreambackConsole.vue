@@ -738,10 +738,10 @@ onBeforeUnmount(() => {
     <!-- Header: Active Run Info, Model & Execution Action Controls -->
     <div
       class="p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-3 shadow-xs transition-all"
-      :class="isDarkMode ? 'bg-[#0a0f1d] border-slate-800 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-900'"
+      :class="isDarkMode ? 'bg-midnight-900/90 border-midnight-800/80 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-900'"
     >
       <div class="flex items-center gap-3 min-w-0">
-        <div class="p-2.5 rounded-xl bg-gradient-to-br from-indigo-500/20 via-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
+        <div class="p-2.5 rounded-xl bg-gradient-to-br from-indigo-500/20 via-emerald-500/20 to-teal-500/20 border border-emerald-500/30 text-emerald-400 inline-flex items-center justify-center shrink-0 shadow-inner">
           <Icons name="Zap" :size="18" class="text-amber-300 animate-pulse" />
         </div>
         <div class="min-w-0">
@@ -756,7 +756,7 @@ onBeforeUnmount(() => {
               :dark="isDarkMode"
             />
             <span
-              class="px-2 py-0.5 rounded-full font-mono text-[9px] font-bold uppercase tracking-wide border border-indigo-500/30 bg-indigo-500/10 text-indigo-300"
+              class="px-2 py-0.5 rounded-full font-mono text-[9px] font-bold uppercase tracking-wide border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 inline-flex items-center justify-center shrink-0"
             >
               4-Phase Pipeline
             </span>
@@ -775,11 +775,11 @@ onBeforeUnmount(() => {
           v-if="['running', 'preparing', 'testing'].includes(activeRun?.status || '')"
           @click="pauseActiveRun"
           :disabled="isPausing"
-          class="px-2.5 py-1 rounded-xl text-[10px] font-bold border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 transition-all cursor-pointer flex items-center gap-1.5"
+          class="px-2.5 py-1 rounded-xl text-[10px] font-bold border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 transition-all cursor-pointer inline-flex items-center gap-1.5 shrink-0"
           title="Pause active execution"
         >
           <Icons name="Pause" :size="11" />
-          <span>{{ isPausing ? 'Pausing…' : 'Pause' }}</span>
+          <span class="leading-none">{{ isPausing ? 'Pausing…' : 'Pause' }}</span>
         </button>
 
         <!-- Resume Action -->
@@ -787,11 +787,11 @@ onBeforeUnmount(() => {
           v-if="['waiting_input'].includes(activeRun?.status || '')"
           @click="resumeActiveRun"
           :disabled="isResuming"
-          class="px-2.5 py-1 rounded-xl text-[10px] font-bold border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 transition-all cursor-pointer flex items-center gap-1.5"
+          class="px-2.5 py-1 rounded-xl text-[10px] font-bold border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 transition-all cursor-pointer inline-flex items-center gap-1.5 shrink-0"
           title="Resume execution"
         >
           <Icons name="Play" :size="11" />
-          <span>{{ isResuming ? 'Resuming…' : 'Resume' }}</span>
+          <span class="leading-none">{{ isResuming ? 'Resuming…' : 'Resume' }}</span>
         </button>
 
         <!-- Cancel Action -->
@@ -799,22 +799,22 @@ onBeforeUnmount(() => {
           v-if="['queued', 'claimed', 'preparing', 'running', 'waiting_input', 'testing'].includes(activeRun?.status || '')"
           @click="cancelActiveRun"
           :disabled="isCancelling"
-          class="px-2.5 py-1 rounded-xl text-[10px] font-bold border border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 transition-all cursor-pointer flex items-center gap-1.5"
+          class="px-2.5 py-1 rounded-xl text-[10px] font-bold border border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 transition-all cursor-pointer inline-flex items-center gap-1.5 shrink-0"
           title="Cancel active agent execution"
         >
           <Icons name="X" :size="11" />
-          <span>{{ isCancelling ? 'Stopping…' : 'Cancel' }}</span>
+          <span class="leading-none">{{ isCancelling ? 'Stopping…' : 'Cancel' }}</span>
         </button>
 
         <!-- Sync Action -->
         <button
           @click="activeRun?.id && loadRunDetails(activeRun.id)"
-          class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1.5"
-          :class="isDarkMode ? 'border-slate-800 bg-slate-900 text-slate-300 hover:text-white' : 'border-slate-300 bg-white text-slate-700 hover:text-slate-950'"
+          class="px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer inline-flex items-center gap-1.5 shrink-0"
+          :class="isDarkMode ? 'border-midnight-800 bg-midnight-850 text-slate-300 hover:text-white' : 'border-slate-300 bg-white text-slate-700 hover:text-slate-950'"
           title="Refresh streamback logs and status"
         >
           <Icons name="Refresh" :size="12" />
-          <span>Sync</span>
+          <span class="leading-none">Sync</span>
         </button>
       </div>
     </div>
@@ -846,7 +846,7 @@ onBeforeUnmount(() => {
       <!-- Command Preview Block -->
       <pre
         v-if="safetyIntercept.command"
-        class="p-2.5 rounded-xl bg-black text-amber-300 font-mono text-[10px] border border-amber-500/30 overflow-auto"
+        class="p-2.5 rounded-xl bg-midnight-950 text-amber-300 font-mono text-[10px] border border-amber-500/30 overflow-auto"
       >{{ safetyIntercept.command }}</pre>
 
       <!-- Action Buttons -->
@@ -854,19 +854,19 @@ onBeforeUnmount(() => {
         <button
           @click="approveSafetyOrHandoff"
           :disabled="isApproving"
-          class="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
+          class="px-4 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 font-bold text-xs transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm active:scale-95 shrink-0"
         >
           <Icons name="Check" :size="12" />
-          <span>{{ isApproving ? 'Approving...' : 'Authorize & Continue Execution' }}</span>
+          <span class="leading-none">{{ isApproving ? 'Approving...' : 'Authorize & Continue Execution' }}</span>
         </button>
 
         <button
           @click="rejectSafetyOrHandoff"
           :disabled="isRejecting"
-          class="px-4 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+          class="px-4 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 font-bold text-xs transition-all cursor-pointer inline-flex items-center gap-1.5 active:scale-95 shrink-0"
         >
           <Icons name="X" :size="12" />
-          <span>{{ isRejecting ? 'Rejecting...' : 'Reject Action' }}</span>
+          <span class="leading-none">{{ isRejecting ? 'Rejecting...' : 'Reject Action' }}</span>
         </button>
       </div>
     </div>
@@ -884,10 +884,10 @@ onBeforeUnmount(() => {
         </div>
         <button
           @click="showGlobalConsole = !showGlobalConsole"
-          class="text-[10px] font-mono text-cyan-400 hover:underline cursor-pointer flex items-center gap-1"
+          class="text-[10px] font-mono text-cyan-400 hover:underline cursor-pointer inline-flex items-center gap-1 shrink-0"
         >
           <Icons name="Terminal" :size="11" />
-          <span>{{ showGlobalConsole ? 'Hide Raw Console' : 'View Raw Console' }}</span>
+          <span class="leading-none">{{ showGlobalConsole ? 'Hide Raw Console' : 'View Raw Console' }}</span>
         </button>
       </div>
 
@@ -897,9 +897,9 @@ onBeforeUnmount(() => {
         :key="phase.id"
         class="rounded-2xl border transition-all shadow-sm overflow-hidden"
         :class="[
-          isDarkMode ? 'bg-[#090d19] border-slate-800/90' : 'bg-white border-slate-200',
+          isDarkMode ? 'bg-midnight-900/90 border-midnight-800/80' : 'bg-white border-slate-200',
           phase.status === 'running'
-            ? (isDarkMode ? 'ring-1 ring-blue-500/50 border-blue-500/40' : 'ring-1 ring-blue-400 border-blue-300')
+            ? (isDarkMode ? 'ring-1 ring-emerald-500/50 border-emerald-500/40' : 'ring-1 ring-blue-400 border-blue-300')
             : ''
         ]"
       >
@@ -907,12 +907,12 @@ onBeforeUnmount(() => {
         <div
           @click="expandedPhases[phase.role] = !expandedPhases[phase.role]"
           class="p-3.5 flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none transition-colors"
-          :class="isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50'"
+          :class="isDarkMode ? 'hover:bg-midnight-850/60' : 'hover:bg-slate-50'"
         >
           <div class="flex items-center gap-3 min-w-0">
             <!-- Avatar & Role Icon -->
             <div
-              class="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 border"
+              class="w-8 h-8 rounded-xl inline-flex items-center justify-center text-sm font-bold shrink-0 border"
               :class="[
                 phase.status === 'completed'
                   ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
@@ -922,7 +922,7 @@ onBeforeUnmount(() => {
                   ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
                   : phase.status === 'failed'
                   ? 'bg-rose-500/15 border-rose-500/30 text-rose-300'
-                  : 'bg-slate-800 border-slate-700 text-slate-400'
+                  : (isDarkMode ? 'bg-midnight-850 border-midnight-800 text-slate-400' : 'bg-slate-800 border-slate-700 text-slate-400')
               ]"
             >
               <span>{{ phase.avatar }}</span>
@@ -935,15 +935,15 @@ onBeforeUnmount(() => {
                   {{ phase.title }}
                 </h4>
                 <span
-                  class="px-1.5 py-0.2 rounded font-mono text-[9px] font-bold uppercase border"
+                  class="px-1.5 py-0.2 rounded font-mono text-[9px] font-bold uppercase border inline-flex items-center justify-center shrink-0"
                   :class="phase.badgeClass"
                 >
                   {{ phase.badge }}
                 </span>
                 <!-- Active Model Tag -->
                 <span
-                  class="px-2 py-0.2 rounded-full font-mono text-[9px] border"
-                  :class="isDarkMode ? 'bg-slate-800/70 border-slate-700 text-cyan-300' : 'bg-slate-100 border-slate-200 text-cyan-700'"
+                  class="px-2 py-0.2 rounded-full font-mono text-[9px] border inline-flex items-center justify-center shrink-0"
+                  :class="isDarkMode ? 'bg-midnight-850 border-midnight-700 text-cyan-300' : 'bg-slate-100 border-slate-200 text-cyan-700'"
                 >
                   {{ phase.model }}
                 </span>
@@ -958,7 +958,7 @@ onBeforeUnmount(() => {
           <div class="flex items-center gap-2.5 shrink-0">
             <!-- Status Badge -->
             <div
-              class="px-2 py-0.5 rounded-full font-mono text-[9.5px] font-bold flex items-center gap-1.5 border"
+              class="px-2 py-0.5 rounded-full font-mono text-[9.5px] font-bold inline-flex items-center justify-center gap-1.5 border shrink-0"
               :class="[
                 phase.status === 'completed'
                   ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
@@ -968,14 +968,14 @@ onBeforeUnmount(() => {
                   ? 'bg-amber-950/60 border-amber-500/40 text-amber-300'
                   : phase.status === 'failed'
                   ? 'bg-rose-950/60 border-rose-500/40 text-rose-300'
-                  : 'bg-slate-800/60 border-slate-700 text-slate-400'
+                  : (isDarkMode ? 'bg-midnight-850/60 border-midnight-800 text-slate-400' : 'bg-slate-800/60 border-slate-700 text-slate-400')
               ]"
             >
               <Icons v-if="phase.status === 'completed'" name="Check" :size="10" />
               <Icons v-else-if="phase.status === 'running'" name="Loader" :size="10" class="animate-spin" />
               <Icons v-else-if="phase.status === 'paused'" name="AlertTriangle" :size="10" />
               <Icons v-else-if="phase.status === 'failed'" name="X" :size="10" />
-              <span class="uppercase">{{ phase.status }}</span>
+              <span class="uppercase leading-none">{{ phase.status }}</span>
             </div>
 
             <!-- Accordion Chevron -->
@@ -991,7 +991,7 @@ onBeforeUnmount(() => {
         <div
           v-if="expandedPhases[phase.role]"
           class="border-t p-4 space-y-3"
-          :class="isDarkMode ? 'border-slate-800/80 bg-black/20' : 'border-slate-100 bg-slate-50/50'"
+          :class="isDarkMode ? 'border-midnight-800/80 bg-midnight-950/50' : 'border-slate-100 bg-slate-50/50'"
         >
           <!-- Artifacts / Summary Preview per Phase -->
           <!-- Phase 1 (Architect) Plan Artifact -->
@@ -1001,9 +1001,9 @@ onBeforeUnmount(() => {
             :class="isDarkMode ? 'bg-indigo-950/20 border-indigo-500/30 text-slate-200' : 'bg-indigo-50 border-indigo-200 text-indigo-950'"
           >
             <div class="flex items-center justify-between gap-2">
-              <span class="font-bold text-indigo-300 font-display flex items-center gap-1.5 text-[11px]">
+              <span class="font-bold text-indigo-300 font-display inline-flex items-center gap-1.5 text-[11px]">
                 <Icons name="Layers" :size="12" />
-                Structured Implementation Plan
+                <span class="leading-none">Structured Implementation Plan</span>
               </span>
               <span class="font-mono text-[9px] text-indigo-300/80">Architect Spec</span>
             </div>
@@ -1014,7 +1014,7 @@ onBeforeUnmount(() => {
               <div
                 v-for="(story, sIdx) in phase.artifacts.plan.stories"
                 :key="sIdx"
-                class="p-2 rounded-lg bg-black/30 border border-indigo-500/20 text-[10px] font-mono flex items-center justify-between"
+                class="p-2 rounded-lg bg-midnight-950/80 border border-indigo-500/20 text-[10px] font-mono flex items-center justify-between"
               >
                 <span class="text-indigo-200 truncate">{{ story.title }}</span>
                 <span class="text-indigo-400 shrink-0">{{ story.story_points }} SP</span>
@@ -1029,9 +1029,9 @@ onBeforeUnmount(() => {
             :class="isDarkMode ? 'bg-emerald-950/20 border-emerald-500/30 text-slate-200' : 'bg-emerald-50 border-emerald-200 text-emerald-950'"
           >
             <div class="flex items-center justify-between gap-2">
-              <span class="font-bold text-emerald-300 font-display flex items-center gap-1.5 text-[11px]">
+              <span class="font-bold text-emerald-300 font-display inline-flex items-center gap-1.5 text-[11px]">
                 <Icons name="Diff" :size="12" />
-                Worktree Implementation Artifacts
+                <span class="leading-none">Worktree Implementation Artifacts</span>
               </span>
               <span v-if="phase.artifacts.changedFiles?.length" class="font-mono text-[9px] text-emerald-400">
                 {{ phase.artifacts.changedFiles.length }} file(s) modified
@@ -1046,7 +1046,7 @@ onBeforeUnmount(() => {
             <div v-if="phase.artifacts.commitSha" class="pt-1 flex items-center gap-2 font-mono text-[10px] text-slate-400">
               <Icons name="GitBranch" :size="11" />
               <span>Commit:</span>
-              <code class="px-1.5 py-0.2 rounded bg-slate-800 text-cyan-300">{{ phase.artifacts.commitSha.slice(0, 7) }}</code>
+              <code class="px-1.5 py-0.2 rounded bg-midnight-900 text-cyan-300 border border-midnight-800">{{ phase.artifacts.commitSha.slice(0, 7) }}</code>
             </div>
           </div>
 
@@ -1057,9 +1057,9 @@ onBeforeUnmount(() => {
             :class="isDarkMode ? 'bg-amber-950/20 border-amber-500/30 text-slate-200' : 'bg-amber-50 border-amber-200 text-amber-950'"
           >
             <div class="flex items-center justify-between gap-2">
-              <span class="font-bold text-amber-300 font-display flex items-center gap-1.5 text-[11px]">
+              <span class="font-bold text-amber-300 font-display inline-flex items-center gap-1.5 text-[11px]">
                 <Icons name="CheckCircle" :size="12" />
-                Automated Verification Evidence
+                <span class="leading-none">Automated Verification Evidence</span>
               </span>
               <span class="font-mono text-[9px] text-amber-400 font-bold">
                 {{ phase.evidence.filter(e => e.status === 'passed').length }} Passed
@@ -1072,7 +1072,7 @@ onBeforeUnmount(() => {
                 v-for="ev in phase.evidence"
                 :key="ev.id"
                 class="p-2 rounded-lg border text-[10px] font-mono flex items-start justify-between gap-2"
-                :class="ev.status === 'passed' ? 'bg-black/30 border-emerald-500/30 text-emerald-300' : 'bg-black/30 border-rose-500/30 text-rose-300'"
+                :class="ev.status === 'passed' ? 'bg-midnight-950/80 border-emerald-500/30 text-emerald-300' : 'bg-midnight-950/80 border-rose-500/30 text-rose-300'"
               >
                 <div class="min-w-0">
                   <span class="font-bold">{{ ev.evidence_type }}</span>
@@ -1093,9 +1093,9 @@ onBeforeUnmount(() => {
             :class="isDarkMode ? 'bg-cyan-950/20 border-cyan-500/30 text-slate-200' : 'bg-cyan-50 border-cyan-200 text-cyan-950'"
           >
             <div class="flex items-center justify-between gap-2">
-              <span class="font-bold text-cyan-300 font-display flex items-center gap-1.5 text-[11px]">
+              <span class="font-bold text-cyan-300 font-display inline-flex items-center gap-1.5 text-[11px]">
                 <Icons name="Shield" :size="12" />
-                Signed Handoff Payload & Review Loop
+                <span class="leading-none">Signed Handoff Payload & Review Loop</span>
               </span>
               <span class="font-mono text-[9px] text-cyan-400 font-bold">Auditor Verified</span>
             </div>
@@ -1132,29 +1132,29 @@ onBeforeUnmount(() => {
                 :href="phase.artifacts.prUrl"
                 target="_blank"
                 rel="noreferrer"
-                class="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10px] transition-all flex items-center gap-1 shadow-sm"
+                class="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[10px] transition-all inline-flex items-center gap-1 shadow-sm shrink-0"
               >
                 <Icons name="GitPullRequest" :size="11" />
-                <span>View Pull Request</span>
+                <span class="leading-none">View Pull Request</span>
               </a>
-              <span v-if="phase.artifacts.commitSha" class="font-mono text-[10px] text-slate-400 flex items-center gap-1">
+              <span v-if="phase.artifacts.commitSha" class="font-mono text-[10px] text-slate-400 inline-flex items-center gap-1">
                 <Icons name="GitBranch" :size="11" />
                 <span>Commit:</span>
-                <code class="px-1.5 py-0.2 rounded bg-slate-800 text-cyan-300">{{ phase.artifacts.commitSha.slice(0, 7) }}</code>
+                <code class="px-1.5 py-0.2 rounded bg-midnight-850 text-cyan-300 border border-midnight-800">{{ phase.artifacts.commitSha.slice(0, 7) }}</code>
               </span>
             </div>
           </div>
 
           <!-- Scoped Collapsible Accordion: Terminal Logs for this Phase -->
-          <div class="rounded-xl border overflow-hidden" :class="isDarkMode ? 'border-slate-800 bg-[#070b14]' : 'border-slate-200 bg-slate-900 text-white'">
+          <div class="rounded-xl border overflow-hidden" :class="isDarkMode ? 'border-midnight-800 bg-midnight-950' : 'border-slate-200 bg-slate-900 text-white'">
             <div
               @click="expandedLogs[phase.role] = !expandedLogs[phase.role]"
-              class="px-3 py-2 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between gap-2 text-xs cursor-pointer select-none"
+              class="px-3 py-2 bg-midnight-900 border-b border-midnight-800 flex items-center justify-between gap-2 text-xs cursor-pointer select-none"
             >
               <div class="flex items-center gap-2">
                 <Icons name="Terminal" :size="12" class="text-cyan-400" />
                 <span class="font-mono text-[10px] font-bold text-slate-200">{{ phase.badge }} Terminal Logs</span>
-                <span class="font-mono text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-300">
+                <span class="font-mono text-[9px] px-1.5 py-0.2 rounded bg-midnight-850 text-slate-300 border border-midnight-800">
                   {{ phase.logs.length }} lines
                 </span>
               </div>
@@ -1163,10 +1163,10 @@ onBeforeUnmount(() => {
                 <button
                   v-if="phase.logs.length"
                   @click="copyPhaseLogs(phase)"
-                  class="px-2 py-0.5 rounded text-[9px] font-mono border border-slate-700 bg-slate-800 text-slate-300 hover:text-white cursor-pointer flex items-center gap-1"
+                  class="px-2 py-0.5 rounded text-[9px] font-mono border border-midnight-700 bg-midnight-850 text-slate-300 hover:text-white cursor-pointer inline-flex items-center gap-1 shrink-0"
                 >
                   <Icons :name="copiedPhaseLogs[phase.role] ? 'Check' : 'Copy'" :size="10" />
-                  <span>{{ copiedPhaseLogs[phase.role] ? 'Copied' : 'Copy' }}</span>
+                  <span class="leading-none">{{ copiedPhaseLogs[phase.role] ? 'Copied' : 'Copy' }}</span>
                 </button>
                 <Icons
                   :name="expandedLogs[phase.role] ? 'ChevronUp' : 'ChevronDown'"
@@ -1178,7 +1178,7 @@ onBeforeUnmount(() => {
 
             <div
               v-if="expandedLogs[phase.role]"
-              class="p-3 font-mono text-[10.5px] leading-relaxed max-h-48 overflow-y-auto space-y-1 bg-black/80 select-all"
+              class="p-3 font-mono text-[10.5px] leading-relaxed max-h-48 overflow-y-auto space-y-1 bg-midnight-950 select-all"
             >
               <div v-if="!phase.logs.length" class="text-slate-500 italic py-2 text-center text-[10px]">
                 No logs recorded yet for {{ phase.title }}...
@@ -1208,11 +1208,11 @@ onBeforeUnmount(() => {
           <div
             v-if="phase.toolCalls.length"
             class="rounded-xl border overflow-hidden"
-            :class="isDarkMode ? 'border-slate-800 bg-[#070b14]' : 'border-slate-200 bg-slate-50'"
+            :class="isDarkMode ? 'border-midnight-800 bg-midnight-950' : 'border-slate-200 bg-slate-50'"
           >
             <div
               @click="expandedTools[phase.role] = !expandedTools[phase.role]"
-              class="px-3 py-2 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between gap-2 text-xs cursor-pointer select-none"
+              class="px-3 py-2 bg-midnight-900 border-b border-midnight-800 flex items-center justify-between gap-2 text-xs cursor-pointer select-none"
             >
               <div class="flex items-center gap-2 font-mono text-[10px] text-slate-300 font-bold">
                 <Icons name="Wrench" :size="12" class="text-emerald-400" />
@@ -1225,16 +1225,16 @@ onBeforeUnmount(() => {
               />
             </div>
 
-            <div v-if="expandedTools[phase.role]" class="p-2 space-y-1.5 bg-black/40">
+            <div v-if="expandedTools[phase.role]" class="p-2 space-y-1.5 bg-midnight-950/60">
               <div
                 v-for="tc in phase.toolCalls"
                 :key="tc.id"
                 class="rounded-lg border overflow-hidden transition-all text-xs"
-                :class="isDarkMode ? 'border-slate-800/80 bg-slate-900/60' : 'border-slate-200 bg-white'"
+                :class="isDarkMode ? 'border-midnight-800 bg-midnight-900/60' : 'border-slate-200 bg-white'"
               >
                 <div
                   @click="activeToolAccordion = activeToolAccordion === tc.id ? null : tc.id"
-                  class="p-2 flex items-center justify-between gap-2 cursor-pointer hover:bg-slate-800/40"
+                  class="p-2 flex items-center justify-between gap-2 cursor-pointer hover:bg-midnight-850/60"
                 >
                   <div class="flex items-center gap-2 min-w-0 font-mono text-[10.5px]">
                     <Icons name="Wrench" :size="11" class="text-emerald-400 shrink-0" />
@@ -1244,7 +1244,7 @@ onBeforeUnmount(() => {
 
                   <div class="flex items-center gap-2 shrink-0">
                     <span
-                      class="px-1.5 py-0.2 rounded font-mono text-[8.5px] font-bold uppercase border"
+                      class="px-1.5 py-0.2 rounded font-mono text-[8.5px] font-bold uppercase border inline-flex items-center justify-center shrink-0"
                       :class="tc.status === 'failed' ? 'bg-rose-950 text-rose-400 border-rose-800' : 'bg-emerald-950 text-emerald-400 border-emerald-800'"
                     >
                       {{ tc.status }}
@@ -1257,15 +1257,15 @@ onBeforeUnmount(() => {
                 <div
                   v-if="activeToolAccordion === tc.id"
                   class="p-2.5 border-t font-mono text-[9.5px] space-y-1.5"
-                  :class="isDarkMode ? 'border-slate-800 bg-black/70 text-slate-300' : 'border-slate-200 bg-slate-100 text-slate-800'"
+                  :class="isDarkMode ? 'border-midnight-800 bg-midnight-950 text-slate-300' : 'border-slate-200 bg-slate-100 text-slate-800'"
                 >
                   <div v-if="tc.params">
                     <span class="text-slate-500 block mb-0.5 font-bold text-[8.5px]">INPUT PARAMETERS:</span>
-                    <pre class="overflow-x-auto p-1.5 rounded bg-slate-950 text-cyan-300 border border-slate-800">{{ typeof tc.params === 'string' ? tc.params : JSON.stringify(tc.params, null, 2) }}</pre>
+                    <pre class="overflow-x-auto p-1.5 rounded bg-midnight-900 text-cyan-300 border border-midnight-800">{{ typeof tc.params === 'string' ? tc.params : JSON.stringify(tc.params, null, 2) }}</pre>
                   </div>
                   <div v-if="tc.output">
                     <span class="text-slate-500 block mb-0.5 font-bold text-[8.5px]">RESULT / OUTPUT:</span>
-                    <pre class="overflow-x-auto p-1.5 rounded bg-slate-950 text-emerald-300 border border-slate-800 max-h-28">{{ typeof tc.output === 'string' ? tc.output : JSON.stringify(tc.output, null, 2) }}</pre>
+                    <pre class="overflow-x-auto p-1.5 rounded bg-midnight-900 text-emerald-300 border border-midnight-800 max-h-28">{{ typeof tc.output === 'string' ? tc.output : JSON.stringify(tc.output, null, 2) }}</pre>
                   </div>
                 </div>
               </div>
@@ -1279,16 +1279,16 @@ onBeforeUnmount(() => {
     <div
       v-if="showGlobalConsole"
       class="rounded-2xl border overflow-hidden shadow-2xl flex flex-col transition-all"
-      :class="isDarkMode ? 'bg-[#070b14] border-slate-800' : 'bg-slate-950 border-slate-800 text-white'"
+      :class="isDarkMode ? 'bg-midnight-950 border-midnight-800' : 'bg-slate-950 border-slate-800 text-white'"
     >
       <!-- Terminal Header Bar -->
-      <div class="px-4 py-2 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between gap-2 text-xs">
+      <div class="px-4 py-2 bg-midnight-900 border-b border-midnight-800 flex items-center justify-between gap-2 text-xs">
         <div class="flex items-center gap-2">
           <!-- Window Dots -->
           <div class="flex items-center gap-1.5">
-            <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80 inline-block"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80 inline-block"></span>
-            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80 inline-block shrink-0"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80 inline-block shrink-0"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block shrink-0"></span>
           </div>
           <span class="font-mono text-[11px] text-slate-300 font-bold ml-1">Live Streamback Console</span>
           <span class="font-mono text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
@@ -1304,14 +1304,14 @@ onBeforeUnmount(() => {
           </label>
           <button
             @click="copyAllLogs"
-            class="px-2 py-0.5 rounded text-[10px] font-mono border border-slate-700 bg-slate-800/80 text-slate-300 hover:text-white cursor-pointer flex items-center gap-1"
+            class="px-2 py-0.5 rounded text-[10px] font-mono border border-midnight-700 bg-midnight-850 text-slate-300 hover:text-white cursor-pointer inline-flex items-center gap-1 shrink-0"
           >
             <Icons :name="copiedLogs ? 'Check' : 'Copy'" :size="11" />
-            <span>{{ copiedLogs ? 'Copied' : 'Copy' }}</span>
+            <span class="leading-none">{{ copiedLogs ? 'Copied' : 'Copy' }}</span>
           </button>
           <button
             @click="logs = []"
-            class="px-2 py-0.5 rounded text-[10px] font-mono border border-slate-700 bg-slate-800/80 text-slate-400 hover:text-white cursor-pointer"
+            class="px-2 py-0.5 rounded text-[10px] font-mono border border-midnight-700 bg-midnight-850 text-slate-400 hover:text-white cursor-pointer"
           >
             Clear
           </button>
@@ -1321,7 +1321,7 @@ onBeforeUnmount(() => {
       <!-- Terminal Log Container -->
       <div
         ref="terminalContainer"
-        class="p-4 font-mono text-[11px] leading-relaxed max-h-72 sm:max-h-96 overflow-y-auto space-y-1 select-all bg-black/90"
+        class="p-4 font-mono text-[11px] leading-relaxed max-h-72 sm:max-h-96 overflow-y-auto space-y-1 select-all bg-midnight-950"
       >
         <div v-if="!logs.length" class="text-slate-500 italic py-4 text-center">
           Waiting for live output from desktop agent runner...
@@ -1372,10 +1372,10 @@ onBeforeUnmount(() => {
         <button
           @click="approveSafetyOrHandoff"
           :disabled="isApproving"
-          class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 shadow-lg active:scale-95 shrink-0"
+          class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 font-bold text-xs transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-lg active:scale-95 shrink-0"
         >
           <Icons name="Check" :size="13" />
-          <span>{{ isApproving ? 'Approving...' : isEpicAggregate ? 'Approve Epic & Mark All Done' : 'Approve & Mark Done' }}</span>
+          <span class="leading-none">{{ isApproving ? 'Approving...' : isEpicAggregate ? 'Approve Epic & Mark All Done' : 'Approve & Mark Done' }}</span>
         </button>
       </div>
     </div>

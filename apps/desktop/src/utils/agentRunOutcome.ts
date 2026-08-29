@@ -16,3 +16,31 @@ export function hasAgentReportedFailure(output: string): boolean {
     || /\b(?:encountered|hit|reported) (?:a )?blocking error\b/i.test(text)
     || /\b(?:cannot|can't|could not|unable to|failed to)\b.{0,180}\b(?:read|access|open|load|follow|execute)\b.{0,180}\b(?:prompt|instructions?|task file|requirements?)\b/i.test(text);
 }
+
+/**
+ * Calculates a composite outcome score (0-100) and verdict based on run metrics.
+ */
+export function calculateOutcomeScore(metrics: {
+  testsPassed?: number;
+  testsFailed?: number;
+  hasHandoff?: boolean;
+  hasSafetyViolations?: boolean;
+  durationMs?: number;
+}): { score: number; verdict: 'PASSED' | 'FAILED' | 'NEEDS_REVIEW' } {
+  let score = 100;
+  const passed = metrics.testsPassed || 0;
+  const failed = metrics.testsFailed || 0;
+  const total = passed + failed;
+
+  if (total > 0) {
+    const passRate = passed / total;
+    score = Math.round(passRate * 80);
+  }
+  if (metrics.hasHandoff) score += 20;
+  if (metrics.hasSafetyViolations) score -= 40;
+  if (failed > 0) score -= Math.min(failed * 10, 30);
+
+  score = Math.max(0, Math.min(100, score));
+  const verdict = score >= 80 ? 'PASSED' : score >= 50 ? 'NEEDS_REVIEW' : 'FAILED';
+  return { score, verdict };
+}

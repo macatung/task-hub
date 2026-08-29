@@ -35,7 +35,7 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        sans: ['"Plus Jakarta Sans"', '"Inter"', 'system-ui', 'sans-serif'],
         serif: ['"Lora"', '"Merriweather"', 'Georgia', 'serif'],
         pali: ['"Lora"', 'Georgia', 'serif'],
         display: ['"Space Grotesk"', '"Syne"', 'sans-serif'],

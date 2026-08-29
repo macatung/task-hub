@@ -113,14 +113,6 @@ const handleProviderChange = (provider: 'antigravity' | 'claude_code' | 'codex')
   sound.playClick();
 };
 
-const getOsIcon = (platform?: string | null) => {
-  const p = (platform || '').toLowerCase();
-  if (p.includes('win') || p === 'win32') return '🪟';
-  if (p.includes('darwin') || p.includes('mac')) return '🍎';
-  if (p.includes('linux')) return '🐧';
-  return '💻';
-};
-
 const dispatchTask = async () => {
   const taskToDispatch = activeTask.value;
   if (!taskToDispatch) {
@@ -200,31 +192,31 @@ onMounted(() => {
 <template>
   <div
     v-if="show"
-    class="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-fadeIn"
+    class="fixed inset-0 z-50 bg-midnight-950/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-fadeIn"
     @click.self="emit('close')"
   >
     <div
       class="w-full max-w-2xl rounded-3xl border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-all"
       :class="[
         isDarkMode
-          ? 'bg-[#0a0f1d] border-slate-800 text-slate-100 shadow-slate-950/80'
+          ? 'bg-midnight-900 border-midnight-800 text-slate-100 shadow-midnight-950/80'
           : 'bg-white border-slate-200 text-slate-900 shadow-slate-300/60'
       ]"
     >
       <!-- Modal Header -->
       <div
         class="px-6 py-4 border-b flex items-center justify-between gap-3 shrink-0"
-        :class="isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-50 border-slate-200'"
+        :class="isDarkMode ? 'bg-midnight-950/80 border-midnight-800' : 'bg-slate-50 border-slate-200'"
       >
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-500/20 via-teal-500/15 to-cyan-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
+          <div class="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-500/20 via-teal-500/15 to-cyan-500/20 border border-emerald-500/40 text-emerald-400 inline-flex items-center justify-center shrink-0 shadow-inner">
             <Icons name="Zap" :size="18" class="text-amber-300 animate-pulse" />
           </div>
           <div>
             <h3 class="font-bold text-sm sm:text-base font-display tracking-tight">
               Remote Task Dispatch to Desktop
             </h3>
-            <p class="text-[11px] text-slate-400">
+            <p class="text-[11px] text-slate-400 font-mono">
               Trigger autonomous execution on your connected local workstation (&lt; 2s dispatch).
             </p>
           </div>
@@ -232,7 +224,7 @@ onMounted(() => {
 
         <button
           @click="emit('close')"
-          class="p-1.5 rounded-xl text-slate-400 hover:text-white cursor-pointer transition-colors"
+          class="h-8 w-8 rounded-xl border border-midnight-800 bg-midnight-850 text-slate-400 hover:text-white inline-flex items-center justify-center shrink-0 cursor-pointer transition-colors"
           title="Close dialog (Esc)"
         >
           <Icons name="X" :size="16" />
@@ -245,13 +237,13 @@ onMounted(() => {
         <div
           v-if="activeTask"
           class="p-3.5 rounded-2xl border space-y-1.5"
-          :class="isDarkMode ? 'bg-[#0f1526] border-slate-800' : 'bg-slate-50 border-slate-200'"
+          :class="isDarkMode ? 'bg-midnight-850 border-midnight-800' : 'bg-slate-50 border-slate-200'"
         >
           <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-2 min-w-0">
               <span
-                class="font-mono text-xs font-bold px-2 py-0.5 rounded-lg border shrink-0"
-                :class="isDarkMode ? 'bg-blue-950 text-blue-300 border-blue-800' : 'bg-blue-50 text-blue-900 border-blue-200'"
+                class="font-mono text-xs font-bold px-2 py-0.5 rounded-lg border shrink-0 inline-flex items-center justify-center"
+                :class="isDarkMode ? 'bg-midnight-900 text-cyan-300 border-midnight-700' : 'bg-blue-50 text-blue-900 border-blue-200'"
               >
                 {{ activeTask.issue_key || `#${activeTask.id}` }}
               </span>
@@ -269,16 +261,16 @@ onMounted(() => {
           <p v-if="activeTask.description" class="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">
             {{ activeTask.description }}
           </p>
-          <p v-if="activeTask.issue_type === 'epic'" class="text-[11px] leading-relaxed text-emerald-400">Epic sequence: dispatches one dependency-ready child at a time. The following task is queued after the current task is approved.</p>
+          <p v-if="activeTask.issue_type === 'epic'" class="text-[11px] leading-relaxed text-phantom-mint font-mono">Epic sequence: dispatches one dependency-ready child at a time. The following task is queued after the current task is approved.</p>
         </div>
 
         <!-- Task Selector (If no initial task was passed) -->
-        <div v-else-if="allTasks.length" class="space-y-1.5">
-          <label class="font-mono text-[11px] font-bold uppercase text-slate-400 block">Select Task *</label>
+        <div v-else-if="allTasks.length" class="space-y-1.5 font-mono">
+          <label class="text-[11px] font-bold uppercase text-slate-400 block">Select Task *</label>
           <select
             v-model="selectedTaskId"
-            class="w-full p-2.5 rounded-xl border font-bold focus:outline-none focus:border-emerald-500"
-            :class="isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900'"
+            class="w-full p-2.5 rounded-xl border font-bold focus:outline-none focus:border-phantom-mint/60"
+            :class="isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900'"
           >
             <option :value="null" disabled>Choose a task from backlog / board...</option>
             <option v-for="t in allTasks" :key="t.id" :value="t.id">
@@ -293,7 +285,7 @@ onMounted(() => {
             <label class="font-mono text-[11px] font-bold uppercase text-slate-400 block">
               1. Target Desktop Workstation *
             </label>
-            <span class="text-[10px] font-mono text-emerald-400">
+            <span class="text-[10px] font-mono text-phantom-mint">
               {{ onlineRunners.length }} workstation{{ onlineRunners.length === 1 ? '' : 's' }} online
             </span>
           </div>
@@ -307,13 +299,13 @@ onMounted(() => {
               class="p-3 rounded-2xl border cursor-pointer transition-all flex items-start justify-between gap-2 relative"
               :class="[
                 selectedRunnerId === runner.id
-                  ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500/40 shadow-sm'
-                  : (isDarkMode ? 'border-slate-800 bg-slate-900/60 hover:border-slate-700' : 'border-slate-200 bg-slate-50 hover:border-slate-300')
+                  ? 'border-phantom-mint bg-emerald-500/10 ring-1 ring-phantom-mint/40 shadow-sm'
+                  : (isDarkMode ? 'border-midnight-800 bg-midnight-850 hover:border-midnight-700' : 'border-slate-200 bg-slate-50 hover:border-slate-300')
               ]"
             >
               <div class="min-w-0 space-y-0.5">
                 <div class="flex items-center gap-1.5">
-                  <Icons name="Desktop" :size="14" class="text-blue-400 shrink-0" />
+                  <Icons name="Desktop" :size="14" class="text-cyan-400 shrink-0" />
                   <span class="font-bold text-xs truncate" :class="isDarkMode ? 'text-white' : 'text-slate-950'">
                     {{ runner.machine_name || runner.name }}
                   </span>
@@ -325,18 +317,18 @@ onMounted(() => {
 
               <div class="flex flex-col items-end gap-1 shrink-0">
                 <span
-                  class="font-mono text-[9px] font-bold px-1.5 py-0.2 rounded border"
+                  class="font-mono text-[9px] font-bold px-1.5 py-0.2 rounded border inline-flex items-center justify-center shrink-0"
                   :class="[
                     (runner.ping_latency_ms || 0) < 50
-                      ? 'text-emerald-400 bg-emerald-950/60 border-emerald-800'
+                      ? 'text-phantom-mint bg-emerald-950/60 border-emerald-800'
                       : 'text-amber-400 bg-amber-950/60 border-amber-800'
                   ]"
                 >
                   {{ runner.ping_latency_ms ? `${runner.ping_latency_ms}ms` : '<20ms' }}
                 </span>
                 <span
-                  class="w-2 h-2 rounded-full"
-                  :class="selectedRunnerId === runner.id ? 'bg-emerald-400 ring-2 ring-emerald-400/40' : 'bg-slate-600'"
+                  class="w-2 h-2 rounded-full shrink-0"
+                  :class="selectedRunnerId === runner.id ? 'bg-phantom-mint ring-2 ring-phantom-mint/40 shadow-[0_0_6px_rgba(0,245,160,0.6)]' : 'bg-slate-600'"
                 />
               </div>
             </div>
@@ -352,7 +344,7 @@ onMounted(() => {
               <Icons name="AlertTriangle" :size="14" />
               <span>No Desktop Companion Online</span>
             </div>
-            <p class="text-[11px] opacity-85 leading-relaxed">
+            <p class="text-[11px] opacity-85 leading-relaxed font-mono">
               Launch Midnight Hub Desktop on your workstation. It will automatically pair and show up here.
             </p>
           </div>
@@ -374,13 +366,13 @@ onMounted(() => {
               class="p-2.5 rounded-xl border font-bold text-center transition-all cursor-pointer flex flex-col items-center gap-0.5"
               :class="[
                 selectedProvider === p
-                  ? 'bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border-blue-500 text-blue-400 ring-1 ring-blue-500/30'
-                  : (isDarkMode ? 'bg-slate-900/70 border-slate-800 text-slate-300 hover:border-slate-700' : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300')
+                  ? 'bg-gradient-to-r from-emerald-500/15 to-cyan-500/15 border-phantom-mint text-phantom-mint ring-1 ring-phantom-mint/30'
+                  : (isDarkMode ? 'bg-midnight-850 border-midnight-800 text-slate-300 hover:border-midnight-700' : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300')
               ]"
             >
-              <span class="flex items-center gap-1">
+              <span class="inline-flex items-center gap-1">
                 <Icons :name="p === 'antigravity' ? 'Zap' : p === 'claude_code' ? 'Agent' : 'Terminal'" :size="12" />
-                <span>{{ p === 'antigravity' ? 'Antigravity' : p === 'claude_code' ? 'Claude Code' : 'Codex' }}</span>
+                <span class="leading-none">{{ p === 'antigravity' ? 'Antigravity' : p === 'claude_code' ? 'Claude Code' : 'Codex' }}</span>
               </span>
               <span class="text-[9px] font-mono text-slate-400 font-normal">
                 {{ p === 'antigravity' ? 'Autonomous SDK' : p === 'claude_code' ? 'Anthropic CLI' : 'OpenAI CLI' }}
@@ -397,8 +389,8 @@ onMounted(() => {
               class="p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-2"
               :class="[
                 selectedModel === model.id
-                  ? 'border-blue-500 bg-blue-500/10 text-blue-300'
-                  : (isDarkMode ? 'border-slate-800 bg-slate-900/40 text-slate-300 hover:border-slate-700' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300')
+                  ? 'border-phantom-mint bg-emerald-500/10 text-emerald-300'
+                  : (isDarkMode ? 'border-midnight-800 bg-midnight-850 text-slate-300 hover:border-midnight-700' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300')
               ]"
             >
               <div class="min-w-0">
@@ -406,7 +398,7 @@ onMounted(() => {
                   <span class="font-bold text-xs font-mono">{{ model.name }}</span>
                   <span
                     v-if="model.badge"
-                    class="px-1.5 py-0.2 rounded font-mono text-[8px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                    class="px-1.5 py-0.2 rounded font-mono text-[8px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 inline-flex items-center justify-center shrink-0"
                   >
                     {{ model.badge }}
                   </span>
@@ -415,10 +407,10 @@ onMounted(() => {
               </div>
 
               <span
-                class="w-3.5 h-3.5 rounded-full border flex items-center justify-center shrink-0"
-                :class="selectedModel === model.id ? 'border-blue-400 bg-blue-500 text-white text-[9px]' : 'border-slate-600'"
+                class="w-4 h-4 rounded-full border inline-flex items-center justify-center shrink-0"
+                :class="selectedModel === model.id ? 'border-emerald-400 bg-phantom-mint text-midnight-950 text-[9px]' : 'border-midnight-700'"
               >
-                <Icons v-if="selectedModel === model.id" name="Check" :size="10" />
+                <Icons v-if="selectedModel === model.id" name="Check" :size="10" class="text-midnight-950 font-extrabold" />
               </span>
             </div>
           </div>
@@ -437,16 +429,16 @@ onMounted(() => {
               class="p-3 rounded-2xl border text-left space-y-1 transition-all cursor-pointer"
               :class="[
                 executionMode === 'auto_pilot'
-                  ? 'border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500/40'
-                  : (isDarkMode ? 'border-slate-800 bg-slate-900/40 opacity-75' : 'border-slate-200 bg-white opacity-75')
+                  ? 'border-phantom-mint bg-emerald-500/10 ring-1 ring-phantom-mint/40'
+                  : (isDarkMode ? 'border-midnight-800 bg-midnight-850 opacity-75' : 'border-slate-200 bg-white opacity-75')
               ]"
             >
               <div class="flex items-center justify-between">
-                <span class="font-bold text-xs text-emerald-400 flex items-center gap-1.5">
+                <span class="font-bold text-xs text-emerald-400 inline-flex items-center gap-1.5">
                   <Icons name="Zap" :size="12" />
-                  <span>Autonomous Auto-Pilot</span>
+                  <span class="leading-none">Autonomous Auto-Pilot</span>
                 </span>
-                <Icons v-if="executionMode === 'auto_pilot'" name="Check" :size="12" class="text-emerald-400" />
+                <Icons v-if="executionMode === 'auto_pilot'" name="Check" :size="12" class="text-phantom-mint" />
               </div>
               <p class="text-[10px] text-slate-400 leading-tight">
                 7-stage autonomous cycle: Git worktree ➔ MCP context ➔ Coding ➔ Test verification ➔ Handoff.
@@ -459,16 +451,16 @@ onMounted(() => {
               class="p-3 rounded-2xl border text-left space-y-1 transition-all cursor-pointer"
               :class="[
                 executionMode === 'supervised'
-                  ? 'border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500/40'
-                  : (isDarkMode ? 'border-slate-800 bg-slate-900/40 opacity-75' : 'border-slate-200 bg-white opacity-75')
+                  ? 'border-phantom-purple bg-purple-500/10 ring-1 ring-phantom-purple/40'
+                  : (isDarkMode ? 'border-midnight-800 bg-midnight-850 opacity-75' : 'border-slate-200 bg-white opacity-75')
               ]"
             >
               <div class="flex items-center justify-between">
-                <span class="font-bold text-xs text-indigo-400 flex items-center gap-1.5">
+                <span class="font-bold text-xs text-purple-400 inline-flex items-center gap-1.5">
                   <Icons name="Shield" :size="12" />
-                  <span>Supervised Mode</span>
+                  <span class="leading-none">Supervised Mode</span>
                 </span>
-                <Icons v-if="executionMode === 'supervised'" name="Check" :size="12" class="text-indigo-400" />
+                <Icons v-if="executionMode === 'supervised'" name="Check" :size="12" class="text-purple-400" />
               </div>
               <p class="text-[10px] text-slate-400 leading-tight">
                 Requires manual confirmation for critical tool calls and dangerous commands.
@@ -485,8 +477,8 @@ onMounted(() => {
           <textarea
             v-model="customInstruction"
             rows="2"
-            class="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:border-emerald-500 font-mono"
-            :class="isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-200 placeholder-slate-600' : 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400'"
+            class="w-full p-2.5 rounded-xl border text-xs focus:outline-none focus:border-phantom-mint/60 font-mono"
+            :class="isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-200 placeholder-slate-600' : 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400'"
             placeholder="Add special instructions or architectural hints for the agent..."
           />
         </div>
@@ -525,7 +517,7 @@ onMounted(() => {
             </ul>
           </div>
         </div>
-        <div v-if="successMessage" class="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-xs flex items-center gap-2">
+        <div v-if="successMessage" class="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-phantom-mint text-xs flex items-center gap-2">
           <Icons name="CheckCircle" :size="14" class="shrink-0" />
           <span>{{ successMessage }}</span>
         </div>
@@ -534,13 +526,13 @@ onMounted(() => {
       <!-- Modal Footer CTA -->
       <div
         class="px-6 py-4 border-t flex items-center justify-between gap-3 shrink-0"
-        :class="isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-50 border-slate-200'"
+        :class="isDarkMode ? 'bg-midnight-950/80 border-midnight-800' : 'bg-slate-50 border-slate-200'"
       >
         <button
           type="button"
           @click="emit('close')"
           class="px-4 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer"
-          :class="isDarkMode ? 'border-slate-800 hover:bg-slate-800 text-slate-300' : 'border-slate-300 hover:bg-slate-100 text-slate-700'"
+          :class="isDarkMode ? 'border-midnight-800 hover:bg-midnight-850 text-slate-300' : 'border-slate-300 hover:bg-slate-100 text-slate-700'"
         >
           Cancel
         </button>
@@ -549,15 +541,15 @@ onMounted(() => {
           type="button"
           @click="dispatchTask"
           :disabled="isDispatching || !activeTask || !selectedRunnerId"
-          class="px-6 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-2 shadow-lg border"
+          class="px-6 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer inline-flex items-center gap-2 shadow-lg border shrink-0"
           :class="[
             isDispatching || !activeTask || !selectedRunnerId
-              ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
-              : 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white border-emerald-400/40 shadow-emerald-950/40 active:scale-95'
+              ? 'bg-midnight-850 text-slate-500 border-midnight-800 cursor-not-allowed'
+              : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-midnight-950 font-extrabold border-emerald-400/40 shadow-emerald-950/40 active:scale-95'
           ]"
         >
-          <Icons :name="isDispatching ? 'Refresh' : 'Zap'" :size="14" :class="[isDispatching ? 'animate-spin' : 'text-amber-300']" />
-          <span>
+          <Icons :name="isDispatching ? 'Refresh' : 'Zap'" :size="14" :class="[isDispatching ? 'animate-spin text-midnight-950' : 'text-midnight-950']" />
+          <span class="leading-none">
             {{ isDispatching ? 'Dispatching (< 2s)...' : activeTask?.issue_type === 'epic' ? `Run Epic step by step (${executionMode === 'auto_pilot' ? 'Auto-Pilot' : 'Supervised'})` : `Dispatch to Desktop (${executionMode === 'auto_pilot' ? 'Auto-Pilot' : 'Supervised'})` }}
           </span>
         </button>

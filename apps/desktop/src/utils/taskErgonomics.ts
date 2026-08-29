@@ -141,3 +141,34 @@ export function evaluateRepairHealth(checks: Array<{ id: string; status: 'passed
     failedCount,
   };
 }
+
+/**
+ * Truncates text cleanly with ellipsis if exceeding maxLength.
+ */
+export function truncateText(text: string, maxLength: number): string {
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength) + '...';
+}
+
+/**
+ * Formats token counts into compact human-readable strings (e.g. 1.5k, 128.0k, 1.5M).
+ */
+export function formatTokens(tokens: number): string {
+  if (tokens === undefined || tokens === null || isNaN(tokens) || tokens <= 0) return '0';
+  if (tokens >= 1_000_000) {
+    return (tokens / 1_000_000).toFixed(1) + 'M';
+  }
+  if (tokens >= 1_000) {
+    return (tokens / 1_000).toFixed(1) + 'k';
+  }
+  return String(tokens);
+}
+
+/**
+ * Strips ANSI escape codes and sanitizes terminal output for plain display.
+ */
+export function sanitizeTerminalOutput(output: string): string {
+  if (!output) return '';
+  return output.replace(/\u001b\[[0-9;]*[a-zA-Z]/g, '');
+}

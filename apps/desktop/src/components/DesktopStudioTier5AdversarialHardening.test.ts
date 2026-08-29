@@ -1,7 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import planUpgradeModalSource from './PlanUpgradeModal.vue?raw';
 import agentConsoleModalSource from './AgentConsoleModal.vue?raw';
-import taskDispatchModalSource from './TaskDispatchModal.vue?raw';
 import preloadSource from '../../electron/preload.ts?raw';
 import mainSource from '../../electron/main.ts?raw';
 import packageJson from '../../package.json';
@@ -223,21 +222,6 @@ describe('Phase 2 Tier 5 Adversarial Coverage Hardening — Desktop Studio Suite
   // 3. OFFLINE, DISCONNECTED & UNHEALTHY STATES RESILIENCE
   // =========================================================================
   describe('3. Offline, Disconnected & Unauthenticated States Resilience', () => {
-    it('TaskDispatchModal renders unauthenticated warning banner when credential is null', () => {
-      expect(taskDispatchModalSource).toContain('v-if="!credential"');
-      expect(taskDispatchModalSource).toContain('Desktop is not authenticated with Task Hub.');
-      expect(taskDispatchModalSource).toContain('Open Task Hub Connect in toolbar');
-    });
-
-    it('TaskDispatchModal reflects online/offline status dot with green/amber indicator', () => {
-      expect(taskDispatchModalSource).toContain(":class=\"isOnline ? 'bg-emerald-400' : 'bg-amber-400'\"");
-    });
-
-    it('TaskDispatchModal displays empty message when tasks array is empty', () => {
-      expect(taskDispatchModalSource).toContain('v-if="tasks.length === 0"');
-      expect(taskDispatchModalSource).toContain('No tasks scheduled for today.');
-    });
-
     it('PlanUpgradeModal gracefully catches shell openExternal exceptions in offline / failure states', () => {
       const failingMock = vi.fn().mockImplementation(() => {
         throw new Error('ENETUNREACH: Network is unreachable');

@@ -308,3 +308,23 @@ export function formatTestSummaryMarkdown(
     .filter(Boolean)
     .join('\n');
 }
+
+/**
+ * Summarizes an array of raw test suite results into overall test counts.
+ */
+export function summarizeTestResults(rawSuiteResults: Array<{ name?: string; total?: number; passed?: number; failed?: number }>) {
+  let totalTests = 0;
+  let totalPassed = 0;
+  let totalFailed = 0;
+  for (const r of rawSuiteResults) {
+    totalTests += r.total || 0;
+    totalPassed += r.passed || 0;
+    totalFailed += r.failed || 0;
+  }
+  return {
+    totalTests,
+    totalPassed,
+    totalFailed,
+    isSuccess: totalFailed === 0,
+  };
+}
