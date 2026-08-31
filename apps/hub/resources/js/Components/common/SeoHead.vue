@@ -34,12 +34,22 @@ const props = withDefaults(
 );
 
 // Site Brand Titles
-const siteName = computed(() => (props.isTheravada ? 'Ma Tọa Thiền • Theravāda' : 'Ma Cà Tưng • Code at midnight'));
+const siteName = computed(() => {
+  if (props.isTheravada) return 'Ma Tọa Thiền • Theravāda';
+  if (typeof window !== 'undefined' && (window.location.hostname.startsWith('midnight.') || window.location.hostname.startsWith('hub.'))) {
+    return 'Midnight Hub';
+  }
+  return 'Ma Cà Tưng • Code at midnight';
+});
+
 const fullTitle = computed(() => {
   if (!props.title) {
     return props.isTheravada
       ? 'Ma Tọa Thiền — Chánh Niệm Từng Giây • Tam Tạng Kinh Điển Theravāda'
       : 'Ma Cà Tưng — Code at midnight | Full-Stack & Creative Engineering';
+  }
+  if (props.title.includes(siteName.value) || props.title.includes('Midnight Hub') || props.title.includes('Ma Tọa Thiền')) {
+    return props.title;
   }
   return `${props.title} | ${siteName.value}`;
 });
@@ -59,6 +69,14 @@ const defaultKeywords = computed(() => {
 });
 
 const metaKeywords = computed(() => props.keywords || defaultKeywords.value);
+
+const defaultOgImage = computed(() => {
+  return props.isTheravada 
+    ? 'https://theravada.macatung.dev/brand/theravada-og-card.png' 
+    : 'https://macatung.dev/brand/macatung-logo-horizontal.png';
+});
+
+const effectiveOgImage = computed(() => props.ogImage || defaultOgImage.value);
 
 const formattedJsonLd = computed(() => {
   if (!props.jsonLd) return null;
@@ -84,7 +102,7 @@ const formattedJsonLd = computed(() => {
     <meta property="og:site_name" :content="siteName" />
     <meta property="og:locale" content="vi_VN" />
     <meta v-if="canonical" property="og:url" :content="canonical" />
-    <meta v-if="ogImage" property="og:image" :content="ogImage" />
+    <meta v-if="effectiveOgImage" property="og:image" :content="effectiveOgImage" />
 
     <!-- Article Specific OG -->
     <meta v-if="ogType === 'article' && article?.publishedTime" property="article:published_time" :content="article.publishedTime" />
@@ -99,7 +117,7 @@ const formattedJsonLd = computed(() => {
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" :content="fullTitle" />
     <meta name="twitter:description" :content="metaDescription" />
-    <meta v-if="ogImage" name="twitter:image" :content="ogImage" />
+    <meta v-if="effectiveOgImage" name="twitter:image" :content="effectiveOgImage" />
 
     <!-- JSON-LD Structured Data Schema (for Google Rich Results & AI Search Engines) -->
     <component :is="'script'" v-if="formattedJsonLd" type="application/ld+json">

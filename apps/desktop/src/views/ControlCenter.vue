@@ -40,6 +40,13 @@ import {
 import CaoWorkflowRunPanel from '../components/control-center/CaoWorkflowRunPanel.vue';
 import type { SafetyInterceptEvent } from '../utils/safetyGuardrails';
 import { DEFAULT_PROVIDER_MODELS } from '../constants/models';
+import {
+  mergeExecutionEvents,
+  normalizeAgentOutput,
+  normalizeHubRunEvent,
+  normalizeWorkflowEvent,
+  type ExecutionStreamEvent,
+} from '../utils/executionStream';
 type ToolMode = "requirement" | "docs" | null;
 type RunStatus = "idle" | "running" | "completed" | "failed" | "cancelled";
 type ExecutionPolicy = "restricted" | "workspace_write" | "full_access";
@@ -97,6 +104,7 @@ const executionRoute = ref<ExecutionRoute>(null);
 const orchestrationModeOverride = ref<OrchestrationMode | null>(null);
 const workflowKind = ref<WorkflowKind>('task');
 const workflowStatus = ref<CaoWorkflowRunStatus | null>(null);
+const executionEvents = ref<ExecutionStreamEvent[]>([]);
 const workflowFinalized = ref(false);
 const runId = ref<number | null>(null);
 const implementationRunId = ref<number | null>(null);
@@ -258,6 +266,44 @@ const workflowStepperSteps = computed(() => (workflowStatus.value?.steps || []).
   label: step.label || step.id,
   shortLabel: `${index + 1}. ${(step.label || step.id).slice(0, 18)}`,
 })));
+const workflowEpicTaskGroups = computed(() => {
+  if (workflowKind.value !== 'epic' || !selectedTask.value) return [];
+  const children = (sync.tasks.value.length ? sync.tasks.value : sync.agentTasks.value)
+    .filter((candidate: any) => candidate.epic_id === selectedTask.value?.id && candidate.issue_type !== 'epic');
+  return children.map((child: any) => ({
+    id: child.id,
+    taskKey: child.issue_key || `#${child.id}`,
+    title: child.title,
+    status: child.status,
+    dependencies: (child.dependencies || []).map((dependency: any) => dependency.depends_on?.issue_key || `#${dependency.depends_on_task_id}`),
+    steps: (workflowStatus.value?.steps || []).filter((step) => step.taskId === child.id),
+  }));
+});
+
+const appendExecutionEvent = (event: ExecutionStreamEvent) => {
+  executionEvents.value = mergeExecutionEvents(executionEvents.value, [event]);
+};
+
+const persistExecutionEvent = async (event: ExecutionStreamEvent) => {
+  if (!runId.value) return;
+  try {
+    await mcp('record_agent_run_event', {
+      run_id: runId.value,
+      event_id: `stream:${event.runId}:${event.id}`.slice(0, 128),
+      event_type: event.type,
+      status: event.status,
+      stage: event.stepId,
+      payload: {
+        stream_version: 1,
+        source: event.source,
+        mode: event.mode,
+        normalized: event,
+      },
+    });
+  } catch {
+    // Stream telemetry is best effort; execution state remains authoritative.
+  }
+};
 const cockpitAgentKey = (() => {
   const stored = localStorage.getItem("task-hub-cockpit-agent-key");
   if (stored) return stored;
@@ -1197,10 +1243,15 @@ const workflowResultHash = (value: unknown) => {
 
 const syncWorkflowEventToHub = async (event: any, status?: CaoWorkflowRunStatus) => {
   if (!runId.value || !event?.runId) return;
+  const normalizedEvent = normalizeWorkflowEvent(event, runId.value, 'workflow');
+  appendExecutionEvent(normalizedEvent);
   const stepId = event.stepId || status?.currentStep || event.type;
   const result = event.output || status?.steps?.find((step) => step.id === stepId)?.output || status;
   const eventId = `cao:${event.runId}:step:${stepId}:result:${workflowResultHash(result)}`;
   const payload = {
+    stream_version: 1,
+    source: 'cao',
+    normalized: normalizedEvent,
     cao_run_id: event.runId,
     workflow_kind: workflowKind.value,
     workflow_state: status?.state,
@@ -1267,6 +1318,7 @@ const syncWorkflowEventToHub = async (event: any, status?: CaoWorkflowRunStatus)
 
 const handleWorkflowEvent = (event: any) => {
   if (!workflowStatus.value || event?.runId !== workflowStatus.value.runId) return;
+  appendExecutionEvent(normalizeWorkflowEvent(event, runId.value || workflowStatus.value.runId, 'workflow'));
   if (typeof event.output === 'string' && event.output) output.value += event.output;
   const status = event.status as CaoWorkflowRunStatus | undefined;
   if (status) {
@@ -3294,6 +3346,18 @@ onMounted(async () => {
       error: recoverableWorkflow.error,
     };
     phase.value = `Workflow recovered: ${recoverableWorkflow.runId}`;
+    if (runId.value) {
+      try {
+        const persistedRun = await mcp('get_agent_run', { run_id: runId.value });
+        const runData = persistedRun?.data || persistedRun;
+        const persistedEvents = Array.isArray(runData?.events)
+          ? runData.events.map((event: any) => normalizeHubRunEvent(event, runId.value!, workflowKind.value === 'epic' || workflowKind.value === 'task' ? 'workflow' : 'supervisor'))
+          : [];
+        executionEvents.value = mergeExecutionEvents([], persistedEvents);
+      } catch {
+        // Older Hub deployments may not expose get_agent_run yet.
+      }
+    }
   }
   // Electron main owns CAO bootstrap. Do not restart from the renderer while
   // the main process is still warming WSL; doing so creates a stop/start race
@@ -3371,6 +3435,9 @@ onMounted(async () => {
       event.sessionId === sessionId.value ||
       (!sessionId.value && running.value)
     ) {
+      const normalizedOutput = normalizeAgentOutput(event, runId.value || event.sessionId || 'live', effectiveOrchestrationMode.value);
+      appendExecutionEvent(normalizedOutput);
+      void persistExecutionEvent(normalizedOutput);
       if (event.tokenUsage) {
         sessionTokenUsage.value = {
           promptTokens: event.tokenUsage.promptTokens || 0,
@@ -3577,6 +3644,9 @@ onUnmounted(() => {
           :orchestration-mode="effectiveOrchestrationMode"
           :workflow-steps="workflowStepperSteps"
           :workflow-current-step="workflowStatus?.currentStep"
+          :stream-events="executionEvents"
+          :epic-task-groups="workflowEpicTaskGroups"
+          :workers="fleetAgents"
           :can-reconnect-cao="Boolean(reconnectableCaoSession)"
           :exit-code="runExitCode"
           :error="error"

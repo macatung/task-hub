@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { usePage, Head } from '@inertiajs/vue3';
+import { usePage, Head, Link } from '@inertiajs/vue3';
+import Icons from '@/Components/ui/Icons.vue';
 
 interface UserAuth {
   id: number;
@@ -26,16 +27,158 @@ const page = usePage<PageProps>();
 const user = computed(() => page.props.auth?.user ?? null);
 const flash = computed(() => page.props.flash ?? {});
 const mobileMenuOpen = ref(false);
+
+// Interactive Pipeline Simulator State
+const activePipelineTab = ref<'discovery' | 'implement' | 'evidence' | 'review'>('evidence');
+
+const pipelineStages = [
+  {
+    id: 'discovery',
+    num: '01',
+    name: 'AI Discovery',
+    tag: 'Context Pack',
+    icon: 'Sparkles',
+    desc: 'Chuyển đổi prompt tự nhiên thành Agile Backlog (Epic/Story/Task) với Acceptance Criteria & DoD chuẩn xác.',
+    codeTitle: 'discovery_output.json',
+    codeLang: 'json',
+    codeContent: `{
+  "discovery_id": "disc_8f902a11",
+  "source_prompt": "Xây dựng MCP Gateway kết nối Claude & Antigravity",
+  "living_context_docs": [
+    "docs/ARCHITECTURE-CURRENT.md (Fresh, modified 2d ago)",
+    "docs/FUNCTIONAL_SPECIFICATION.md (task-hub-docs-v1)"
+  ],
+  "stale_docs_detected": 0,
+  "generated_backlog": {
+    "epic": "EPIC-14: Model Context Protocol Gateway v2024-11-05",
+    "tasks": [
+      {
+        "issue_key": "HUB-108",
+        "title": "Implement JSON-RPC 2.0 MCP Transport over SSE",
+        "acceptance_criteria": ["Handle initialize, tools/list, tools/call", "Auth via workspace pairing token"],
+        "definition_of_done": ["Unit tests >= 95% branch coverage", "Passing OpenAPI contract validation"]
+      }
+    ]
+  }
+}`
+  },
+  {
+    id: 'implement',
+    num: '02',
+    name: 'Git Worktree',
+    tag: 'Multi-Agent',
+    icon: 'GitBranch',
+    desc: 'Agent (Antigravity / Codex / Claude) làm việc trong worktree cô lập, bảo vệ nhánh chính và loại bỏ xung đột.',
+    codeTitle: 'runner_worktree_spawn.sh',
+    codeLang: 'bash',
+    codeContent: `[10:44:02] $ cao workflow run --profile code_supervisor --task HUB-108
+[10:44:03] 🌿 Git Worktree initialized at: .worktrees/task-HUB-108-mcp-transport
+[10:44:04] 🤖 Dispatched to Agent Provider: Google Antigravity 2.0 (Gemini 3.7 Pro)
+[10:44:06] 📦 Loaded Context Pack: 4 files (Contract: task-hub.openapi.yaml)
+[10:44:08] ✍️ Modified 3 files in sandbox:
+             - apps/hub/app/Http/Controllers/Api/TaskHubMcpController.php (+84 lines)
+             - apps/hub/routes/web.php (+12 lines)
+             - packages/contracts/openapi/mcp-schema.json (+45 lines)
+[10:44:10] 🛡️ Sandbox Check: Zero destructive shell calls. All edits inside worktree.`
+  },
+  {
+    id: 'evidence',
+    num: '03',
+    name: 'Test Evidence',
+    tag: 'Zero Defects',
+    icon: 'CheckCircle',
+    desc: 'Bắt buộc chạy test tự động và đính kèm bằng chứng (logs, pass/fail counts, risk score) trước khi bàn giao.',
+    codeTitle: 'verification_evidence.json',
+    codeLang: 'json',
+    codeContent: `{
+  "task_id": "HUB-108",
+  "actor": {
+    "type": "agent_runner",
+    "model": "antigravity/gemini-3.7-pro",
+    "runner_id": "runner-desktop-win11-01"
+  },
+  "execution_pipeline": "strict_v1 (implement -> review -> evidence -> handoff)",
+  "review_stage": {
+    "verdict": "APPROVED",
+    "risk_score": 0.04,
+    "static_analysis": "Passed PSR-12 & TypeScript Strict"
+  },
+  "evidence_stage": {
+    "test_command": "npm test -- tests/Unit/UserInTheLoopE2ETest.test.ts",
+    "total_tests": 14,
+    "passed": 14,
+    "failed": 0,
+    "duration_ms": 348,
+    "status": "PASSED"
+  },
+  "handoff_state": "needs_review"
+}`
+  },
+  {
+    id: 'review',
+    num: '04',
+    name: 'Human Approval',
+    tag: 'Zero Mutation',
+    icon: 'Shield',
+    desc: 'Tech Lead kiểm tra diff, actor attribution và test logs; 1-click Approve hoàn tất hoặc yêu cầu sửa đổi.',
+    codeTitle: 'tech_lead_audit_trail.log',
+    codeLang: 'log',
+    codeContent: `[10:44:22] 🔔 Notification: Task HUB-108 submitted for Human Review.
+[10:44:23] 👤 Reviewer: Ma Cà Tưng (Tech Lead / Workspace Owner)
+[10:44:25] 🔍 Diff Inspector: 3 files changed (+141, -0). 14/14 Automated Tests Verified.
+[10:44:28] 🛡️ Actor Attribution: Commits tagged with [Agent: Antigravity 2.0] & [Supervisor: CAO].
+[10:44:30] ✅ Action: HUMAN APPROVE (Zero Unsupervised Mutation Policy Enforced)
+[10:44:31] 🚀 Merged branch 'task/HUB-108' to 'main'. Task marked as COMPLETED.`
+  }
+];
+
+import SeoHead from '@/Components/common/SeoHead.vue';
+
+const currentPipelineData = computed(() => {
+  return pipelineStages.find(s => s.id === activePipelineTab.value) || pipelineStages[2];
+});
+
+const hubJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'SoftwareApplication',
+      'name': 'Midnight Hub',
+      'alternateName': 'Midnight AI Orchestrator',
+      'applicationCategory': 'DeveloperApplication',
+      'operatingSystem': 'Web, Windows, Linux, macOS',
+      'description': 'Supervised Vibe Coding Engine & Autonomous AI Agent Orchestrator for Antigravity 2.0, Codex, Claude Code.',
+      'url': 'https://midnight.macatung.dev',
+      'publisher': {
+        '@type': 'Person',
+        'name': 'Ma Cà Tưng',
+        'url': 'https://macatung.dev'
+      }
+    },
+    {
+      '@type': 'WebSite',
+      'url': 'https://midnight.macatung.dev/',
+      'name': 'Midnight Hub',
+      'description': 'Supervised Vibe Coding & Autonomous AI Orchestration Studio'
+    }
+  ]
+};
 </script>
 
 <template>
-  <Head title="Midnight Hub — Autonomous AI Agent Orchestrator & Developer Studio" />
+  <SeoHead
+    title="Supervised Vibe Coding & AI Agent Orchestration — Midnight Hub"
+    description="Nâng cấp Vibe Coding thành quy trình kỹ thuật phần mềm chuẩn chỉ. Điều phối Antigravity 2.0, Codex, Claude Code trong Git Worktree cô lập với Verification Evidence."
+    keywords="Midnight Hub, Vibe Coding, AI Coding Agents, Antigravity 2.0, Claude Code, Verification Evidence, MCP Gateway, Git Worktree"
+    canonical="https://midnight.macatung.dev"
+    :json-ld="hubJsonLd"
+  />
 
   <div class="hub-landing min-h-screen bg-midnight-950 text-slate-100 font-sans selection:bg-phantom-mint selection:text-midnight-950 overflow-x-hidden">
     <!-- Ambient Background Glows -->
     <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden">
       <div class="absolute -top-40 left-1/2 -translate-x-1/2 h-[550px] w-[1000px] rounded-full bg-gradient-to-tr from-emerald-600/15 via-phantom-cyan/15 to-phantom-purple/10 blur-[140px]" />
-      <div class="absolute top-[600px] -left-40 h-[500px] w-[700px] rounded-full bg-gradient-to-br from-phantom-blue/10 via-phantom-purple/15 to-transparent blur-[130px]" />
+      <div class="absolute top-[700px] -left-40 h-[500px] w-[700px] rounded-full bg-gradient-to-br from-phantom-blue/10 via-phantom-purple/15 to-transparent blur-[130px]" />
       <div class="absolute bottom-10 -right-40 h-[600px] w-[800px] rounded-full bg-gradient-to-tl from-talisman-gold/10 via-emerald-600/15 to-transparent blur-[150px]" />
     </div>
 
@@ -43,7 +186,7 @@ const mobileMenuOpen = ref(false);
     <header class="sticky top-0 z-50 border-b border-midnight-800/80 bg-midnight-950/85 backdrop-blur-md">
       <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
         <a href="/" class="flex items-center gap-3 group">
-          <div class="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-cyan-500/20 border border-emerald-500/40 p-1 shadow-md shadow-emerald-500/10 group-hover:border-emerald-400 group-hover:scale-105 transition-all">
+          <div class="relative inline-flex h-10 w-10 items-center justify-center shrink-0 rounded-xl bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-cyan-500/20 border border-emerald-500/40 p-1 shadow-md shadow-emerald-500/10 group-hover:border-emerald-400 group-hover:scale-105 transition-all">
             <img src="/brand/midnight-hub-mark.svg?v=20260829" alt="Midnight Hub" class="h-full w-full object-contain drop-shadow-sm" />
           </div>
           <div class="flex items-center gap-2">
@@ -53,46 +196,46 @@ const mobileMenuOpen = ref(false);
         </a>
 
         <!-- Nav Links -->
-        <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
-          <a href="#features" class="hover:text-white transition-colors">Features</a>
-          <a href="#agent-workflow" class="hover:text-white transition-colors">Agent Workflow</a>
-          <a href="#mcp" class="hover:text-white transition-colors">MCP Protocol</a>
-          <a href="/pricing" class="hover:text-emerald-400 font-semibold transition-colors">Pricing</a>
-          <a href="#architecture" class="hover:text-white transition-colors">Architecture</a>
+        <nav class="hidden lg:flex items-center gap-8 text-sm font-medium text-slate-300">
+          <a href="#vibe-coding" class="hover:text-phantom-mint transition-colors">Vibe Coding Hub</a>
+          <a href="#comparison" class="hover:text-phantom-mint transition-colors">So Sánh</a>
+          <a href="#features" class="hover:text-phantom-mint transition-colors">3 Trụ Cột</a>
+          <a href="#pipeline" class="hover:text-phantom-mint transition-colors">Strict 4-Step Flow</a>
+          <Link href="/desktop" class="hover:text-phantom-mint transition-colors flex items-center gap-1.5">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Desktop App</span>
+          </Link>
+          <Link href="/pricing" class="hover:text-emerald-400 font-semibold transition-colors">Bảng Giá</Link>
         </nav>
 
         <!-- Action / Auth -->
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-3">
           <a
             href="https://github.com/macatung/task-hub"
             target="_blank"
             rel="noopener noreferrer"
-            class="hidden sm:flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-700 hover:text-white transition-all"
+            class="hidden sm:inline-flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-700 hover:text-white transition-all shrink-0"
           >
-            <svg class="h-4 w-4 fill-current" viewBox="0 0 24 24">
-              <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-            </svg>
+            <Icons name="Github" :size="15" />
             <span>GitHub</span>
           </a>
 
           <template v-if="user">
-            <a
+            <Link
               href="/tasks"
-              class="hidden sm:flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-emerald-500/25 hover:from-emerald-400 hover:to-teal-400 transition-all cursor-pointer"
+              class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-emerald-500/25 hover:from-emerald-400 hover:to-teal-400 transition-all cursor-pointer shrink-0"
             >
-              <span>Enter Workspace</span>
+              <span>Vào Workspace</span>
               <span>→</span>
-            </a>
+            </Link>
           </template>
           <template v-else>
             <a
               href="/auth/github"
-              class="hidden sm:flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-emerald-500/25 hover:bg-emerald-400 active:scale-95 transition-all cursor-pointer"
+              class="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-emerald-500/25 hover:bg-emerald-400 active:scale-95 transition-all cursor-pointer shrink-0"
             >
-              <svg class="h-4 w-4 fill-current" viewBox="0 0 24 24">
-                <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-              </svg>
-              <span>Sign in with GitHub</span>
+              <Icons name="Github" :size="15" />
+              <span>Đăng nhập GitHub</span>
             </a>
           </template>
 
@@ -100,43 +243,37 @@ const mobileMenuOpen = ref(false);
           <button
             type="button"
             @click="mobileMenuOpen = !mobileMenuOpen"
-            class="flex md:hidden items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 hover:text-white"
+            class="inline-flex lg:hidden items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 hover:text-white shrink-0"
             aria-label="Toggle Navigation Menu"
           >
-            <svg v-if="!mobileMenuOpen" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-            <svg v-else class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <Icons :name="mobileMenuOpen ? 'X' : 'Menu'" :size="20" />
           </button>
         </div>
       </div>
 
       <!-- Mobile Nav Drawer -->
-      <div v-if="mobileMenuOpen" class="md:hidden border-t border-slate-800 bg-slate-950 px-6 py-4 space-y-3">
-        <a href="#features" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">Features</a>
-        <a href="#agent-workflow" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">Agent Workflow</a>
-        <a href="#mcp" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">MCP Protocol</a>
-        <a href="/pricing" @click="mobileMenuOpen = false" class="block text-sm text-emerald-400 font-bold">Pricing & Plans</a>
-        <a href="#architecture" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">Architecture</a>
+      <div v-if="mobileMenuOpen" class="lg:hidden border-t border-slate-800 bg-slate-950 px-6 py-4 space-y-3">
+        <a href="#vibe-coding" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">Vibe Coding Hub</a>
+        <a href="#comparison" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">So Sánh</a>
+        <a href="#features" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">3 Trụ Cột</a>
+        <a href="#pipeline" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">Strict 4-Step Flow</a>
+        <Link href="/desktop" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">Desktop App</Link>
+        <Link href="/pricing" @click="mobileMenuOpen = false" class="block text-sm text-emerald-400 font-bold">Bảng Giá</Link>
         <div class="pt-3 border-t border-slate-800 flex flex-col gap-2">
           <template v-if="user">
-            <a href="/tasks" class="rounded-xl bg-emerald-500 px-4 py-2 text-center text-xs font-bold text-slate-950">Enter Workspace</a>
+            <Link href="/tasks" class="rounded-xl bg-emerald-500 px-4 py-2 text-center text-xs font-bold text-slate-950">Vào Workspace</Link>
           </template>
           <template v-else>
             <a href="/auth/github" class="rounded-xl bg-emerald-500 px-4 py-2 text-center text-xs font-bold text-slate-950 flex items-center justify-center gap-2">
-              <svg class="h-4 w-4 fill-current" viewBox="0 0 24 24">
-                <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-              </svg>
-              <span>Sign in with GitHub</span>
+              <Icons name="Github" :size="15" />
+              <span>Đăng nhập GitHub</span>
             </a>
           </template>
         </div>
       </div>
     </header>
 
-    <!-- Flash message alerts if present -->
+    <!-- Flash Alerts -->
     <div v-if="flash.error" class="relative z-10 mx-auto max-w-5xl px-6 pt-4">
       <div class="rounded-xl border border-red-500/30 bg-red-950/60 p-4 text-xs text-red-200 backdrop-blur">
         ⚠️ {{ flash.error }}
@@ -144,283 +281,521 @@ const mobileMenuOpen = ref(false);
     </div>
 
     <!-- HERO SECTION -->
-    <section class="relative z-10 mx-auto max-w-6xl px-6 pt-20 pb-24 text-center">
+    <section id="vibe-coding" class="relative z-10 mx-auto max-w-6xl px-6 pt-16 pb-20 text-center">
       <!-- Top Announcement Pill -->
       <div class="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-300 shadow-inner">
-        <span>🚀</span>
-        <span>Midnight Hub — Supervised AI-Native Execution Engine</span>
+        <span class="relative flex h-2 w-2">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+        </span>
+        <span class="font-mono uppercase tracking-wider">Supervised Vibe Coding Engine 2.0</span>
       </div>
 
       <!-- Main Headline -->
       <h1 class="mt-8 text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white leading-[1.1]">
-        Build with Context.<br />
+        Vibe Code Thần Tốc.<br />
         <span class="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
-          Ship with Evidence.
+          Ít Lỗi, Đúng Chuẩn & Có Bằng Chứng.
         </span>
       </h1>
 
       <!-- Subtitle -->
-      <p class="mx-auto mt-6 max-w-3xl text-base sm:text-lg md:text-xl text-slate-400 leading-relaxed font-normal">
-        The SaaS task management platform built specifically for engineering teams working alongside autonomous AI coding agents. Link GitHub repositories, groom backlogs, deliver rich context packs, and enforce supervised handoffs with auditable test evidence.
+      <p class="mx-auto mt-6 max-w-3xl text-base sm:text-lg md:text-xl text-slate-300 leading-relaxed font-normal">
+        Nâng cấp <strong class="text-white">Vibe Coding</strong> từ việc gõ prompt tự phát, dễ sinh lỗi thành một <strong class="text-phantom-mint">quy trình kỹ thuật phần mềm chuẩn chỉ</strong>. Tự động phân tích codebase sinh Backlog Agile, điều phối Antigravity 2.0, Codex, Claude Code trong Git worktree cô lập, và kiểm soát chất lượng qua chu trình 4 bước bắt buộc đính kèm bằng chứng kiểm thử (<strong class="text-cyan-300">Verification Evidence</strong>).
       </p>
 
       <!-- CTA Button Group -->
       <div class="mt-10 flex flex-wrap items-center justify-center gap-4">
         <a
           href="/auth/github"
-          class="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-7 py-4 text-sm font-bold text-slate-950 shadow-xl shadow-emerald-500/30 hover:from-emerald-400 hover:to-teal-400 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+          class="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-7 py-4 text-sm font-bold text-slate-950 shadow-xl shadow-emerald-500/30 hover:from-emerald-400 hover:to-teal-400 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
         >
-          <svg class="h-5 w-5 fill-current" viewBox="0 0 24 24">
-            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-          </svg>
-          <span>Start Free with GitHub</span>
-        </a>
-        <a
-          href="/pricing"
-          class="flex items-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-6 py-4 text-sm font-semibold text-emerald-300 hover:border-emerald-400 hover:bg-emerald-500/20 transition-all"
-        >
-          <span>View Pricing & Plans</span>
+          <Icons name="Sparkles" :size="18" />
+          <span>Bắt Đầu Vibe Coding Miễn Phí</span>
           <span>→</span>
         </a>
-        <a
+        <Link
+          href="/desktop"
+          class="inline-flex items-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-6 py-4 text-sm font-semibold text-emerald-300 hover:border-emerald-400 hover:bg-emerald-500/20 transition-all"
+        >
+          <Icons name="Desktop" :size="18" />
+          <span>Tải Desktop Companion</span>
+        </Link>
+        <Link
           href="/tasks"
-          class="flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-900/80 px-6 py-4 text-sm font-semibold text-slate-200 hover:border-slate-600 hover:bg-slate-800 hover:text-white transition-all"
+          class="inline-flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-900/80 px-6 py-4 text-sm font-semibold text-slate-200 hover:border-slate-600 hover:bg-slate-800 hover:text-white transition-all"
         >
-          <span>Explore Workspace</span>
+          <span>Khám Phá Workspace</span>
           <span>→</span>
-        </a>
+        </Link>
       </div>
 
-      <p class="mt-4 text-xs text-slate-500 font-medium">
-        Free forever for open source & developers · 1-click GitHub OAuth authorization
-      </p>
+      <div class="mt-5 flex items-center justify-center gap-6 text-xs text-slate-400 font-mono">
+        <span class="flex items-center gap-1.5"><Icons name="Check" :size="14" class="text-emerald-400" /> Zero Unsupervised Mutations</span>
+        <span class="flex items-center gap-1.5"><Icons name="Check" :size="14" class="text-emerald-400" /> Git Worktree Isolation</span>
+        <span class="flex items-center gap-1.5"><Icons name="Check" :size="14" class="text-emerald-400" /> 100% Actor Attribution</span>
+      </div>
 
-      <!-- Interactive SaaS Workspace Preview Mockup -->
-      <div class="mt-16 overflow-hidden rounded-2xl border border-midnight-800/80 bg-midnight-900/60 p-2 sm:p-4 shadow-2xl backdrop-blur-xl ring-1 ring-white/10">
-        <!-- Mockup Header Bar -->
-        <div class="flex items-center justify-between rounded-xl border border-slate-800/60 bg-slate-950/80 px-4 py-3">
-          <div class="flex items-center gap-2">
-            <div class="h-3 w-3 rounded-full bg-red-500/80"></div>
-            <div class="h-3 w-3 rounded-full bg-yellow-500/80"></div>
-            <div class="h-3 w-3 rounded-full bg-emerald-500/80"></div>
-            <span class="ml-2 text-xs font-mono text-slate-500">midnight.macatung.dev/tasks</span>
+      <!-- INTERACTIVE PIPELINE SIMULATOR MOCKUP -->
+      <div class="mt-14 overflow-hidden rounded-2xl border border-midnight-800/90 bg-midnight-900/80 shadow-2xl backdrop-blur-xl ring-1 ring-white/10 text-left">
+        <!-- Mockup Top Bar -->
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 bg-slate-950/90 px-4 py-3">
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-1.5">
+              <div class="h-3 w-3 rounded-full bg-red-500/80"></div>
+              <div class="h-3 w-3 rounded-full bg-yellow-500/80"></div>
+              <div class="h-3 w-3 rounded-full bg-emerald-500/80"></div>
+            </div>
+            <span class="text-xs font-mono text-slate-400 font-semibold">Midnight Hub Supervised Pipeline Engine</span>
           </div>
-          <div class="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-400">
-            <span class="relative flex h-2 w-2">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+
+          <div class="flex items-center gap-2">
+            <span class="rounded-md bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-mono text-emerald-400 font-bold">
+              ● WORKFLOW: STRICT_V1
             </span>
-            <span>Agent Run Active: Antigravity IDE</span>
           </div>
         </div>
 
-        <!-- Mockup Kanban Grid -->
-        <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-left">
-          <!-- Column 1: Backlog / To Do -->
-          <div class="rounded-xl border border-slate-800/60 bg-slate-950/50 p-3.5">
-            <div class="flex items-center justify-between text-xs font-bold text-slate-400 pb-2 border-b border-slate-800/60">
-              <span class="flex items-center gap-1.5">
-                <span class="h-2 w-2 rounded-full bg-slate-500"></span>
-                <span>TO DO</span>
-              </span>
-              <span class="rounded bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-400">3</span>
+        <!-- 4 Pipeline Tabs -->
+        <div class="grid grid-cols-2 md:grid-cols-4 border-b border-slate-800/80 bg-slate-950/40">
+          <button
+            v-for="stage in pipelineStages"
+            :key="stage.id"
+            @click="activePipelineTab = stage.id as any"
+            type="button"
+            class="flex items-center gap-2.5 px-4 py-3 text-left transition-all border-b-2 text-xs font-mono"
+            :class="[
+              activePipelineTab === stage.id
+                ? 'border-emerald-400 bg-emerald-500/10 text-white font-bold'
+                : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/40'
+            ]"
+          >
+            <span
+              class="inline-flex h-5 w-5 items-center justify-center shrink-0 rounded text-[10px] font-bold"
+              :class="activePipelineTab === stage.id ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'"
+            >
+              {{ stage.num }}
+            </span>
+            <div class="truncate">
+              <div class="truncate font-semibold">{{ stage.name }}</div>
+              <div class="text-[10px] text-slate-400 truncate">{{ stage.tag }}</div>
             </div>
-            <div class="mt-3 space-y-2">
-              <div class="rounded-lg border border-slate-800 bg-slate-900/80 p-3 shadow-xs">
-                <p class="text-xs font-semibold text-slate-200">Refactor OAuth state handler</p>
-                <div class="mt-2 flex items-center justify-between text-[10px] text-slate-400">
-                  <span class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-emerald-400">HUB-102</span>
-                  <span class="rounded-full bg-blue-500/10 px-2 py-0.5 text-blue-400 font-semibold">3 SP</span>
-                </div>
+          </button>
+        </div>
+
+        <!-- Stage Content Body -->
+        <div class="p-4 sm:p-6 grid lg:grid-cols-12 gap-6 items-start">
+          <div class="lg:col-span-5 space-y-4">
+            <div class="inline-flex items-center gap-2 rounded-lg bg-slate-800/80 px-3 py-1 text-xs font-mono text-emerald-400 border border-slate-700">
+              <Icons :name="currentPipelineData.icon" :size="14" />
+              <span>Giai Đoạn {{ currentPipelineData.num }}: {{ currentPipelineData.name }}</span>
+            </div>
+
+            <h3 class="text-xl font-bold text-white leading-snug">
+              {{ currentPipelineData.name }} — {{ currentPipelineData.tag }}
+            </h3>
+
+            <p class="text-sm text-slate-300 leading-relaxed">
+              {{ currentPipelineData.desc }}
+            </p>
+
+            <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5 space-y-2 text-xs font-mono">
+              <div class="flex items-center justify-between text-slate-400">
+                <span>Trạng thái:</span>
+                <span class="text-emerald-400 font-bold">● Active Sandbox</span>
+              </div>
+              <div class="flex items-center justify-between text-slate-400">
+                <span>Guardrails:</span>
+                <span class="text-cyan-400 font-bold">100% Enforced</span>
+              </div>
+              <div class="flex items-center justify-between text-slate-400">
+                <span>Tài liệu tham chiếu:</span>
+                <span class="text-purple-400 font-bold">task-hub-docs-v1</span>
               </div>
             </div>
           </div>
 
-          <!-- Column 2: In Progress -->
-          <div class="rounded-xl border border-slate-800/60 bg-slate-950/50 p-3.5">
-            <div class="flex items-center justify-between text-xs font-bold text-blue-400 pb-2 border-b border-slate-800/60">
-              <span class="flex items-center gap-1.5">
-                <span class="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
-                <span>IN PROGRESS</span>
-              </span>
-              <span class="rounded bg-blue-950/60 px-1.5 py-0.5 text-[10px] text-blue-300">1</span>
-            </div>
-            <div class="mt-3 space-y-2">
-              <div class="rounded-lg border border-blue-500/40 bg-blue-950/20 p-3 shadow-md shadow-blue-950/30 ring-1 ring-blue-500/20">
-                <p class="text-xs font-semibold text-white">Bi-directional GitHub Webhook Sync</p>
-                <div class="mt-2 flex items-center gap-1.5 text-[10px] text-slate-400">
-                  <span class="font-mono text-cyan-400">🤖 Agent: Claude / Antigravity</span>
-                </div>
-                <div class="mt-2.5 flex items-center justify-between text-[10px]">
-                  <span class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-emerald-400">HUB-88</span>
-                  <span class="text-xs text-amber-400 font-bold">⚡ Branch: feat/sync</span>
-                </div>
+          <div class="lg:col-span-7">
+            <div class="rounded-xl border border-slate-800 bg-slate-950 p-4 font-mono text-xs shadow-inner overflow-x-auto">
+              <div class="flex items-center justify-between border-b border-slate-800/80 pb-2 mb-3 text-slate-400 text-[11px]">
+                <span class="text-emerald-400">{{ currentPipelineData.codeTitle }}</span>
+                <span class="text-slate-400 uppercase">{{ currentPipelineData.codeLang }}</span>
               </div>
-            </div>
-          </div>
-
-          <!-- Column 3: In Review -->
-          <div class="rounded-xl border border-slate-800/60 bg-slate-950/50 p-3.5">
-            <div class="flex items-center justify-between text-xs font-bold text-purple-400 pb-2 border-b border-slate-800/60">
-              <span class="flex items-center gap-1.5">
-                <span class="h-2 w-2 rounded-full bg-purple-500"></span>
-                <span>IN REVIEW</span>
-              </span>
-              <span class="rounded bg-purple-950/60 px-1.5 py-0.5 text-[10px] text-purple-300">1</span>
-            </div>
-            <div class="mt-3 space-y-2">
-              <div class="rounded-lg border border-purple-500/30 bg-purple-950/20 p-3 shadow-xs">
-                <p class="text-xs font-semibold text-slate-200">MCP Protocol 2024-11-05 Tool Support</p>
-                <div class="mt-2 flex items-center gap-1 text-[10px] text-emerald-400 font-medium">
-                  <span>✓ 14/14 Tests Passed</span>
-                </div>
-                <div class="mt-2 flex items-center justify-between text-[10px]">
-                  <span class="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-emerald-400">HUB-94</span>
-                  <span class="rounded bg-purple-500/20 px-1.5 py-0.5 text-purple-300 font-semibold">Evidence Attached</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Column 4: Done -->
-          <div class="rounded-xl border border-slate-800/60 bg-slate-950/50 p-3.5">
-            <div class="flex items-center justify-between text-xs font-bold text-emerald-400 pb-2 border-b border-slate-800/60">
-              <span class="flex items-center gap-1.5">
-                <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-                <span>COMPLETED</span>
-              </span>
-              <span class="rounded bg-emerald-950/60 px-1.5 py-0.5 text-[10px] text-emerald-300">12</span>
-            </div>
-            <div class="mt-3 space-y-2">
-              <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-3 opacity-80">
-                <p class="text-xs font-semibold text-slate-300 line-through">Docker Multi-Stage Cloud Run Deployment</p>
-                <div class="mt-2 flex items-center justify-between text-[10px] text-slate-500">
-                  <span class="font-mono">HUB-79</span>
-                  <span class="text-emerald-400 font-bold">✓ Merged</span>
-                </div>
-              </div>
+              <pre class="text-slate-200 leading-relaxed font-mono whitespace-pre-wrap selection:bg-emerald-500 selection:text-slate-950">{{ currentPipelineData.codeContent }}</pre>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- CORE FEATURES BENTO GRID -->
-    <section id="features" class="relative z-10 border-t border-slate-800/80 bg-slate-900/30 py-24">
+    <!-- SECTION: CHAOTIC VIBE CODING VS MIDNIGHT HUB -->
+    <section id="comparison" class="relative z-10 border-t border-slate-800/80 bg-slate-900/40 py-24">
       <div class="mx-auto max-w-6xl px-6">
         <div class="text-center">
-          <p class="text-xs font-bold tracking-wider uppercase text-emerald-400">Supercharged Architecture</p>
+          <p class="text-xs font-bold tracking-wider uppercase text-emerald-400 font-mono">Sự Khác Biệt Mang Tính Cách Mạng</p>
           <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            Everything your team needs to supervise AI coding agents
+            Vibe Coding Tự Phát vs. Supervised Vibe Coding trên Midnight Hub
           </h2>
-          <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base text-slate-400 leading-relaxed">
-            Eliminate loose prompts and unverified PRs. Midnight Hub provides the deterministic contract between humans and autonomous coding agents.
+          <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base text-slate-300 leading-relaxed">
+            Vibe coding giúp bạn lên ý tưởng nhanh, nhưng thiếu kỷ luật sẽ dẫn tới code rác và lỗi ngầm. Midnight Hub giữ trọn tốc độ và bổ sung toàn bộ chuẩn mực kỹ thuật chuyên nghiệp.
           </p>
         </div>
 
-        <div class="mt-16 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <!-- Feature 1 -->
-          <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-6 hover:border-emerald-500/50 hover:bg-slate-900/60 transition-all">
-            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-2xl text-emerald-400 group-hover:scale-110 transition-transform">
-              🤖
+        <div class="mt-16 grid gap-8 md:grid-cols-2">
+          <!-- Column 1: Chaotic Vibe Coding -->
+          <div class="rounded-2xl border border-red-500/20 bg-red-950/10 p-6 sm:p-8 backdrop-blur relative">
+            <div class="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-mono text-red-400 font-bold">
+              <span>✕ VIBE CODING TỰ PHÁT (CHAT / COPY-PASTE)</span>
             </div>
-            <h3 class="mt-5 text-lg font-bold text-white">Supervised Agent Execution</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
-              Enforce strict handoff contracts. Agents receive structured context packs and must attach verifiable test logs before requesting human review.
-            </p>
+            <h3 class="mt-4 text-xl font-bold text-white">Nhanh lúc đầu, bế tắc lúc sau</h3>
+            
+            <ul class="mt-6 space-y-4 text-sm text-slate-300">
+              <li class="flex items-start gap-3">
+                <span class="inline-flex h-5 w-5 items-center justify-center shrink-0 rounded-full bg-red-500/20 text-red-400 text-xs font-bold mt-0.5">✕</span>
+                <div>
+                  <strong class="text-red-200">AI ảo giác (Hallucination):</strong> Do không nạp context pack kiến trúc, AI tự chế hàm, gọi sai API và phá vỡ cấu trúc có sẵn.
+                </div>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="inline-flex h-5 w-5 items-center justify-center shrink-0 rounded-full bg-red-500/20 text-red-400 text-xs font-bold mt-0.5">✕</span>
+                <div>
+                  <strong class="text-red-200">Sửa bừa vào Main Branch:</strong> Không có worktree cô lập, xung đột git liên tục, ghi đè làm mất công sức của các tính năng khác.
+                </div>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="inline-flex h-5 w-5 items-center justify-center shrink-0 rounded-full bg-red-500/20 text-red-400 text-xs font-bold mt-0.5">✕</span>
+                <div>
+                  <strong class="text-red-200">Không có test bắt buộc:</strong> Nhìn có vẻ chạy được nhưng lọt lỗi logic và rủi ro bảo mật nghiêm trọng vào production.
+                </div>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="inline-flex h-5 w-5 items-center justify-center shrink-0 rounded-full bg-red-500/20 text-red-400 text-xs font-bold mt-0.5">✕</span>
+                <div>
+                  <strong class="text-red-200">Mất dấu vết (Zero Attribution):</strong> Không thể biết dòng code nào do AI nào viết, không có tài liệu bàn giao để bảo trì sau này.
+                </div>
+              </li>
+            </ul>
           </div>
 
-          <!-- Feature 2 -->
-          <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-6 hover:border-teal-500/50 hover:bg-slate-900/60 transition-all">
-            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-500/10 border border-teal-500/20 text-2xl text-teal-400 group-hover:scale-110 transition-transform">
-              🔄
+          <!-- Column 2: Midnight Hub Supervised Vibe Coding -->
+          <div class="rounded-2xl border border-emerald-500/40 bg-gradient-to-b from-emerald-950/30 to-slate-950/80 p-6 sm:p-8 backdrop-blur relative shadow-xl shadow-emerald-950/20 ring-1 ring-emerald-500/30">
+            <div class="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-mono text-emerald-400 font-bold">
+              <span>✓ MIDNIGHT HUB SUPERVISED VIBE CODING</span>
             </div>
-            <h3 class="mt-5 text-lg font-bold text-white">Bi-Directional GitHub Sync</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
-              1-click connect your GitHub repositories. Automatically sync branches, commits, pull requests, issues, and real-time webhook status updates.
-            </p>
-          </div>
-
-          <!-- Feature 3 -->
-          <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-6 hover:border-cyan-500/50 hover:bg-slate-900/60 transition-all">
-            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-2xl text-cyan-400 group-hover:scale-110 transition-transform">
-              🔌
-            </div>
-            <h3 class="mt-5 text-lg font-bold text-white">Native MCP Server Endpoint</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
-              Seamlessly integrates with Google Antigravity, Claude Code, Cursor, and Codex via standard JSON-RPC 2.0 Model Context Protocol.
-            </p>
-          </div>
-
-          <!-- Feature 4 -->
-          <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-6 hover:border-blue-500/50 hover:bg-slate-900/60 transition-all">
-            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/10 border border-blue-500/20 text-2xl text-blue-400 group-hover:scale-110 transition-transform">
-              📊
-            </div>
-            <h3 class="mt-5 text-lg font-bold text-white">Agile Scrum & Kanban Board</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
-              Backlog grooming, Story Points estimation, sprint velocity calculation, and smooth drag-and-drop state transitions.
-            </p>
-          </div>
-
-          <!-- Feature 5 -->
-          <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-6 hover:border-purple-500/50 hover:bg-slate-900/60 transition-all">
-            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20 text-2xl text-purple-400 group-hover:scale-110 transition-transform">
-              📄
-            </div>
-            <h3 class="mt-5 text-lg font-bold text-white">Project Knowledge Registry</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
-              Manage specifications, architecture RFCs, and release logs. Automatically deliver required documents to agents on task dispatch.
-            </p>
-          </div>
-
-          <!-- Feature 6 -->
-          <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-6 hover:border-amber-500/50 hover:bg-slate-900/60 transition-all">
-            <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-2xl text-amber-400 group-hover:scale-110 transition-transform">
-              🧘
-            </div>
-            <h3 class="mt-5 text-lg font-bold text-white">Mindful Focus & Pomodoro</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
-              Built-in Pomodoro cycles, breathing pacers, and Theravāda mindfulness reflections to maintain peak engineering focus during long coding sprints.
-            </p>
+            <h3 class="mt-4 text-xl font-bold text-white">Tốc độ tối đa, chất lượng chuẩn mực</h3>
+            
+            <ul class="mt-6 space-y-4 text-sm text-slate-200">
+              <li class="flex items-start gap-3">
+                <span class="inline-flex h-5 w-5 items-center justify-center shrink-0 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold mt-0.5">✓</span>
+                <div>
+                  <strong class="text-emerald-300">Living Context Pack:</strong> Nạp tài liệu kiến trúc chuẩn, cảnh báo tài liệu cũ (`>30d`), triệt tiêu 100% ảo giác.
+                </div>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="inline-flex h-5 w-5 items-center justify-center shrink-0 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold mt-0.5">✓</span>
+                <div>
+                  <strong class="text-emerald-300">Git Worktree Sandbox:</strong> Chạy song song nhiều Agent trên các worktree riêng biệt, an toàn tuyệt đối cho nhánh chính.
+                </div>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="inline-flex h-5 w-5 items-center justify-center shrink-0 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold mt-0.5">✓</span>
+                <div>
+                  <strong class="text-emerald-300">Bắt Buộc Verification Evidence:</strong> Test tự động phải PASS 100% + logs đính kèm thì Agent mới được quyền gửi Handoff.
+                </div>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="inline-flex h-5 w-5 items-center justify-center shrink-0 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold mt-0.5">✓</span>
+                <div>
+                  <strong class="text-emerald-300">Actor Attribution & Human Gate:</strong> Lưu vết người vs model cho từng commit, quyền chốt chặn Approve thuộc về con người.
+                </div>
+              </li>
+            </ul>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- WORKFLOW 3-STEP SECTION -->
-    <section id="agent-workflow" class="relative z-10 py-24">
+    <!-- SECTION: 3 CORE PILLARS BENTO GRID -->
+    <section id="features" class="relative z-10 py-24">
       <div class="mx-auto max-w-6xl px-6">
         <div class="text-center">
-          <p class="text-xs font-bold tracking-wider uppercase text-emerald-400">Deterministic Pipeline</p>
+          <p class="text-xs font-bold tracking-wider uppercase text-emerald-400 font-mono">3 Trụ Cột Nền Tảng</p>
           <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            How Midnight Hub coordinates human intent & AI execution
+            Nhanh Hơn — Ít Lỗi Hơn — Đúng Chuẩn Hơn
           </h2>
+          <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base text-slate-300 leading-relaxed">
+            Mọi tính năng trong Midnight Hub đều được thiết kế xoay quanh tam giác chất lượng phát triển phần mềm hiện đại.
+          </p>
         </div>
 
-        <div class="mt-16 grid gap-8 md:grid-cols-3 text-left">
-          <div class="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 relative">
-            <span class="text-3xl font-black text-emerald-500/40">01</span>
-            <h3 class="mt-4 text-base font-bold text-white">Connect & Plan</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
-              Sign in with GitHub and link your project repositories. Define clear Acceptance Criteria and Definition of Done for each task.
-            </p>
+        <div class="mt-16 grid gap-6 md:grid-cols-3">
+          <!-- Pillar 1: Phát Triển Nhanh Hơn -->
+          <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-7 hover:border-emerald-500/50 hover:bg-slate-900/60 transition-all">
+            <div class="inline-flex h-12 w-12 items-center justify-center shrink-0 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 group-hover:scale-110 transition-transform">
+              <Icons name="Zap" :size="24" />
+            </div>
+            <h3 class="mt-5 text-lg font-bold text-white flex items-center gap-2">
+              <span>1. Phát Triển Nhanh Hơn</span>
+            </h3>
+            <p class="mt-1 text-xs font-mono text-emerald-400 uppercase tracking-wider font-semibold">Tốc Độ & Luồng Làm Việc</p>
+            <ul class="mt-4 space-y-2.5 text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <li class="flex items-start gap-2">
+                <span class="text-emerald-400 mt-0.5 font-bold">▸</span>
+                <span><strong>AI Requirement Discovery:</strong> Phân rã prompt thành Epic, User Story, Task và Bug trong vài giây.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-emerald-400 mt-0.5 font-bold">▸</span>
+                <span><strong>Multi-Agent Swarm:</strong> Điều phối đồng thời Antigravity 2.0, Codex, Claude Code và AWS Labs CAO.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-emerald-400 mt-0.5 font-bold">▸</span>
+                <span><strong>Git Worktree Multitasking:</strong> Thử nghiệm song song nhiều tính năng mà không nghẽn repo.</span>
+              </li>
+            </ul>
           </div>
 
-          <div class="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 relative">
-            <span class="text-3xl font-black text-blue-500/40">02</span>
-            <h3 class="mt-4 text-base font-bold text-white">Dispatch to Agent</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
-              AI agents connect via native MCP. They fetch the exact task context pack, git branch constraints, and test execution rules.
-            </p>
+          <!-- Pillar 2: Ít Lỗi Hơn -->
+          <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-7 hover:border-cyan-500/50 hover:bg-slate-900/60 transition-all">
+            <div class="inline-flex h-12 w-12 items-center justify-center shrink-0 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 group-hover:scale-110 transition-transform">
+              <Icons name="Shield" :size="24" />
+            </div>
+            <h3 class="mt-5 text-lg font-bold text-white flex items-center gap-2">
+              <span>2. Ít Lỗi Hơn</span>
+            </h3>
+            <p class="mt-1 text-xs font-mono text-cyan-400 uppercase tracking-wider font-semibold">Kiểm Chứng & An Toàn Tuyệt Đối</p>
+            <ul class="mt-4 space-y-2.5 text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <li class="flex items-start gap-2">
+                <span class="text-cyan-400 mt-0.5 font-bold">▸</span>
+                <span><strong>Strict 4-Step Pipeline:</strong> Chu trình khép kín <code>Implement ➔ Review ➔ Evidence ➔ Handoff</code>.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-cyan-400 mt-0.5 font-bold">▸</span>
+                <span><strong>Verification Evidence Schema:</strong> Bắt buộc test suite pass và lưu log kiểm thử có thể tái lập.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-cyan-400 mt-0.5 font-bold">▸</span>
+                <span><strong>Sandbox Policies:</strong> Chặn hoàn toàn các lệnh nguy hiểm (xóa DB, tự ý merge khi chưa review).</span>
+              </li>
+            </ul>
           </div>
 
-          <div class="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 relative">
-            <span class="text-3xl font-black text-purple-500/40">03</span>
-            <h3 class="mt-4 text-base font-bold text-white">Review Evidence & Merge</h3>
-            <p class="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed">
-              Agents submit structured handoffs with automated test results. Humans review the evidence and approve deterministic merges.
+          <!-- Pillar 3: Đúng Chuẩn Hơn -->
+          <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-7 hover:border-purple-500/50 hover:bg-slate-900/60 transition-all">
+            <div class="inline-flex h-12 w-12 items-center justify-center shrink-0 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 group-hover:scale-110 transition-transform">
+              <Icons name="BookOpen" :size="24" />
+            </div>
+            <h3 class="mt-5 text-lg font-bold text-white flex items-center gap-2">
+              <span>3. Đúng Chuẩn Hơn</span>
+            </h3>
+            <p class="mt-1 text-xs font-mono text-purple-400 uppercase tracking-wider font-semibold">Kiến Trúc & Tri Thức Chuẩn Hóa</p>
+            <ul class="mt-4 space-y-2.5 text-xs sm:text-sm text-slate-300 leading-relaxed">
+              <li class="flex items-start gap-2">
+                <span class="text-purple-400 mt-0.5 font-bold">▸</span>
+                <span><strong>Living Context Pack:</strong> Quản trị tài liệu theo <code>task-hub-docs-v1</code>, cảnh báo tài liệu cũ (`>30d`).</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-purple-400 mt-0.5 font-bold">▸</span>
+                <span><strong>Chuẩn MCP 2024-11-05:</strong> 9 công cụ MCP chuẩn hóa giao tiếp 2 chiều với các AI IDE.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-purple-400 mt-0.5 font-bold">▸</span>
+                <span><strong>Actor Attribution Audit:</strong> Minh bạch 100% dòng code do người hay model AI nào viết kèm ISO 8601.</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: STRICT 4-STEP PIPELINE -->
+    <section id="pipeline" class="relative z-10 border-t border-slate-800/80 bg-slate-900/30 py-24">
+      <div class="mx-auto max-w-6xl px-6">
+        <div class="text-center">
+          <p class="text-xs font-bold tracking-wider uppercase text-emerald-400 font-mono">Quy Trình Thực Thi Xác Định</p>
+          <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+            Vòng Đời Thực Thi 4 Bước Bắt Buộc (Strict Workflow)
+          </h2>
+          <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base text-slate-300 leading-relaxed">
+            Mọi lượt chạy của Agent đều phải tuân thủ nghiêm ngặt hợp đồng JSON Schema trước khi đưa lên Tech Lead phê duyệt.
+          </p>
+        </div>
+
+        <div class="mt-16 grid gap-6 md:grid-cols-4 text-left">
+          <div class="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-6 relative">
+            <span class="text-3xl font-black text-emerald-500/40 font-mono">01</span>
+            <h3 class="mt-3 text-base font-bold text-white flex items-center gap-2">
+              <span>Implement</span>
+            </h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
+              Agent nhận Context Pack, phân tích Acceptance Criteria và sinh mã nguồn trong Git worktree cô lập.
             </p>
+            <div class="mt-4 pt-3 border-t border-slate-800/80 text-[11px] font-mono text-emerald-400">
+              Contract: modified_files, change_summary
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-6 relative">
+            <span class="text-3xl font-black text-blue-500/40 font-mono">02</span>
+            <h3 class="mt-3 text-base font-bold text-white flex items-center gap-2">
+              <span>Review</span>
+            </h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
+              Tự động đánh giá risk score, kiểm tra static analysis, linting và phát hiện các vi phạm quy chuẩn thiết kế.
+            </p>
+            <div class="mt-4 pt-3 border-t border-slate-800/80 text-[11px] font-mono text-blue-400">
+              Contract: verdict, feedback, risk_score
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-6 relative">
+            <span class="text-3xl font-black text-purple-500/40 font-mono">03</span>
+            <h3 class="mt-3 text-base font-bold text-white flex items-center gap-2">
+              <span>Evidence</span>
+            </h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
+              Thực thi toàn bộ test suite. Nếu test fail hoặc review bị từ chối, workflow lập tức block và yêu cầu sửa.
+            </p>
+            <div class="mt-4 pt-3 border-t border-slate-800/80 text-[11px] font-mono text-purple-400">
+              Contract: tests, pass/fail counts, status
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-6 relative">
+            <span class="text-3xl font-black text-cyan-500/40 font-mono">04</span>
+            <h3 class="mt-3 text-base font-bold text-white flex items-center gap-2">
+              <span>Handoff</span>
+            </h3>
+            <p class="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
+              Đóng gói bàn giao đính kèm bằng chứng. Chuyển sang <code>needs_review</code> để con người quyết định duyệt.
+            </p>
+            <div class="mt-4 pt-3 border-t border-slate-800/80 text-[11px] font-mono text-cyan-400">
+              Contract: summary, tests, human_approve
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: DESKTOP CONTROL CENTER BANNER -->
+    <section class="relative z-10 py-20 bg-gradient-to-r from-emerald-950/40 via-midnight-900 to-slate-950 border-t border-slate-800/80">
+      <div class="mx-auto max-w-6xl px-6 grid md:grid-cols-12 gap-8 items-center">
+        <div class="md:col-span-7 space-y-4">
+          <div class="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-mono text-emerald-400 font-bold">
+            <Icons name="Desktop" :size="14" />
+            <span>MIDNIGHT HUB DESKTOP COMPANION</span>
+          </div>
+          <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
+            Điều phối AI Agent trực tiếp ngay trên máy tính của bạn
+          </h2>
+          <p class="text-slate-300 text-sm sm:text-base leading-relaxed">
+            Ứng dụng Electron bản quyền cho Windows tích hợp sẵn AWS Labs CAO, tự động cấu hình MCP, kết nối Antigravity 2.0, Codex, Claude Code với hệ thống âm thanh phản hồi tức thì và luồng stream log thời gian thực.
+          </p>
+          <div class="pt-2 flex flex-wrap gap-3">
+            <Link
+              href="/desktop"
+              class="inline-flex items-center gap-2 rounded-xl bg-phantom-mint px-5 py-3 font-bold text-midnight-950 shadow-glow-mint hover:bg-emerald-300 transition"
+            >
+              <Icons name="Desktop" :size="16" />
+              <span>Tải Cho Windows (Free)</span>
+              <span>→</span>
+            </Link>
+            <a
+              href="https://github.com/macatung/code-at-midnight/releases"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 font-semibold text-slate-200 hover:border-slate-600 hover:text-white transition"
+            >
+              <span>Xem Changelog</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="md:col-span-5">
+          <div class="rounded-2xl border border-slate-800 bg-slate-950/90 p-5 font-mono text-xs shadow-2xl space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3 text-slate-400">
+              <span class="text-emerald-400 font-bold">● DESKTOP CONTROL CENTER</span>
+              <span class="text-[10px]">ELECTRON 34.2</span>
+            </div>
+            <div class="space-y-2">
+              <div class="flex justify-between text-slate-300">
+                <span>CAO Daemon Status:</span>
+                <span class="text-emerald-400 font-bold">Active in WSL</span>
+              </div>
+              <div class="flex justify-between text-slate-300">
+                <span>Connected Agent:</span>
+                <span class="text-cyan-400 font-bold">Antigravity 2.0</span>
+              </div>
+              <div class="flex justify-between text-slate-300">
+                <span>Active Worktree:</span>
+                <span class="text-purple-400 font-mono">.worktrees/task-108</span>
+              </div>
+              <div class="flex justify-between text-slate-300">
+                <span>Sandbox Security:</span>
+                <span class="text-emerald-400 font-bold">Strict (0 Leaks)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: PRICING TEASER -->
+    <section class="relative z-10 border-t border-slate-800/80 bg-slate-950 py-20">
+      <div class="mx-auto max-w-6xl px-6 text-center">
+        <p class="text-xs font-bold tracking-wider uppercase text-emerald-400 font-mono">Gói Dịch Vụ Linh Hoạt</p>
+        <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+          Bắt đầu miễn phí, mở rộng theo quy mô đội ngũ
+        </h2>
+        <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base text-slate-300 leading-relaxed">
+          Từ cá nhân vibe coding mã nguồn mở cho đến các engineering squad phối hợp bầy tác tử AI (Multi-Agent Swarm).
+        </p>
+
+        <div class="mt-12 grid gap-6 md:grid-cols-4 text-left">
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/50 p-5 flex flex-col justify-between">
+            <div>
+              <div class="text-sm font-bold text-white">Community</div>
+              <div class="mt-2 text-2xl font-extrabold text-white">$0</div>
+              <p class="mt-2 text-xs text-slate-400">Dành cho cá nhân & mã nguồn mở. 1 runner cục bộ, 3 dự án.</p>
+            </div>
+            <Link href="/pricing" class="mt-6 block text-center rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition">
+              Chi tiết →
+            </Link>
+          </div>
+
+          <div class="rounded-2xl border border-emerald-500/50 bg-emerald-950/20 p-5 flex flex-col justify-between relative shadow-lg shadow-emerald-950/20">
+            <div class="absolute -top-3 right-4 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-slate-950 uppercase">
+              Phổ Biến
+            </div>
+            <div>
+              <div class="text-sm font-bold text-white">Pro Developer</div>
+              <div class="mt-2 text-2xl font-extrabold text-emerald-400">$19<span class="text-xs text-slate-400 font-normal">/tháng</span></div>
+              <p class="mt-2 text-xs text-slate-300">3 runner đồng thời, không giới hạn dự án, lưu bằng chứng 90 ngày.</p>
+            </div>
+            <Link href="/pricing" class="mt-6 block text-center rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition">
+              Nâng cấp Pro →
+            </Link>
+          </div>
+
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/50 p-5 flex flex-col justify-between">
+            <div>
+              <div class="text-sm font-bold text-white">Team / Startup</div>
+              <div class="mt-2 text-2xl font-extrabold text-white">$49<span class="text-xs text-slate-400 font-normal">/tháng</span></div>
+              <p class="mt-2 text-xs text-slate-400">10 runner đồng thời, 10 thành viên, RBAC và kho mật mã dùng chung.</p>
+            </div>
+            <Link href="/pricing" class="mt-6 block text-center rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition">
+              Chi tiết →
+            </Link>
+          </div>
+
+          <div class="rounded-2xl border border-slate-800 bg-slate-900/50 p-5 flex flex-col justify-between">
+            <div>
+              <div class="text-sm font-bold text-white">Enterprise</div>
+              <div class="mt-2 text-2xl font-extrabold text-white">Custom</div>
+              <p class="mt-2 text-xs text-slate-400">Runner không giới hạn, SAML SSO, bảo mật tùy biến và SLA 99.99%.</p>
+            </div>
+            <Link href="/pricing" class="mt-6 block text-center rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition">
+              Liên hệ Enterprise →
+            </Link>
           </div>
         </div>
       </div>
@@ -430,38 +805,45 @@ const mobileMenuOpen = ref(false);
     <section class="relative z-10 border-t border-slate-800/80 bg-gradient-to-b from-slate-950 to-slate-900 py-20 text-center">
       <div class="mx-auto max-w-4xl px-6">
         <h2 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
-          Ready to supervise AI coding agents with total confidence?
+          Sẵn sàng đưa Vibe Coding vào quy trình chuẩn mực?
         </h2>
-        <p class="mt-4 text-base sm:text-lg text-slate-400">
-          Join engineers using Midnight Hub to coordinate AI agent handoffs and ship clean, verified code.
+        <p class="mt-4 text-base sm:text-lg text-slate-300">
+          Gia nhập cùng các kỹ sư sử dụng Midnight Hub để sáng tạo nhanh hơn, triệt tiêu lỗi ngầm và giữ trọn kiểm soát chất lượng.
         </p>
 
-        <div class="mt-8 flex justify-center">
+        <div class="mt-8 flex flex-wrap justify-center gap-4">
           <a
             href="/auth/github"
-            class="flex items-center gap-3 rounded-2xl bg-emerald-500 px-8 py-4 text-sm font-bold text-slate-950 shadow-xl shadow-emerald-500/30 hover:bg-emerald-400 active:scale-95 transition-all cursor-pointer"
+            class="inline-flex items-center gap-3 rounded-2xl bg-emerald-500 px-8 py-4 text-sm font-bold text-slate-950 shadow-xl shadow-emerald-500/30 hover:bg-emerald-400 active:scale-95 transition-all cursor-pointer"
           >
-            <svg class="h-5 w-5 fill-current" viewBox="0 0 24 24">
-              <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-            </svg>
-            <span>Get Started with GitHub OAuth</span>
+            <Icons name="Github" :size="18" />
+            <span>Đăng Nhập Với GitHub</span>
+            <span>→</span>
           </a>
+          <Link
+            href="/desktop"
+            class="inline-flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 px-6 py-4 text-sm font-semibold text-slate-200 hover:bg-slate-700 transition-all"
+          >
+            <Icons name="Desktop" :size="18" />
+            <span>Tải Desktop Companion</span>
+          </Link>
         </div>
       </div>
     </section>
 
     <!-- FOOTER -->
-    <footer class="border-t border-slate-800/80 bg-slate-950 px-6 py-12 text-xs text-slate-500">
+    <footer class="border-t border-slate-800/80 bg-slate-950 px-6 py-12 text-xs text-slate-400">
       <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-6">
         <div class="flex items-center gap-2.5">
           <img src="/brand/midnight-hub-mark.svg?v=20260829" alt="Midnight Hub" class="h-6 w-6 rounded-lg object-contain" />
-          <span class="font-bold text-slate-300">Midnight Hub</span>
-          <span>· Open Source & Supervised AI Workspace</span>
+          <span class="font-bold text-slate-200">Midnight Hub</span>
+          <span>· Supervised Vibe Coding & AI Orchestrator</span>
         </div>
-        <div class="flex items-center gap-6 text-slate-400">
-          <a href="/pricing" class="hover:text-emerald-400 transition-colors font-medium">Pricing</a>
-          <a href="#features" class="hover:text-white transition-colors">Features</a>
-          <a href="#agent-workflow" class="hover:text-white transition-colors">Workflow</a>
+        <div class="flex items-center gap-6 text-slate-300">
+          <Link href="/pricing" class="hover:text-emerald-400 transition-colors font-medium">Bảng Giá</Link>
+          <Link href="/desktop" class="hover:text-emerald-400 transition-colors font-medium">Desktop App</Link>
+          <a href="#vibe-coding" class="hover:text-white transition-colors">Vibe Coding</a>
+          <a href="#comparison" class="hover:text-white transition-colors">So Sánh</a>
           <a href="https://github.com/macatung/task-hub" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">GitHub</a>
         </div>
         <p>© 2026 Macatung Dev. Released under the MIT License.</p>

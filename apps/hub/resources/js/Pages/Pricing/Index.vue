@@ -516,21 +516,71 @@ const faqs = [
       'Midnight Hub operates on a zero-knowledge architecture: your proprietary source code never leaves your local repository or private runner environment. Only task specs, Acceptance Criteria, and execution logs are relayed via TLS 1.3 encrypted endpoints.',
   },
   {
+    question: 'How does Supervised Vibe Coding prevent silent bugs in our code?',
+    answer:
+      'Midnight Hub implements a strict 4-step pipeline (implement ➔ review ➔ evidence ➔ handoff). AI agents (Antigravity 2.0, Codex, Claude Code) are isolated in dedicated Git worktrees and must run your test suite, calculate risk scores, and attach verified evidence before a human reviewer approves the merge. No code enters main without passing the verification gate.',
+  },
+  {
+    question: 'What is Verification Evidence and how long is it retained?',
+    answer:
+      'Verification Evidence is an auditable cryptographic package containing test execution outputs, pass/fail counts, duration, and actor attribution. Retention ranges from 7 days on Community, 90 days on Pro, 365 days on Team, up to 730 days (2 years) on Enterprise.',
+  },
+  {
     question: 'What happens if our team hits a quota limit?',
     answer:
       'When your team reaches runner concurrency or project limits, Midnight Hub displays a friendly in-app Upgrade prompt. Your existing runs are never interrupted, and you can upgrade instantly with prorated billing.',
   },
 ];
 
+import SeoHead from '@/Components/common/SeoHead.vue';
+
 // Open FAQ item tracking
 const openFaqIndex = ref<number | null>(0);
 const toggleFaq = (index: number) => {
   openFaqIndex.value = openFaqIndex.value === index ? null : index;
 };
+
+const pricingJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Midnight Hub',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Cross-platform, Web, Windows',
+  description: 'Commercial AI coding agent platform & supervised vibe coding engine with transparent pricing.',
+  offers: [
+    {
+      '@type': 'Offer',
+      name: 'Community Tier',
+      price: '0',
+      priceCurrency: 'USD',
+      description: '1 Concurrent Runner, 3 Active Workspaces, 7-day retention.',
+    },
+    {
+      '@type': 'Offer',
+      name: 'Pro Developer',
+      price: '19',
+      priceCurrency: 'USD',
+      description: '3 Concurrent Runners, Unlimited Workspaces, 90-day retention.',
+    },
+    {
+      '@type': 'Offer',
+      name: 'Engineering Team',
+      price: '99',
+      priceCurrency: 'USD',
+      description: '10 Concurrent Runners, 10 Team Seats, Custom MCP, 365-day retention.',
+    },
+  ],
+};
 </script>
 
 <template>
-  <Head title="Pricing & Plans — Midnight Hub" />
+  <SeoHead
+    title="Bảng Giá & Gói Dịch Vụ — Midnight Hub"
+    description="Khám phá các gói dịch vụ Midnight Hub: Từ gói Community miễn phí đến gói Pro Developer và Engineering Team dành cho doanh nghiệp lập trình AI Agents."
+    keywords="Bảng giá Midnight Hub, Pricing plans, AI Developer Studio, Vibe coding pricing, Pro Developer subscription"
+    canonical="https://macatung.dev/pricing"
+    :json-ld="pricingJsonLd"
+  />
 
   <div class="pricing-page min-h-screen bg-midnight-950 text-slate-100 font-sans selection:bg-phantom-mint selection:text-midnight-950 overflow-x-hidden">
     <!-- Ambient Background Lighting -->
@@ -634,14 +684,14 @@ const toggleFaq = (index: number) => {
         </div>
 
         <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white leading-[1.15]">
-          Predictable scale for your<br />
+          Predictable scale for<br />
           <span class="bg-gradient-to-r from-phantom-cyan via-phantom-mint to-talisman-gold bg-clip-text text-transparent">
-            AI Agent Engineering Swarm
+            Supervised Vibe Coding & Agent Fleets
           </span>
         </h1>
 
         <p class="mt-6 text-base sm:text-lg text-slate-400 leading-relaxed">
-          From solo developers orchestrating local coding agents to enterprise engineering fleets requiring custom MCP governance and zero-queue execution.
+          From solo developers vibe coding with Antigravity 2.0 to enterprise engineering fleets running multi-agent swarms with strict verification evidence and zero-defect quality gates.
         </p>
 
         <!-- MONTHLY / YEARLY TOGGLE -->

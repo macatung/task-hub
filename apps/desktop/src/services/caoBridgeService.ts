@@ -307,7 +307,7 @@ steps:
       Workspace: {{workflow.inputs.workspace_path}}
       First run \`cd -- "{{workflow.inputs.workspace_path}}"\` and verify the working directory. All edits and commands must stay there.
       Follow clean code architecture, apply required modifications to the workspace, and list all changed files.
-      You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid; do not finish until the tool call succeeds.
+      You MUST call the workflow_return MCP tool exactly once with one output argument whose value matches output_schema: workflow_return({"output": {...}}). A prose response alone is invalid; do not finish until the tool call succeeds.
     output_schema:
       type: object
       required:
@@ -333,7 +333,7 @@ steps:
       Workspace: {{workflow.inputs.workspace_path}}
       First run \`cd -- "{{workflow.inputs.workspace_path}}"\` before reading files or running commands.
       Review for logic bugs, performance, security, and edge cases. Provide clear verdict.
-      You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid; do not finish until the tool call succeeds.
+      You MUST call the workflow_return MCP tool exactly once with one output argument whose value matches output_schema: workflow_return({"output": {...}}). A prose response alone is invalid; do not finish until the tool call succeeds.
     output_schema:
       type: object
       required:
@@ -358,7 +358,7 @@ steps:
       Workspace: {{workflow.inputs.workspace_path}}
       First run \`cd -- "{{workflow.inputs.workspace_path}}"\` and run all tests from that directory.
       Run workspace test commands and verify that all test suites pass with zero regressions.
-      Do not modify files or delegate. You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid.
+      Do not modify files or delegate. You MUST call the workflow_return MCP tool exactly once with one output argument whose value matches output_schema: workflow_return({"output": {...}}). A prose response alone is invalid.
     output_schema:
       type: object
       required:
@@ -383,7 +383,7 @@ steps:
       Review Verdict: {{steps.review.output.verdict}} (Risk Score: {{steps.review.output.risk_score}})
       Test Evidence: {{steps.evidence.output.test_pass_count}} passed, {{steps.evidence.output.test_fail_count}} failed.
       Output the structured marker <TASK_HUB_HANDOFF> with summary, changed files, and verified evidence.
-      You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid; do not finish until the tool call succeeds.
+      You MUST call the workflow_return MCP tool exactly once with one output argument whose value matches output_schema: workflow_return({"output": {...}}). A prose response alone is invalid; do not finish until the tool call succeeds.
 `;
 }
 
@@ -416,7 +416,7 @@ function appendWorkflowStep(
     '      Workspace: {{workflow.inputs.workspace_path}}',
     '      First run `cd -- "{{workflow.inputs.workspace_path}}"` and verify the working directory. All edits and commands must stay there.',
     '      Work in the supplied isolated workspace. Do not delegate to another agent.',
-    '      You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid; do not finish until the tool call succeeds.',
+    '      You MUST call the workflow_return MCP tool exactly once with one output argument whose value matches output_schema: workflow_return({"output": {...}}). A prose response alone is invalid; do not finish until the tool call succeeds.',
     '    output_schema:',
     '      type: object',
     '      required: [task_id, modified_files, change_summary]',
@@ -437,7 +437,7 @@ function appendWorkflowStep(
     '      Workspace: {{workflow.inputs.workspace_path}}',
     '      First run `cd -- "{{workflow.inputs.workspace_path}}"` before reading files or running commands.',
     '      Do not modify files and do not delegate. Return APPROVED or REJECTED.',
-    '      You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid; do not finish until the tool call succeeds.',
+    '      You MUST call the workflow_return MCP tool exactly once with one output argument whose value matches output_schema: workflow_return({"output": {...}}). A prose response alone is invalid; do not finish until the tool call succeeds.',
     '    output_schema:',
     '      type: object',
     '      required: [task_id, verdict, feedback, risk_score]',
@@ -455,7 +455,7 @@ function appendWorkflowStep(
     `      Review verdict: {{steps.${step.id}-review.output.verdict}}`,
     '      Workspace: {{workflow.inputs.workspace_path}}',
     '      First run `cd -- "{{workflow.inputs.workspace_path}}"` and run all tests from that directory.',
-    '      Do not delegate. You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid.',
+    '      Do not delegate. You MUST call the workflow_return MCP tool exactly once with one output argument whose value matches output_schema: workflow_return({"output": {...}}). A prose response alone is invalid.',
     '    output_schema:',
     '      type: object',
     '      required: [task_id, tests, test_pass_count, test_fail_count, status]',
@@ -475,7 +475,7 @@ function appendWorkflowStep(
     `      Review: {{steps.${step.id}-review.output.feedback}}`,
     `      Evidence: {{steps.${step.id}-evidence.output.status}}`,
     '      Workspace: {{workflow.inputs.workspace_path}}',
-    '      Do not modify files or delegate. You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid; do not finish until the tool call succeeds.',
+    '      Do not modify files or delegate. You MUST call the workflow_return MCP tool exactly once with one output argument whose value matches output_schema: workflow_return({"output": {...}}). A prose response alone is invalid; do not finish until the tool call succeeds.',
     '    output_schema:',
     '      type: object',
     '      required: [task_id, summary, changed_files, tests, blockers]',
@@ -538,7 +538,7 @@ export function generateCaoEpicWorkflowYaml(options: {
     ...finalStepRefs,
     '      Workspace: {{workflow.inputs.workspace_path}}',
     '      Return one aggregate Task Hub handoff. Do not modify files or delegate.',
-    '      You MUST call the workflow_return MCP tool exactly once with a JSON object matching output_schema. A prose response alone is invalid; do not finish until the tool call succeeds.',
+    '      You MUST call the workflow_return MCP tool exactly once with one output argument whose value matches output_schema: workflow_return({"output": {...}}). A prose response alone is invalid; do not finish until the tool call succeeds.',
     '    output_schema:',
     '      type: object',
     '      required: [epic_id, summary, child_results, changed_files, tests, blockers]',

@@ -7,6 +7,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import caoCodexDispatchPatch from '../scripts/patch-cao-codex-dispatch.py?raw';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -82,6 +83,7 @@ type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloa
 let updateState: { status: UpdateStatus; version?: string; percent?: number; message?: string } = { status: 'idle' };
 let updateTimer: NodeJS.Timeout | undefined;
 let quotaSyncTimer: NodeJS.Timeout | undefined;
+let caoRuntimeCompatPatched = false;
 
 /**
  * Policies intentionally map to the provider CLI rather than being a vague
@@ -2039,7 +2041,7 @@ type AgentRuntimeProvider = AgentProvider;
 
 type CaoPortOwnerInfo =
   | { kind: 'none'; pid: number }
-  | { kind: 'self'; pid: number }
+  | { kind: 'self'; pid: number; compatibility?: string }
   | { kind: 'conflicting_cao'; pid: number }
   | { kind: 'other'; pid: number };
 
@@ -2179,17 +2181,25 @@ async function resolveCaoRuntime(): Promise<CaoRuntime | null> {
 
 async function ensureCaoWslInstallation(): Promise<boolean> {
   if (process.platform !== 'win32' || !wslExecutable() || process.env.TASK_HUB_CAO_AUTO_INSTALL === 'false') return false;
+  const encodedCompatibilityPatch = Buffer.from(caoCodexDispatchPatch, 'utf8').toString('base64');
   const installScript = `
     required="2.5.0"
     current="$(cao --version 2>/dev/null | sed -n 's/.*version //p' || true)"
-    if command -v cao >/dev/null && command -v cao-server >/dev/null && [ -n "$current" ] && [ "$(printf '%s\\n' "$current" "$required" | sort -V | head -n 1)" = "$required" ]; then exit 0; fi
-    command -v uv >/dev/null || { echo "CAO_BOOTSTRAP_MISSING_UV"; exit 2; }
-    if command -v cao >/dev/null; then uv tool upgrade cli-agent-orchestrator; else uv tool install cli-agent-orchestrator; fi
+    runtime_ready=false
+    if command -v cao >/dev/null && command -v cao-server >/dev/null && [ -n "$current" ] && [ "$(printf '%s\\n' "$current" "$required" | sort -V | head -n 1)" = "$required" ]; then runtime_ready=true; fi
+    if [ "$runtime_ready" != true ]; then
+      command -v uv >/dev/null || { echo "CAO_BOOTSTRAP_MISSING_UV"; exit 2; }
+      if command -v cao >/dev/null; then uv tool upgrade cli-agent-orchestrator; else uv tool install cli-agent-orchestrator; fi
+    fi
     export PATH="$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
     command -v cao >/dev/null && command -v cao-server >/dev/null || { echo "CAO_BOOTSTRAP_INSTALL_FAILED"; exit 3; }
+    cao_python="$(head -n 1 "$(command -v cao)" | sed 's/^#!//')"
+    [ -x "$cao_python" ] || { echo "CAO_BOOTSTRAP_PYTHON_NOT_FOUND"; exit 4; }
+    echo ${encodedCompatibilityPatch} | base64 -d | "$cao_python" -
     cao install code_supervisor >/dev/null 2>&1 || true
   `;
   const result = await runWslShell(installScript, 120_000);
+  caoRuntimeCompatPatched = result.output.includes('CAO_CODEX_DISPATCH_GUARD=patched');
   caoRuntime = undefined;
   return result.ok;
 }
@@ -2273,17 +2283,18 @@ async function isCaoPortOpen(port = caoServerPort(), timeoutMs = 3000): Promise<
 async function inspectCaoPortOwner(port = caoServerPort()): Promise<CaoPortOwnerInfo> {
   const open = await isCaoPortOpen(port);
   if (!open) return { kind: 'none', pid: 0 };
-  if (caoDaemonProcess?.pid) return { kind: 'self', pid: caoDaemonProcess.pid };
+  if (caoDaemonProcess?.pid) return { kind: 'self', pid: caoDaemonProcess.pid, compatibility: '1' };
   const runtime = await resolveCaoRuntime();
   if (runtime?.kind === 'wsl') {
-    const result = await runWslShell(`for pid in $(pgrep -f cao-server || pgrep -x cao-server || true); do cmd=$(tr "\\0" " " </proc/$pid/cmdline 2>/dev/null || true); case "$cmd" in *"--port ${port}"*) home=$(tr "\\0" "\\n" </proc/$pid/environ 2>/dev/null | sed -n 's/^CAO_HOME_DIR=//p'); echo "CAO_PID:$pid CAO_HOME:$home"; exit 0;; esac; done`, 10_000);
+    const result = await runWslShell(`for pid in $(pgrep -f cao-server || pgrep -x cao-server || true); do cmd=$(tr "\\0" " " </proc/$pid/cmdline 2>/dev/null || true); case "$cmd" in *"--port ${port}"*) env=$(tr "\\0" "\\n" </proc/$pid/environ 2>/dev/null || true); home=$(printf '%s\\n' "$env" | sed -n 's/^CAO_HOME_DIR=//p'); compat=$(printf '%s\\n' "$env" | sed -n 's/^TASK_HUB_CAO_CODEX_DISPATCH_GUARD=//p'); echo "CAO_PID:$pid CAO_HOME:$home CAO_COMPAT:$compat"; exit 0;; esac; done`, 10_000);
     const pid = Number(result.output.match(/CAO_PID:(\d+)/)?.[1] || 0);
     const home = result.output.match(/CAO_HOME:([^\s\r\n]*)/)?.[1] || '';
+    const compatibility = result.output.match(/CAO_COMPAT:([^\s\r\n]*)/)?.[1] || '';
     if (!pid) return { kind: 'other', pid: 0 };
     // A server launched by this manager carries the fixed ext4 home. Treat
     // it as self even after a renderer reload so we do not restart healthy
     // sessions unnecessarily.
-    return home === CAO_WSL_HOME ? { kind: 'self', pid } : { kind: 'conflicting_cao', pid };
+    return home === CAO_WSL_HOME ? { kind: 'self', pid, compatibility } : { kind: 'conflicting_cao', pid };
   }
   return { kind: 'conflicting_cao', pid: 0 };
 }
@@ -2384,7 +2395,13 @@ async function startCaoDaemonInternal() {
       return { status: 'error', message: homeProbe.error, port };
     }
 
-    const owner = await inspectCaoPortOwner(port);
+    let owner = await inspectCaoPortOwner(port);
+    if (owner.kind === 'self' && (caoRuntimeCompatPatched || owner.compatibility !== '1')) {
+      await stopCaoPid(owner.pid, runtime);
+      if (caoDaemonProcess?.pid === owner.pid) caoDaemonProcess = null;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      owner = await inspectCaoPortOwner(port);
+    }
     if (owner.kind === 'conflicting_cao') {
       await stopConflictingCaoDaemon(port);
     } else if (owner.kind === 'other') {
@@ -2406,7 +2423,7 @@ async function startCaoDaemonInternal() {
     const executable = isWsl ? runtime.executable : (resolveCaoExecutable() || runtime.executable);
     const distro = runtime.kind === 'wsl' ? (runtime.distro || getWslDistro()) : undefined;
     const user = isWsl ? getWslUser() : undefined;
-    const daemonScript = `${CAO_WSL_BOOTSTRAP}\nexec cao-server --host 0.0.0.0 --port ${port}\n`;
+    const daemonScript = `${CAO_WSL_BOOTSTRAP}\nexport TASK_HUB_CAO_CODEX_DISPATCH_GUARD=1\nexec cao-server --host 0.0.0.0 --port ${port}\n`;
     const b64Daemon = Buffer.from(daemonScript, 'utf8').toString('base64');
     const args = isWsl
       ? ['-d', distro!, '-u', user!, '--', '/bin/bash', '-lc', `echo ${b64Daemon} | base64 -d | bash`]
@@ -2896,22 +2913,49 @@ async function pollCaoWorkflow(runId: string, processError?: string): Promise<Ca
   persistWorkflowRun(run, status);
   const previousCompleted = new Set(previous?.completedSteps || []);
   const newCompleted = status.completedSteps.filter((stepId) => !previousCompleted.has(stepId));
-  const eventType = status.state === 'completed'
-    ? 'workflow.completed'
-    : status.state === 'failed'
-      ? 'workflow.step.failed'
-      : status.state === 'interrupted'
-        ? 'workflow.interrupted'
-        : status.state === 'waiting_input' || status.state === 'blocked'
-          ? 'workflow.waiting_input'
-          : 'workflow.step.started';
+  const isTerminalState = ['completed', 'failed', 'interrupted', 'cancelled'].includes(status.state);
+  const isWaitingInput = status.state === 'waiting_input' || status.state === 'blocked';
+  const stateChanged = !previous || previous.state !== status.state;
+  const stepChanged = !previous || previous.currentStep !== status.currentStep;
+
   if (newCompleted.length) {
     for (const stepId of newCompleted) {
-      safeSend(win, 'cao-workflow-event', { type: 'workflow.step.completed', runId, stepId, status, timestamp: new Date().toISOString() });
+      safeSend(win, 'cao-workflow-event', {
+        type: 'workflow.step.completed',
+        runId,
+        stepId,
+        status,
+        timestamp: new Date().toISOString(),
+      });
     }
-  } else {
+  }
+
+  if (isTerminalState && (stateChanged || !previous)) {
+    const termEvent = status.state === 'completed'
+      ? 'workflow.completed'
+      : status.state === 'failed'
+        ? 'workflow.step.failed'
+        : 'workflow.interrupted';
     safeSend(win, 'cao-workflow-event', {
-      type: eventType,
+      type: termEvent,
+      runId,
+      stepId: status.currentStep,
+      status,
+      error: status.error,
+      timestamp: new Date().toISOString(),
+    });
+  } else if (isWaitingInput && (stateChanged || !previous)) {
+    safeSend(win, 'cao-workflow-event', {
+      type: 'workflow.waiting_input',
+      runId,
+      stepId: status.currentStep,
+      status,
+      error: status.error,
+      timestamp: new Date().toISOString(),
+    });
+  } else if (status.state === 'running' && (stepChanged || stateChanged || !previous)) {
+    safeSend(win, 'cao-workflow-event', {
+      type: 'workflow.step.started',
       runId,
       stepId: status.currentStep,
       status,

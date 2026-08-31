@@ -260,5 +260,6 @@ components:
         event_id: { type: string, maxLength: 128 }
         event_type: { type: string, maxLength: 60 }
         status: { type: string, maxLength: 40 }
+        role: { type: string, enum: [architect, implementer, tester, auditor, test_engineer, supervisor, worker, reviewer] }
         stage: { type: string, maxLength: 60 }
         payload: { type: object }

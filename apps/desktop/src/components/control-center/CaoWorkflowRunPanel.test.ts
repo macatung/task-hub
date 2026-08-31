@@ -13,9 +13,10 @@ describe('Strict CAO workflow UI', () => {
     expect(panelSource).toContain('status?.error');
   });
 
-  it('passes dynamic workflow steps to FlowStepper and does not show legacy cards as CAO stages', () => {
-    expect(runWorkspaceSource).toContain(':steps="orchestrationMode === \'workflow\' ? workflowSteps : undefined"');
-    expect(runWorkspaceSource).toContain('Strict CAO Workflow đang được theo dõi');
+  it('uses the unified execution surface and does not show legacy cards as CAO stages', () => {
+    expect(runWorkspaceSource).toContain('<ExecutionTimeline');
+    expect(runWorkspaceSource).toContain('<EpicTaskAccordion');
+    expect(runWorkspaceSource).toContain('v-if="orchestrationMode !== \'workflow\'"');
     expect(controlCenterSource).toContain('<CaoWorkflowRunPanel');
     expect(controlCenterSource).toContain('onWorkflowEvent');
     expect(controlCenterSource).toContain("finishOperation('workflow-run', 'error'");

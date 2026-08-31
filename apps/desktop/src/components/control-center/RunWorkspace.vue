@@ -6,6 +6,10 @@ import type { SafetyInterceptEvent } from "../../utils/safetyGuardrails";
 import FlowStepper from "./FlowStepper.vue";
 import ConversationThread from "./ConversationThread.vue";
 import StreamCardsView from "./StreamCardsView.vue";
+import ExecutionTimeline from "./ExecutionTimeline.vue";
+import ExecutionDetailDrawer from "./ExecutionDetailDrawer.vue";
+import EpicTaskAccordion from "./EpicTaskAccordion.vue";
+import type { ExecutionStreamEvent } from "../../utils/executionStream";
 import { useConversationThread } from "../../composables/useConversationThread";
 import { useAutoPilotStore } from "../../stores/useAutoPilotStore";
 import { deriveFlowState } from "../../utils/flowState";
@@ -86,6 +90,9 @@ export interface RunWorkspaceProps {
   caoReconnecting?: boolean;
   isEpicBlocked?: boolean;
   epicBlockedReason?: string;
+  streamEvents?: ExecutionStreamEvent[];
+  epicTaskGroups?: Array<{ id?: number; taskKey?: string; title: string; dependencies?: string[]; steps: any[]; status?: string }>;
+  workers?: Array<{ sessionId?: string; id?: string; name?: string; provider?: string; role?: string; status?: string; stepInfo?: string }>;
 }
 
 const props = defineProps<RunWorkspaceProps>();
@@ -131,10 +138,12 @@ const testSummary = ref("");
 const commitSha = ref("");
 const pullRequestUrl = ref("");
 const blockers = ref("");
-const activeSubTab = ref<"cards" | "conversation" | "terminal" | "turns" | "handoff">("cards");
+const activeSubTab = ref<"execution" | "conversation" | "debug">("execution");
 const humanReviewFeedback = ref("");
 const increasedReviewLimit = ref(3);
 const showRunContext = ref(false);
+const selectedStreamEvent = ref<ExecutionStreamEvent | null>(null);
+const selectedWorkerId = ref<string | null>(null);
 
 const autoPilotStore = useAutoPilotStore();
 const thread = useConversationThread();
@@ -176,6 +185,10 @@ const handleSendPrompt = (text: string) => {
   emit("send", text.trim());
   activeSubTab.value = "conversation";
 };
+
+watch(() => props.orchestrationMode, (mode) => {
+  if (mode === 'workflow' || mode === 'supervisor') activeSubTab.value = 'execution';
+}, { immediate: true });
 
 const isStreaming = computed(
   () => props.running && Boolean(props.output?.trim()),
@@ -816,21 +829,28 @@ const submit = () => {
             >
               {{ workspace ? "Đổi thư mục" : "Chọn thư mục" }}
             </button>
+            <button
+              v-if="!running && task && !(isEpicContext && (epicSequenceRunning || epicFinalizing))"
+              class="cc-run-header-control cc-button text-xs"
+              @click="showHandoff = !showHandoff"
+            >
+              Review & submit handoff
+            </button>
           </div>
         </details>
 
-        <!-- Header Sub-Tabs Switcher: Phân bước AI / Cuộc trò chuyện / Terminal / Timeline -->
+        <!-- Unified execution tabs. Legacy role cards are only available to Auto-Pilot. -->
         <div class="flex items-center gap-1 rounded-xl bg-[#0c1220] border border-[#141b2d] p-1 shadow-sm shrink-0">
           <button
             class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition"
             :class="
-              activeSubTab === 'cards'
-                ? 'bg-[#11182c] border border-indigo-500/60 text-indigo-300 shadow-sm'
+              activeSubTab === 'execution'
+                ? 'bg-[#11182c] border border-cyan-500/60 text-cyan-300 shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
             "
-            @click="activeSubTab = 'cards'"
+            @click="activeSubTab = 'execution'"
           >
-            <span class="leading-none">🗂️ Phân bước AI (4)</span>
+            <span class="leading-none">◉ Execution</span>
           </button>
           <button
             class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition"
@@ -844,21 +864,11 @@ const submit = () => {
             <span class="leading-none">💬 Cuộc trò chuyện ({{ thread.messages.value.length }})</span>
           </button>
           <button
-            class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition"
-            :class="
-              activeSubTab === 'terminal'
-                ? 'bg-[#11182c] border border-[#00f5d4]/50 text-[#00f5d4] shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
-            "
-            @click="activeSubTab = 'terminal'"
-          >
-            <span class="leading-none">>_ Terminal</span>
-          </button>
-          <button
             class="inline-flex items-center justify-center shrink-0 gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-zinc-400 hover:text-zinc-200 transition"
-            @click="$emit('timeline')"
+            :class="activeSubTab === 'debug' ? 'bg-[#11182c] border border-amber-500/50 text-amber-300 shadow-sm' : ''"
+            @click="activeSubTab = 'debug'"
           >
-            <span class="leading-none">⏱ Timeline</span>
+            <span class="leading-none">&gt;_ Debug</span>
           </button>
         </div>
 
@@ -1185,12 +1195,13 @@ const submit = () => {
         </div>
 
         <FlowStepper
-          :current-step="orchestrationMode === 'workflow' ? (workflowCurrentStep || flowState.currentStep) : flowState.currentStep"
+          v-if="orchestrationMode !== 'workflow'"
+          :current-step="flowState.currentStep"
           :state="flowState.state"
           :label="flowState.label"
           :details="showRunContext ? flowState.details : undefined"
-          :mode="orchestrationMode === 'workflow' ? 'cao' : undefined"
-          :steps="orchestrationMode === 'workflow' ? workflowSteps : undefined"
+          :mode="undefined"
+          :steps="undefined"
         />
 
         <!-- Epic Sequence Blocked Recovery Banner -->
@@ -1293,14 +1304,26 @@ const submit = () => {
           </span>
         </div>
 
-        <!-- Step-by-Step Multi-Agent Cards Tab (Default Stream View) -->
-        <div v-if="activeSubTab === 'cards' && orchestrationMode === 'workflow'" class="flex-1 min-h-[180px] h-full rounded-xl border border-cyan-500/20 bg-[#070b14] shadow-inner overflow-hidden flex items-center justify-center p-6 text-center">
-          <div>
-            <p class="text-sm font-semibold text-cyan-300">Strict CAO Workflow đang được theo dõi ở panel phía trên</p>
-            <p class="mt-1 text-xs text-zinc-500">Các step thực tế, current step và trạng thái resume được lấy trực tiếp từ workflow run.</p>
+        <!-- Dynamic execution surface for CAO Workflow and Supervisor. -->
+        <div v-if="activeSubTab === 'execution' && (orchestrationMode === 'workflow' || orchestrationMode === 'supervisor')" class="execution-surface">
+          <div v-if="orchestrationMode === 'workflow' && epicTaskGroups?.length" class="execution-surface__outline">
+            <EpicTaskAccordion :tasks="epicTaskGroups" :current-step="workflowCurrentStep" :selected-task-id="task?.id" />
+          </div>
+          <div v-else-if="orchestrationMode === 'supervisor'" class="execution-surface__outline supervisor-worker-tree">
+            <header><span>Supervisor workers</span><span>{{ workers?.length || 0 }}</span></header>
+            <button type="button" class="supervisor-worker" :class="{ 'is-selected': !selectedWorkerId }" @click="selectedWorkerId = null">
+              <span class="supervisor-worker__dot"></span><span><strong>All workers</strong><small>Full session timeline</small></span>
+            </button>
+            <button v-for="worker in workers" :key="worker.sessionId || worker.id || worker.name" type="button" class="supervisor-worker" :class="{ 'is-selected': selectedWorkerId === (worker.sessionId || worker.id) }" @click="selectedWorkerId = worker.sessionId || worker.id || null">
+              <span class="supervisor-worker__dot" :class="worker.status === 'failed' ? 'is-error' : worker.status === 'completed' ? 'is-success' : 'is-active'"></span><span><strong>{{ worker.name || worker.stepInfo || worker.id || 'Worker' }}</strong><small>{{ worker.provider || 'cao' }} · {{ worker.status || 'running' }}</small></span>
+            </button>
+            <p v-if="!workers?.length" class="supervisor-worker-tree__empty">Workers sẽ xuất hiện khi CAO phát event assign/handoff.</p>
+          </div>
+          <div class="execution-surface__timeline">
+            <ExecutionTimeline :events="streamEvents || []" :running="running" :current-step="workflowCurrentStep" :selected-worker="selectedWorkerId" @select="selectedStreamEvent = $event" />
           </div>
         </div>
-        <div v-else-if="activeSubTab === 'cards'" class="flex-1 min-h-[480px] h-full rounded-xl border border-[#141b2d] bg-[#070b14] shadow-inner overflow-hidden flex flex-col">
+        <div v-else-if="activeSubTab === 'execution'" class="flex-1 min-h-[480px] h-full rounded-xl border border-[#141b2d] bg-[#070b14] shadow-inner overflow-hidden flex flex-col">
           <StreamCardsView
             :stage-executions="autoPilotStore.stageExecutions.value"
             :context-packages="autoPilotStore.contextPackages.value"
@@ -1325,57 +1348,12 @@ const submit = () => {
           />
         </div>
 
-        <!-- Terminal Stream Output Tab -->
-        <div v-else-if="activeSubTab === 'terminal'" class="flex-1 min-h-[480px] h-full space-y-2 flex flex-col">
-          <div class="cc-run-section-heading">
-            <span class="flex items-center gap-2">
-              <i class="codicon codicon-terminal text-[#00f5a0] shrink-0"></i>
-              <span class="font-['Space_Grotesk'] font-bold">Chi tiết kỹ thuật</span>
-            </span>
-            <div class="flex items-center gap-2">
-              <span class="text-[11px] text-zinc-400 font-mono">{{
-                output ? `${output.length} ký tự` : "Chưa có output"
-              }}</span>
-              <button
-                v-if="output"
-                type="button"
-                class="inline-flex items-center justify-center shrink-0 px-2 py-0.5 rounded bg-[#11182c] hover:bg-[#18233f] text-[11px] text-zinc-300 gap-1 border border-[#141b2d] cursor-pointer"
-                title="Sao chép output"
-                @click="copyTechnicalOutput"
-              >
-                <i class="codicon codicon-copy shrink-0"></i>
-                <span>Copy</span>
-              </button>
-              <button
-                v-if="output"
-                type="button"
-                class="inline-flex items-center justify-center shrink-0 px-2 py-0.5 rounded bg-[#11182c] hover:bg-[#18233f] text-[11px] text-zinc-300 gap-1 border border-[#141b2d] cursor-pointer"
-                title="Tải log về"
-                @click="downloadTechnicalOutput"
-              >
-                <i class="codicon codicon-cloud-download shrink-0"></i>
-                <span>Download</span>
-              </button>
-            </div>
-          </div>
-
-          <div
-            class="flex-1 min-h-0 rounded-xl border border-[#141b2d] bg-[#04070d] p-3.5 font-mono text-xs text-zinc-300 shadow-inner overflow-auto"
-          >
-            <pre
-              v-if="output"
-              class="h-full whitespace-pre-wrap break-words leading-relaxed font-mono select-text"
-              >{{ output }}</pre
-            >
-            <div v-else class="py-10 text-center text-xs text-zinc-500">
-              <div v-if="running" class="inline-flex flex-col items-center gap-2">
-                <span class="inline-flex items-center gap-2 font-medium cc-state--active">
-                  <i class="h-2 w-2 rounded-full cc-dot--active shrink-0"></i>Đang chờ dữ liệu streaming từ CAO…
-                </span>
-              </div>
-              <p v-else>Chưa có dữ liệu terminal output từ phiên làm việc này.</p>
-            </div>
-          </div>
+        <!-- Debug tab: select an event; full payload/raw terminal opens in drawer. -->
+        <div v-else-if="activeSubTab === 'debug'" class="flex-1 min-h-[480px] h-full rounded-xl border border-[#141b2d] bg-[#070b14] shadow-inner overflow-auto p-4">
+          <div class="cc-run-section-heading"><span class="flex items-center gap-2"><i class="codicon codicon-debug text-amber-300 shrink-0"></i><span class="font-['Space_Grotesk'] font-bold">Debug events</span></span><span class="text-[11px] text-zinc-500 font-mono">{{ streamEvents?.length || 0 }} events</span></div>
+          <p class="mb-3 text-[11px] text-zinc-500">Raw terminal và payload đầy đủ chỉ mở khi chọn một event.</p>
+          <button v-for="event in streamEvents" :key="event.id" type="button" class="mb-2 flex w-full items-center justify-between gap-3 rounded-lg border border-[#17253b] bg-[#0b1220] px-3 py-2 text-left hover:border-amber-500/40" @click="selectedStreamEvent = event"><span class="min-w-0 truncate text-xs text-zinc-200">{{ event.summary }}</span><span class="shrink-0 text-[10px] font-mono text-zinc-500">{{ event.type }}</span></button>
+          <p v-if="!streamEvents?.length" class="py-10 text-center text-xs text-zinc-500">Chưa có debug event cho run này.</p>
         </div>
 
         <!-- Dynamic Agent Turns & Execution Logs (Turns Tab) -->
@@ -1515,6 +1493,11 @@ const submit = () => {
             </article>
           </div>
         </div>
+        <ExecutionDetailDrawer
+          :event="selectedStreamEvent"
+          :raw-terminal="output"
+          @close="selectedStreamEvent = null"
+        />
       </section>
 
     </main>
@@ -1627,47 +1610,13 @@ const submit = () => {
         </div>
       </div>
 
-      <!-- Footer Actions: Handoff & Hub Link -->
-      <div v-if="!running" class="flex items-center justify-end gap-2 text-xs pt-1">
-        <a
-          v-if="handoffReviewUrl"
-          :href="handoffReviewUrl"
-          target="_blank"
-          rel="noreferrer"
-          class="cc-primary text-xs"
-        >
-          Open handoff in Hub ↗
-        </a>
-        <span
-          v-if="isEpicContext && (epicSequenceRunning || epicFinalizing)"
-          class="cc-button text-xs cursor-default"
-        >
-          CAO đang chạy xuyên Epic —
-          {{ epicCompletedCount || 0 }}/{{ epicChildCount || 0 }}
-        </span>
-        <button
-          v-else-if="task"
-          class="cc-button text-xs"
-          @click="showHandoff = !showHandoff"
-        >
-          Review & submit handoff
-        </button>
-        <button
-          v-else
-          class="cc-button text-xs"
-          @click="$emit('open-hub')"
-        >
-          Open Hub for review
-        </button>
-      </div>
-
       <!-- Handoff Submission Form -->
       <form
         v-if="
           showHandoff &&
           !(isEpicContext && (epicSequenceRunning || epicFinalizing))
         "
-        class="mt-3 grid grid-cols-2 gap-2.5 rounded-xl bg-[#0c1220] border border-[#141b2d] p-3.5 text-xs"
+        class="cc-handoff-modal grid grid-cols-2 gap-2.5 rounded-xl bg-[#0c1220] border border-[#141b2d] p-3.5 text-xs"
         @submit.prevent="submit"
       >
         <textarea

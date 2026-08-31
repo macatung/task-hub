@@ -1,0 +1,17 @@
+name: task-hub-codex-dispatch-smoke
+description: Verify that a Codex workflow waits for the dispatched turn before collecting structured output.
+steps:
+  - id: structured-return
+    provider: codex
+    agent: developer
+    prompt: |
+      This is a workflow runtime smoke test. Do not edit files, run commands, or delegate.
+      Call the workflow_return MCP tool exactly once with this argument object:
+      {"output":{"status":"ok","message":"codex dispatch guard verified"}}
+      Do not respond with prose before or after the tool call.
+    output_schema:
+      type: object
+      required: [status, message]
+      properties:
+        status: {type: string, const: ok}
+        message: {type: string}

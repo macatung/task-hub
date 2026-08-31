@@ -74,16 +74,20 @@ class ApiAgentRunController extends Controller
                 foreach ($events as $event) {
                     $currentAfter = max($currentAfter, $event->id);
                     $payload = is_array($event->payload) ? $event->payload : [];
+                    $normalized = is_array(data_get($payload, 'normalized')) ? data_get($payload, 'normalized') : [];
                     $role = data_get($payload, 'role')
                         ?: data_get($payload, 'sourceRole')
+                        ?: data_get($normalized, 'actor.role')
                         ?: (preg_match('/(architect|implementer|tester|auditor|test_engineer)/i', $event->event_type, $m) ? (strtolower($m[1]) === 'test_engineer' ? 'tester' : strtolower($m[1])) : null);
                     $stage = data_get($payload, 'stage')
+                        ?: data_get($normalized, 'stepId')
+                        ?: data_get($normalized, 'step_id')
                         ?: (str_starts_with($event->event_type, 'stage_') ? substr($event->event_type, 6) : (str_starts_with($event->event_type, 'role_') ? preg_replace('/^role_[a-z]+_?/', '', $event->event_type) : null));
                     $toolCalls = data_get($payload, 'tool_calls')
                         ?: (data_get($payload, 'tool_call') ? [data_get($payload, 'tool_call')] : (data_get($payload, 'tool') ? [['name' => data_get($payload, 'tool'), 'status' => $event->status]] : null));
                     $toolCall = data_get($payload, 'tool_call')
                         ?: (data_get($payload, 'tool') ? ['name' => data_get($payload, 'tool'), 'status' => $event->status] : null);
-                    $logText = data_get($payload, 'log');
+                    $logText = data_get($payload, 'log') ?: data_get($normalized, 'detail');
 
                     $eventData = [
                         'id' => $event->id,
@@ -511,7 +515,7 @@ class ApiAgentRunController extends Controller
             'event_id' => 'required|string|max:128',
             'event_type' => 'required|string|max:60',
             'status' => 'nullable|string|max:40',
-            'role' => 'nullable|string|in:architect,implementer,tester,auditor,test_engineer',
+            'role' => 'nullable|string|in:architect,implementer,tester,auditor,test_engineer,supervisor,worker,reviewer',
             'stage' => 'nullable|string|max:60',
             'tool_call' => 'nullable|array',
             'tool_calls' => 'nullable|array',

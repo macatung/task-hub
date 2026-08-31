@@ -4,11 +4,18 @@ import conversationSource from './ConversationThread.vue?raw';
 import streamCardsSource from './StreamCardsView.vue?raw';
 
 describe('response-first presentation', () => {
-  it('keeps raw output behind an explicit technical-details control', () => {
-    expect(runWorkspaceSource).toContain('Chi tiết kỹ thuật');
-    expect(runWorkspaceSource).toContain('copyTechnicalOutput');
-    expect(runWorkspaceSource).toContain('downloadTechnicalOutput');
+  it('keeps raw output behind the unified debug drawer', () => {
+    expect(runWorkspaceSource).toContain('Debug events');
+    expect(runWorkspaceSource).toContain('<ExecutionDetailDrawer');
+    expect(runWorkspaceSource).toContain('selectedStreamEvent');
     expect(runWorkspaceSource).toContain(':streaming-text="displayResponse"');
+  });
+
+  it('does not render an action row beneath the prompt input', () => {
+    expect(runWorkspaceSource).not.toContain('Open Hub for review');
+    expect(runWorkspaceSource).not.toContain('Footer Actions: Handoff & Hub Link');
+    expect(runWorkspaceSource).toContain('Review & submit handoff');
+    expect(runWorkspaceSource).toContain('cc-run-header-control');
   });
 
   it('normalizes persisted agent messages before rendering markdown', () => {

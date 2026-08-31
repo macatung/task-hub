@@ -16,15 +16,85 @@ use App\Http\Controllers\Api\ApiSprintController;
 use App\Http\Controllers\Api\ApiTaskController;
 use App\Http\Controllers\Api\TaskHubMcpController;
 use App\Http\Controllers\DesktopPairingController;
+use App\Http\Controllers\BlogController;
 use App\Http\Controllers\GithubAuthController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PricingController;
+use App\Http\Controllers\SeoController;
 use App\Http\Controllers\TaskController;
+use App\Http\Controllers\Theravada\TheravadaController;
 use App\Http\Controllers\WorkspaceBillingController;
 use Illuminate\Support\Facades\Route;
 
-// Hub SaaS Web Views
-Route::get('/', [TaskController::class, 'landing'])->name('hub.landing');
+$baseDomain = config('app.base_domain', env('APP_BASE_DOMAIN', 'macatung.dev'));
+
+// Sitemaps & Robots.txt Routes
+Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('seo.sitemap');
+Route::get('/sitemap-index.xml', [SeoController::class, 'sitemapIndex'])->name('seo.sitemap.index');
+Route::get('/theravada/sitemap.xml', [SeoController::class, 'sitemap'])->name('seo.theravada.sitemap');
+Route::get('/midnight/sitemap.xml', [SeoController::class, 'sitemap'])->name('seo.midnight.sitemap');
+Route::get('/robots.txt', [SeoController::class, 'robots'])->name('seo.robots');
+
+// 1. Theravada Subdomain Routes (e.g. theravada.macatung.dev)
+Route::domain('theravada.' . $baseDomain)->group(function () {
+    Route::get('/', [TheravadaController::class, 'index'])->name('theravada.domain.index');
+    Route::get('/kinh/{slug}', [TheravadaController::class, 'show'])->name('theravada.domain.show');
+    Route::get('/bai-viet/{slug}', [TheravadaController::class, 'show']);
+    Route::get('/danh-muc/{category}', [TheravadaController::class, 'category'])->name('theravada.domain.category');
+    Route::get('/tu-dien-pali', [TheravadaController::class, 'glossary'])->name('theravada.domain.glossary');
+    Route::get('/ung-dung-tu-hoc', [TheravadaController::class, 'apps'])->name('theravada.domain.apps');
+    Route::get('/phap-bao', [TheravadaController::class, 'apps']);
+    Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('theravada.domain.sitemap');
+    Route::get('/robots.txt', [SeoController::class, 'robots'])->name('theravada.domain.robots');
+});
+
+// 2. Theravada Path-based fallback Routes (/theravada/*)
+Route::prefix('theravada')->name('theravada.')->group(function () {
+    Route::get('/', [TheravadaController::class, 'index'])->name('index');
+    Route::get('/kinh/{slug}', [TheravadaController::class, 'show'])->name('show');
+    Route::get('/bai-viet/{slug}', [TheravadaController::class, 'show']);
+    Route::get('/danh-muc/{category}', [TheravadaController::class, 'category'])->name('category');
+    Route::get('/tu-dien-pali', [TheravadaController::class, 'glossary'])->name('glossary');
+    Route::get('/ung-dung-tu-hoc', [TheravadaController::class, 'apps'])->name('apps');
+    Route::get('/phap-bao', [TheravadaController::class, 'apps']);
+    Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('sitemap');
+});
+
+// 3. Midnight SaaS Subdomain Routes (e.g. midnight.macatung.dev / hub.macatung.dev)
+Route::domain('midnight.' . $baseDomain)->group(function () {
+    Route::get('/', [TaskController::class, 'landing'])->name('midnight.landing');
+    Route::get('/pricing', [PricingController::class, 'index'])->name('midnight.pricing');
+    Route::get('/desktop', [HomeController::class, 'desktop'])->name('midnight.desktop');
+    Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('midnight.sitemap');
+    Route::get('/robots.txt', [SeoController::class, 'robots'])->name('midnight.robots');
+});
+
+Route::domain('hub.' . $baseDomain)->group(function () {
+    Route::get('/', [TaskController::class, 'landing'])->name('hub.subdomain.landing');
+    Route::get('/pricing', [PricingController::class, 'index'])->name('hub.subdomain.pricing');
+    Route::get('/desktop', [HomeController::class, 'desktop'])->name('hub.subdomain.desktop');
+});
+
+// 4. Main Domain Public Views
+Route::get('/', function (\Illuminate\Http\Request $request) {
+    $host = $request->getHost();
+    if (str_starts_with($host, 'midnight.') || str_starts_with($host, 'hub.') || str_starts_with($host, 'task-hub.')) {
+        return app(TaskController::class)->landing($request);
+    }
+    if (str_starts_with($host, 'theravada.')) {
+        return app(TheravadaController::class)->index();
+    }
+    return app(HomeController::class)->index();
+})->name('hub.landing');
+
+Route::get('/projects', [HomeController::class, 'projects'])->name('projects.index');
+Route::get('/about', [HomeController::class, 'about'])->name('about.index');
+Route::get('/skills', [HomeController::class, 'about'])->name('skills.index');
+Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
+Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
+Route::get('/game', [HomeController::class, 'game'])->name('game.index');
+Route::get('/talisman', [HomeController::class, 'talisman'])->name('talisman.index');
+Route::get('/contact', [HomeController::class, 'contact'])->name('contact.index');
 Route::get('/pricing', [PricingController::class, 'index'])->name('pricing');
 Route::get('/desktop', [HomeController::class, 'desktop'])->name('desktop');
 Route::get('/tasks', [TaskController::class, 'index'])->name('tasks.index');

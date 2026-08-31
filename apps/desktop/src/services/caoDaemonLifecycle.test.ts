@@ -5,6 +5,7 @@ import builderSource from '../../electron-builder.yml?raw';
 import runWorkspaceSource from '../components/control-center/RunWorkspace.vue?raw';
 import settingsPanelSource from '../components/control-center/SettingsPanel.vue?raw';
 import bootstrapSource from '../../scripts/ensure-cao-runtime.mjs?raw';
+import codexDispatchPatchSource from '../../scripts/patch-cao-codex-dispatch.py?raw';
 
 describe('CAO Daemon All-In-One Lifecycle & Packaging', () => {
   it('implements embedded CAO daemon detection and lifecycle hooks in main process', () => {
@@ -40,6 +41,21 @@ describe('CAO Daemon All-In-One Lifecycle & Packaging', () => {
     expect(electronMainSource).toContain('ensureCaoWslInstallation');
     expect(bootstrapSource).toContain('uv tool install cli-agent-orchestrator');
     expect(bootstrapSource).toContain('cao install code_supervisor');
+  });
+
+  it('guards Codex workflow dispatch from a stale completed status', () => {
+    expect(codexDispatchPatchSource).toContain('TASK_HUB_CODEX_DISPATCH_GUARD');
+    expect(codexDispatchPatchSource).toContain('TASK_HUB_CODEX_WORKFLOW_CONTEXT');
+    expect(codexDispatchPatchSource).toContain('assume_processing_on_dispatch = True');
+    expect(codexDispatchPatchSource).toContain('"CAO_WORKFLOW_RUN_ID"');
+    expect(codexDispatchPatchSource).toContain('"CAO_WORKFLOW_STEP_ID"');
+    expect(codexDispatchPatchSource).toContain('CAO_CODEX_DISPATCH_GUARD=patched');
+    expect(codexDispatchPatchSource).toContain('CAO_CODEX_DISPATCH_GUARD=upstream');
+    expect(bootstrapSource).toContain('patch-cao-codex-dispatch.py');
+    expect(bootstrapSource).toContain('base64 -d | "$cao_python" -');
+    expect(electronMainSource).toContain("owner.compatibility !== '1'");
+    expect(electronMainSource).toContain('TASK_HUB_CAO_CODEX_DISPATCH_GUARD=1');
+    expect(electronMainSource).toContain("result.output.includes('CAO_CODEX_DISPATCH_GUARD=patched')");
   });
 
   it('requires an ext4 CAO home with FIFO support and replaces only conflicting CAO servers', () => {

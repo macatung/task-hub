@@ -54,7 +54,7 @@ describe('CAO Advanced Workflow vs Supervisor Hybrid Orchestration', () => {
       expect(yaml).toContain('cd -- "{{workflow.inputs.workspace_path}}"');
       expect(yaml).toContain('Task title (literal fallback for CAO retry): "Payment Gateway Integration"');
       expect(yaml).toContain('Task details (literal fallback for CAO retry): "Add Stripe support for workspaces"');
-      expect(yaml).toContain('MUST call the workflow_return MCP tool exactly once');
+      expect(yaml).toContain('workflow_return({"output": {...}})');
       expect(yaml).toContain('<TASK_HUB_HANDOFF>');
 
       // Schema validations

@@ -120,7 +120,8 @@ describe('StreamCardsView (Milestone M3 UI/UX Step-by-Step Stream)', () => {
     // RunWorkspace integration
     expect(runWorkspaceSource).toContain('<StreamCardsView');
     expect(runWorkspaceSource).toContain('<ConversationThread');
-    expect(runWorkspaceSource).toContain('🗂️ Phân bước AI (4)');
+    expect(runWorkspaceSource).toContain('◉ Execution');
+    expect(runWorkspaceSource).toContain("orchestrationMode === 'workflow' || orchestrationMode === 'supervisor'");
     expect(runWorkspaceSource).toContain('activeSubTab');
   });
 

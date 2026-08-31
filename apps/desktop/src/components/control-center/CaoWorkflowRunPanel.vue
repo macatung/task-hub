@@ -55,7 +55,7 @@ const stepTone = (state: string) => {
       <span class="font-mono">{{ status?.completedSteps?.length || 0 }}/{{ status?.totalSteps || status?.steps?.length || 0 }}</span>
     </div>
 
-    <ol v-if="status?.steps?.length" class="mt-3 space-y-2">
+    <ol v-if="status?.steps?.length && kind !== 'epic'" class="mt-3 grid grid-cols-4 gap-2">
       <li v-for="step in status.steps" :key="step.id" class="flex items-start gap-2 rounded-lg border px-3 py-2" :class="stepTone(step.state)">
         <span class="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border border-current text-[9px]">{{ step.state === 'completed' ? '✓' : '·' }}</span>
         <div class="min-w-0 flex-1">
@@ -67,6 +67,7 @@ const stepTone = (state: string) => {
         </div>
       </li>
     </ol>
+    <p v-if="kind === 'epic' && status?.steps?.length" class="mt-3 rounded-lg border border-cyan-500/20 bg-cyan-950/10 px-3 py-2 text-[11px] text-cyan-100">{{ status.steps.filter((step) => step.state === 'completed').length }}/{{ status.steps.length }} workflow steps complete. Mở Epic execution để xem từng task.</p>
     <p v-else class="mt-3 rounded-lg border border-dashed border-[#1b2940] px-3 py-4 text-center text-[11px] text-zinc-500">Workflow steps sẽ xuất hiện sau khi CAO trả status.</p>
     <p v-if="status?.error" class="mt-3 rounded-lg border border-rose-500/30 bg-rose-950/20 px-3 py-2 text-[11px] text-rose-200">{{ status.error }}</p>
   </section>

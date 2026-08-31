@@ -55,11 +55,12 @@ describe('ConversationThread and useConversationThread', () => {
     expect(threadComponentSource).toContain('scrollToBottom');
   });
 
-  it('embeds ConversationThread and StreamCardsView in RunWorkspace.vue', () => {
+  it('embeds ConversationThread and unified execution views in RunWorkspace.vue', () => {
     expect(runWorkspaceSource).toContain('<ConversationThread');
     expect(runWorkspaceSource).toContain('<StreamCardsView');
     expect(runWorkspaceSource).toContain('activeSubTab');
     expect(runWorkspaceSource).toContain('💬 Cuộc trò chuyện');
-    expect(runWorkspaceSource).toContain('>_ Terminal');
+    expect(runWorkspaceSource).toContain('&gt;_ Debug');
+    expect(runWorkspaceSource).toContain('ExecutionTimeline');
   });
 });
