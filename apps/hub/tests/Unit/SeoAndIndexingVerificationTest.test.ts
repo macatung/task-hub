@@ -116,7 +116,7 @@ describe('SeoAndIndexingVerificationTest', () => {
     it('[T2_SEO_05] app.blade.php contains pre-rendered WebSite & Person JSON-LD and noscript fallback', () => {
       expect(bladeAppSrc).toContain('WebSite');
       expect(bladeAppSrc).toContain('Person');
-      expect(bladeAppSrc).toContain('Ma Cà Tưng');
+      expect(bladeAppSrc).toContain('MacaTung');
       expect(bladeAppSrc).toContain('<noscript>');
       expect(bladeAppSrc).toContain('</noscript>');
     });

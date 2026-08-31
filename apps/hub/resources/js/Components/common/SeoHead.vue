@@ -39,14 +39,14 @@ const siteName = computed(() => {
   if (typeof window !== 'undefined' && (window.location.hostname.startsWith('midnight.') || window.location.hostname.startsWith('hub.'))) {
     return 'Midnight Hub';
   }
-  return 'Ma Cà Tưng • Code at midnight';
+  return 'Midnight Hub • Code at midnight';
 });
 
 const fullTitle = computed(() => {
   if (!props.title) {
     return props.isTheravada
       ? 'Ma Tọa Thiền — Chánh Niệm Từng Giây • Tam Tạng Kinh Điển Theravāda'
-      : 'Ma Cà Tưng — Code at midnight | Full-Stack & Creative Engineering';
+      : 'Midnight Hub — Autonomous Multi-Agent Engineering Platform & Supervised Vibe Coding';
   }
   if (props.title.includes(siteName.value) || props.title.includes('Midnight Hub') || props.title.includes('Ma Tọa Thiền')) {
     return props.title;
@@ -57,7 +57,7 @@ const fullTitle = computed(() => {
 const defaultDescription = computed(() => {
   return props.isTheravada
     ? 'Hệ thống tu học và bảo tồn kinh điển Phật giáo nguyên thủy Theravāda: Tứ Thánh Đế, Bát Chánh Đạo, Thiền Minh Sát Vipassanā, Thẻ ảnh Pháp Cú và Từ điển Pāḷi thuần khiết.'
-    : 'Khám phá Portfolio, các dự án Full-Stack, kiến trúc phần mềm, game tương tác và phòng thí nghiệm sáng tạo của Ma Cà Tưng (macatung.dev).';
+    : 'Autonomous Multi-Agent Engineering Platform & Supervised Vibe Coding studio. Orchestrate Antigravity 2.0, Codex, and Claude Code in isolated Git Worktrees with deterministic verification evidence.';
 });
 
 const metaDescription = computed(() => props.description || defaultDescription.value);
@@ -65,7 +65,7 @@ const metaDescription = computed(() => props.description || defaultDescription.v
 const defaultKeywords = computed(() => {
   return props.isTheravada
     ? 'Theravada, Pāḷi Tipiṭaka, Phật giáo nguyên thủy, Kinh Pháp Cú, Dhammapada, Thiền Vipassana, Tứ Niệm Xứ, Bát Chánh Đạo, Tứ Diệu Đế, Ma Tọa Thiền, Tam Tạng Kinh Điển'
-    : 'Full-Stack Developer, Creative Engineer, Laravel, Vue.js, Inertia.js, Tailwind CSS, TypeScript, Midnight Coder, Software Architecture, Portfolio, Ma Cà Tưng';
+    : 'Midnight Hub, Autonomous Multi-Agent Platform, Vibe Coding, AI Coding Agents, Antigravity 2.0, Claude Code, Git Worktree, Verification Evidence, Laravel, Vue 3, System Architecture';
 });
 
 const metaKeywords = computed(() => props.keywords || defaultKeywords.value);
@@ -89,7 +89,7 @@ const formattedJsonLd = computed(() => {
     <!-- Basic Meta -->
     <meta name="description" :content="metaDescription" />
     <meta name="keywords" :content="metaKeywords" />
-    <meta name="author" :content="isTheravada ? 'Ma Tọa Thiền • Theravāda' : 'Ma Cà Tưng'" />
+    <meta name="author" :content="isTheravada ? 'Ma Tọa Thiền • Theravāda' : 'Macatung Dev • Lead Systems Architect'" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
 
     <!-- Canonical URL -->
@@ -100,7 +100,7 @@ const formattedJsonLd = computed(() => {
     <meta property="og:description" :content="metaDescription" />
     <meta property="og:type" :content="ogType" />
     <meta property="og:site_name" :content="siteName" />
-    <meta property="og:locale" content="vi_VN" />
+    <meta property="og:locale" :content="isTheravada ? 'vi_VN' : 'en_US'" />
     <meta v-if="canonical" property="og:url" :content="canonical" />
     <meta v-if="effectiveOgImage" property="og:image" :content="effectiveOgImage" />
 

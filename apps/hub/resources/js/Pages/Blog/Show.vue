@@ -45,7 +45,7 @@ const getRelatedProjectInfo = (slug: string) => {
   if (slug.includes('multi-agent') || slug.includes('customer-service')) {
     return {
       title: 'Autonomous AI Customer Service Multi-Agent Hub',
-      desc: 'Hệ sinh thái Multi-Agent tự trị xử lý 100% khiếu nại khách hàng với độ trễ < 800ms.',
+      desc: 'Autonomous multi-agent ecosystem resolving customer inquiries with sub-800ms latency.',
       icon: '🤖',
       badge: 'AI AGENTS',
     };
@@ -53,7 +53,7 @@ const getRelatedProjectInfo = (slug: string) => {
   if (slug.includes('dinh-gia') || slug.includes('crawlers')) {
     return {
       title: 'Financial Valuation Engine & 50+ Real-Time Crawlers',
-      desc: 'Kiến trúc định giá cổ phiếu 7 năm tự động cào 2.4M records/ngày với Redis Queue.',
+      desc: 'Quantitative stock valuation engine crawling 2.4M daily records with Redis Queues.',
       icon: '📈',
       badge: 'HIGH-LOAD',
     };
@@ -61,15 +61,15 @@ const getRelatedProjectInfo = (slug: string) => {
   if (slug.includes('cap-quang') || slug.includes('qgis')) {
     return {
       title: 'Telecom Fiber Network CAD to GIS Spatial Pipeline',
-      desc: 'Hệ thống chuẩn hóa 240+ file CAD sang QGIS PostgreSQL tự động hóa hoàn toàn.',
+      desc: 'Automated CAD-to-GIS transformation pipeline mapping nationwide optical fiber topologies.',
       icon: '🗺️',
       badge: 'GEO-SPATIAL',
     };
   }
   if (slug.includes('sdh') || slug.includes('nms')) {
     return {
-      title: 'NMS Matrix: Giám Sát Hạ Tầng Truyền Dẫn SDH/DWDM',
-      desc: 'Thu thập 100,000 telemetry/s và mô hình ML dự báo sự cố sụt áp trước 30 phút.',
+      title: 'NMS Matrix: SDH/DWDM Transmission Telemetry Monitoring',
+      desc: 'High-throughput telemetry ingestion monitoring transmission equipment with ML predictive alerting.',
       icon: '⚡',
       badge: 'MISSION CRITICAL',
     };
@@ -504,13 +504,13 @@ const articleJsonLd = computed(() => ({
           class="px-4 py-2.5 rounded-xl bg-phantom-mint text-midnight-950 font-display font-bold text-xs hover:brightness-110 shadow-glow-mint transition-all whitespace-nowrap shrink-0"
           @click="sound.playTalisman()"
         >
-          Trao Đổi Kiến Trúc 📜
+          Discuss Architecture 📜
         </Link>
       </div>
 
       <!-- Related Articles -->
       <div v-if="relatedArticles.length > 0" class="pt-8 border-t border-white/10">
-        <h3 class="font-display font-bold text-xl sm:text-2xl text-white mb-6">Ghi Chép Cùng Chuyên Mục</h3>
+        <h3 class="font-display font-bold text-xl sm:text-2xl text-white mb-6">Related Engineering Chronicles</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
             v-for="rel in relatedArticles"
@@ -519,14 +519,14 @@ const articleJsonLd = computed(() => ({
             class="p-5 rounded-2xl bg-midnight-900/80 border border-white/5 hover:border-phantom-mint/30 transition-all flex flex-col justify-between group"
           >
             <div>
-              <div class="text-[10px] font-mono text-phantom-mint mb-2">⏱ {{ rel.reading_time_min }} phút</div>
+              <div class="text-[10px] font-mono text-phantom-mint mb-2">⏱ {{ rel.reading_time_min }} min read</div>
               <h4 class="font-display font-bold text-sm text-white group-hover:text-phantom-mint transition-colors line-clamp-2 mb-2">
                 {{ rel.title }}
               </h4>
               <p class="text-xs text-slate-400 line-clamp-2">{{ rel.excerpt }}</p>
             </div>
             <div class="text-[11px] font-mono text-slate-400 group-hover:text-phantom-mint mt-4 flex items-center gap-1">
-              <span>Xem bài viết</span>
+              <span>Read article</span>
               <span>→</span>
             </div>
           </Link>

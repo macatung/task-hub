@@ -4799,7 +4799,7 @@ onUnmounted(() => {
               <summary class="flex cursor-pointer list-none items-center justify-between gap-3 font-mono">
                 <label :class="['text-xs font-bold uppercase flex items-center gap-2', isDarkMode ? 'text-slate-300' : 'text-slate-700']">
                   <Icons name="History" :size="14" class="text-phantom-mint shrink-0" />
-                  <span class="leading-none">Lịch sử E2E & Người xử lý (Audit Trail)</span>
+                  <span class="leading-none">E2E Transition History & Actor Audit Trail</span>
                 </label>
                 <span class="text-[10px] text-slate-500 transition-transform group-open:rotate-180">⌄</span>
               </summary>

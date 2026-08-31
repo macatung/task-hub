@@ -25,33 +25,33 @@ const activeTab = ref<ManifestoTabId>('flow');
 const tabs = [
   {
     id: 'flow',
-    title: 'Trạng Thái 00:00 AM',
-    subtitle: 'Ultra-Flow State giữa đêm sâu — không phân tâm, tối ưu tư duy giải thuật.',
-    content: 'Khi cả thành phố chìm vào giấc ngủ, không còn họp hành hay tin nhắn ngắt quãng. Đêm sâu là không gian tĩnh tại tuyệt đối để giải quyết các bài toán kiến trúc hóc búa, đưa tư duy vào trạng thái Ultra-Flow thuần khiết.',
+    title: 'Deep Flow State (00:00 AM)',
+    subtitle: 'Zero-distraction engineering during deep hours — optimal algorithmic reasoning.',
+    content: 'When the city sleeps, meetings and interruptions cease. The deep night provides the stillness required to solve complex architectural challenges, pushing cognitive flow into pure engineering velocity.',
     icon: 'Moon',
     badge: 'Ultra-Flow'
   },
   {
     id: 'concurrency',
-    title: 'Kiến Trúc Tải Cao',
-    subtitle: '8+ năm thực chiến hệ thống phân tán, xử lý hàng triệu requests với latency < 18ms.',
-    content: 'Chuyên sâu tối ưu hóa cơ sở dữ liệu lớn (GIS/NMS), caching đa tầng (Redis/In-Memory), hệ thống hàng đợi bất đồng bộ (Queue/PubSub) và cam kết SLA 99.9% Uptime cho các nền tảng doanh nghiệp.',
+    title: 'High-Scale Architecture',
+    subtitle: '8+ years engineering distributed platforms handling millions of requests at < 18ms latency.',
+    content: 'Specialized in large-scale database optimization (GIS/NMS), multi-layer caching (Redis/In-Memory), asynchronous message queuing (Queue/PubSub), and committing to 99.99% SLA uptime for enterprise platforms.',
     icon: 'Zap',
     badge: 'High-Scale'
   },
   {
     id: 'agents',
-    title: 'Multi-Agent AI Tự Trị',
-    subtitle: 'Tiên phong tích hợp AI Agents thế hệ mới phục vụ tự động hóa quy trình nghiệp vụ.',
-    content: 'Thiết kế các Agent thông minh sở hữu năng lực Tool Calling, Semantic Search (RAG) và kết nối MCP (Model Context Protocol), giải phóng sức lao động con người với độ chính xác và an toàn dữ liệu cao.',
+    title: 'Autonomous Multi-Agent AI',
+    subtitle: 'Pioneering next-gen AI swarms for autonomous business workflow orchestration.',
+    content: 'Architecting intelligent agent swarms equipped with tool calling, semantic RAG retrieval, and MCP (Model Context Protocol) bridges, automating repetitive tasks with high precision and strict security gates.',
     icon: 'Sparkles',
     badge: 'AI Systems'
   },
   {
     id: 'fullstack',
-    title: 'Kỹ Nghệ Toàn Diện',
-    subtitle: 'Làm chủ từ giao diện tương tác kỳ ảo đến hạ tầng đám mây kiên cố.',
-    content: 'Kết hợp hài hòa giữa Frontend tương tác mượt mà (Vue 3, TypeScript, Web Audio, Canvas) và Backend vững chắc (Laravel 11, Docker, GCP Cloud Run/Compute Engine), tuân thủ nghiêm ngặt chuẩn bảo mật OWASP.',
+    title: 'Full-Stack Craftsmanship',
+    subtitle: 'Mastery across fluid interactive frontends and resilient cloud infrastructure.',
+    content: 'Harmonizing modern responsive frontends (Vue 3, TypeScript, Web Audio synth) with rock-solid backends (Laravel 12, Docker, GCP Cloud Run/Compute Engine), strictly adhering to OWASP security guidelines.',
     icon: 'Shield',
     badge: 'Full-Stack'
   }
@@ -89,29 +89,29 @@ const displayStats = computed(() => {
   if (props.stats && props.stats.total_pageviews !== undefined) {
     return [
       {
-        value: `${(props.stats.total_pageviews || 0).toLocaleString('vi-VN')}+`,
-        label: 'Tổng Lượt Truy Cập Live',
+        value: `${(props.stats.total_pageviews || 0).toLocaleString('en-US')}+`,
+        label: 'Total Live Pageviews',
         iconName: 'Eye',
         unit: 'Views',
-        description: 'Pageviews ghi nhận bởi Analytics',
+        description: 'Aggregated analytics telemetry',
       },
       {
         value: `${props.stats.total_projects || 6}`,
-        label: 'Dự Án Đang Chạy',
+        label: 'Active Systems',
         iconName: 'Layers',
         unit: 'Active',
-        description: 'Sản phẩm kỹ thuật trong CMS',
+        description: 'Production systems cataloged in CMS',
       },
       {
         value: `${props.stats.total_hops || 0}`,
-        label: 'Lượt Nhảy Linh Vật',
+        label: 'Mascot Interactions',
         iconName: 'Zap',
         unit: 'Hops',
-        description: 'Tương tác vật lý Ma Cà Tưng',
+        description: 'Interactive canvas physics triggers',
       },
       {
-        value: '99.9%',
-        label: 'Tỷ Lệ Sẵn Sàng 00:00 AM',
+        value: '99.99%',
+        label: '00:00 AM SLA Availability',
         iconName: 'Shield',
         unit: 'SLA',
         description: 'Zero Downtime Architecture',
@@ -124,18 +124,18 @@ const displayStats = computed(() => {
 const pillars = [
   {
     icon: 'Activity',
-    title: 'Tối Ưu Độ Trễ (<18ms)',
-    desc: 'Bộ nhớ đệm đa tầng, index cơ sở dữ liệu chuyên sâu và truy vấn bất đồng bộ non-blocking.',
+    title: 'Sub-18ms Latency Tuning',
+    desc: 'Multi-tiered in-memory caching, specialized query indexing, and non-blocking asynchronous execution.',
   },
   {
     icon: 'Layers',
-    title: 'Co Giãn Linh Hoạt (Elastic)',
-    desc: 'Kiến trúc container hóa, microservices và hàng đợi xử lý sẵn sàng mở rộng khi lưu lượng tăng đột biến.',
+    title: 'Elastic & Scalable Infra',
+    desc: 'Containerized microservices, decoupled queues, and horizontal autoscaling engineered for traffic surges.',
   },
   {
     icon: 'Shield',
-    title: 'Chất Lượng Phòng Vệ (Zero-Crash)',
-    desc: '100% Strict TypeScript, tự động hóa CI/CD, unit testing bao phủ và bảo mật đa tầng.',
+    title: 'Zero-Crash Defense',
+    desc: '100% Strict TypeScript type-safety, automated CI/CD regression suites, and multi-layered security.',
   },
 ];
 </script>
@@ -148,10 +148,10 @@ const pillars = [
         🌙 Developer Origin & Principles
       </span>
       <h2 class="text-3xl sm:text-4xl lg:text-5xl font-display font-extrabold text-white tracking-tight">
-        Triết Lý & <span class="text-transparent bg-clip-text bg-gradient-to-r from-phantom-mint via-phantom-cyan to-talisman-gold">Bản Lĩnh Đêm</span>
+        Engineering Manifesto & <span class="text-transparent bg-clip-text bg-gradient-to-r from-phantom-mint via-phantom-cyan to-talisman-gold">Core Disciplines</span>
       </h2>
       <p class="text-sm sm:text-base text-slate-400 mt-2 max-w-2xl font-sans">
-        Những con số thực chiến và nguyên tắc kỹ thuật được tôi luyện qua hàng ngàn đêm đối mặt với màn hình đen.
+        Empirical metrics and architectural principles forged through thousands of hours designing mission-critical systems.
       </p>
     </div>
 
@@ -178,7 +178,7 @@ const pillars = [
       </div>
     </div>
 
-    <!-- Interactive 3-Tab Developer Manifesto -->
+    <!-- Interactive 4-Tab Developer Manifesto -->
     <div class="mb-10 rounded-3xl glass-panel border border-white/10 p-6 sm:p-8 relative overflow-hidden">
       <!-- Ambient Glow Blur -->
       <div class="absolute -top-20 -right-20 w-64 h-64 bg-phantom-mint/5 rounded-full blur-3xl pointer-events-none" />
@@ -236,18 +236,18 @@ const pillars = [
             ⚡ The Midnight Architect
           </div>
           <h3 class="font-display font-bold text-white text-xl mb-1">
-            Senior Fullstack & AI Agent Architect
+            Lead AI Agent & Systems Architect
           </h3>
           <p class="text-xs font-mono text-phantom-mint mb-3">
-            🏆 Giải Quốc Gia Tin Học · 8+ Năm Thực Chiến Hệ Thống Tải Cao
+            🏆 National CS Olympiad Laureate · 8+ Years High-Scale Distributed Systems
           </p>
           <p class="text-slate-300 text-sm leading-relaxed font-sans mb-4">
-            Chuyên sâu kiến trúc hệ thống phân tán chịu tải cao, nền tảng viễn thông GIS/NMS và thiết kế các hệ sinh thái <strong>Multi-Agent AI tự trị</strong> giải phóng sức lao động con người, phụng sự cuộc sống với độ chính xác > 92%.
+            Specializing in high-concurrency distributed architectures, telecom GIS/NMS infrastructure, and autonomous <strong>Multi-Agent AI swarms</strong> delivering reliable 24/7 automated operations with > 92% resolution accuracy.
           </p>
         </div>
         <div class="pt-4 border-t border-white/5 flex items-center justify-between text-xs font-mono text-slate-400 relative z-10">
-          <span>📍 Ho Chi Minh City / Remote</span>
-          <span class="text-phantom-mint font-bold">🌿 Kỹ Nghệ Vị Nhân Sinh</span>
+          <span>📍 Ho Chi Minh City / Global Remote</span>
+          <span class="text-phantom-mint font-bold">🌿 Human-Centric Engineering</span>
         </div>
       </div>
 

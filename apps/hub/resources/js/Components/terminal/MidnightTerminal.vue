@@ -94,9 +94,7 @@ const execute = (rawCmd: string): string => {
   }
 
   history.value.push(trimmed);
-  historyIndex.value = -1;
-
-  logs.value.push({
+  historyIndex.value = -1  logs.value.push({
     id: `log-${Date.now()}-in`,
     type: 'input',
     text: `${prompt.value} ${trimmed}`,
@@ -115,36 +113,53 @@ const execute = (rawCmd: string): string => {
 
   switch (command) {
     case 'help':
-      output = `Available spells:\n• time / clock   : Xem thời gian thực & phân kỳ nhịp sống\n• cycle / phase  : Xem bảng ma trận 4 phân kỳ trong ngày\n• travel <phase> : Du hành thời gian (midnight|dawn|noon|dusk)\n• reset-time     : Đồng bộ lại theo giờ thực tế của máy\n• whoami / bio   : Giới thiệu bản thân & định vị kiến trúc\n• manifesto / nhansinh : Tuyên ngôn Triết Lý Kiến Tạo Phần Mềm Vị Nhân Sinh\n• cv / resume    : Xem tóm tắt hồ sơ năng lực & CV\n• projects / ls  : Danh sách Grimoire dự án thực chiến\n• skills         : Toàn bộ kho vũ khí kỹ thuật (18 runes)\n• game / play    : Bật Dev Mini-Game Rune Typer luyện phím\n• socials        : Các kênh liên lạc (Email, Telegram, GitHub)\n• summon / hire  : Mở bàn thờ triệu hồi / gửi yêu cầu dự án\n• hop            : Cho Ma Cà Tưng nhảy 1 cú cực cao\n• coffee         : Nạp 1 ly Robusta 100% không đường\n• talisman       : Nhận đạo bùa code 0 bug đã khai quang\n• sudo rm -rf bugs : Trừ tà diệt sạch bug trên production\n• clear          : Xóa sạch màn hình terminal`;
+      output = `Available commands:
+• time / clock   : Display current time & circadian phase
+• cycle / phase  : Inspect the 4-phase diurnal matrix
+• travel <phase> : Warp to phase (midnight|dawn|noon|dusk)
+• reset-time     : Resynchronize with local system clock
+• whoami / bio   : View architect bio & platform positioning
+• manifesto      : Display Humanistic Engineering Manifesto
+• cv / resume    : Display technical credentials summary
+• projects / ls  : List production systems & architectures
+• skills         : List technical arsenal (18 competencies)
+• game / play    : Launch Rune Typer typing benchmark
+• socials        : Display contact & repository channels
+• summon / hire  : Open contact & project advisory dialog
+• hop            : Trigger mascot animation
+• coffee         : Refuel coffee telemetry to 100%
+• talisman       : Generate 0-bug deployment verification seal
+• sudo rm -rf bugs : Clean all production regressions
+• clear          : Clear terminal logs`;
       sound.playClick();
       break;
     case 'time':
     case 'clock':
       output = `══════════════════════════════════════════════════════════
- ⏰ MACATUNG CHRONOS — DYNAMIC TIME-CYCLE ENGINE
+ ⏰ MIDNIGHT CHRONOS — DYNAMIC CIRCADIAN ENGINE
 ══════════════════════════════════════════════════════════
- • Thời Gian Hiện Tại : ${formattedTime.value} (GMT+7)
- • Phân Kỳ Hoạt Động  : ${activePhase.value.name} (${activePhase.value.vietnameseName})
- • Khung Giờ          : ${activePhase.value.timeRange}
- • Trạng Thái Mode    : ${isTimeTravelActive.value ? '🔮 Time Travel Preview' : '🟢 Đồng Bộ Giờ Thực Tế'}
- • Mức Độ Caffeine    : ${activePhase.value.caffeineLevel}% Robusta Flow
- • Thông Điệp Phân Kỳ : "${activePhase.value.tagline}"
- 💡 Gõ "cycle" để xem toàn bộ 4 phân kỳ hoặc "travel <phase>" để du hành!`;
+ • Current Time       : ${formattedTime.value} (GMT+7)
+ • Active Phase       : ${activePhase.value.name}
+ • Time Window        : ${activePhase.value.timeRange}
+ • Operating Mode     : ${isTimeTravelActive.value ? '🔮 Time Travel Simulation' : '🟢 Real-time Synchronized'}
+ • Caffeine Level     : ${activePhase.value.caffeineLevel}% Coffee Flow
+ • Phase Tagline      : "${activePhase.value.tagline}"
+ 💡 Type "cycle" to view all 4 phases or "travel <phase>" to simulate!`;
       sound.playCelestialChime(activePhase.value.id);
       break;
     case 'cycle':
     case 'phase':
     case 'phases':
       output = `══════════════════════════════════════════════════════════════════
- 🌌 BẢNG MA TRẬN 4 PHÂN KỲ NHỊP SỐNG DEVELOPER (DIURNAL MATRIX)
+ 🌌 4-PHASE DIURNAL MATRIX (CIRCADIAN ENGINEERING ENGINE)
 ══════════════════════════════════════════════════════════════════
- 1. 🌙 Midnight Void  [00:00 - 05:59] : Đêm sâu, tập trung 100%, 0 bug ${activePhaseId.value === 'midnight' ? '👈 [ACTIVE]' : ''}
- 2. 🌅 Golden Dawn    [06:00 - 11:59] : Rạng đông hổ phách, nạp cafe sáng ${activePhaseId.value === 'dawn' ? '👈 [ACTIVE]' : ''}
- 3. ☀️ High-Noon      [12:00 - 17:59] : Chính ngọ Cyber, ship tính năng ${activePhaseId.value === 'afternoon' ? '👈 [ACTIVE]' : ''}
- 4. 🌆 Twilight Dusk  [18:00 - 23:59] : Hoàng hôn tím, khởi động ca đêm ${activePhaseId.value === 'twilight' ? '👈 [ACTIVE]' : ''}
+ 1. 🌙 Midnight Void  [00:00 - 05:59] : Deep night, 100% focus, zero regressions ${activePhaseId.value === 'midnight' ? '👈 [ACTIVE]' : ''}
+ 2. 🌅 Golden Dawn    [06:00 - 11:59] : Morning clarity, fresh brew & planning ${activePhaseId.value === 'dawn' ? '👈 [ACTIVE]' : ''}
+ 3. ☀️ High-Noon      [12:00 - 17:59] : Peak execution, shipping features ${activePhaseId.value === 'afternoon' ? '👈 [ACTIVE]' : ''}
+ 4. 🌆 Twilight Dusk  [18:00 - 23:59] : Evening review, staging deployment cycle ${activePhaseId.value === 'twilight' ? '👈 [ACTIVE]' : ''}
 ──────────────────────────────────────────────────────────────────
- 🔮 Dùng lệnh "travel midnight", "travel dawn", "travel noon", "travel dusk"
-    hoặc "reset-time" để kiểm tra phản xạ của hệ thống!`;
+ 🔮 Use "travel midnight", "travel dawn", "travel noon", "travel dusk"
+    or "reset-time" to simulate!`;
       sound.playClick();
       break;
     case 'travel':
@@ -159,9 +174,9 @@ const execute = (rawCmd: string): string => {
       if (targetPhase) {
         setPhaseOverride(targetPhase);
         const phaseInfo = TIME_PHASES[targetPhase];
-        output = `✨ [TIME TRAVEL SUCCESS] Warp nhảy đến phân kỳ: ${phaseInfo.name} (${phaseInfo.vietnameseName})!\nToàn bộ ánh sáng, hạt bùa chú, linh vật và giao diện đã chuyển sắc.`;
+        output = `✨ [TIME TRAVEL SUCCESS] Warp jump to phase: ${phaseInfo.name}!\nDynamic lighting, accent colors, and mascot states have adapted.`;
       } else {
-        output = `travel: Phân kỳ không hợp lệ. Hãy chọn: "midnight", "dawn", "noon", hoặc "dusk".`;
+        output = `travel: Invalid phase. Choose from: "midnight", "dawn", "noon", or "dusk".`;
         outType = 'error';
         sound.playClick();
       }
@@ -170,29 +185,29 @@ const execute = (rawCmd: string): string => {
     case 'reset-time':
     case 'realtime':
       resetToRealTime();
-      output = `⚡ [TIME SYNC] Đã hủy Time Travel và đồng bộ lại 100% theo đồng hồ thực tế của thiết bị.`;
+      output = `⚡ [TIME SYNC] Time travel override cleared. Resynced 100% with local system clock.`;
       break;
     case 'whoami':
     case 'bio':
-      output = `🧙‍♂️ Ma Cà Tưng — Lead Systems Architect & Creative Full-Stack Engineer.\nĐịnh vị: "Code at midnight" — Chuyển hóa cà phê Robusta thành kiến trúc phân tán siêu tải.\nNhịp sinh học hiện tại: [${activePhase.value.name}] | Caffeine: ${activePhase.value.caffeineLevel}% | Linh vật: ${activePhase.value.mascotState}`;
+      output = `🧙‍♂️ Lead Systems Architect & Creative Full-Stack Engineer.\nPositioning: "Code at midnight" — Transforming caffeine into resilient distributed architectures.\nCircadian Phase: [${activePhase.value.name}] | Caffeine: ${activePhase.value.caffeineLevel}% | Mascot: ${activePhase.value.mascotState}`;
       sound.playClick();
       break;
     case 'cv':
     case 'resume':
       output = `══════════════════════════════════════════════════════════
- 📄 HỒ SƠ NĂNG LỰC — MACATUNG.DEV (LEAD SYSTEMS ARCHITECT)
+ 📄 TECHNICAL DOSSIER — MACATUNG.DEV (LEAD SYSTEMS ARCHITECT)
 ══════════════════════════════════════════════════════════
- • Vị Trí    : Lead Full-Stack Architect / Senior Engineer
- • Kinh Nghiệm: > 8 Năm Chinh Chiến Hệ Thống Tải Cao
- • Thế Mạnh  : Laravel, Vue 3, TypeScript, Microservices, Web Audio, High-Concurrency
- • Thành Tựu : +300% Throughput, 99.99% Uptime SLA, Zero Production Crash
- • Trạng Thái: 🟢 Sẵn Sàng Nhận Quest / Hợp Tác Dự Án Mới
- 🔗 Kéo xuống mục "Bàn Thờ Triệu Hồi" để tải bản CV chi tiết!`;
+ • Role        : Lead Full-Stack Architect / Senior AI Engineer
+ • Experience  : > 8 Years Designing High-Scale Distributed Systems
+ • Core Stack  : Laravel, Vue 3, TypeScript, Go, Microservices, Web Audio, Multi-Agent AI
+ • Key Metrics : +300% Throughput, 99.99% Uptime SLA, Zero Production Regressions
+ • Status      : 🟢 Available for Architecture Advisory & Keynote Projects
+ 🔗 Navigate to "Contact Engineering" to download full technical CV!`;
       sound.playSuccess();
       break;
     case 'projects':
     case 'ls':
-      output = `Grimoire Projects (${projectsData.length} Spells):\n` + projectsData.map((p) => `  [${p.category.toUpperCase()}] ${p.title} — ${p.tagline} (Metrics: ${p.metrics.map(m => m.value).join(' | ')})`).join('\n');
+      output = `Production Grimoire (${projectsData.length} Systems):\n` + projectsData.map((p) => `  [${p.category.toUpperCase()}] ${p.title} — ${p.tagline} (Metrics: ${p.metrics.map(m => m.value).join(' | ')})`).join('\n');
       sound.playClick();
       break;
     case 'skills': {
@@ -210,37 +225,37 @@ const execute = (rawCmd: string): string => {
     case 'philosophy':
     case 'nhansinh':
       output = `══════════════════════════════════════════════════════════════════════════
- 🌿 TUYÊN NGÔN KỸ NGHỆ PHẦN MỀM VỊ NHÂN SINH (HUMANISTIC MANIFESTO)
+ 🌿 HUMANISTIC SOFTWARE ENGINEERING MANIFESTO
 ══════════════════════════════════════════════════════════════════════════
- "Code Khởi Tâm Thiện — Ứng Dụng Phụng Sự Nhân Sinh"
+ "Mindful Code — Resilient Systems Serving Humanity"
  
- 1. 🌿 THIẾT KẾ VỊ NHÂN SINH (Empathy & User-First):
-    • Gạt bỏ bản ngã phô trương, thấu cảm sâu sắc nỗi đau người dùng.
-    • Nói KHÔNG với Dark Patterns, tôn trọng quyền riêng tư & tự do.
+ 1. 🌿 HUMAN-FIRST DESIGN (Empathy & User-First):
+    • Reject gratuitous complexity; deeply empathize with user pain points.
+    • Say NO to manipulative dark patterns; fiercely protect privacy & user focus.
 
- 2. ⚡ KIẾN TRÚC SINH THÁI BỀN VỮNG (Resilient & Green Computing):
-    • Mọi module tương hỗ, tối ưu tài nguyên máy chủ và hiệu năng.
-    • Kiến trúc Decoupled thích ứng linh hoạt trước biến chuyển công nghệ.
+ 2. ⚡ SUSTAINABLE SYSTEM ECOLOGY (Resilient & Green Computing):
+    • Harmonize decoupled services; minimize server carbon footprint & waste.
+    • High fault-tolerance architecture adaptable to rapid technology shifts.
 
- 3. 🛡️ KỶ LUẬT & CHẤT LƯỢNG TUYỆT ĐỐI (Zero-Debt Craftsmanship):
-    • Nợ kỹ thuật là gốc rễ của bất an; 100% Strict Type-Safety & Zero Debt.
-    • Tỉ mỉ gạn đục khơi trong giữa đêm sâu (Midnight Flow 00:00 AM).
+ 3. 🛡️ ZERO-DEBT CRAFTSMANSHIP (Discipline & Absolute Quality):
+    • Technical debt is the root of fragility; 100% strict type-safety & zero debt.
+    • Relentless attention to detail forged during deep midnight flow (00:00 AM).
 
- 4. ✨ GIẢI PHÓNG SỨC LAO ĐỘNG (AI for Human Empowerment):
-    • Multi-Agent AI tự trị gánh vác tác vụ lặp lại nặng nhọc 24/7.
-    • Trao lại thời gian để con người tự do sáng tạo và nâng tầm cuộc sống.
+ 4. ✨ LIBERATING HUMAN CREATIVITY (AI for Human Empowerment):
+    • Autonomous Multi-Agent swarms handle repetitive 24/7 operations.
+    • Restores time and creative bandwidth for human strategic insight.
 ──────────────────────────────────────────────────────────────────────────`;
       sound.playCelestialChime(activePhase.value.id);
       break;
     case 'admin':
-      output = '⚙️ [CMS PORTAL] Opening Admin Dashboard at /admin ... Nhấp để quản lý Projects & Contacts: https://macatung.dev/admin';
+      output = '⚙️ [CMS PORTAL] Opening Admin Dashboard at /admin ... Direct link: https://macatung.dev/admin';
       sound.playSuccess();
       if (typeof window !== 'undefined') {
         window.location.href = '/admin';
       }
       break;
     case 'hop':
-      output = '🧛‍♂️ *HOP!* Ma Cà Tưng hops gracefully over production bugs! (+1 Hop)';
+      output = '🧛‍♂️ *HOP!* Mascot hops gracefully over production bugs! (+1 Hop)';
       sound.playHop(1.5);
       emit('hop-requested');
       break;
@@ -249,12 +264,12 @@ const execute = (rawCmd: string): string => {
       sound.playSuccess();
       break;
     case 'talisman':
-      output = '📜 [BÙA CODE 0 BUG] try { deploy(); } catch { /* PEACE */ } — Khai Quang thành công!';
+      output = '📜 [0-BUG VERIFICATION SEAL] try { deploy(); } catch { /* PEACE */ } — Verified successfully!';
       sound.playTalisman();
       break;
     case 'game':
     case 'play':
-      output = '🎮 [RUNE TYPER ARCADE] Launching Rune Typer Dev Game... Cuộn tới khu vực #game để gõ code diệt Bug!';
+      output = '🎮 [RUNE TYPER ARCADE] Launching Rune Typer Dev Game... Scrolling to #game section!';
       sound.playSuccess();
       if (typeof document !== 'undefined') {
         const gameEl = document.getElementById('game');
@@ -264,22 +279,22 @@ const execute = (rawCmd: string): string => {
       }
       break;
     case 'slogan':
-      output = '✨ "Code Khởi Tâm Thiện — Ứng Dụng Phụng Sự Nhân Sinh. Code at midnight, deploy with peace."';
+      output = '✨ "Mindful Code — Resilient Systems Serving Humanity. Code at midnight, deploy with peace."';
       sound.playClick();
       break;
     case 'summon':
     case 'hire':
-      output = '🔮 Invoking Summoning Altar... Scroll down to offer coffee and initiate project contract!';
+      output = '🔮 Invoking Advisory Request... Scroll down to initiate project contract!';
       sound.playClick();
       emit('summon-requested');
       break;
     case 'sudo': {
       const sudoArg = args.join(' ');
       if (sudoArg === 'rm -rf bugs' || sudoArg === 'rm -rf /bugs') {
-        output = '🔥 [EXORCISM IN PROGRESS] Purging 4,192 bugs from production... 0 bugs remaining. Realm is peaceful and verified 100%!';
+        output = '🔥 [PURGE IN PROGRESS] Cleared all bugs from production... 0 bugs remaining. Verified 100%!';
         sound.playSuccess();
       } else {
-        output = `sudo: ${sudoArg}: command not permitted by midnight council`;
+        output = `sudo: ${sudoArg}: command not permitted by system policy`;
         outType = 'error';
         sound.playClick();
       }
@@ -290,7 +305,7 @@ const execute = (rawCmd: string): string => {
       currentInput.value = '';
       return '';
     default:
-      output = `macatung-cli: command not found: "${command}". Type "help" to see available spells.`;
+      output = `macatung-cli: command not found: "${command}". Type "help" to see available commands.`;
       outType = 'error';
       sound.playClick();
       break;
@@ -387,15 +402,15 @@ const focusInput = () => {
         <button
           type="button"
           class="p-1 rounded text-slate-400 hover:text-white text-xs transition-colors min-h-[32px] px-2 flex items-center gap-1"
-          :title="isCopied ? 'Đã sao chép' : 'Sao chép nhật ký'"
+          :title="isCopied ? 'Copied' : 'Copy log'"
           @click.stop="copyLogs"
         >
-          <span>{{ isCopied ? '✓ Đã Copy' : '📋 Copy' }}</span>
+          <span>{{ isCopied ? '✓ Copied' : '📋 Copy' }}</span>
         </button>
         <button
           type="button"
           class="p-1 rounded text-slate-400 hover:text-white text-xs transition-colors min-h-[32px] px-2"
-          :title="isExpanded ? 'Thu nhỏ' : 'Mở rộng'"
+          :title="isExpanded ? 'Restore' : 'Maximize'"
           @click.stop="toggleExpand"
         >
           <span>{{ isExpanded ? '🗗' : '🗖' }}</span>
@@ -405,7 +420,7 @@ const focusInput = () => {
 
     <!-- Quick Spells Pill Bar -->
     <div class="bg-midnight-950/80 border-b border-white/5 px-3 py-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar select-none shrink-0">
-      <span class="text-[10px] text-slate-500 uppercase tracking-wider shrink-0 mr-1 whitespace-nowrap">Spells:</span>
+      <span class="text-[10px] text-slate-500 uppercase tracking-wider shrink-0 mr-1 whitespace-nowrap">Commands:</span>
       <button
         v-for="spell in quickSpells"
         :key="spell"
@@ -444,7 +459,7 @@ const focusInput = () => {
           v-model="currentInput"
           type="text"
           class="flex-1 bg-transparent border-none outline-none text-slate-100 font-mono text-xs sm:text-sm p-0 focus:ring-0"
-          placeholder="Nhập spell (vd: help, cv, projects)..."
+          placeholder="Type command (e.g. help, cv, projects)..."
           autofocus
           @keydown="handleKeyDown"
         />

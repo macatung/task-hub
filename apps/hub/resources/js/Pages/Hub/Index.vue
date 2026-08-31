@@ -38,12 +38,12 @@ const pipelineStages = [
     name: 'AI Discovery',
     tag: 'Context Pack',
     icon: 'Sparkles',
-    desc: 'Chuyển đổi prompt tự nhiên thành Agile Backlog (Epic/Story/Task) với Acceptance Criteria & DoD chuẩn xác.',
+    desc: 'Transform natural language prompts into structured Agile Backlogs (Epics, Stories, Tasks) with precise Acceptance Criteria and Definitions of Done.',
     codeTitle: 'discovery_output.json',
     codeLang: 'json',
     codeContent: `{
   "discovery_id": "disc_8f902a11",
-  "source_prompt": "Xây dựng MCP Gateway kết nối Claude & Antigravity",
+  "source_prompt": "Build MCP Gateway connecting Claude & Antigravity",
   "living_context_docs": [
     "docs/ARCHITECTURE-CURRENT.md (Fresh, modified 2d ago)",
     "docs/FUNCTIONAL_SPECIFICATION.md (task-hub-docs-v1)"
@@ -68,7 +68,7 @@ const pipelineStages = [
     name: 'Git Worktree',
     tag: 'Multi-Agent',
     icon: 'GitBranch',
-    desc: 'Agent (Antigravity / Codex / Claude) làm việc trong worktree cô lập, bảo vệ nhánh chính và loại bỏ xung đột.',
+    desc: 'AI agents (Antigravity, Codex, Claude Code) operate in isolated Git worktrees, protecting the main branch and eliminating merge conflicts.',
     codeTitle: 'runner_worktree_spawn.sh',
     codeLang: 'bash',
     codeContent: `[10:44:02] $ cao workflow run --profile code_supervisor --task HUB-108
@@ -87,7 +87,7 @@ const pipelineStages = [
     name: 'Test Evidence',
     tag: 'Zero Defects',
     icon: 'CheckCircle',
-    desc: 'Bắt buộc chạy test tự động và đính kèm bằng chứng (logs, pass/fail counts, risk score) trước khi bàn giao.',
+    desc: 'Automated test execution with mandatory reproducible evidence (logs, pass/fail counts, risk scores) prior to handoff.',
     codeTitle: 'verification_evidence.json',
     codeLang: 'json',
     codeContent: `{
@@ -120,11 +120,11 @@ const pipelineStages = [
     name: 'Human Approval',
     tag: 'Zero Mutation',
     icon: 'Shield',
-    desc: 'Tech Lead kiểm tra diff, actor attribution và test logs; 1-click Approve hoàn tất hoặc yêu cầu sửa đổi.',
+    desc: 'Tech leads inspect AST diffs, actor attribution, and test logs; 1-click approve or request refinements.',
     codeTitle: 'tech_lead_audit_trail.log',
     codeLang: 'log',
     codeContent: `[10:44:22] 🔔 Notification: Task HUB-108 submitted for Human Review.
-[10:44:23] 👤 Reviewer: Ma Cà Tưng (Tech Lead / Workspace Owner)
+[10:44:23] 👤 Reviewer: Lead Architect (Tech Lead / Workspace Owner)
 [10:44:25] 🔍 Diff Inspector: 3 files changed (+141, -0). 14/14 Automated Tests Verified.
 [10:44:28] 🛡️ Actor Attribution: Commits tagged with [Agent: Antigravity 2.0] & [Supervisor: CAO].
 [10:44:30] ✅ Action: HUMAN APPROVE (Zero Unsupervised Mutation Policy Enforced)
@@ -151,7 +151,7 @@ const hubJsonLd = {
       'url': 'https://midnight.macatung.dev',
       'publisher': {
         '@type': 'Person',
-        'name': 'Ma Cà Tưng',
+        'name': 'MacaTung',
         'url': 'https://macatung.dev'
       }
     },
@@ -168,8 +168,8 @@ const hubJsonLd = {
 <template>
   <SeoHead
     title="Supervised Vibe Coding & AI Agent Orchestration — Midnight Hub"
-    description="Nâng cấp Vibe Coding thành quy trình kỹ thuật phần mềm chuẩn chỉ. Điều phối Antigravity 2.0, Codex, Claude Code trong Git Worktree cô lập với Verification Evidence."
-    keywords="Midnight Hub, Vibe Coding, AI Coding Agents, Antigravity 2.0, Claude Code, Verification Evidence, MCP Gateway, Git Worktree"
+    description="Transform Vibe Coding into a rigorous, professional software engineering workflow. Orchestrate Antigravity 2.0, Codex, Claude Code in isolated Git worktrees with Verification Evidence."
+    keywords="Midnight Hub, Supervised Vibe Coding, AI Coding Agents, Antigravity 2.0, Claude Code, Verification Evidence, MCP Gateway, Git Worktree, Agile Backlog"
     canonical="https://midnight.macatung.dev"
     :json-ld="hubJsonLd"
   />
@@ -198,14 +198,14 @@ const hubJsonLd = {
         <!-- Nav Links -->
         <nav class="hidden lg:flex items-center gap-8 text-sm font-medium text-slate-300">
           <a href="#vibe-coding" class="hover:text-phantom-mint transition-colors">Vibe Coding Hub</a>
-          <a href="#comparison" class="hover:text-phantom-mint transition-colors">So Sánh</a>
-          <a href="#features" class="hover:text-phantom-mint transition-colors">3 Trụ Cột</a>
+          <a href="#comparison" class="hover:text-phantom-mint transition-colors">Comparison</a>
+          <a href="#features" class="hover:text-phantom-mint transition-colors">3 Pillars</a>
           <a href="#pipeline" class="hover:text-phantom-mint transition-colors">Strict 4-Step Flow</a>
           <Link href="/desktop" class="hover:text-phantom-mint transition-colors flex items-center gap-1.5">
             <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
             <span>Desktop App</span>
           </Link>
-          <Link href="/pricing" class="hover:text-emerald-400 font-semibold transition-colors">Bảng Giá</Link>
+          <Link href="/pricing" class="hover:text-emerald-400 font-semibold transition-colors">Pricing</Link>
         </nav>
 
         <!-- Action / Auth -->
@@ -225,7 +225,7 @@ const hubJsonLd = {
               href="/tasks"
               class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-emerald-500/25 hover:from-emerald-400 hover:to-teal-400 transition-all cursor-pointer shrink-0"
             >
-              <span>Vào Workspace</span>
+              <span>Open Workspace</span>
               <span>→</span>
             </Link>
           </template>
@@ -235,7 +235,7 @@ const hubJsonLd = {
               class="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-emerald-500/25 hover:bg-emerald-400 active:scale-95 transition-all cursor-pointer shrink-0"
             >
               <Icons name="Github" :size="15" />
-              <span>Đăng nhập GitHub</span>
+              <span>Sign in with GitHub</span>
             </a>
           </template>
 
@@ -243,7 +243,7 @@ const hubJsonLd = {
           <button
             type="button"
             @click="mobileMenuOpen = !mobileMenuOpen"
-            class="inline-flex lg:hidden items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 hover:text-white shrink-0"
+            class="inline-flex lg:hidden items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 hover:text-white shrink-0 cursor-pointer"
             aria-label="Toggle Navigation Menu"
           >
             <Icons :name="mobileMenuOpen ? 'X' : 'Menu'" :size="20" />
@@ -254,19 +254,19 @@ const hubJsonLd = {
       <!-- Mobile Nav Drawer -->
       <div v-if="mobileMenuOpen" class="lg:hidden border-t border-slate-800 bg-slate-950 px-6 py-4 space-y-3">
         <a href="#vibe-coding" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">Vibe Coding Hub</a>
-        <a href="#comparison" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">So Sánh</a>
-        <a href="#features" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">3 Trụ Cột</a>
+        <a href="#comparison" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">Comparison</a>
+        <a href="#features" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">3 Pillars</a>
         <a href="#pipeline" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">Strict 4-Step Flow</a>
         <Link href="/desktop" @click="mobileMenuOpen = false" class="block text-sm text-slate-300 hover:text-white">Desktop App</Link>
-        <Link href="/pricing" @click="mobileMenuOpen = false" class="block text-sm text-emerald-400 font-bold">Bảng Giá</Link>
+        <Link href="/pricing" @click="mobileMenuOpen = false" class="block text-sm text-emerald-400 font-bold">Pricing</Link>
         <div class="pt-3 border-t border-slate-800 flex flex-col gap-2">
           <template v-if="user">
-            <Link href="/tasks" class="rounded-xl bg-emerald-500 px-4 py-2 text-center text-xs font-bold text-slate-950">Vào Workspace</Link>
+            <Link href="/tasks" class="rounded-xl bg-emerald-500 px-4 py-2 text-center text-xs font-bold text-slate-950">Open Workspace</Link>
           </template>
           <template v-else>
             <a href="/auth/github" class="rounded-xl bg-emerald-500 px-4 py-2 text-center text-xs font-bold text-slate-950 flex items-center justify-center gap-2">
               <Icons name="Github" :size="15" />
-              <span>Đăng nhập GitHub</span>
+              <span>Sign in with GitHub</span>
             </a>
           </template>
         </div>
@@ -293,15 +293,15 @@ const hubJsonLd = {
 
       <!-- Main Headline -->
       <h1 class="mt-8 text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white leading-[1.1]">
-        Vibe Code Thần Tốc.<br />
+        Vibe Code at High Velocity.<br />
         <span class="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
-          Ít Lỗi, Đúng Chuẩn & Có Bằng Chứng.
+          Zero Regressions, Strict Standards & Verification Evidence.
         </span>
       </h1>
 
       <!-- Subtitle -->
       <p class="mx-auto mt-6 max-w-3xl text-base sm:text-lg md:text-xl text-slate-300 leading-relaxed font-normal">
-        Nâng cấp <strong class="text-white">Vibe Coding</strong> từ việc gõ prompt tự phát, dễ sinh lỗi thành một <strong class="text-phantom-mint">quy trình kỹ thuật phần mềm chuẩn chỉ</strong>. Tự động phân tích codebase sinh Backlog Agile, điều phối Antigravity 2.0, Codex, Claude Code trong Git worktree cô lập, và kiểm soát chất lượng qua chu trình 4 bước bắt buộc đính kèm bằng chứng kiểm thử (<strong class="text-cyan-300">Verification Evidence</strong>).
+        Elevate <strong class="text-white">Vibe Coding</strong> from ad-hoc prompting into a <strong class="text-phantom-mint">rigorous engineering discipline</strong>. Automatically synthesize Agile Backlogs from codebase context, orchestrate Antigravity 2.0, Codex, Claude Code across isolated Git worktrees, and enforce quality via a mandatory 4-step lifecycle with reproducible <strong class="text-cyan-300">Verification Evidence</strong>.
       </p>
 
       <!-- CTA Button Group -->
@@ -311,21 +311,21 @@ const hubJsonLd = {
           class="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-7 py-4 text-sm font-bold text-slate-950 shadow-xl shadow-emerald-500/30 hover:from-emerald-400 hover:to-teal-400 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
         >
           <Icons name="Sparkles" :size="18" />
-          <span>Bắt Đầu Vibe Coding Miễn Phí</span>
+          <span>Start Vibe Coding Free</span>
           <span>→</span>
         </a>
         <Link
           href="/desktop"
-          class="inline-flex items-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-6 py-4 text-sm font-semibold text-emerald-300 hover:border-emerald-400 hover:bg-emerald-500/20 transition-all"
+          class="inline-flex items-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-6 py-4 text-sm font-semibold text-emerald-300 hover:border-emerald-400 hover:bg-emerald-500/20 transition-all cursor-pointer"
         >
           <Icons name="Desktop" :size="18" />
-          <span>Tải Desktop Companion</span>
+          <span>Download Desktop Companion</span>
         </Link>
         <Link
           href="/tasks"
-          class="inline-flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-900/80 px-6 py-4 text-sm font-semibold text-slate-200 hover:border-slate-600 hover:bg-slate-800 hover:text-white transition-all"
+          class="inline-flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-900/80 px-6 py-4 text-sm font-semibold text-slate-200 hover:border-slate-600 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
         >
-          <span>Khám Phá Workspace</span>
+          <span>Explore Workspace</span>
           <span>→</span>
         </Link>
       </div>
@@ -363,7 +363,7 @@ const hubJsonLd = {
             :key="stage.id"
             @click="activePipelineTab = stage.id as any"
             type="button"
-            class="flex items-center gap-2.5 px-4 py-3 text-left transition-all border-b-2 text-xs font-mono"
+            class="flex items-center gap-2.5 px-4 py-3 text-left transition-all border-b-2 text-xs font-mono cursor-pointer"
             :class="[
               activePipelineTab === stage.id
                 ? 'border-emerald-400 bg-emerald-500/10 text-white font-bold'
@@ -388,7 +388,7 @@ const hubJsonLd = {
           <div class="lg:col-span-5 space-y-4">
             <div class="inline-flex items-center gap-2 rounded-lg bg-slate-800/80 px-3 py-1 text-xs font-mono text-emerald-400 border border-slate-700">
               <Icons :name="currentPipelineData.icon" :size="14" />
-              <span>Giai Đoạn {{ currentPipelineData.num }}: {{ currentPipelineData.name }}</span>
+              <span>Stage {{ currentPipelineData.num }}: {{ currentPipelineData.name }}</span>
             </div>
 
             <h3 class="text-xl font-bold text-white leading-snug">
@@ -401,7 +401,7 @@ const hubJsonLd = {
 
             <div class="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5 space-y-2 text-xs font-mono">
               <div class="flex items-center justify-between text-slate-400">
-                <span>Trạng thái:</span>
+                <span>Status:</span>
                 <span class="text-emerald-400 font-bold">● Active Sandbox</span>
               </div>
               <div class="flex items-center justify-between text-slate-400">
@@ -409,7 +409,7 @@ const hubJsonLd = {
                 <span class="text-cyan-400 font-bold">100% Enforced</span>
               </div>
               <div class="flex items-center justify-between text-slate-400">
-                <span>Tài liệu tham chiếu:</span>
+                <span>Reference Context:</span>
                 <span class="text-purple-400 font-bold">task-hub-docs-v1</span>
               </div>
             </div>
@@ -432,12 +432,12 @@ const hubJsonLd = {
     <section id="comparison" class="relative z-10 border-t border-slate-800/80 bg-slate-900/40 py-24">
       <div class="mx-auto max-w-6xl px-6">
         <div class="text-center">
-          <p class="text-xs font-bold tracking-wider uppercase text-emerald-400 font-mono">Sự Khác Biệt Mang Tính Cách Mạng</p>
+          <p class="text-xs font-bold tracking-wider uppercase text-emerald-400 font-mono">Revolutionary Paradigm</p>
           <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            Vibe Coding Tự Phát vs. Supervised Vibe Coding trên Midnight Hub
+            Chaotic Vibe Coding vs. Supervised Vibe Coding on Midnight Hub
           </h2>
           <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base text-slate-300 leading-relaxed">
-            Vibe coding giúp bạn lên ý tưởng nhanh, nhưng thiếu kỷ luật sẽ dẫn tới code rác và lỗi ngầm. Midnight Hub giữ trọn tốc độ và bổ sung toàn bộ chuẩn mực kỹ thuật chuyên nghiệp.
+            Vibe coding enables rapid ideation, but a lack of discipline produces code bloat and subtle regressions. Midnight Hub preserves full speed while adding enterprise-grade engineering standards.
           </p>
         </div>
 
@@ -445,33 +445,33 @@ const hubJsonLd = {
           <!-- Column 1: Chaotic Vibe Coding -->
           <div class="rounded-2xl border border-red-500/20 bg-red-950/10 p-6 sm:p-8 backdrop-blur relative">
             <div class="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-mono text-red-400 font-bold">
-              <span>✕ VIBE CODING TỰ PHÁT (CHAT / COPY-PASTE)</span>
+              <span>✕ CHAOTIC VIBE CODING (CHAT / COPY-PASTE)</span>
             </div>
-            <h3 class="mt-4 text-xl font-bold text-white">Nhanh lúc đầu, bế tắc lúc sau</h3>
+            <h3 class="mt-4 text-xl font-bold text-white">Fast initial velocity, unmaintainable aftermath</h3>
             
             <ul class="mt-6 space-y-4 text-sm text-slate-300">
               <li class="flex items-start gap-3">
                 <span class="inline-flex h-5 w-5 items-center justify-center shrink-0 rounded-full bg-red-500/20 text-red-400 text-xs font-bold mt-0.5">✕</span>
                 <div>
-                  <strong class="text-red-200">AI ảo giác (Hallucination):</strong> Do không nạp context pack kiến trúc, AI tự chế hàm, gọi sai API và phá vỡ cấu trúc có sẵn.
+                  <strong class="text-red-200">AI Hallucinations:</strong> Without structured architectural context, models fabricate functions, call invalid APIs, and break existing patterns.
                 </div>
               </li>
               <li class="flex items-start gap-3">
                 <span class="inline-flex h-5 w-5 items-center justify-center shrink-0 rounded-full bg-red-500/20 text-red-400 text-xs font-bold mt-0.5">✕</span>
                 <div>
-                  <strong class="text-red-200">Sửa bừa vào Main Branch:</strong> Không có worktree cô lập, xung đột git liên tục, ghi đè làm mất công sức của các tính năng khác.
+                  <strong class="text-red-200">Direct Mutations on Main:</strong> Lack of isolated worktrees causes constant Git conflicts and overwrites active teammate work.
                 </div>
               </li>
               <li class="flex items-start gap-3">
                 <span class="inline-flex h-5 w-5 items-center justify-center shrink-0 rounded-full bg-red-500/20 text-red-400 text-xs font-bold mt-0.5">✕</span>
                 <div>
-                  <strong class="text-red-200">Không có test bắt buộc:</strong> Nhìn có vẻ chạy được nhưng lọt lỗi logic và rủi ro bảo mật nghiêm trọng vào production.
+                  <strong class="text-red-200">No Verification Gates:</strong> Code looks plausible on the surface, but slips critical logic flaws and security vulnerabilities into production.
                 </div>
               </li>
               <li class="flex items-start gap-3">
                 <span class="inline-flex h-5 w-5 items-center justify-center shrink-0 rounded-full bg-red-500/20 text-red-400 text-xs font-bold mt-0.5">✕</span>
                 <div>
-                  <strong class="text-red-200">Mất dấu vết (Zero Attribution):</strong> Không thể biết dòng code nào do AI nào viết, không có tài liệu bàn giao để bảo trì sau này.
+                  <strong class="text-red-200">Zero Attribution & Audit:</strong> Impossible to trace which commit was authored by which model, lacking handoff documentation for maintainability.
                 </div>
               </li>
             </ul>
@@ -482,31 +482,31 @@ const hubJsonLd = {
             <div class="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-mono text-emerald-400 font-bold">
               <span>✓ MIDNIGHT HUB SUPERVISED VIBE CODING</span>
             </div>
-            <h3 class="mt-4 text-xl font-bold text-white">Tốc độ tối đa, chất lượng chuẩn mực</h3>
+            <h3 class="mt-4 text-xl font-bold text-white">Maximum velocity, absolute engineering rigor</h3>
             
             <ul class="mt-6 space-y-4 text-sm text-slate-200">
               <li class="flex items-start gap-3">
                 <span class="inline-flex h-5 w-5 items-center justify-center shrink-0 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold mt-0.5">✓</span>
                 <div>
-                  <strong class="text-emerald-300">Living Context Pack:</strong> Nạp tài liệu kiến trúc chuẩn, cảnh báo tài liệu cũ (`>30d`), triệt tiêu 100% ảo giác.
+                  <strong class="text-emerald-300">Living Context Pack:</strong> Ingests verified architecture specifications with freshness alerts (&gt;30d), eliminating hallucinations.
                 </div>
               </li>
               <li class="flex items-start gap-3">
                 <span class="inline-flex h-5 w-5 items-center justify-center shrink-0 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold mt-0.5">✓</span>
                 <div>
-                  <strong class="text-emerald-300">Git Worktree Sandbox:</strong> Chạy song song nhiều Agent trên các worktree riêng biệt, an toàn tuyệt đối cho nhánh chính.
+                  <strong class="text-emerald-300">Git Worktree Sandbox:</strong> Runs concurrent agent swarms in isolated worktrees, guaranteeing main branch safety.
                 </div>
               </li>
               <li class="flex items-start gap-3">
                 <span class="inline-flex h-5 w-5 items-center justify-center shrink-0 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold mt-0.5">✓</span>
                 <div>
-                  <strong class="text-emerald-300">Bắt Buộc Verification Evidence:</strong> Test tự động phải PASS 100% + logs đính kèm thì Agent mới được quyền gửi Handoff.
+                  <strong class="text-emerald-300">Mandatory Verification Evidence:</strong> Requires 100% passing test suites and machine-readable logs before allowing task handoff.
                 </div>
               </li>
               <li class="flex items-start gap-3">
                 <span class="inline-flex h-5 w-5 items-center justify-center shrink-0 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold mt-0.5">✓</span>
                 <div>
-                  <strong class="text-emerald-300">Actor Attribution & Human Gate:</strong> Lưu vết người vs model cho từng commit, quyền chốt chặn Approve thuộc về con người.
+                  <strong class="text-emerald-300">Actor Attribution & Human Gate:</strong> Full human vs. model attribution per commit; final approval authority remains strictly with engineering leads.
                 </div>
               </li>
             </ul>
@@ -519,12 +519,12 @@ const hubJsonLd = {
     <section id="features" class="relative z-10 py-24">
       <div class="mx-auto max-w-6xl px-6">
         <div class="text-center">
-          <p class="text-xs font-bold tracking-wider uppercase text-emerald-400 font-mono">3 Trụ Cột Nền Tảng</p>
+          <p class="text-xs font-bold tracking-wider uppercase text-emerald-400 font-mono">Foundational Architecture</p>
           <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            Nhanh Hơn — Ít Lỗi Hơn — Đúng Chuẩn Hơn
+            Faster Velocity — Fewer Regressions — Strict Standards
           </h2>
           <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base text-slate-300 leading-relaxed">
-            Mọi tính năng trong Midnight Hub đều được thiết kế xoay quanh tam giác chất lượng phát triển phần mềm hiện đại.
+            Every capability in Midnight Hub is engineered around the modern software engineering quality triangle.
           </p>
         </div>
 
@@ -535,21 +535,21 @@ const hubJsonLd = {
               <Icons name="Zap" :size="24" />
             </div>
             <h3 class="mt-5 text-lg font-bold text-white flex items-center gap-2">
-              <span>1. Phát Triển Nhanh Hơn</span>
+              <span>1. Faster Velocity</span>
             </h3>
-            <p class="mt-1 text-xs font-mono text-emerald-400 uppercase tracking-wider font-semibold">Tốc Độ & Luồng Làm Việc</p>
+            <p class="mt-1 text-xs font-mono text-emerald-400 uppercase tracking-wider font-semibold">Velocity & Flow State</p>
             <ul class="mt-4 space-y-2.5 text-xs sm:text-sm text-slate-300 leading-relaxed">
               <li class="flex items-start gap-2">
                 <span class="text-emerald-400 mt-0.5 font-bold">▸</span>
-                <span><strong>AI Requirement Discovery:</strong> Phân rã prompt thành Epic, User Story, Task và Bug trong vài giây.</span>
+                <span><strong>AI Requirement Discovery:</strong> Decompose user prompts into Epics, User Stories, Tasks, and Bugs in seconds.</span>
               </li>
               <li class="flex items-start gap-2">
                 <span class="text-emerald-400 mt-0.5 font-bold">▸</span>
-                <span><strong>Multi-Agent Swarm:</strong> Điều phối đồng thời Antigravity 2.0, Codex, Claude Code và AWS Labs CAO.</span>
+                <span><strong>Multi-Agent Swarm:</strong> Concurrently orchestrate Antigravity 2.0, Codex, Claude Code, and AWS Labs CAO.</span>
               </li>
               <li class="flex items-start gap-2">
                 <span class="text-emerald-400 mt-0.5 font-bold">▸</span>
-                <span><strong>Git Worktree Multitasking:</strong> Thử nghiệm song song nhiều tính năng mà không nghẽn repo.</span>
+                <span><strong>Git Worktree Multitasking:</strong> Test multiple features in parallel without repository lock-in.</span>
               </li>
             </ul>
           </div>
@@ -560,21 +560,21 @@ const hubJsonLd = {
               <Icons name="Shield" :size="24" />
             </div>
             <h3 class="mt-5 text-lg font-bold text-white flex items-center gap-2">
-              <span>2. Ít Lỗi Hơn</span>
+              <span>2. Fewer Regressions</span>
             </h3>
-            <p class="mt-1 text-xs font-mono text-cyan-400 uppercase tracking-wider font-semibold">Kiểm Chứng & An Toàn Tuyệt Đối</p>
+            <p class="mt-1 text-xs font-mono text-cyan-400 uppercase tracking-wider font-semibold">Verification & Absolute Safety</p>
             <ul class="mt-4 space-y-2.5 text-xs sm:text-sm text-slate-300 leading-relaxed">
               <li class="flex items-start gap-2">
                 <span class="text-cyan-400 mt-0.5 font-bold">▸</span>
-                <span><strong>Strict 4-Step Pipeline:</strong> Chu trình khép kín <code>Implement ➔ Review ➔ Evidence ➔ Handoff</code>.</span>
+                <span><strong>Strict 4-Step Pipeline:</strong> Deterministic lifecycle: <code>Implement ➔ Review ➔ Evidence ➔ Handoff</code>.</span>
               </li>
               <li class="flex items-start gap-2">
                 <span class="text-cyan-400 mt-0.5 font-bold">▸</span>
-                <span><strong>Verification Evidence Schema:</strong> Bắt buộc test suite pass và lưu log kiểm thử có thể tái lập.</span>
+                <span><strong>Verification Evidence Schema:</strong> Enforce test suite passes and persist reproducible audit logs.</span>
               </li>
               <li class="flex items-start gap-2">
                 <span class="text-cyan-400 mt-0.5 font-bold">▸</span>
-                <span><strong>Sandbox Policies:</strong> Chặn hoàn toàn các lệnh nguy hiểm (xóa DB, tự ý merge khi chưa review).</span>
+                <span><strong>Sandbox Execution Policies:</strong> Block destructive shell commands and unapproved merges.</span>
               </li>
             </ul>
           </div>
@@ -585,21 +585,21 @@ const hubJsonLd = {
               <Icons name="BookOpen" :size="24" />
             </div>
             <h3 class="mt-5 text-lg font-bold text-white flex items-center gap-2">
-              <span>3. Đúng Chuẩn Hơn</span>
+              <span>3. Strict Standards</span>
             </h3>
-            <p class="mt-1 text-xs font-mono text-purple-400 uppercase tracking-wider font-semibold">Kiến Trúc & Tri Thức Chuẩn Hóa</p>
+            <p class="mt-1 text-xs font-mono text-purple-400 uppercase tracking-wider font-semibold">Standardized Knowledge & Architecture</p>
             <ul class="mt-4 space-y-2.5 text-xs sm:text-sm text-slate-300 leading-relaxed">
               <li class="flex items-start gap-2">
                 <span class="text-purple-400 mt-0.5 font-bold">▸</span>
-                <span><strong>Living Context Pack:</strong> Quản trị tài liệu theo <code>task-hub-docs-v1</code>, cảnh báo tài liệu cũ (`>30d`).</span>
+                <span><strong>Living Context Pack:</strong> Documentation governance under <code>task-hub-docs-v1</code> with stale doc detection.</span>
               </li>
               <li class="flex items-start gap-2">
                 <span class="text-purple-400 mt-0.5 font-bold">▸</span>
-                <span><strong>Chuẩn MCP 2024-11-05:</strong> 9 công cụ MCP chuẩn hóa giao tiếp 2 chiều với các AI IDE.</span>
+                <span><strong>MCP 2024-11-05 Standard:</strong> 9 standardized MCP tools powering two-way communication across AI IDEs.</span>
               </li>
               <li class="flex items-start gap-2">
                 <span class="text-purple-400 mt-0.5 font-bold">▸</span>
-                <span><strong>Actor Attribution Audit:</strong> Minh bạch 100% dòng code do người hay model AI nào viết kèm ISO 8601.</span>
+                <span><strong>Actor Attribution Audit:</strong> 100% transparency on human vs. AI author identity with ISO 8601 timestamps.</span>
               </li>
             </ul>
           </div>
@@ -611,12 +611,12 @@ const hubJsonLd = {
     <section id="pipeline" class="relative z-10 border-t border-slate-800/80 bg-slate-900/30 py-24">
       <div class="mx-auto max-w-6xl px-6">
         <div class="text-center">
-          <p class="text-xs font-bold tracking-wider uppercase text-emerald-400 font-mono">Quy Trình Thực Thi Xác Định</p>
+          <p class="text-xs font-bold tracking-wider uppercase text-emerald-400 font-mono">Deterministic Execution Lifecycle</p>
           <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            Vòng Đời Thực Thi 4 Bước Bắt Buộc (Strict Workflow)
+            Mandatory 4-Step Execution Workflow (Strict Pipeline)
           </h2>
           <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base text-slate-300 leading-relaxed">
-            Mọi lượt chạy của Agent đều phải tuân thủ nghiêm ngặt hợp đồng JSON Schema trước khi đưa lên Tech Lead phê duyệt.
+            Every agent run must satisfy strict JSON Schema contracts before advancing to human review.
           </p>
         </div>
 
@@ -627,7 +627,7 @@ const hubJsonLd = {
               <span>Implement</span>
             </h3>
             <p class="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Agent nhận Context Pack, phân tích Acceptance Criteria và sinh mã nguồn trong Git worktree cô lập.
+              Agent consumes Context Pack, analyzes Acceptance Criteria, and generates code in an isolated Git worktree.
             </p>
             <div class="mt-4 pt-3 border-t border-slate-800/80 text-[11px] font-mono text-emerald-400">
               Contract: modified_files, change_summary
@@ -640,7 +640,7 @@ const hubJsonLd = {
               <span>Review</span>
             </h3>
             <p class="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Tự động đánh giá risk score, kiểm tra static analysis, linting và phát hiện các vi phạm quy chuẩn thiết kế.
+              Automated risk scoring, static analysis, linting, and structural design violation checks.
             </p>
             <div class="mt-4 pt-3 border-t border-slate-800/80 text-[11px] font-mono text-blue-400">
               Contract: verdict, feedback, risk_score
@@ -653,7 +653,7 @@ const hubJsonLd = {
               <span>Evidence</span>
             </h3>
             <p class="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Thực thi toàn bộ test suite. Nếu test fail hoặc review bị từ chối, workflow lập tức block và yêu cầu sửa.
+              Executes test suites. If tests fail or review is rejected, the pipeline blocks immediately and requests remediation.
             </p>
             <div class="mt-4 pt-3 border-t border-slate-800/80 text-[11px] font-mono text-purple-400">
               Contract: tests, pass/fail counts, status
@@ -666,7 +666,7 @@ const hubJsonLd = {
               <span>Handoff</span>
             </h3>
             <p class="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Đóng gói bàn giao đính kèm bằng chứng. Chuyển sang <code>needs_review</code> để con người quyết định duyệt.
+              Packages changes with reproducible evidence. Advances state to <code>needs_review</code> for human sign-off.
             </p>
             <div class="mt-4 pt-3 border-t border-slate-800/80 text-[11px] font-mono text-cyan-400">
               Contract: summary, tests, human_approve
@@ -685,18 +685,18 @@ const hubJsonLd = {
             <span>MIDNIGHT HUB DESKTOP COMPANION</span>
           </div>
           <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
-            Điều phối AI Agent trực tiếp ngay trên máy tính của bạn
+            Orchestrate Autonomous AI Agents Directly on Your Machine
           </h2>
           <p class="text-slate-300 text-sm sm:text-base leading-relaxed">
-            Ứng dụng Electron bản quyền cho Windows tích hợp sẵn AWS Labs CAO, tự động cấu hình MCP, kết nối Antigravity 2.0, Codex, Claude Code với hệ thống âm thanh phản hồi tức thì và luồng stream log thời gian thực.
+            Electron desktop app for Windows with built-in AWS Labs CAO, automatic MCP configuration, instant audio feedback, and low-latency real-time log streaming.
           </p>
           <div class="pt-2 flex flex-wrap gap-3">
             <Link
               href="/desktop"
-              class="inline-flex items-center gap-2 rounded-xl bg-phantom-mint px-5 py-3 font-bold text-midnight-950 shadow-glow-mint hover:bg-emerald-300 transition"
+              class="inline-flex items-center gap-2 rounded-xl bg-phantom-mint px-5 py-3 font-bold text-midnight-950 shadow-glow-mint hover:bg-emerald-300 transition cursor-pointer"
             >
               <Icons name="Desktop" :size="16" />
-              <span>Tải Cho Windows (Free)</span>
+              <span>Download for Windows (Free)</span>
               <span>→</span>
             </Link>
             <a
@@ -705,7 +705,7 @@ const hubJsonLd = {
               rel="noopener noreferrer"
               class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 font-semibold text-slate-200 hover:border-slate-600 hover:text-white transition"
             >
-              <span>Xem Changelog</span>
+              <span>View Changelog</span>
             </a>
           </div>
         </div>
@@ -742,12 +742,12 @@ const hubJsonLd = {
     <!-- SECTION: PRICING TEASER -->
     <section class="relative z-10 border-t border-slate-800/80 bg-slate-950 py-20">
       <div class="mx-auto max-w-6xl px-6 text-center">
-        <p class="text-xs font-bold tracking-wider uppercase text-emerald-400 font-mono">Gói Dịch Vụ Linh Hoạt</p>
+        <p class="text-xs font-bold tracking-wider uppercase text-emerald-400 font-mono">Flexible Plans</p>
         <h2 class="mt-3 text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-          Bắt đầu miễn phí, mở rộng theo quy mô đội ngũ
+          Start Free, Scale with Your Engineering Squad
         </h2>
         <p class="mx-auto mt-4 max-w-2xl text-sm sm:text-base text-slate-300 leading-relaxed">
-          Từ cá nhân vibe coding mã nguồn mở cho đến các engineering squad phối hợp bầy tác tử AI (Multi-Agent Swarm).
+          From solo open-source vibe coders to enterprise engineering teams coordinating autonomous multi-agent swarms.
         </p>
 
         <div class="mt-12 grid gap-6 md:grid-cols-4 text-left">
@@ -755,35 +755,35 @@ const hubJsonLd = {
             <div>
               <div class="text-sm font-bold text-white">Community</div>
               <div class="mt-2 text-2xl font-extrabold text-white">$0</div>
-              <p class="mt-2 text-xs text-slate-400">Dành cho cá nhân & mã nguồn mở. 1 runner cục bộ, 3 dự án.</p>
+              <p class="mt-2 text-xs text-slate-400">For individuals & open source. 1 local runner, 3 active projects.</p>
             </div>
             <Link href="/pricing" class="mt-6 block text-center rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition">
-              Chi tiết →
+              Details →
             </Link>
           </div>
 
           <div class="rounded-2xl border border-emerald-500/50 bg-emerald-950/20 p-5 flex flex-col justify-between relative shadow-lg shadow-emerald-950/20">
             <div class="absolute -top-3 right-4 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-slate-950 uppercase">
-              Phổ Biến
+              Popular
             </div>
             <div>
               <div class="text-sm font-bold text-white">Pro Developer</div>
-              <div class="mt-2 text-2xl font-extrabold text-emerald-400">$19<span class="text-xs text-slate-400 font-normal">/tháng</span></div>
-              <p class="mt-2 text-xs text-slate-300">3 runner đồng thời, không giới hạn dự án, lưu bằng chứng 90 ngày.</p>
+              <div class="mt-2 text-2xl font-extrabold text-emerald-400">$19<span class="text-xs text-slate-400 font-normal">/month</span></div>
+              <p class="mt-2 text-xs text-slate-300">3 concurrent runners, unlimited projects, 90-day evidence retention.</p>
             </div>
             <Link href="/pricing" class="mt-6 block text-center rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition">
-              Nâng cấp Pro →
+              Upgrade to Pro →
             </Link>
           </div>
 
           <div class="rounded-2xl border border-slate-800 bg-slate-900/50 p-5 flex flex-col justify-between">
             <div>
               <div class="text-sm font-bold text-white">Team / Startup</div>
-              <div class="mt-2 text-2xl font-extrabold text-white">$49<span class="text-xs text-slate-400 font-normal">/tháng</span></div>
-              <p class="mt-2 text-xs text-slate-400">10 runner đồng thời, 10 thành viên, RBAC và kho mật mã dùng chung.</p>
+              <div class="mt-2 text-2xl font-extrabold text-white">$49<span class="text-xs text-slate-400 font-normal">/month</span></div>
+              <p class="mt-2 text-xs text-slate-400">10 concurrent runners, 10 team seats, RBAC and shared secret vault.</p>
             </div>
             <Link href="/pricing" class="mt-6 block text-center rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition">
-              Chi tiết →
+              Details →
             </Link>
           </div>
 
@@ -791,10 +791,10 @@ const hubJsonLd = {
             <div>
               <div class="text-sm font-bold text-white">Enterprise</div>
               <div class="mt-2 text-2xl font-extrabold text-white">Custom</div>
-              <p class="mt-2 text-xs text-slate-400">Runner không giới hạn, SAML SSO, bảo mật tùy biến và SLA 99.99%.</p>
+              <p class="mt-2 text-xs text-slate-400">Unlimited runners, SAML SSO, dedicated security policies, and 99.99% SLA.</p>
             </div>
             <Link href="/pricing" class="mt-6 block text-center rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition">
-              Liên hệ Enterprise →
+              Contact Enterprise →
             </Link>
           </div>
         </div>
@@ -805,10 +805,10 @@ const hubJsonLd = {
     <section class="relative z-10 border-t border-slate-800/80 bg-gradient-to-b from-slate-950 to-slate-900 py-20 text-center">
       <div class="mx-auto max-w-4xl px-6">
         <h2 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
-          Sẵn sàng đưa Vibe Coding vào quy trình chuẩn mực?
+          Ready to Bring Rigor to Vibe Coding?
         </h2>
         <p class="mt-4 text-base sm:text-lg text-slate-300">
-          Gia nhập cùng các kỹ sư sử dụng Midnight Hub để sáng tạo nhanh hơn, triệt tiêu lỗi ngầm và giữ trọn kiểm soát chất lượng.
+          Join top engineers using Midnight Hub to build faster, eliminate regressions, and maintain complete quality control.
         </p>
 
         <div class="mt-8 flex flex-wrap justify-center gap-4">
@@ -817,15 +817,15 @@ const hubJsonLd = {
             class="inline-flex items-center gap-3 rounded-2xl bg-emerald-500 px-8 py-4 text-sm font-bold text-slate-950 shadow-xl shadow-emerald-500/30 hover:bg-emerald-400 active:scale-95 transition-all cursor-pointer"
           >
             <Icons name="Github" :size="18" />
-            <span>Đăng Nhập Với GitHub</span>
+            <span>Sign In with GitHub</span>
             <span>→</span>
           </a>
           <Link
             href="/desktop"
-            class="inline-flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 px-6 py-4 text-sm font-semibold text-slate-200 hover:bg-slate-700 transition-all"
+            class="inline-flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 px-6 py-4 text-sm font-semibold text-slate-200 hover:bg-slate-700 transition-all cursor-pointer"
           >
             <Icons name="Desktop" :size="18" />
-            <span>Tải Desktop Companion</span>
+            <span>Download Desktop Companion</span>
           </Link>
         </div>
       </div>
@@ -840,10 +840,10 @@ const hubJsonLd = {
           <span>· Supervised Vibe Coding & AI Orchestrator</span>
         </div>
         <div class="flex items-center gap-6 text-slate-300">
-          <Link href="/pricing" class="hover:text-emerald-400 transition-colors font-medium">Bảng Giá</Link>
+          <Link href="/pricing" class="hover:text-emerald-400 transition-colors font-medium">Pricing</Link>
           <Link href="/desktop" class="hover:text-emerald-400 transition-colors font-medium">Desktop App</Link>
           <a href="#vibe-coding" class="hover:text-white transition-colors">Vibe Coding</a>
-          <a href="#comparison" class="hover:text-white transition-colors">So Sánh</a>
+          <a href="#comparison" class="hover:text-white transition-colors">Comparison</a>
           <a href="https://github.com/macatung/task-hub" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">GitHub</a>
         </div>
         <p>© 2026 Macatung Dev. Released under the MIT License.</p>

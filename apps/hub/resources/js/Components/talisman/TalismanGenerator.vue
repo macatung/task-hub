@@ -61,7 +61,7 @@ const generateAsciiTalisman = (): string => {
   const name = displayName.value;
   const wish = displayWish.value;
   const title = selectedPreset.value.title;
-  const seal = isBlessed.value ? '[✓ ĐÃ KHAI QUANG]' : '[CHƯA KHAI QUANG]';
+  const seal = isBlessed.value ? '[✓ VERIFIED & SEALED]' : '[UNVERIFIED]';
 
   return `
 +------------------------------------------+
@@ -103,16 +103,16 @@ const copyAscii = async () => {
           ⚡ Developer Talisman Forge
         </span>
         <h2 class="text-3xl sm:text-4xl font-display font-extrabold text-white tracking-tight">
-          Lò Luyện Bùa <span class="text-transparent bg-clip-text bg-gradient-to-r from-talisman-gold via-amber-400 to-rose-400">Lập Trình</span>
+          Developer <span class="text-transparent bg-clip-text bg-gradient-to-r from-talisman-gold via-amber-400 to-rose-400">Talisman Forge</span>
         </h2>
         <p class="text-sm sm:text-base text-slate-400 mt-2 font-sans">
-          Chọn thần chú hộ mệnh, điền tên và tâm nguyện, sau đó thực hiện nghi thức Khai Quang để nhận phúc khí 0-bug cho toàn bộ repository.
+          Customize your deployment talisman, enter author credentials and project commitment, then verify to generate a verified 0-bug repository badge.
         </p>
       </div>
 
       <!-- Preset Spells Grid -->
       <div>
-        <label class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-2 whitespace-nowrap">1. Chọn Thần Chú Bùa Chú</label>
+        <label class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-2 whitespace-nowrap">1. Select Engineering Directive</label>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
           <button
             v-for="preset in talismanPresets"
@@ -133,16 +133,16 @@ const copyAscii = async () => {
       <!-- Custom Inputs -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5 whitespace-nowrap">2. Tên Kỹ Sư (Author)</label>
+          <label class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5 whitespace-nowrap">2. Engineer / Author Name</label>
           <input
             v-model="developerName"
             type="text"
-            placeholder="e.g. Alchemist Tưng"
+            placeholder="e.g. Lead Architect"
             class="w-full px-3.5 py-2.5 rounded-xl bg-midnight-900 border border-white/10 text-white font-sans text-sm placeholder-slate-600 focus:border-phantom-mint focus:outline-none min-h-[44px] transition-colors"
           />
         </div>
         <div>
-          <label class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5 whitespace-nowrap">3. Nguyện Ước / Lời Chúc</label>
+          <label class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-1.5 whitespace-nowrap">3. Project Mission / Intent</label>
           <input
             v-model="customWish"
             type="text"
@@ -154,7 +154,7 @@ const copyAscii = async () => {
 
       <!-- Palette Selector -->
       <div>
-        <label class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-2 whitespace-nowrap">4. Khí Sắc Bùa (Color Palette)</label>
+        <label class="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-2 whitespace-nowrap">4. Seal Color Theme</label>
         <div class="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
             v-for="p in palettes"
@@ -174,22 +174,22 @@ const copyAscii = async () => {
       <div class="flex flex-wrap items-center gap-4 pt-2">
         <button
           type="button"
-          class="flex-1 px-6 py-3.5 rounded-xl font-display font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 min-h-[48px] whitespace-nowrap"
+          class="flex-1 px-6 py-3.5 rounded-xl font-display font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 min-h-[48px] whitespace-nowrap cursor-pointer"
           :class="isBlessingAnimation
             ? 'bg-slate-700 text-slate-400 cursor-not-allowed animate-pulse'
             : 'bg-gradient-to-r from-talisman-gold via-amber-400 to-rose-400 text-midnight-950 hover:brightness-110 active:scale-95 shadow-glow-talisman'"
           :disabled="isBlessingAnimation"
           @click="triggerKhaiQuang"
         >
-          <span>{{ isBlessingAnimation ? '⏳ Đang Niệm Chú Khai Quang...' : isBlessed ? '✨ Khai Quang Lại' : '🔥 Khai Quang Trì Chú' }}</span>
+          <span>{{ isBlessingAnimation ? '⏳ Verifying & Sealing...' : isBlessed ? '✨ Re-Verify Seal' : '🔥 Verify & Seal' }}</span>
         </button>
 
         <button
           type="button"
-          class="px-5 py-3.5 rounded-xl border border-white/10 hover:border-phantom-mint bg-midnight-900 text-slate-200 hover:text-white font-mono text-xs font-bold transition-all flex items-center gap-2 min-h-[48px] whitespace-nowrap"
+          class="px-5 py-3.5 rounded-xl border border-white/10 hover:border-phantom-mint bg-midnight-900 text-slate-200 hover:text-white font-mono text-xs font-bold transition-all flex items-center gap-2 min-h-[48px] whitespace-nowrap cursor-pointer"
           @click="copyAscii"
         >
-          <span>{{ copiedToast ? '✓ Đã Copy ASCII!' : '📋 Copy ASCII Card' }}</span>
+          <span>{{ copiedToast ? '✓ ASCII Copied!' : '📋 Copy ASCII Card' }}</span>
         </button>
       </div>
     </div>
@@ -223,10 +223,10 @@ const copyAscii = async () => {
         <!-- Developer Inscriptions -->
         <div class="w-full border-t border-b border-white/10 py-3 mb-4 space-y-1.5 text-left text-xs font-mono">
           <div class="text-slate-400">
-            Kỹ Sư: <span class="text-white font-semibold">{{ displayName }}</span>
+            Engineer: <span class="text-white font-semibold">{{ displayName }}</span>
           </div>
           <div class="text-slate-400 leading-snug">
-            Nguyện: <span class="text-amber-200/90 font-sans">{{ displayWish }}</span>
+            Mission: <span class="text-amber-200/90 font-sans">{{ displayWish }}</span>
           </div>
         </div>
 
@@ -236,13 +236,13 @@ const copyAscii = async () => {
             v-if="isBlessed"
             class="px-4 py-2 rounded-full border-2 border-emerald-400 text-emerald-400 font-mono font-extrabold text-xs tracking-wider shadow-glow-mint transform -rotate-6 transition-all duration-300 scale-105 flex items-center gap-1.5 whitespace-nowrap"
           >
-            <span>✓ ĐÃ KHAI QUANG</span>
+            <span>✓ VERIFIED & SEALED</span>
           </div>
           <div
             v-else
             class="px-4 py-1.5 rounded-full border border-dashed border-slate-600 text-slate-500 font-mono text-[11px] whitespace-nowrap"
           >
-            [CHƯA KHAI QUANG]
+            [UNVERIFIED]
           </div>
         </div>
       </div>

@@ -575,9 +575,9 @@ const pricingJsonLd = {
 
 <template>
   <SeoHead
-    title="Bảng Giá & Gói Dịch Vụ — Midnight Hub"
-    description="Khám phá các gói dịch vụ Midnight Hub: Từ gói Community miễn phí đến gói Pro Developer và Engineering Team dành cho doanh nghiệp lập trình AI Agents."
-    keywords="Bảng giá Midnight Hub, Pricing plans, AI Developer Studio, Vibe coding pricing, Pro Developer subscription"
+    title="Pricing & Subscription Plans — Midnight Hub"
+    description="Explore Midnight Hub plans: Free Community runner, Pro Developer tier with priority streaming, and Startup / Team subscriptions for autonomous multi-agent orchestration."
+    keywords="Midnight Hub Pricing, Developer Subscription, Vibe Coding Plans, AI Agent Studio, Pro Developer"
     canonical="https://macatung.dev/pricing"
     :json-ld="pricingJsonLd"
   />

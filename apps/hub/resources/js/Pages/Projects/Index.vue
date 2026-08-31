@@ -6,6 +6,8 @@ import TalismanCanvas from '@/Components/mascot/TalismanCanvas.vue';
 import ProjectsSection from '@/Components/projects/ProjectsSection.vue';
 import NextStepsHub from '@/Components/layout/NextStepsHub.vue';
 
+import { Link } from '@inertiajs/vue3';
+
 defineProps<{
   projects?: any[];
   settings?: Record<string, string>;
@@ -14,12 +16,12 @@ defineProps<{
 const projectsJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
-  'name': 'Kho Dự Án Thực Chiến & Sản Phẩm Sáng Tạo (Grimoire)',
-  'description': 'Danh sách các dự án web, ứng dụng Full-Stack, game tương tác và thư viện mã nguồn mở do Ma Cà Tưng phát triển.',
+  'name': 'Production Systems & Architecture Grimoire',
+  'description': 'Collection of enterprise web applications, high-concurrency distributed backends, interactive audio tools, and open-source libraries.',
   'url': 'https://macatung.dev/projects',
   'isPartOf': {
     '@type': 'WebSite',
-    'name': 'Ma Cà Tưng • Code at midnight',
+    'name': 'Midnight Hub • Code at midnight',
     'url': 'https://macatung.dev'
   }
 };
@@ -27,9 +29,9 @@ const projectsJsonLd = {
 
 <template>
   <SeoHead
-    title="Kho Grimoire Dự Án Thực Chiến — Sản Phẩm Sáng Tạo"
-    description="Khám phá các sản phẩm phần mềm, kiến trúc hệ thống, ứng dụng tương tác kỳ ảo và thư viện mã nguồn mở thực chiến của Ma Cà Tưng."
-    keywords="Dự án Web, Laravel Projects, Vue.js Projects, Creative Coding, Full-Stack Portfolio, Web Applications"
+    title="Production Systems & Architecture Grimoire — Projects Portfolio"
+    description="Explore high-scale production systems, distributed backends, interactive audio apps, and open-source tooling built with zero regressions."
+    keywords="Web Applications, Distributed Systems, Laravel, Vue 3, TypeScript, High-Concurrency Architecture, Open Source Tools"
     canonical="https://macatung.dev/projects"
     :json-ld="projectsJsonLd"
   />
@@ -41,9 +43,9 @@ const projectsJsonLd = {
     <main class="relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 text-left">
       <!-- Breadcrumb -->
       <nav class="flex items-center gap-2 text-xs font-mono text-slate-400 mb-6" aria-label="Breadcrumb">
-        <Link href="/" class="hover:text-phantom-mint transition-colors">Trang Chủ</Link>
+        <Link href="/" class="hover:text-phantom-mint transition-colors">Home</Link>
         <span>/</span>
-        <span class="text-phantom-mint font-bold">Kho Dự Án (Grimoire)</span>
+        <span class="text-phantom-mint font-bold">Production Systems (Grimoire)</span>
       </nav>
 
       <!-- Projects Section Component (Full mode with filter & search) -->

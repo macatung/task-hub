@@ -46,6 +46,10 @@ const emit = defineEmits<{
   retry: [stepId?: string];
   cancel: [];
   selectSubTask: [taskId: number | string];
+  "update:provider": [value: string];
+  "update:model": [value: string];
+  "update:agentRole": [value: string];
+  openAgentRoom: [];
 }>();
 
 const startTime = ref<number>(Date.now());
@@ -279,37 +283,78 @@ const formatTokens = (n: number) => {
         </div>
       </div>
 
-      <div class="relative z-10 mt-4 rounded-xl border border-white/10 bg-[#080e1c]/80 p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 border border-[#00f5a0]/40 text-[#00f5a0] font-bold">
-            <i class="codicon codicon-hubot text-base"></i>
-            <span class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-[#00f5a0] ring-2 ring-[#080e1c]"></span>
+      <!-- Interactive Active Agent Telemetry & Switcher Card -->
+      <div class="relative z-10 mt-4 rounded-xl border border-[#141b2d] bg-gradient-to-r from-[#080e1c]/90 via-[#0a1224]/80 to-[#080e1c]/90 p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs shadow-lg">
+        <div class="flex items-center gap-3 min-w-0 flex-1">
+          <div class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#00f5a0]/20 to-cyan-500/20 border border-[#00f5a0]/50 text-[#00f5a0] font-bold shadow-[0_0_12px_rgba(0,245,160,0.25)]">
+            <i class="codicon codicon-hubot text-lg"></i>
+            <span class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-[#00f5a0] ring-2 ring-[#080e1c] animate-pulse"></span>
           </div>
 
-          <div class="min-w-0">
-            <div class="flex items-center gap-2">
-              <span class="font-bold text-zinc-100 font-['Space_Grotesk']">
-                {{ agentRole || 'Executive AI Agent' }}
-              </span>
-              <span class="font-mono text-[10px] text-cyan-300 bg-cyan-950/60 border border-cyan-500/30 rounded px-1.5 py-0.2">
-                {{ model || 'Codex (GPT-5 Flagship)' }}
+          <div class="min-w-0 space-y-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <!-- Interactive Role Switcher Pill -->
+              <div class="flex items-center gap-1 rounded-md bg-[#0c1424] border border-[#00f5a0]/30 px-2 py-0.5 text-xs text-zinc-200 hover:border-[#00f5a0] transition">
+                <span class="text-xs">{{ agentRole === 'supervisor' ? '🏛️' : agentRole === 'reviewer' ? '🔍' : agentRole === 'qa' ? '🧪' : '🛠️' }}</span>
+                <select
+                  :value="agentRole || 'implementation'"
+                  class="bg-transparent text-xs font-bold text-[#00f5a0] focus:outline-none cursor-pointer"
+                  title="Đổi vai trò Agent (Switch Role)"
+                  @change="$emit('update:agentRole', ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="implementation" class="bg-[#070b14] text-zinc-200">🛠️ Implementation (Senior Dev)</option>
+                  <option value="supervisor" class="bg-[#070b14] text-zinc-200">🏛️ Supervisor (Lead Architect)</option>
+                  <option value="reviewer" class="bg-[#070b14] text-zinc-200">🔍 Reviewer (Code Auditor)</option>
+                  <option value="qa" class="bg-[#070b14] text-zinc-200">🧪 QA (Tester)</option>
+                </select>
+              </div>
+
+              <!-- Interactive Provider / Model Switcher Pill -->
+              <div class="flex items-center gap-1 rounded-md bg-[#0c1424] border border-cyan-500/30 px-2 py-0.5 text-xs text-cyan-300 hover:border-cyan-400 transition font-mono">
+                <span class="h-1.5 w-1.5 rounded-full" :class="provider === 'codex' ? 'bg-[#00f5a0]' : provider === 'claude_code' ? 'bg-amber-400' : 'bg-cyan-400'"></span>
+                <select
+                  :value="provider || 'codex'"
+                  class="bg-transparent text-[11px] font-semibold text-cyan-300 focus:outline-none cursor-pointer font-mono"
+                  title="Đổi AI Engine (Switch Provider)"
+                  @change="$emit('update:provider', ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="codex" class="bg-[#070b14] text-zinc-200">Codex Engine</option>
+                  <option value="antigravity" class="bg-[#070b14] text-zinc-200">Antigravity 2.0</option>
+                  <option value="claude_code" class="bg-[#070b14] text-zinc-200">Claude Code</option>
+                </select>
+              </div>
+
+              <span class="font-mono text-[10px] text-zinc-400 bg-white/5 border border-white/10 rounded px-1.5 py-0.5">
+                {{ model || 'GPT-5 Flagship' }}
               </span>
             </div>
-            <p class="text-[11px] text-zinc-400 truncate mt-0.5">
-              Đang phân tích, thực thi mã nguồn trong môi trường Git Worktree độc lập
+            <p class="text-[11px] text-zinc-400 truncate">
+              Môi trường làm việc Git Worktree độc lập · Tự động ghi nhận bằng chứng kiểm thử
             </p>
           </div>
         </div>
 
-        <div class="flex items-center gap-3 font-mono text-[11px] text-zinc-400">
+        <!-- Right Action & Telemetry -->
+        <div class="flex items-center gap-2 font-mono text-[11px] text-zinc-400">
           <div v-if="tokenUsage && tokenUsage.totalTokens > 0" class="flex items-center gap-1 bg-[#050a14] px-2.5 py-1 rounded-lg border border-white/5">
             <i class="codicon codicon-dashboard text-[#00f5a0]"></i>
             <span class="text-zinc-200 font-bold">{{ formatTokens(tokenUsage.totalTokens) }}</span> tokens
           </div>
+
           <div class="flex items-center gap-1 bg-[#050a14] px-2.5 py-1 rounded-lg border border-white/5 text-emerald-400">
             <i class="codicon codicon-shield text-xs"></i>
             <span>Worktree Isolated</span>
           </div>
+          
+          <button
+            type="button"
+            class="flex items-center gap-1.5 rounded-lg bg-[#0c1424] hover:bg-[#111c34] border border-[#00f5a0]/40 hover:border-[#00f5a0] px-2.5 py-1 text-xs font-semibold text-[#00f5a0] hover:text-white transition shadow-sm cursor-pointer"
+            title="Mở phòng trực chiến để chuyển đổi tác tử hoặc điều phối fleet"
+            @click="$emit('openAgentRoom')"
+          >
+            <i class="codicon codicon-organization text-xs"></i>
+            <span>Đổi Agent / Fleet</span>
+          </button>
         </div>
       </div>
 

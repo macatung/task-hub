@@ -81,10 +81,10 @@ describe('AboutManifestoTest (F18)', () => {
     it('[T1_F18_01] Developer stats grid renders 4 distinct metrics cards', () => {
       expect(developerStats.length).toBe(4);
       const labels = developerStats.map((s) => s.label);
-      expect(labels).toContain('Kinh Nghiệm Thực Chiến');
-      expect(labels).toContain('Tỉ Lệ CS Tự Động Hóa');
-      expect(labels).toContain('Hạ Tầng GIS & Thiết Bị');
-      expect(labels).toContain('Uptime Cam Kết Đêm');
+      expect(labels).toContain('Production Experience');
+      expect(labels).toContain('Customer Support Automation');
+      expect(labels).toContain('GIS & Telecom Infra');
+      expect(labels).toContain('Committed SLA Uptime');
     });
 
     /**

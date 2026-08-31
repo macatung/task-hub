@@ -25,7 +25,7 @@ const selectedProject = ref<Project | null>(null);
 const isModalOpen = ref(false);
 
 const categories = [
-  { id: 'all', label: 'Tất Cả Dự Án' },
+  { id: 'all', label: 'All Projects' },
   { id: 'fullstack', label: 'Full-Stack' },
   { id: 'creative', label: 'Creative UI & Audio' },
   { id: 'ai-web3', label: 'AI & Microservices' },
@@ -93,10 +93,10 @@ const closeModal = () => {
           📜 The Grimoire Portfolio
         </span>
         <h2 class="text-3xl sm:text-4xl lg:text-5xl font-display font-extrabold text-white tracking-tight">
-          {{ featuredOnly ? 'Dự Án Kiến Trúc' : 'Tác Phẩm &' }} <span class="text-transparent bg-clip-text bg-gradient-to-r from-phantom-mint via-phantom-cyan to-talisman-gold">{{ featuredOnly ? 'Tiêu Biểu' : 'Thực Chiến' }}</span>
+          {{ featuredOnly ? 'Featured' : 'Systems &' }} <span class="text-transparent bg-clip-text bg-gradient-to-r from-phantom-mint via-phantom-cyan to-talisman-gold">{{ featuredOnly ? 'Architectures' : 'Deployments' }}</span>
         </h2>
         <p class="text-sm sm:text-base text-slate-400 mt-2 max-w-2xl font-sans">
-          Những hệ thống phân tán, web app tải cao và công cụ sáng tạo được kiến tạo trong những phiên lập trình tĩnh lặng.
+          Scalable distributed systems, autonomous multi-agent architectures, and developer tooling crafted under deep focus.
         </p>
       </div>
 
@@ -106,7 +106,7 @@ const closeModal = () => {
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="Tìm kiếm công nghệ, tên..."
+          placeholder="Search technology, keyword..."
           class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-midnight-900/90 border border-white/10 text-slate-200 placeholder-slate-500 text-xs sm:text-sm font-sans focus:outline-none focus:border-phantom-mint transition-colors"
         />
         <button
@@ -125,7 +125,7 @@ const closeModal = () => {
         href="/projects"
         class="px-5 py-3 rounded-2xl bg-white/5 hover:bg-phantom-mint text-slate-200 hover:text-midnight-950 font-display font-bold text-xs sm:text-sm transition-all flex items-center gap-2 border border-white/10 hover:border-phantom-mint shadow-sm hover:shadow-glow-mint whitespace-nowrap"
       >
-        <span>Xem Toàn Bộ 6+ Dự Án</span>
+        <span>Explore All 6+ Systems</span>
         <span>→</span>
       </Link>
     </div>
@@ -158,8 +158,8 @@ const closeModal = () => {
       class="p-12 text-center rounded-2xl glass-panel border border-white/10 text-slate-400"
     >
       <div class="text-3xl mb-3">🔍</div>
-      <h3 class="text-white font-display font-bold text-lg mb-1">Không tìm thấy dự án phù hợp</h3>
-      <p class="text-xs sm:text-sm">Hãy thử tìm với từ khóa khác như "Laravel", "Vue", "Audio" hoặc chọn "Tất Cả Dự Án".</p>
+      <h3 class="text-white font-display font-bold text-lg mb-1">No matching projects found</h3>
+      <p class="text-xs sm:text-sm">Try searching with different keywords such as "Laravel", "Vue", "Multi-Agent", or select "All Projects".</p>
     </div>
 
     <!-- Project Cards Grid -->
@@ -227,10 +227,10 @@ const closeModal = () => {
               class="flex-1 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-phantom-mint text-slate-200 hover:text-midnight-950 font-display font-bold text-xs transition-all min-h-[40px] flex items-center justify-center gap-1.5 whitespace-nowrap border border-white/10 hover:border-phantom-mint shadow-sm hover:shadow-glow-mint cursor-pointer"
               @click="openProject(project)"
             >
-              <span>Xem Chi Tiết Kiến Trúc</span>
+              <span>View Architecture Specs</span>
               <span>→</span>
             </button>
-            <div class="px-2.5 py-1.5 rounded-lg bg-midnight-950 border border-white/5 text-[10px] font-mono text-slate-400 flex items-center gap-1 select-none" title="Dự án doanh nghiệp bảo mật NDA">
+            <div class="px-2.5 py-1.5 rounded-lg bg-midnight-950 border border-white/5 text-[10px] font-mono text-slate-400 flex items-center gap-1 select-none" title="Enterprise project with NDA compliance">
               <span>🔒</span>
               <span class="hidden sm:inline">NDA</span>
             </div>
@@ -245,16 +245,16 @@ const closeModal = () => {
       class="mt-12 p-6 sm:p-8 rounded-3xl glass-panel border border-phantom-mint/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 bg-gradient-to-r from-phantom-mint/5 via-midnight-900/50 to-talisman-gold/5 shadow-glow-mint"
     >
       <div>
-        <span class="text-xs font-mono text-phantom-mint font-bold uppercase tracking-wider">📜 Kho Lưu Trữ Kiến Trúc</span>
-        <h3 class="text-xl sm:text-2xl font-display font-extrabold text-white mt-1">Khám Phá Toàn Bộ 6+ Dự Án Chuyên Sâu</h3>
-        <p class="text-xs sm:text-sm text-slate-400 mt-1 font-sans">Xem chi tiết các hệ thống viễn thông GIS 500k điểm nút, giải pháp Multi-Agent AI tự trị và nền tảng xử lý dữ liệu lớn.</p>
+        <span class="text-xs font-mono text-phantom-mint font-bold uppercase tracking-wider">📜 Architecture Archive</span>
+        <h3 class="text-xl sm:text-2xl font-display font-extrabold text-white mt-1">Explore All 6+ Deep-Dive Systems</h3>
+        <p class="text-xs sm:text-sm text-slate-400 mt-1 font-sans">View technical specifications for spatial GIS networks, autonomous multi-agent AI ecosystems, and distributed streaming engines.</p>
       </div>
       <Link
         href="/projects"
         class="px-6 py-3.5 rounded-2xl bg-phantom-mint text-midnight-950 font-display font-bold text-xs sm:text-sm hover:brightness-110 shadow-glow-mint transition-all whitespace-nowrap shrink-0 flex items-center gap-2 cursor-pointer"
         @click="sound.playClick()"
       >
-        <span>Vào Kho Grimoire Đầy Đủ</span>
+        <span>Open Full Catalog</span>
         <span>→</span>
       </Link>
     </div>

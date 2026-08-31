@@ -11,42 +11,50 @@ const props = defineProps<Props>();
 const allPortals = [
   {
     path: '/projects',
-    title: 'Kho Grimoire Dự Án',
-    desc: '6+ Dự án thực chiến chịu tải cao, AI Agent & viễn thông GIS.',
+    title: 'Architecture & Systems',
+    desc: '6+ production projects in high-throughput distributed systems & AI swarms.',
     icon: '💼',
     badge: 'ENTERPRISE',
     color: 'border-phantom-mint/30 hover:border-phantom-mint text-phantom-mint',
   },
   {
+    path: '/desktop',
+    title: 'Desktop Studio Companion',
+    desc: 'Supervised Vibe Coding & Git Worktree sandboxing for Windows 10/11.',
+    icon: '💻',
+    badge: 'STUDIO',
+    color: 'border-cyan-400/30 hover:border-cyan-400 text-cyan-400',
+  },
+  {
+    path: '/pricing',
+    title: 'Pricing & Service Plans',
+    desc: 'Community, Pro Developer, and Engineering Team subscription tiers.',
+    icon: '🏷️',
+    badge: 'PLANS',
+    color: 'border-emerald-400/30 hover:border-emerald-400 text-emerald-400',
+  },
+  {
     path: '/blog',
     title: 'Midnight Tech Chronicle',
-    desc: 'Ghi chép chuyên sâu về kiến trúc Multi-Agent & tối ưu hóa hệ thống.',
+    desc: 'Deep-dive architectural essays on multi-agent workflows and telemetry.',
     icon: '📜',
     badge: 'TECH NOTES',
     color: 'border-talisman-gold/30 hover:border-talisman-gold text-talisman-gold',
   },
   {
     path: '/game',
-    title: 'Phòng Máy Rune Typer',
-    desc: 'Sàn đấu gõ phím trừ tà, âm thanh phím cơ thock & săn Boss Bug.',
+    title: 'Typing Benchmark (Rune Typer)',
+    desc: 'Interactive speed-typing testing terminal with mechanical sound synthesis.',
     icon: '🎮',
-    badge: 'ARCADE',
+    badge: 'BENCHMARK',
     color: 'border-amber-400/30 hover:border-amber-400 text-amber-400',
   },
   {
-    path: '/talisman',
-    title: 'Lò Rèn Bùa Hộ Mệnh',
-    desc: 'Tùy biến bùa hộ mệnh nhà phát triển và xuất file ảnh sắc nét.',
-    icon: '✨',
-    badge: 'DEV FORGE',
-    color: 'border-emerald-400/30 hover:border-emerald-400 text-emerald-400',
-  },
-  {
     path: '/contact',
-    title: 'Điện Thờ Triệu Hồi',
-    desc: 'Gửi yêu cầu tư vấn giải pháp kỹ thuật, kết nối cùng kiến trúc sư.',
-    icon: '📜',
-    badge: 'CONSULTING',
+    title: 'Contact Engineering Team',
+    desc: 'Inquire regarding enterprise architecture consulting, advisory, or integration.',
+    icon: '✉️',
+    badge: 'CONTACT',
     color: 'border-purple-400/30 hover:border-purple-400 text-purple-400',
   },
 ];
@@ -60,11 +68,11 @@ const portals = allPortals.filter(p => !props.currentPath.startsWith(p.path)).sl
     <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
       <div>
         <span class="text-xs font-mono text-slate-400 flex items-center gap-1.5 uppercase tracking-wider mb-1">
-          <span>🔮</span>
-          <span>Khám Phá Các Cõi Tiếp Theo</span>
+          <span>⚡</span>
+          <span>Explore Ecosystem & Tools</span>
         </span>
         <h3 class="text-2xl sm:text-3xl font-display font-bold text-white">
-          Tiếp Tục Hành Trình
+          Continue Exploring
         </h3>
       </div>
       <Link
@@ -72,7 +80,7 @@ const portals = allPortals.filter(p => !props.currentPath.startsWith(p.path)).sl
         class="text-xs font-mono text-phantom-mint hover:underline flex items-center gap-1"
         @click="sound.playTalisman()"
       >
-        <span>Hoặc triệu hồi tư vấn giải pháp ngay</span>
+        <span>Or initiate project consultation</span>
         <span>→</span>
       </Link>
     </div>
@@ -104,7 +112,7 @@ const portals = allPortals.filter(p => !props.currentPath.startsWith(p.path)).sl
         </div>
 
         <div class="text-xs font-mono mt-6 flex items-center gap-1.5 font-bold group-hover:translate-x-1 transition-transform">
-          <span>Bước vào cõi này</span>
+          <span>Explore Section</span>
           <span>→</span>
         </div>
       </Link>

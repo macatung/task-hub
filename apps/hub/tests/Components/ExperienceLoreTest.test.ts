@@ -42,7 +42,7 @@ describe('ExperienceLoreTest (F20)', () => {
      * @feature: F20_EXPERIENCE_LORE
      */
     it('[T1_F20_02] Timeline follows strict chronological order from present back to 2013', () => {
-      expect(experienceData[0].period).toBe('2025 — Hiện Tại');
+      expect(experienceData[0].period).toBe('2025 — Present');
       expect(experienceData[1].period).toBe('02/2022 — 06/2025');
       expect(experienceData[2].period).toBe('06/2017 — 01/2022');
       expect(experienceData[3].period).toBe('2013 — 2018');

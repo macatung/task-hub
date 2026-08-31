@@ -15,7 +15,7 @@ const productJsonLd = {
   name: 'Midnight Hub Desktop Companion',
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Windows 10, Windows 11',
-  description: 'Ứng dụng desktop điều phối Supervised Vibe Coding và AI Coding Agents (Antigravity 2.0, Codex, Claude Code, CAO) trong môi trường Git Worktree cô lập.',
+  description: 'Desktop companion application orchestrating Supervised Vibe Coding and Autonomous AI Coding Agents (Antigravity 2.0, Codex, Claude Code, CAO) in isolated Git worktree environments.',
   downloadUrl,
   softwareVersion: '2.0.0',
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
@@ -25,8 +25,8 @@ const productJsonLd = {
 <template>
   <SeoHead
     title="Midnight Hub Desktop — Supervised Vibe Coding & Local AI Agent Studio"
-    description="Tải Midnight Hub Desktop Companion cho Windows: Vibe coding thần tốc, cô lập Git worktree, tự động nạp Context Pack, chạy test xuất Verification Evidence và kết nối Antigravity 2.0, Codex, Claude Code."
-    keywords="Midnight Hub Desktop, Vibe Coding, Antigravity 2.0, Codex, Claude Code, AWS Labs CAO, Git Worktree, Verification Evidence, MCP"
+    description="Download Midnight Hub Desktop Companion for Windows: High-velocity vibe coding, Git worktree isolation, automated Context Pack ingestion, Verification Evidence generation, and seamless Antigravity 2.0, Codex, Claude Code orchestration."
+    keywords="Midnight Hub Desktop, Supervised Vibe Coding, Antigravity 2.0, Codex, Claude Code, AWS Labs CAO, Git Worktree, Verification Evidence, MCP"
     canonical="https://macatung.dev/desktop"
     :json-ld="productJsonLd"
   />
@@ -46,14 +46,14 @@ const productJsonLd = {
             </div>
 
             <h1 class="mt-6 text-4xl sm:text-6xl font-display font-black tracking-tight text-white leading-[1.1]">
-              Vibe Code Cục Bộ.<br />
+              Local Vibe Coding.<br />
               <span class="text-transparent bg-clip-text bg-gradient-to-r from-phantom-mint via-phantom-cyan to-teal-300">
-                An Toàn Tuyệt Đối, Ít Lỗi & Chuẩn Xác.
+                Absolute Safety, Zero Regressions & Strict Standards.
               </span>
             </h1>
 
             <p class="mt-6 max-w-2xl text-base sm:text-lg leading-relaxed text-slate-300">
-              Midnight Hub Desktop kết nối trực tiếp kho tác vụ web với máy tính của bạn. Khởi chạy <strong>Antigravity 2.0</strong>, <strong>Codex</strong>, <strong>Claude Code</strong> và <strong>AWS Labs CAO</strong> trong môi trường <strong>Git Worktree cô lập</strong>—tự động chạy test, xuất bằng chứng kiểm thử (<span class="text-cyan-300 font-semibold">Verification Evidence</span>) và loại bỏ hoàn toàn nguy cơ xung đột mã nguồn.
+              Midnight Hub Desktop bridges your web task backlog directly to your workstation. Dispatch <strong>Antigravity 2.0</strong>, <strong>Codex</strong>, <strong>Claude Code</strong>, and <strong>AWS Labs CAO</strong> across <strong>isolated Git worktrees</strong>—automatically executing test suites, generating reproducible <span class="text-cyan-300 font-semibold">Verification Evidence</span>, and completely eliminating merge conflicts.
             </p>
 
             <div class="mt-8 flex flex-wrap gap-4 items-center">
@@ -62,22 +62,22 @@ const productJsonLd = {
                 class="inline-flex items-center gap-2.5 rounded-xl bg-phantom-mint px-6 py-3.5 font-bold text-midnight-950 shadow-glow-mint transition hover:-translate-y-0.5 hover:bg-emerald-300"
               >
                 <Icons name="Desktop" :size="18" />
-                <span>Tải Cho Windows (64-bit)</span>
+                <span>Download for Windows (64-bit)</span>
               </a>
               <Link
                 href="/tasks"
                 class="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-6 py-3.5 font-bold text-white transition hover:border-phantom-mint/50 hover:bg-white/10"
               >
-                <span>Mở Web Workspace →</span>
+                <span>Open Web Workspace →</span>
               </Link>
             </div>
 
             <div class="mt-5 flex items-center gap-6 text-xs text-slate-400 font-mono">
               <span>Windows 10/11 x64</span>
               <span>·</span>
-              <span>Miễn phí 100%</span>
+              <span>100% Free</span>
               <span>·</span>
-              <span>Tự động cập nhật qua GitHub Releases</span>
+              <span>Auto-updated via GitHub Releases</span>
             </div>
           </div>
 
@@ -137,9 +137,9 @@ const productJsonLd = {
       <section class="border-y border-white/5 bg-black/30 py-16">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="text-center max-w-3xl mx-auto mb-12">
-            <p class="font-mono text-xs uppercase tracking-[.25em] text-phantom-mint">Tính Năng Cốt Lõi</p>
+            <p class="font-mono text-xs uppercase tracking-[.25em] text-phantom-mint">Core Capabilities</p>
             <h2 class="mt-2 text-3xl font-display font-bold text-white">
-              Tại sao lập trình viên chọn Midnight Hub Desktop cho Vibe Coding?
+              Why Engineers Choose Midnight Hub Desktop for Vibe Coding
             </h2>
           </div>
 
@@ -148,9 +148,9 @@ const productJsonLd = {
               <div class="inline-flex h-12 w-12 items-center justify-center shrink-0 rounded-xl bg-emerald-500/10 text-emerald-400 text-2xl mb-4">
                 <Icons name="GitBranch" :size="24" />
               </div>
-              <h3 class="text-base font-bold text-white">Git Worktree Cô Lập</h3>
+              <h3 class="text-base font-bold text-white">Isolated Git Worktrees</h3>
               <p class="mt-2 text-xs sm:text-sm leading-relaxed text-slate-400">
-                Agent chỉ sửa code trong nhánh worktree độc lập. Bạn có thể tiếp tục code trên nhánh chính mà không bị xung đột hay gián đoạn.
+                Agents mutate code exclusively in independent worktree branches. Continue editing on main without interference or lockouts.
               </p>
             </article>
 
@@ -158,9 +158,9 @@ const productJsonLd = {
               <div class="inline-flex h-12 w-12 items-center justify-center shrink-0 rounded-xl bg-cyan-500/10 text-cyan-400 text-2xl mb-4">
                 <Icons name="CheckCircle" :size="24" />
               </div>
-              <h3 class="text-base font-bold text-white">Test Evidence Tự Động</h3>
+              <h3 class="text-base font-bold text-white">Automated Test Evidence</h3>
               <p class="mt-2 text-xs sm:text-sm leading-relaxed text-slate-400">
-                Bắt buộc chạy test tự động cục bộ, ghi nhận log và kiểm tra risk score trước khi chuyển giao handoff cho con người.
+                Enforces local automated test execution, capturing machine-readable logs and risk scoring before handoff.
               </p>
             </article>
 
@@ -168,9 +168,9 @@ const productJsonLd = {
               <div class="inline-flex h-12 w-12 items-center justify-center shrink-0 rounded-xl bg-purple-500/10 text-purple-400 text-2xl mb-4">
                 <Icons name="Cpu" :size="24" />
               </div>
-              <h3 class="text-base font-bold text-white">Điều Phối Đa Agent</h3>
+              <h3 class="text-base font-bold text-white">Multi-Agent Orchestration</h3>
               <p class="mt-2 text-xs sm:text-sm leading-relaxed text-slate-400">
-                Tích hợp sẵn AWS Labs CAO, Antigravity 2.0, Codex và Claude Code. Quản lý luồng thực thi và token thời gian thực.
+                Native integrations for AWS Labs CAO, Antigravity 2.0, Codex, and Claude Code with real-time execution and token telemetry.
               </p>
             </article>
 
@@ -178,9 +178,9 @@ const productJsonLd = {
               <div class="inline-flex h-12 w-12 items-center justify-center shrink-0 rounded-xl bg-amber-500/10 text-amber-400 text-2xl mb-4">
                 <Icons name="Shield" :size="24" />
               </div>
-              <h3 class="text-base font-bold text-white">Bảo Mật Zero-Leak</h3>
+              <h3 class="text-base font-bold text-white">Zero-Leak Security</h3>
               <p class="mt-2 text-xs sm:text-sm leading-relaxed text-slate-400">
-                Mã nguồn của bạn lưu 100% trên ổ cứng cục bộ. Không gửi source code nhạy cảm lên cloud, bảo vệ tuyệt đối IP của doanh nghiệp.
+                Your source code stays 100% on your local disk. Sensitive proprietary code is never sent to third-party clouds, protecting enterprise IP.
               </p>
             </article>
           </div>
@@ -191,19 +191,19 @@ const productJsonLd = {
       <section class="max-w-5xl mx-auto px-4 py-20 sm:px-6 lg:px-8">
         <div class="text-center">
           <p class="font-mono text-xs uppercase tracking-[.25em] text-phantom-mint">Deterministic Workflow</p>
-          <h2 class="mt-3 text-3xl font-display font-bold text-white">Từ Task Đến Kết Quả Review Chuẩn Mực</h2>
+          <h2 class="mt-3 text-3xl font-display font-bold text-white">From Task Ingestion to Verified Review</h2>
           <p class="mt-3 text-sm text-slate-400 max-w-xl mx-auto">
-            Quy trình khép kín giúp bạn phát triển thần tốc mà vẫn đảm bảo độ tin cậy tuyệt đối.
+            A closed-loop lifecycle engineered for velocity without sacrificing architectural integrity.
           </p>
         </div>
 
         <div class="mt-12 grid gap-4 md:grid-cols-4">
           <div
             v-for="(step, index) in [
-              { title: '1. Chọn Task & Nạp Context', desc: 'Chọn task từ Hub, tự động nạp Context Pack và chuẩn kiến trúc docs/.' },
-              { title: '2. Khởi Tạo Git Worktree', desc: 'Tạo worktree cô lập và điều phối Agent (Antigravity/Codex/Claude) thực thi.' },
-              { title: '3. Chạy Test & Xuất Evidence', desc: 'Chạy toàn bộ test suite, kiểm tra lint, static analysis và risk score.' },
-              { title: '4. Human Review & Merge', desc: 'Tech Lead kiểm duyệt diff và bằng chứng trước khi 1-click merge vào main.' }
+              { title: '1. Ingest Task & Context', desc: 'Select work item from Hub; automatically loads Context Pack and docs/ architectural specifications.' },
+              { title: '2. Provision Git Worktree', desc: 'Spawns isolated worktree sandbox and dispatches assigned agent (Antigravity/Codex/Claude).' },
+              { title: '3. Execute Tests & Evidence', desc: 'Runs full test suite, verifies linting, static analysis, and computes risk scoring.' },
+              { title: '4. Human Review & Merge', desc: 'Tech Lead inspects AST diff and test evidence before executing a 1-click merge into main.' }
             ]"
             :key="step.title"
             class="relative rounded-2xl border border-white/10 bg-midnight-900/40 p-5 space-y-2"
@@ -221,7 +221,7 @@ const productJsonLd = {
             rel="noopener noreferrer"
             class="inline-flex items-center gap-2 text-sm text-slate-300 underline decoration-phantom-mint/50 underline-offset-4 hover:text-phantom-mint"
           >
-            <span>Xem changelog và các bản phát hành trên GitHub</span>
+            <span>View release notes and changelog on GitHub</span>
             <span>→</span>
           </a>
         </div>

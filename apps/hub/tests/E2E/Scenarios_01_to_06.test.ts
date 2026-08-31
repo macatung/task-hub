@@ -126,13 +126,13 @@ describe('Tier 4: Real-World E2E Scenarios (01 to 06)', () => {
 
     // Step 5: Verify 4 Stats Cards
     expect(developerStats.length).toBe(4);
-    expect(developerStats[0].label).toBe('Kinh Nghiệm Thực Chiến');
-    expect(developerStats[0].value).toBe('8+ Năm');
-    expect(developerStats[1].label).toBe('Tỉ Lệ CS Tự Động Hóa');
+    expect(developerStats[0].label).toBe('Production Experience');
+    expect(developerStats[0].value).toBe('8+ Years');
+    expect(developerStats[1].label).toBe('Customer Support Automation');
     expect(developerStats[1].value).toBe('92%+');
-    expect(developerStats[2].label).toBe('Hạ Tầng GIS & Thiết Bị');
+    expect(developerStats[2].label).toBe('GIS & Telecom Infra');
     expect(developerStats[2].value).toBe('500K+');
-    expect(developerStats[3].label).toBe('Uptime Cam Kết Đêm');
+    expect(developerStats[3].label).toBe('Committed SLA Uptime');
     expect(developerStats[3].value).toBe('99.99%');
   });
 
@@ -528,8 +528,8 @@ describe('Tier 4: Real-World E2E Scenarios (01 to 06)', () => {
     expect(showcase.isModalOpen).toBe(true);
     expect(showcase.selectedProject!.title).toContain('OmniAgent CS');
     expect(showcase.selectedProject!.architectureHighlights.length).toBeGreaterThanOrEqual(3);
-    expect(showcase.selectedProject!.architectureHighlights[0]).toContain('Multi-Agent');
-    expect(showcase.selectedProject!.midnightFact).toContain('Flash Sale');
+    expect(showcase.selectedProject!.architectureHighlights[0].toLowerCase()).toContain('multi-agent');
+    expect(showcase.selectedProject!.midnightFact.toLowerCase()).toContain('flash-sale');
     expect(document.body.classList.contains('overflow-hidden')).toBe(true);
 
     // 5. Dismiss with Escape key

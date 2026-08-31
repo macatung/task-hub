@@ -16,16 +16,16 @@ const emit = defineEmits<{
 const getRelatedBlog = (title: string): { slug: string; label: string } | null => {
   const lower = title.toLowerCase();
   if (lower.includes('agent') || lower.includes('crm')) {
-    return { slug: 'kien-truc-multi-agent-ai-customer-service', label: 'Đọc Bài Phân Tích Kiến Trúc Multi-Agent AI' };
+    return { slug: 'kien-truc-multi-agent-ai-customer-service', label: 'Read Multi-Agent AI Architecture Deep Dive' };
   }
-  if (lower.includes('financial') || lower.includes('chứng khoán') || lower.includes('cổ phiếu')) {
-    return { slug: 'toi-uu-dinh-gia-co-phieu-artisan-gemini-ai', label: 'Đọc Bài Tối Ưu 50+ Crawlers & Gemini AI' };
+  if (lower.includes('financial') || lower.includes('stock') || lower.includes('valuation')) {
+    return { slug: 'toi-uu-dinh-gia-co-phieu-artisan-gemini-ai', label: 'Read Stock Pricing & Crawlers Optimization Article' };
   }
-  if (lower.includes('gis') || lower.includes('cáp quang') || lower.includes('telecom')) {
-    return { slug: 'so-hoa-mang-cap-quang-toan-quoc-qgis-postgis', label: 'Đọc Bài Số Hóa 500k Điểm Nút QGIS & PostGIS' };
+  if (lower.includes('gis') || lower.includes('fiber') || lower.includes('telecom')) {
+    return { slug: 'so-hoa-mang-cap-quang-toan-quoc-qgis-postgis', label: 'Read Nationwide GIS QGIS & PostGIS Optimization Article' };
   }
   if (lower.includes('sdh') || lower.includes('nms') || lower.includes('dwdm')) {
-    return { slug: 'giam-sat-ha-tang-truyen-dan-sdh-dwdm-nms-ml', label: 'Đọc Bài Giám Sát Truyền Dẫn SDH/DWDM & ML' };
+    return { slug: 'giam-sat-ha-tang-truyen-dan-sdh-dwdm-nms-ml', label: 'Read Transmission SDH/DWDM & ML Monitoring Article' };
   }
   return null;
 };
@@ -97,7 +97,7 @@ onUnmounted(() => {
           <button
             type="button"
             class="absolute top-6 right-6 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-phantom-mint"
-            aria-label="Đóng popup"
+            aria-label="Close dialog"
             @click="emit('close')"
           >
             ✕
@@ -127,7 +127,7 @@ onUnmounted(() => {
         <div class="p-6 sm:p-8 overflow-y-auto flex-1 space-y-6">
           <!-- Overview Description -->
           <div>
-            <h4 class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-2">Tổng Quan Giải Pháp</h4>
+            <h4 class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-2">Solution Overview</h4>
             <p class="text-sm sm:text-base text-slate-300 leading-relaxed font-sans">
               {{ project.longDescription || project.description }}
             </p>
@@ -135,7 +135,7 @@ onUnmounted(() => {
 
           <!-- Impact Metrics Grid -->
           <div v-if="project.metrics && project.metrics.length > 0">
-            <h4 class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-3">Hiệu Năng & Chỉ Số Thực Chiến</h4>
+            <h4 class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-3">Performance & Production Telemetry</h4>
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div
                 v-for="metric in project.metrics"
@@ -152,7 +152,7 @@ onUnmounted(() => {
 
           <!-- Architecture & Highlights -->
           <div v-if="project.highlights && project.highlights.length > 0">
-            <h4 class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-3">Kiến Trúc & Điểm Nhấn Kỹ Thuật</h4>
+            <h4 class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-3">Architecture & Technical Highlights</h4>
             <ul class="space-y-2.5">
               <li
                 v-for="(highlight, i) in project.highlights"
@@ -167,7 +167,7 @@ onUnmounted(() => {
 
           <!-- Tech Stack -->
           <div>
-            <h4 class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-2.5">Tech Rune Stack</h4>
+            <h4 class="text-xs font-mono text-slate-400 uppercase tracking-wider mb-2.5">Core Technology Stack</h4>
             <div class="flex flex-wrap gap-2">
               <span
                 v-for="tech in project.techStack"
@@ -184,10 +184,10 @@ onUnmounted(() => {
             <span class="text-xl shrink-0 text-amber-400">🛡️</span>
             <div class="text-xs font-sans text-slate-300 leading-relaxed">
               <div class="font-mono font-bold text-amber-300 uppercase tracking-wider mb-1">
-                Bảo Mật & Bản Quyền Doanh Nghiệp (Enterprise NDA)
+                Enterprise Security & NDA Compliance
               </div>
               <p>
-                Đây là hệ thống chuyên dụng phục vụ hạ tầng và nghiệp vụ doanh nghiệp. Nhằm tuân thủ thỏa thuận bảo mật dữ liệu khách hàng (NDA), mã nguồn và môi trường live production không được công khai. Quý đối tác vui lòng liên hệ để trao đổi trực tiếp về sơ đồ kiến trúc và giải pháp kỹ thuật tương đương.
+                This is a mission-critical enterprise production system. In compliance with strict Non-Disclosure Agreements (NDA) and client data governance policies, proprietary source code and live customer environments are protected. For technical architecture inquiries and customized enterprise solutions, please contact engineering directly.
               </p>
             </div>
           </div>
@@ -201,8 +201,8 @@ onUnmounted(() => {
               class="px-5 py-2.5 rounded-xl bg-phantom-mint text-midnight-950 font-display font-bold text-xs sm:text-sm hover:brightness-110 active:scale-95 transition-all flex items-center gap-2 min-h-[44px] shadow-glow-mint cursor-pointer"
               @click="handleSummonClick"
             >
-              <span>Triệu Hồi Tư Vấn Giải Pháp</span>
-              <span>📜</span>
+              <span>Request Architecture Advisory</span>
+              <span>⚡</span>
             </button>
 
             <!-- Cross-Link to matching Blog article if available -->
@@ -212,7 +212,7 @@ onUnmounted(() => {
               class="px-4 py-2.5 rounded-xl bg-midnight-900 border border-talisman-gold/40 text-talisman-gold hover:bg-talisman-gold hover:text-midnight-950 font-display font-bold text-xs sm:text-sm transition-all flex items-center gap-1.5 min-h-[44px] shadow-sm"
               @click="emit('close'); sound.playClick()"
             >
-              <span>📖 Đọc Bài Viết Kiến Trúc</span>
+              <span>📖 Read Architecture Article</span>
               <span>→</span>
             </Link>
           </div>
@@ -222,7 +222,7 @@ onUnmounted(() => {
             class="px-4 py-2 rounded-xl text-slate-400 hover:text-white font-mono text-xs min-h-[44px] focus:outline-none cursor-pointer"
             @click="emit('close')"
           >
-            Đóng [ESC]
+            Close [ESC]
           </button>
         </div>
       </div>

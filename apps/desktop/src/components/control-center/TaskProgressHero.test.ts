@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import heroSource from './TaskProgressHero.vue?raw';
 import runWorkspaceSource from './RunWorkspace.vue?raw';
 import controlCenterSource from '../../views/ControlCenter.vue?raw';
+import connBarSource from './ConnectionBar.vue?raw';
 
-describe('TaskProgressHero Component (Design App Lead Progress-First View)', () => {
+describe('TaskProgressHero & Agent Switching System', () => {
   it('renders task progress hero with high priority badge, live timer, and progress percentage', () => {
     expect(heroSource).toContain('task-progress-hero');
     expect(heroSource).toContain('progressPercent');
@@ -11,6 +12,15 @@ describe('TaskProgressHero Component (Design App Lead Progress-First View)', () 
     expect(heroSource).toContain('standardSteps');
     expect(heroSource).toContain('formattedTime');
     expect(heroSource).toContain('Worktree Isolated');
+  });
+
+  it('provides interactive Role and Provider Quick Switchers inside TaskProgressHero', () => {
+    expect(heroSource).toContain('Đổi vai trò Agent (Switch Role)');
+    expect(heroSource).toContain('Đổi AI Engine (Switch Provider)');
+    expect(heroSource).toContain('Đổi Agent / Fleet');
+    expect(heroSource).toContain('update:agentRole');
+    expect(heroSource).toContain('update:provider');
+    expect(heroSource).toContain('openAgentRoom');
   });
 
   it('computes and supports hierarchical Epic sub-tasks breakdown with status tags', () => {
@@ -21,22 +31,24 @@ describe('TaskProgressHero Component (Design App Lead Progress-First View)', () 
     expect(heroSource).toContain('isSubTasksOpen');
   });
 
-  it('integrates TaskProgressHero inside RunWorkspace.vue at top of content area', () => {
+  it('integrates prominent Agent Role, Provider, Model selectors and Fleet Switcher Strip in RunWorkspace.vue', () => {
     expect(runWorkspaceSource).toContain('<TaskProgressHero');
-    expect(runWorkspaceSource).toContain(':workflow-status="workflowStatus"');
-    expect(runWorkspaceSource).toContain(':epic-completed-count="epicCompletedCount"');
-    expect(runWorkspaceSource).toContain('@select-sub-task="handleSelectSubTask"');
+    expect(runWorkspaceSource).toContain('Chọn vai trò tác tử (Agent Role)');
+    expect(runWorkspaceSource).toContain('Chọn AI Provider / Engine');
+    expect(runWorkspaceSource).toContain('Chọn Model AI');
+    expect(runWorkspaceSource).toContain('Đổi Tác tử / Fleet:');
+    expect(runWorkspaceSource).toContain('Fleet / Đổi Agent');
   });
 
-  it('provides a collapsible chat and log dock in RunWorkspace footer to prioritize progress real estate', () => {
-    expect(runWorkspaceSource).toContain('isChatDockCollapsed');
-    expect(runWorkspaceSource).toContain('Khung Chat & Chỉ thị đang thu gọn');
-    expect(runWorkspaceSource).toContain('Thu gọn khung chat để ưu tiên không gian cho tiến độ');
+  it('features prominent Agent Fleet trigger button in ConnectionBar.vue', () => {
+    expect(connBarSource).toContain('Đổi Agent / Fleet');
+    expect(connBarSource).toContain('codicon-organization');
   });
 
-  it('binds workflow status and sub-task selection in ControlCenter.vue', () => {
-    expect(controlCenterSource).toContain(':workflow-status="workflowStatus"');
-    expect(controlCenterSource).toContain('@select-sub-task="handleSelectSubTask"');
-    expect(controlCenterSource).toContain('const handleSelectSubTask');
+  it('binds agent-role, fleet workers, and open-agent-room in ControlCenter.vue', () => {
+    expect(controlCenterSource).toContain('v-model:agent-role="activeAgentRole"');
+    expect(controlCenterSource).toContain('@open-agent-room="showAgentRoomDrawer = true"');
+    expect(controlCenterSource).toContain(':workers="fleetAgents"');
+    expect(controlCenterSource).toContain('const handleSelectFleetSession');
   });
 });

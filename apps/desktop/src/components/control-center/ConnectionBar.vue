@@ -108,18 +108,19 @@ const triggerOverflowAction = (action: 'connect' | 'disconnect' | 'docs' | 'time
         <span class="leading-none">{{ attentionCount }} cần phản hồi</span>
       </button>
 
-      <!-- Agent Room Drawer Trigger Button -->
+      <!-- Agent Fleet / Switch Agent Trigger Button -->
       <button 
-        class="cc-connectionbar__fleet inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full bg-[#0c1220] border border-[#141b2d] px-3 py-1 text-xs font-semibold text-zinc-300 hover:border-zinc-600 hover:text-white transition"
-        title="Mở phòng trực chiến Agent (Agent Room Local Fleet)"
+        class="cc-connectionbar__fleet inline-flex items-center justify-center shrink-0 gap-1.5 rounded-full bg-gradient-to-r from-[#0c1220] to-[#11182c] border border-[#00f5a0]/40 hover:border-[#00f5a0] px-3 py-1 text-xs font-semibold text-zinc-200 hover:text-white transition shadow-sm"
+        title="Mở phòng trực chiến Agent & Quản lý Fleet (Chọn / Switch Agent)"
         @click="emit('agentRoom')"
       >
         <span class="relative flex h-2 w-2 shrink-0">
-          <span v-if="activeFleetCount && activeFleetCount > 0" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-2 w-2" :class="activeFleetCount && activeFleetCount > 0 ? 'bg-emerald-400' : 'bg-zinc-500'"></span>
+          <span v-if="activeFleetCount && activeFleetCount > 0" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#00f5a0] opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2" :class="activeFleetCount && activeFleetCount > 0 ? 'bg-[#00f5a0]' : 'bg-zinc-500'"></span>
         </span>
-        <span class="leading-none">Agent Room</span>
-        <span v-if="fleetCount !== undefined && fleetCount > 0" class="rounded-full bg-[#11182c] border border-[#141b2d] px-1.5 py-0.2 text-[10px] font-mono text-zinc-300 inline-flex items-center justify-center shrink-0">{{ fleetCount }}</span>
+        <i class="codicon codicon-organization text-[#00f5a0] text-xs shrink-0"></i>
+        <span class="leading-none font-medium">Đổi Agent / Fleet</span>
+        <span v-if="fleetCount !== undefined && fleetCount > 0" class="rounded-full bg-[#00f5a0]/15 border border-[#00f5a0]/40 px-1.5 py-0.2 text-[10px] font-mono text-[#00f5a0] inline-flex items-center justify-center shrink-0">{{ fleetCount }}</span>
       </button>
 
       <!-- AI Requirement Wizard Action Pill -->

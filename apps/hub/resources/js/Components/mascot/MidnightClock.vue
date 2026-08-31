@@ -72,7 +72,7 @@ onUnmounted(() => {
         borderColor: activePhase.accentBorder,
         boxShadow: `0 0 16px -4px ${activePhase.accentGlow}`
       }"
-      :title="`Nhấp để mở Time Travel Preview | ${activePhase.name} (${activePhase.vietnameseName})`"
+      :title="`Click to open Time Travel Preview | ${activePhase.name}`"
     >
       <!-- Phase Indicator Dot -->
       <span
@@ -150,10 +150,10 @@ onUnmounted(() => {
             </div>
             <div>
               <h4 class="text-xs font-bold text-slate-100 uppercase tracking-wider">
-                Time Travel & Phân Kỳ Nhịp Sống
+                Time Travel & Circadian Engine
               </h4>
               <p class="text-[10px] text-slate-400">
-                Trải nghiệm 4 khung giờ trong ngày của Developer
+                Simulate the 4 daily engineering flow cycles
               </p>
             </div>
           </div>
@@ -213,15 +213,15 @@ onUnmounted(() => {
                 </span>
               </div>
               <p class="text-[11px] text-slate-300 font-medium truncate mt-0.5">
-                {{ phase.vietnameseName }} — {{ phase.tagline }}
+                {{ phase.tagline }}
               </p>
               <div class="flex items-center gap-3 text-[10px] text-slate-400 mt-1 font-mono">
                 <span class="flex items-center gap-1">
                   <Icons name="Coffee" :size="10" class="text-amber-400" />
-                  {{ phase.caffeineLevel }}% Cafe
+                  {{ phase.caffeineLevel }}% Coffee
                 </span>
                 <span class="truncate">
-                  {{ phase.mascotAccessory === 'coffee' ? '☕ Ly cafe sáng' : phase.mascotAccessory === 'sunglasses' ? '🕶️ Kính râm' : '📜 Bùa chú' }}
+                  {{ phase.mascotAccessory === 'coffee' ? '☕ Morning Brew' : phase.mascotAccessory === 'sunglasses' ? '🕶️ High Noon' : '⚡ Deep Focus' }}
                 </span>
               </div>
             </div>
@@ -236,7 +236,7 @@ onUnmounted(() => {
               :class="isTimeTravelActive ? 'bg-purple-400 animate-ping' : 'bg-emerald-400'"
             />
             <span class="text-slate-400 font-mono text-[10px]">
-              {{ isTimeTravelActive ? 'Chế độ: Time Travel Preview' : 'Chế độ: Đồng bộ thời gian thực' }}
+              {{ isTimeTravelActive ? 'Mode: Time Travel Simulation' : 'Mode: Real-time System Sync' }}
             </span>
           </div>
 
@@ -248,7 +248,7 @@ onUnmounted(() => {
             class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all"
           >
             <Icons name="RotateCcw" :size="11" />
-            Giờ Thực
+            Real Time
           </button>
         </div>
       </div>

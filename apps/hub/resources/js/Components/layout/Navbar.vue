@@ -24,13 +24,13 @@ interface NavItem {
 }
 
 const navLinks: NavItem[] = [
-  { label: 'Trang Chủ', href: '/', iconName: 'Home' },
-  { label: 'Dự Án', href: '/projects', iconName: 'Layers' },
+  { label: 'Home', href: '/', iconName: 'Home' },
+  { label: 'Projects', href: '/projects', iconName: 'Layers' },
   { label: 'Desktop', href: '/desktop', badge: 'NEW', iconName: 'Monitor' },
-  { label: 'Blog', href: '/blog', badge: 'MỚI', iconName: 'BookOpen' },
-  { label: 'Game 🎮', href: '/game', badge: 'HOT', iconName: 'Gamepad' },
-  { label: 'Bùa Dev', href: '/talisman', iconName: 'Sparkles' },
-  { label: 'Tọa Thiền 🧘', href: '/theravada', badge: 'ZEN', iconName: 'Sparkles' },
+  { label: 'Pricing', href: '/pricing', iconName: 'Tag' },
+  { label: 'Blog', href: '/blog', badge: 'TECH', iconName: 'BookOpen' },
+  { label: 'Dev Forge', href: '/talisman', iconName: 'Sparkles' },
+  { label: 'Typing Test', href: '/game', badge: 'REPL', iconName: 'Gamepad' },
 ];
 
 const isScrolled = ref(false);
@@ -106,7 +106,7 @@ onUnmounted(() => {
       <Link
         href="/"
         class="flex items-center gap-3 select-none group focus:outline-none flex-shrink-0"
-        :title="isMidnightVariant ? 'Về trang chủ Midnight Hub' : 'Về Trang Chủ Macatung'"
+        :title="isMidnightVariant ? 'Midnight Hub Home' : 'MacaTung Platform Home'"
         @click="sound.playHop(1.3)"
       >
         <!-- Animated Mini Vector Mascot Badge -->
@@ -129,7 +129,7 @@ onUnmounted(() => {
         </div>
       </Link>
 
-      <!-- Desktop Nav Items (100% Consistent Page Navigation Links) -->
+      <!-- Desktop Nav Items -->
       <nav class="hidden lg:flex items-center gap-1 xl:gap-1.5 px-3 py-1.5 rounded-2xl glass-panel border border-white/5" aria-label="Main Navigation">
         <Link
           v-for="item in navLinks"
@@ -160,7 +160,7 @@ onUnmounted(() => {
         <!-- Web Audio Procedural Sound Toggle Button -->
         <SoundToggle />
 
-        <!-- Desktop Direct CTA Page Link (Contact Summoning Altar) -->
+        <!-- Desktop Direct CTA Page Link -->
         <Link
           href="/contact"
           class="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-display font-bold text-midnight-950 transition-all hover:brightness-110 active:scale-95 shadow-md flex-shrink-0"
@@ -170,8 +170,8 @@ onUnmounted(() => {
           }"
           @click="sound.playTalisman()"
         >
-          <span>Triệu Hồi</span>
-          <span>📜</span>
+          <span>Contact</span>
+          <span>⚡</span>
         </Link>
 
         <!-- Mobile Hamburger Toggle Button -->
@@ -204,7 +204,7 @@ onUnmounted(() => {
       />
     </transition>
 
-    <!-- Mobile Slide-down Navigation Drawer (Solid Opaque Dark Background) -->
+    <!-- Mobile Slide-down Navigation Drawer -->
     <transition
       enter-active-class="transition duration-200 ease-out"
       enter-from-class="opacity-0 -translate-y-4"
@@ -253,8 +253,8 @@ onUnmounted(() => {
             }"
             @click="handleNavClick(); sound.playTalisman()"
           >
-            <span>Triệu Hồi Lập Trình Viên</span>
-            <span>📜</span>
+            <span>Contact Engineering</span>
+            <span>⚡</span>
           </Link>
         </div>
       </div>

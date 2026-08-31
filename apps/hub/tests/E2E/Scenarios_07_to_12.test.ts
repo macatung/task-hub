@@ -53,10 +53,10 @@ describe('Tier 4: Real-World E2E Scenarios (07 to 12)', () => {
     // Step 1: Inspect 4 Stats Cards
     expect(developerStats.length).toBe(4);
     const statLabels = developerStats.map((s) => s.label);
-    expect(statLabels).toContain('Kinh Nghiệm Thực Chiến');
-    expect(statLabels).toContain('Tỉ Lệ CS Tự Động Hóa');
-    expect(statLabels).toContain('Hạ Tầng GIS & Thiết Bị');
-    expect(statLabels).toContain('Uptime Cam Kết Đêm');
+    expect(statLabels).toContain('Production Experience');
+    expect(statLabels).toContain('Customer Support Automation');
+    expect(statLabels).toContain('GIS & Telecom Infra');
+    expect(statLabels).toContain('Committed SLA Uptime');
 
     // Step 2: 3-Tab Manifesto Panel state
     const manifesto = {
@@ -148,7 +148,7 @@ describe('Tier 4: Real-World E2E Scenarios (07 to 12)', () => {
     // Verify chronological order (2025 to 2013)
     expect(experienceData[0].period).toContain('2025');
     expect(experienceData[0].role).toContain('AI Agent');
-    expect(experienceData[0].midnightQuest).toContain('Multi-Agent');
+    expect(experienceData[0].midnightQuest.toLowerCase()).toContain('multi-agent');
 
     expect(experienceData[1].period).toContain('2022');
     expect(experienceData[1].role).toContain('Fullstack');

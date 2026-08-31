@@ -485,7 +485,7 @@ describe('Tier 3: Cross-Feature Pairwise Interactions (25 Test Cases)', () => {
     expect(grimoire.selectedProject).not.toBeNull();
     expect(grimoire.selectedProject!.id).toBe('stock-valuation-financial-management');
     expect(grimoire.selectedProject!.architectureHighlights.length).toBeGreaterThanOrEqual(3);
-    expect(grimoire.selectedProject!.midnightFact).toContain('Artisan crawler');
+    expect(grimoire.selectedProject!.midnightFact).toContain('background crawlers');
   });
 
   // ==========================================================================

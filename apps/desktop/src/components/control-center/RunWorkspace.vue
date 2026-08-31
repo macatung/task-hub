@@ -106,6 +106,8 @@ const emit = defineEmits<{
   "update:provider": [value: Provider];
   "update:model": [value: string];
   "update:executionPolicy": [value: ExecutionPolicy];
+  "update:agentRole": [value: string];
+  "open-agent-room": [];
   chooseWorkspace: [];
   launch: [];
   cancel: [];
@@ -749,86 +751,101 @@ const submit = () => {
       </div>
 
       <!-- Header Controls: primary action plus secondary controls that move into overflow on narrow widths. -->
-      <div class="cc-run-header__actions flex items-center gap-2 shrink-0">
+      <div class="cc-run-header__actions flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+        <!-- 1. Agent Role Selector Pill -->
+        <div class="flex items-center gap-1.5 rounded-full bg-[#0c1220] border border-[#141b2d] px-2.5 py-1 text-xs text-zinc-200 shadow-sm hover:border-[#00f5a0]/40 transition">
+          <span class="text-xs">{{ agentRole === 'supervisor' ? '🏛️' : agentRole === 'reviewer' ? '🔍' : agentRole === 'qa' ? '🧪' : '🛠️' }}</span>
+          <select
+            :value="agentRole || 'implementation'"
+            class="bg-transparent text-xs font-bold text-zinc-200 focus:outline-none cursor-pointer"
+            title="Chọn vai trò tác tử (Agent Role)"
+            aria-label="Agent Role"
+            @change="$emit('update:agentRole', ($event.target as HTMLSelectElement).value)"
+          >
+            <option value="implementation" class="bg-[#070b14] text-zinc-200">🛠️ Implementation (Dev)</option>
+            <option value="supervisor" class="bg-[#070b14] text-zinc-200">🏛️ Supervisor (Lead)</option>
+            <option value="reviewer" class="bg-[#070b14] text-zinc-200">🔍 Reviewer (Auditor)</option>
+            <option value="qa" class="bg-[#070b14] text-zinc-200">🧪 QA (Tester)</option>
+          </select>
+        </div>
+
+        <!-- 2. AI Provider Selector Pill -->
+        <div class="flex items-center gap-1.5 rounded-full bg-[#0c1220] border border-[#141b2d] px-2.5 py-1 text-xs text-zinc-200 shadow-sm hover:border-[#00f5a0]/40 transition">
+          <span
+            class="h-2 w-2 rounded-full shrink-0"
+            :class="provider === 'codex' ? 'bg-[#00f5a0] shadow-[0_0_8px_#00f5a0]' : provider === 'claude_code' ? 'bg-amber-400 shadow-[0_0_8px_#fbbf24]' : 'bg-cyan-400 shadow-[0_0_8px_#22d3ee]'"
+          ></span>
+          <select
+            :value="provider"
+            class="bg-transparent text-xs font-semibold text-zinc-200 focus:outline-none cursor-pointer"
+            title="Chọn AI Provider / Engine"
+            aria-label="Provider"
+            @change="$emit('update:provider', ($event.target as HTMLSelectElement).value as Provider)"
+          >
+            <option value="codex" class="bg-[#070b14] text-zinc-200">Codex</option>
+            <option value="antigravity" class="bg-[#070b14] text-zinc-200">Antigravity</option>
+            <option value="claude_code" class="bg-[#070b14] text-zinc-200">Claude Code</option>
+          </select>
+        </div>
+
+        <!-- 3. AI Model Selector Pill -->
+        <div class="hidden md:flex items-center gap-1.5 rounded-full bg-[#0c1220] border border-[#141b2d] px-2.5 py-1 text-xs text-zinc-200 shadow-sm hover:border-[#00f5a0]/40 transition">
+          <i class="codicon codicon-chip text-zinc-400 text-xs shrink-0"></i>
+          <select
+            :value="activeModelValue"
+            class="bg-transparent text-xs font-semibold text-zinc-200 focus:outline-none cursor-pointer max-w-[130px] truncate"
+            title="Chọn Model AI"
+            aria-label="Select AI Model"
+            @change="$emit('update:model', ($event.target as HTMLSelectElement).value)"
+          >
+            <option
+              v-for="m in availableModels"
+              :key="m.id"
+              :value="m.id"
+              class="bg-[#070b14] text-zinc-200"
+            >
+              {{ m.name }}
+            </option>
+          </select>
+        </div>
+
+        <!-- 4. Quick Switch Agent / Fleet Button -->
+        <button
+          type="button"
+          class="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#0c1220] to-[#101a2e] border border-[#00f5a0]/40 hover:border-[#00f5a0] px-2.5 py-1 text-xs font-semibold text-[#00f5a0] hover:text-white transition shadow-sm shrink-0 cursor-pointer"
+          title="Mở phòng trực chiến để chuyển đổi tác tử hoặc điều phối fleet"
+          @click="$emit('open-agent-room')"
+        >
+          <i class="codicon codicon-organization text-xs"></i>
+          <span class="hidden sm:inline">Fleet / Đổi Agent</span>
+          <span class="sm:hidden">Fleet</span>
+          <span v-if="workers?.length" class="rounded-full bg-[#00f5a0]/15 border border-[#00f5a0]/40 px-1.5 py-0.2 text-[10px] font-mono text-[#00f5a0]">
+            {{ workers.length }}
+          </span>
+        </button>
+
+        <!-- Secondary Controls in Kebab -->
         <details class="cc-overflow-menu cc-run-header-overflow shrink-0">
           <summary
             class="cc-run-header-overflow__trigger grid h-7 w-7 place-items-center rounded-lg text-zinc-400 hover:bg-[#11182c] hover:text-zinc-200 transition shrink-0"
-            title="Tùy chọn agent"
-            aria-label="Tùy chọn agent"
+            title="Tùy chọn bổ sung"
+            aria-label="Tùy chọn bổ sung"
           >
             <i class="codicon codicon-kebab-vertical text-xs shrink-0"></i>
           </summary>
           <div
             class="cc-overflow-menu__panel cc-run-header-overflow__panel bg-[#070b14] border border-[#141b2d]"
           >
-            <div
-              class="cc-run-header-control cc-run-header-control--model flex items-center gap-1 rounded-full bg-[#0c1220] border border-[#141b2d] px-3 py-1 text-xs shrink-0"
-            >
-              <span class="h-2 w-2 rounded-full cc-dot--accent shrink-0"></span>
-              <select
-                :value="activeModelValue"
-                class="bg-transparent text-xs font-semibold text-zinc-200 focus:outline-none cursor-pointer"
-                title="Select AI Model"
-                aria-label="Select AI Model"
-                @change="
-                  $emit(
-                    'update:model',
-                    ($event.target as HTMLSelectElement).value,
-                  )
-                "
-              >
-                <option
-                  v-for="m in availableModels"
-                  :key="m.id"
-                  :value="m.id"
-                  class="bg-[#070b14] text-zinc-200"
-                >
-                  {{ m.name }}
-                </option>
-              </select>
-            </div>
-
-            <select
-              :value="provider"
-              class="cc-run-header-control rounded-full bg-[#0c1220] border border-[#141b2d] px-2.5 py-1 text-xs font-medium text-zinc-300 focus:outline-none"
-              aria-label="Provider"
-              @change="
-                $emit(
-                  'update:provider',
-                  ($event.target as HTMLSelectElement).value as Provider,
-                )
-              "
-            >
-              <option value="codex" class="bg-[#070b14]">Codex</option>
-              <option value="claude_code" class="bg-[#070b14]">
-                Claude Code
-              </option>
-              <option value="antigravity" class="bg-[#070b14]">
-                Antigravity
-              </option>
-            </select>
-
             <select
               :value="executionPolicy"
               class="cc-run-header-control rounded-full bg-[#0c1220] border border-[#141b2d] px-2.5 py-1 text-xs font-medium text-zinc-300 focus:outline-none"
-              title="Execution permission"
+              title="Quyền hạn thực thi"
               aria-label="Execution permission"
-              @change="
-                $emit(
-                  'update:executionPolicy',
-                  ($event.target as HTMLSelectElement).value as ExecutionPolicy,
-                )
-              "
+              @change="$emit('update:executionPolicy', ($event.target as HTMLSelectElement).value as ExecutionPolicy)"
             >
-              <option value="restricted" class="bg-[#070b14]">
-                Read only
-              </option>
-              <option value="workspace_write" class="bg-[#070b14]">
-                Workspace write
-              </option>
-              <option value="full_access" class="bg-[#070b14]">
-                Full access
-              </option>
+              <option value="restricted" class="bg-[#070b14]">Read only</option>
+              <option value="workspace_write" class="bg-[#070b14]">Workspace write</option>
+              <option value="full_access" class="bg-[#070b14]">Full access</option>
             </select>
 
             <button
@@ -1142,6 +1159,47 @@ const submit = () => {
     </div>
 
     <!-- Main Workspace Content / Compact stream display -->
+        <!-- Multi-Agent Fleet Switcher Strip -->
+    <div
+      v-if="workers && workers.length > 0"
+      class="flex items-center gap-2 border-b border-[#141b2d] bg-[#060a14] px-4 py-2 text-xs overflow-x-auto shrink-0"
+    >
+      <div class="flex items-center gap-1.5 text-zinc-400 font-mono text-[11px] shrink-0">
+        <i class="codicon codicon-organization text-[#00f5a0]"></i>
+        <span class="font-bold text-zinc-200">Đổi Tác tử / Fleet:</span>
+      </div>
+      <div class="flex items-center gap-1.5 min-w-0 flex-nowrap">
+        <button
+          v-for="w in workers"
+          :key="w.sessionId || w.id"
+          type="button"
+          class="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium border transition shrink-0 cursor-pointer"
+          :class="[
+            selectedWorkerId === (w.sessionId || w.id)
+              ? 'border-[#00f5a0]/60 bg-[#00f5a0]/15 text-[#00f5a0] shadow-sm'
+              : 'border-[#141b2d] bg-[#0c1220] text-zinc-300 hover:border-zinc-500 hover:text-white'
+          ]"
+          @click="handleSelectSubTask(w.sessionId || w.id || '')"
+        >
+          <span
+            class="h-1.5 w-1.5 rounded-full shrink-0"
+            :class="w.status === 'running' ? 'bg-[#00f5a0] animate-ping' : 'bg-zinc-500'"
+          ></span>
+          <span class="font-mono text-[11px] font-bold">{{ w.role || 'Worker' }}</span>
+          <span class="text-[10px] text-zinc-400 font-mono">({{ w.provider || 'Codex' }})</span>
+        </button>
+        <button
+          type="button"
+          class="flex items-center gap-1 rounded-lg border border-dashed border-[#141b2d] hover:border-[#00f5a0] px-2 py-1 text-[11px] text-zinc-400 hover:text-[#00f5a0] transition shrink-0 cursor-pointer"
+          @click="$emit('open-agent-room')"
+        >
+          <i class="codicon codicon-plus text-xs"></i>
+          <span>Quản lý Fleet</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Workspace Content / Compact stream display -->
     <main class="cc-run-content min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
       <!-- Task Progress Hero: Prioritized visual progress when running or executing -->
       <TaskProgressHero
@@ -1167,6 +1225,10 @@ const submit = () => {
         @resume="$emit('resume')"
         @retry="$emit('retry', $event)"
         @select-sub-task="handleSelectSubTask"
+        @update:provider="$emit('update:provider', $event as Provider)"
+        @update:model="$emit('update:model', $event)"
+        @update:agent-role="$emit('update:agentRole', $event)"
+        @open-agent-room="$emit('open-agent-room')"
       />
       <!-- Compact execution context: collapses automatically once text starts streaming. -->
       <section

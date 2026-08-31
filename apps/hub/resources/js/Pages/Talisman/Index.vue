@@ -6,6 +6,8 @@ import TalismanCanvas from '@/Components/mascot/TalismanCanvas.vue';
 import TalismanGenerator from '@/Components/talisman/TalismanGenerator.vue';
 import NextStepsHub from '@/Components/layout/NextStepsHub.vue';
 
+import { Link } from '@inertiajs/vue3';
+
 defineProps<{
   settings?: Record<string, string>;
 }>();
@@ -13,14 +15,14 @@ defineProps<{
 const talismanJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebApplication',
-  'name': 'Lò Rèn Bùa Hộ Mệnh Dev (Talisman Forge)',
-  'description': 'Ứng dụng tạo và tùy biến bùa hộ mệnh phong cách Đạo gia kết hợp thuật toán công nghệ bảo trợ deploy không lỗi.',
+  'name': 'Developer Verification Seal & Talisman Forge',
+  'description': 'Custom developer verification seal and digital talisman forge combining cryptographic hashing aesthetics with zero-defect deployment directives.',
   'applicationCategory': 'UtilitiesApplication',
   'operatingSystem': 'Any',
   'url': 'https://macatung.dev/talisman',
   'author': {
     '@type': 'Person',
-    'name': 'Ma Cà Tưng',
+    'name': 'MacaTung',
     'url': 'https://macatung.dev'
   }
 };
@@ -28,9 +30,9 @@ const talismanJsonLd = {
 
 <template>
   <SeoHead
-    title="Lò Rèn Bùa Dev (Talisman Forge) — The Midnight Architect"
-    description="Tùy biến và thỉnh các đạo bùa trừ Bug, bảo trợ deploy lúc 00:00 AM và xuất file ảnh chất lượng cao để dán laptop hoặc chia sẻ lên mạng xã hội."
-    keywords="Bùa Lập Trình, Dev Talisman, Bùa Trừ Bug, No Bug Charm, Creative Tool, Canvas Exporter"
+    title="Developer Verification Seal & Talisman Forge — The Midnight Architect"
+    description="Customize and generate cryptographic developer verification seals, zero-defect release talismans, and high-resolution ASCII canvas cards."
+    keywords="Developer Talisman, Verification Seal, Code Quality Seal, Zero Defect Seal, Creative Canvas Tool"
     canonical="https://macatung.dev/talisman"
     :json-ld="talismanJsonLd"
   />
@@ -42,9 +44,9 @@ const talismanJsonLd = {
     <main class="relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 text-left">
       <!-- Breadcrumb -->
       <nav class="flex items-center gap-2 text-xs font-mono text-slate-400 mb-6" aria-label="Breadcrumb">
-        <Link href="/" class="hover:text-phantom-mint transition-colors">Trang Chủ</Link>
+        <Link href="/" class="hover:text-phantom-mint transition-colors">Home</Link>
         <span>/</span>
-        <span class="text-talisman-gold font-bold">Lò Rèn Bùa Hộ Mệnh</span>
+        <span class="text-talisman-gold font-bold">Developer Seal Forge</span>
       </nav>
 
       <div class="flex flex-col items-start mb-8">
@@ -52,10 +54,10 @@ const talismanJsonLd = {
           📜 Dev Artifact Creator
         </span>
         <h1 class="text-3xl sm:text-5xl font-display font-extrabold text-white tracking-tight">
-          Lò Rèn <span class="text-transparent bg-clip-text bg-gradient-to-r from-talisman-gold via-phantom-mint to-phantom-cyan">Bùa Hộ Mệnh</span>
+          Developer <span class="text-transparent bg-clip-text bg-gradient-to-r from-talisman-gold via-phantom-mint to-phantom-cyan">Verification Seal Forge</span>
         </h1>
         <p class="text-sm sm:text-base text-slate-400 mt-2 max-w-2xl font-sans">
-          Tùy biến và thỉnh các đạo bùa trừ Bug, bảo trợ deploy lúc 00:00 AM và xuất file ảnh chất lượng cao để dán laptop hoặc chia sẻ lên mạng xã hội.
+          Customize and generate cryptographic developer verification seals, zero-defect release talismans, and high-resolution ASCII canvas cards for your workflow.
         </p>
       </div>
 

@@ -40,31 +40,31 @@ const displayCategories = computed(() => {
   } else {
     const categoryMap: Record<string, { title: string; subtitle: string; iconName: string; badge: string; skills: any[] }> = {
       frontend: {
-        title: 'Frontend & Creative Sorcery',
-        subtitle: 'Giao diện mượt mà & âm thanh tương tác',
+        title: 'Frontend & Interactive Interfaces',
+        subtitle: 'Fluid UI/UX, reactive components & Web Audio synth',
         iconName: 'Layout',
         badge: 'Core UI',
         skills: [],
       },
       backend: {
-        title: 'Backend & High-Load Architecture',
-        subtitle: 'Kiến trúc phân tán, cache & queue xử lý tải cao',
+        title: 'Backend & High-Throughput Architecture',
+        subtitle: 'Distributed systems, multi-tiered caching & message queues',
         iconName: 'Database',
         badge: 'Architecture',
         skills: [],
       },
       cloud: {
-        title: 'Cloud, Infra & DevOps',
-        subtitle: 'Triển khai tự động hóa & hạ tầng bền bỉ',
+        title: 'Cloud, Infrastructure & DevOps',
+        subtitle: 'Automated CI/CD pipelines, containerization & resilient infra',
         iconName: 'Terminal',
         badge: 'Infra & CI/CD',
         skills: [],
       },
       ai: {
-        title: 'AI, Automation & Microservices',
-        subtitle: 'Tích hợp mô hình ngôn ngữ lớn & bot tự động',
+        title: 'AI, Autonomous Swarms & Microservices',
+        subtitle: 'LLM integration, tool calling, MCP & autonomous workflows',
         iconName: 'Sparkles',
-        badge: 'Automation',
+        badge: 'AI Systems',
         skills: [],
       },
     };
@@ -110,10 +110,10 @@ const displayCategories = computed(() => {
           ⚡ Technical Arsenal
         </span>
         <h2 class="text-3xl sm:text-4xl lg:text-5xl font-display font-extrabold text-white tracking-tight">
-          Kỹ Năng & <span class="text-transparent bg-clip-text bg-gradient-to-r from-phantom-mint via-phantom-cyan to-talisman-gold">Công Nghệ</span>
+          Skills & <span class="text-transparent bg-clip-text bg-gradient-to-r from-phantom-mint via-phantom-cyan to-talisman-gold">Technologies</span>
         </h2>
         <p class="text-sm sm:text-base text-slate-400 mt-2 max-w-2xl font-sans">
-          18 kỹ năng cốt lõi được tôi luyện qua các hệ thống phân tán, web app tải cao và giao diện sáng tạo.
+          18 core competencies forged through high-scale distributed systems, enterprise platforms, and creative UI engineering.
         </p>
       </div>
 
@@ -123,7 +123,7 @@ const displayCategories = computed(() => {
         <input
           v-model="skillSearch"
           type="text"
-          placeholder="Lọc kỹ năng (Vue, Go, Redis)..."
+          placeholder="Filter skills (Vue, Go, Redis)..."
           class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-midnight-900/90 border border-white/10 text-slate-200 placeholder-slate-500 text-xs sm:text-sm font-sans focus:outline-none focus:border-phantom-mint transition-colors"
         />
         <button
@@ -202,13 +202,13 @@ const displayCategories = computed(() => {
         <div>
           <h4 class="text-white font-display font-bold text-sm sm:text-base">100% Tested, Type-Safe & Zero Runtime Crash</h4>
           <p class="text-slate-400 text-xs mt-0.5 font-sans">
-            Mọi module đều được kiểm thử tự động (466 E2E tests pass 100%), tuân thủ SOLID và tối ưu hóa latency cực thấp.
+            Every module is validated via automated verification pipelines (1,931+ tests pass 100%), adhering to SOLID principles and low-latency execution.
           </p>
         </div>
       </div>
       <div class="flex items-center gap-2 shrink-0">
         <span class="px-3.5 py-1.5 rounded-xl bg-phantom-mint/10 border border-phantom-mint/30 text-xs font-mono text-phantom-mint font-bold shadow-glow-mint">
-          ✓ 466/466 Tests Pass
+          ✓ 1,931+ Tests Pass
         </span>
       </div>
     </div>

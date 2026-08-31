@@ -27,9 +27,9 @@ const props = withDefaults(defineProps<Props>(), {
 const activeType = ref<string>('all');
 
 const types = [
-  { id: 'all', label: 'Tất Cả Mốc Thời Gian' },
+  { id: 'all', label: 'All Milestones' },
   { id: 'Full-time', label: 'Full-Time' },
-  { id: 'Contract', label: 'Contract & Creative' },
+  { id: 'Contract', label: 'Contract & Consulting' },
   { id: 'Open Source', label: 'Indie & Open Source' },
 ];
 
@@ -60,10 +60,10 @@ const setType = (typeId: string) => {
           📜 The Career Chronicles
         </span>
         <h2 class="text-3xl sm:text-4xl lg:text-5xl font-display font-extrabold text-white tracking-tight">
-          Kinh Nghiệm & <span class="text-transparent bg-clip-text bg-gradient-to-r from-phantom-mint via-phantom-cyan to-talisman-gold">Biên Niên Sử</span>
+          Engineering History & <span class="text-transparent bg-clip-text bg-gradient-to-r from-phantom-mint via-phantom-cyan to-talisman-gold">Milestones</span>
         </h2>
         <p class="text-sm sm:text-base text-slate-400 mt-2 max-w-2xl font-sans">
-          Dấu chân qua các dự án thực chiến tải cao, hành trình phát triển từ Indie Hacker sang Lead Systems Architect.
+          Track record across high-scale production systems, advancing from indie builder to Lead Systems & AI Architect.
         </p>
       </div>
 

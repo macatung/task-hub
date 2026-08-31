@@ -3,19 +3,19 @@ import type { ExperienceItem, DeveloperStat } from '../types/portfolio';
 export const experienceData: ExperienceItem[] = [
   {
     id: 'lead-ai-agent-architect',
-    period: '2025 — Hiện Tại',
+    period: '2025 — Present',
     role: 'Lead AI Agent & Autonomous Systems Architect',
     company: 'Enterprise AI & Automation Solutions',
     location: 'Remote / Global',
     type: 'Full-time',
-    summary: 'Thiết kế và triển khai hệ thống Multi-Agent AI tự trị thay thế toàn diện đội ngũ Customer Service 24/7, tích hợp RAG, Function Calling, CRM/Telegram/Zalo webhook và tự động giải quyết tranh chấp hoàn tiền.',
+    summary: 'Architecting and deploying autonomous multi-agent AI ecosystems providing 24/7 intelligent customer support and automated resolution, integrating RAG, Tool Calling, CRM/Telegram/Zalo webhooks, and automated dispute settlement.',
     achievements: [
-      'Xây dựng Multi-Agent CS giải quyết tự động > 92% khiếu nại khách hàng, giảm 85% chi phí vận hành nhân sự CS.',
-      'Tích hợp Tool/Function Calling với API ERP/Database tra cứu đơn hàng, tự động đối soát và hoàn tiền với độ trễ < 1.2s.',
-      'Triển khai hệ thống RAG thời gian thực với Vector Database, tự động cập nhật tri thức sản phẩm & chính sách bảo hành mới nhất.'
+      'Engineered Multi-Agent CS architecture autonomously resolving > 92% of customer inquiries and reducing support overhead by 85%.',
+      'Integrated real-time Tool/Function Calling with ERP and database APIs for order lifecycle tracking and automated refund settlements with sub-1.2s latency.',
+      'Deployed real-time RAG pipeline over high-dimensional vector databases, synchronizing live product knowledge and SLA policy updates.'
     ],
     technologies: ['Multi-Agent Orchestration', 'Google Gemini AI', 'OpenAI', 'Python / FastAPI', 'Laravel 12', 'Redis Queue', 'Vector DB'],
-    midnightQuest: 'Đêm 3:00 AM yểm bùa kiến trúc Multi-Agent tự động chặn 10,000 ca khiếu nại hoàn tiền gian lận trong đợt Mega Sale.'
+    midnightQuest: 'Engineered multi-agent fraud mitigation algorithms overnight, intercepting 10,000+ illegitimate refund requests during high-volume flash sales.'
   },
   {
     id: 'senior-fullstack-systems-lead',
@@ -24,15 +24,15 @@ export const experienceData: ExperienceItem[] = [
     company: 'Telecom Infrastructure & GIS Technologies',
     location: 'Ho Chi Minh City',
     type: 'Full-time',
-    summary: 'Chủ trì thiết kế và phát triển các hệ thống hạ tầng viễn thông, số hóa mạng lưới cáp quang toàn quốc (GIS/QGIS), hệ thống giám sát thiết bị truyền dẫn (NMS), hệ thống cảnh báo sớm dịch bệnh sốt xuất huyết và quản lý địa chỉ IP.',
+    summary: 'Led the architectural design and implementation of mission-critical telecom infrastructure systems, nationwide optical fiber GIS mapping (Web & QGIS), transmission telemetry monitoring (NMS), and epidemiological risk surveillance platforms.',
     achievements: [
-      'Xây dựng hệ thống GIS số hóa mạng cáp quang toàn quốc, tích hợp QGIS phân tích dữ liệu không gian và tự động định tuyến cáp tối ưu.',
-      'Phát triển Network Management System (NMS) giám sát thời gian thực thiết bị truyền dẫn SDH/DWDM qua SNMP/Telnet/SSH với cảnh báo dị thường Machine Learning.',
-      'Xây dựng hệ thống cảnh báo sớm dịch sốt xuất huyết kết hợp bản đồ nhiệt Heatmap và thuật toán dự báo theo thời tiết/mật độ muỗi.',
-      'Phát triển hệ thống IP Management tính toán subnet tự động, quản lý phân cấp IP quy mô lớn trên Laravel + Filament Admin.'
+      'Engineered nationwide spatial GIS platform mapping 500,000+ optical fiber nodes with automated shortest-path cable routing under 180ms.',
+      'Developed real-time Network Management System (NMS) monitoring SDH/DWDM transmission devices over SNMP/SSH with ML-driven predictive alerts.',
+      'Constructed dengue epidemiological early warning system combining spatial risk heatmaps and meteorological predictive modeling.',
+      'Implemented automated IP address management (IPAM) suite handling large-scale subnet allocation and hierarchical RBAC on Laravel and Filament.'
     ],
     technologies: ['PHP / Laravel', 'Filament Admin', 'Node.js', 'Python (Data/ML)', 'Elasticsearch', 'MySQL', 'Redis', 'RabbitMQ', 'ReactJS', 'QGIS / Spatial GIS', 'SNMP'],
-    midnightQuest: 'Tối ưu hóa thuật toán định tuyến cáp quang GIS trên bản đồ 500,000 điểm nút giúp giảm thời gian tính toán từ 12s xuống < 180ms.'
+    midnightQuest: 'Optimized PostGIS spatial routing algorithms across 500,000 network nodes, slashing calculation latency from 12s down to < 180ms.'
   },
   {
     id: 'backend-streaming-engineer',
@@ -41,14 +41,14 @@ export const experienceData: ExperienceItem[] = [
     company: 'Media & High-Throughput Streaming Corporation',
     location: 'Ho Chi Minh City',
     type: 'Full-time',
-    summary: 'Kiến trúc nền tảng xử lý và phân phối media/video streaming tải cao, chuyển mã tự động đa độ phân giải và cổng API Gateway bảo mật.',
+    summary: 'Architected high-throughput live broadcasting and video-on-demand processing systems, automated multi-resolution hardware transcoding pipelines, and hardened API gateways.',
     achievements: [
-      'Xây dựng pipeline chuyển mã video tự động đa độ phân giải (FFmpeg) và phát trực tuyến thích ứng Adaptive Bitrate Streaming (HLS/DASH).',
-      'Tích hợp CDN đa tầng tối ưu hóa chi phí băng thông 42% và thời gian tải đệm video xuống sub-second.',
-      'Phát triển Laravel API Gateway chịu tải xác thực, phân quyền và rate-limiting hàng triệu requests mỗi ngày với Redis & RabbitMQ.'
+      'Constructed automated multi-resolution FFmpeg transcoding pipelines delivering adaptive bitrate streaming (HLS/DASH).',
+      'Integrated multi-tier CDN architecture slashing egress bandwidth costs by 42% and achieving sub-second initial buffer latency.',
+      'Engineered Laravel API Gateway processing millions of authenticated daily requests with distributed Redis caching and RabbitMQ rate-limiting.'
     ],
     technologies: ['PHP / Laravel', 'FFmpeg', 'Redis', 'RabbitMQ', 'MySQL', 'Nginx', 'HLS/DASH Streaming', 'Docker'],
-    midnightQuest: 'Cứu nguy đường truyền trực tiếp chung kết thể thao lúc nửa đêm với 80,000 CCU bằng cơ chế dynamic CDN failover.'
+    midnightQuest: 'Maintained zero-downtime championship streaming for 80,000 concurrent viewers overnight via dynamic multi-CDN failover circuits.'
   },
   {
     id: 'informatics-prodigy-foundation',
@@ -57,44 +57,44 @@ export const experienceData: ExperienceItem[] = [
     company: 'National Informatics Olympiad & CS Academy',
     location: 'Ho Chi Minh City',
     type: 'Education & Awards',
-    summary: 'Đoạt giải Khuyến khích Quốc gia môn Tin học, rèn giũa nền tảng thuật toán chuyên sâu, cấu trúc dữ liệu, tư duy hệ thống và văn hóa gõ code xuyên đêm.',
+    summary: 'National Informatics Olympiad laureate, mastering algorithmic complexity, deep data structures, distributed systems foundations, and intense problem-solving focus.',
     achievements: [
-      'Đạt Giải Khuyến khích Quốc gia môn Tin học (National Informatics Incentive Award).',
-      '2 năm liên tiếp đạt Giải Nhì Tin học Cấp Tỉnh (2012 & 2013).',
-      'Tốt nghiệp xuất sắc chuyên ngành Công Nghệ Thông Tin & Kỹ Thuật Phần Mềm.'
+      'Awarded National Informatics Olympiad Laureate (National CS Competition).',
+      'Two-time Provincial First Runner-Up in Informatics Olympiad (2012 & 2013).',
+      'Graduated with honors in Computer Science & Software Engineering.'
     ],
     technologies: ['C/C++', 'Algorithms & Data Structures', 'Linux', 'Git', 'PHP', 'MySQL'],
-    midnightQuest: 'Luyện giải thuật marathon 48h không ngủ, đặt nền móng cho triết lý "Code at Midnight".'
+    midnightQuest: '48-hour continuous algorithmic marathon sessions, forging the foundational discipline of the "Code at Midnight" philosophy.'
   }
 ];
 
 export const developerStats: DeveloperStat[] = [
   {
-    label: 'Kinh Nghiệm Thực Chiến',
-    value: '8+ Năm',
+    label: 'Production Experience',
+    value: '8+ Years',
     unit: 'Senior',
     iconName: 'Zap',
-    description: 'Từ 2017 đến nay qua các hệ thống tải cao & AI Agents'
+    description: 'Since 2017 across high-throughput distributed systems & AI swarms'
   },
   {
-    label: 'Tỉ Lệ CS Tự Động Hóa',
+    label: 'Customer Support Automation',
     value: '92%+',
     unit: 'Auto CS',
     iconName: 'Cpu',
-    description: 'Multi-Agent AI xử lý khiếu nại & hoàn tiền 24/7'
+    description: 'Autonomous multi-agent resolution and instant refund settlement'
   },
   {
-    label: 'Hạ Tầng GIS & Thiết Bị',
+    label: 'GIS & Telecom Infra',
     value: '500K+',
     unit: 'Nodes',
     iconName: 'Server',
-    description: 'Quản lý cáp quang & thiết bị truyền dẫn NMS'
+    description: 'Optical fiber networks and NMS equipment monitoring'
   },
   {
-    label: 'Uptime Cam Kết Đêm',
+    label: 'Committed SLA Uptime',
     value: '99.99%',
     unit: 'SLA',
     iconName: 'Shield',
-    description: 'Kiến trúc chịu tải & Zero Downtime 00:00 AM'
+    description: 'High-availability infrastructure with continuous 24/7 reliability'
   }
 ];

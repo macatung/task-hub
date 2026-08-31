@@ -65,7 +65,7 @@ const handleCtaClick = (soundType: 'click' | 'talisman', eventName?: string) => 
           </div>
 
           <span class="text-slate-100 font-bold uppercase tracking-wider">
-            SẴN SÀNG NHẬN QUEST 00:00 AM
+            AUTONOMOUS FLEET ONLINE · 24/7 ORCHESTRATION
           </span>
           <span
             class="px-1.5 py-0.2 rounded text-[10px] font-bold uppercase"
@@ -91,34 +91,34 @@ const handleCtaClick = (soundType: 'click' | 'talisman', eventName?: string) => 
 
         <!-- Authoritative Persona Subtitle -->
         <p class="text-base sm:text-lg text-slate-300 max-w-2xl font-sans font-normal leading-relaxed mb-8">
-          Senior Backend / Fullstack Developer & AI Agent Architect với 8+ năm thực chiến. Chuyên sâu kiến trúc Multi-Agent AI tự trị thay thế Customer Service 24/7, hạ tầng viễn thông GIS/NMS và hệ thống web phân tán tải cao.
+          Autonomous Multi-Agent Engineering Platform & Supervised Vibe Coding. Orchestrate Antigravity 2.0, Codex, and Claude Code in isolated Git Worktrees with deterministic verification gates.
         </p>
 
-        <!-- CTA Action Array (100% Consistent Page Navigation Links) -->
+        <!-- CTA Action Array -->
         <div class="flex flex-wrap items-center justify-center lg:justify-start gap-3.5 mb-10 w-full">
           <Link
             href="/projects"
             class="px-6 py-3.5 rounded-2xl bg-phantom-mint text-midnight-950 font-display font-bold text-sm sm:text-base hover:brightness-110 shadow-glow-mint transition-all flex items-center gap-2 min-h-[48px] whitespace-nowrap active:scale-95 cursor-pointer"
             @click="handleCtaClick('click', 'projects')"
           >
-            <span>Khám Phá Dự Án</span>
+            <span>Explore Platform</span>
             <span>✨</span>
           </Link>
           <Link
-            href="/contact"
-            class="px-5 py-3.5 rounded-2xl bg-midnight-900 border border-talisman-gold/40 text-talisman-gold hover:bg-talisman-gold/10 font-display font-bold text-xs sm:text-sm transition-all flex items-center gap-2 min-h-[48px] whitespace-nowrap active:scale-95 shadow-glow-talisman cursor-pointer"
-            @click="handleCtaClick('talisman', 'summon')"
+            href="/desktop"
+            class="px-5 py-3.5 rounded-2xl bg-midnight-900 border border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10 font-display font-bold text-xs sm:text-sm transition-all flex items-center gap-2 min-h-[48px] whitespace-nowrap active:scale-95 shadow-glow-mint cursor-pointer"
+            @click="handleCtaClick('click', 'desktop')"
           >
-            <span>Triệu Hồi Ngay</span>
-            <span>📜</span>
+            <span>Desktop Studio</span>
+            <span>💻</span>
           </Link>
           <Link
-            href="/game"
-            class="px-4 py-3.5 rounded-2xl bg-amber-500/10 border border-talisman-gold/40 text-talisman-gold hover:bg-talisman-gold/20 font-display font-bold text-xs sm:text-sm transition-all flex items-center gap-2 min-h-[48px] whitespace-nowrap shadow-glow-talisman cursor-pointer"
-            @click="handleCtaClick('click', 'game')"
+            href="/pricing"
+            class="px-4 py-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-400/40 text-emerald-300 hover:bg-emerald-400/20 font-display font-bold text-xs sm:text-sm transition-all flex items-center gap-2 min-h-[48px] whitespace-nowrap cursor-pointer"
+            @click="handleCtaClick('click', 'pricing')"
           >
-            <span>🎮</span>
-            <span>Chơi Dev Game</span>
+            <span>🏷️</span>
+            <span>Pricing & Plans</span>
           </Link>
           <Link
             href="/about"
@@ -126,16 +126,15 @@ const handleCtaClick = (soundType: 'click' | 'talisman', eventName?: string) => 
             @click="handleCtaClick('click', 'about')"
           >
             <Icons name="Zap" :size="16" class="text-phantom-mint" />
-            <span>Kỹ Năng & Hồ Sơ</span>
+            <span>Architecture & Manifesto</span>
           </Link>
           <Link
             href="/contact"
             class="px-4 py-3.5 rounded-2xl bg-white/5 border border-white/10 hover:border-talisman-gold/40 text-slate-300 hover:text-talisman-gold font-mono text-xs sm:text-sm transition-all flex items-center gap-2 min-h-[48px] whitespace-nowrap cursor-pointer"
-            title="Xem & Tải Hồ Sơ Năng Lực"
-            @click="handleCtaClick('click', 'cv_download')"
+            @click="handleCtaClick('talisman', 'contact')"
           >
             <Icons name="FileText" :size="16" />
-            <span>Tải CV</span>
+            <span>Contact Us</span>
           </Link>
         </div>
 
@@ -143,19 +142,19 @@ const handleCtaClick = (soundType: 'click' | 'talisman', eventName?: string) => 
         <div class="flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4 text-xs font-mono text-slate-300">
           <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-midnight-900/60 border border-white/5 whitespace-nowrap">
             <Icons name="Zap" :size="14" class="text-phantom-mint" />
-            <span>&gt; 8 Năm Thực Chiến</span>
+            <span>&gt; 8 Years Engineering</span>
           </div>
           <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-midnight-900/60 border border-white/5 whitespace-nowrap">
             <Icons name="Activity" :size="14" class="text-phantom-mint" />
-            <span>&lt; 18ms Latency</span>
+            <span>&lt; 18ms Latency SLA</span>
           </div>
           <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-midnight-900/60 border border-white/5 whitespace-nowrap">
             <Icons name="Coffee" :size="14" class="text-amber-400" />
-            <span>100% Robusta Flow</span>
+            <span>100% Verification Gates</span>
           </div>
           <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-midnight-900/60 border border-white/5 whitespace-nowrap">
             <Icons name="Bug" :size="14" class="text-rose-400" />
-            <span>0 Bug In Production</span>
+            <span>0 Bug Regression Policy</span>
           </div>
         </div>
 

@@ -7,6 +7,8 @@ import RuneTyperGame from '@/Components/game/RuneTyperGame.vue';
 import NextStepsHub from '@/Components/layout/NextStepsHub.vue';
 import { beginnerSpells, normalSpells, bossSpells } from '@/data/spellsData';
 
+import { Link } from '@inertiajs/vue3';
+
 defineProps<{
   settings?: Record<string, string>;
 }>();
@@ -14,14 +16,14 @@ defineProps<{
 const gameJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'VideoGame',
-  'name': 'Rune Typer Arcade Chamber — Sàn Đấu Trừ Tà Nửa Đêm',
-  'description': 'Mini-game gõ phím luyện thần chú trừ tà phong cách arcade cổ điển kết hợp cyberpunk của Ma Cà Tưng.',
+  'name': 'Rune Typer Arcade Chamber — Midnight Typing Simulator',
+  'description': 'Retro-cyberpunk mechanical keyboard typing game to test typing speed, accuracy, and eliminate software bugs.',
   'genre': ['Arcade', 'Typing Game', 'Interactive Web Game'],
   'gamePlatform': 'Web Browser',
   'url': 'https://macatung.dev/game',
   'author': {
     '@type': 'Person',
-    'name': 'Ma Cà Tưng',
+    'name': 'MacaTung',
     'url': 'https://macatung.dev'
   }
 };
@@ -29,9 +31,9 @@ const gameJsonLd = {
 
 <template>
   <SeoHead
-    title="Rune Typer Arcade Chamber — Sàn Đấu Trừ Tà Nửa Đêm"
-    description="Thử thách tốc độ gõ phím trừ tà, hóa giải thuật toán bóng tối với game tương tác Rune Typer phong cách retro arcade."
-    keywords="Rune Typer, Web Game, Typing Game, Arcade Game, Creative Coding, Mini Game Lập Trình"
+    title="Rune Typer Arcade Chamber — Midnight Typing Simulator"
+    description="Test typing velocity and code accuracy with Rune Typer, an interactive retro-cyberpunk typing game for developers."
+    keywords="Rune Typer, Web Game, Typing Game, Developer Arcade, Creative Coding, Keyboard Reflexes"
     canonical="https://macatung.dev/game"
     :json-ld="gameJsonLd"
   />
@@ -45,12 +47,12 @@ const gameJsonLd = {
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <nav class="flex items-center gap-2 text-xs font-mono text-slate-400 mb-2" aria-label="Breadcrumb">
-            <Link href="/" class="hover:text-phantom-mint transition-colors">Trang Chủ</Link>
+            <Link href="/" class="hover:text-phantom-mint transition-colors">Home</Link>
             <span>/</span>
-            <span class="text-talisman-gold font-bold">Phòng Máy Arcade</span>
+            <span class="text-talisman-gold font-bold">Arcade Chamber</span>
           </nav>
           <h1 class="text-3xl sm:text-4xl font-display font-extrabold text-white">
-            Phòng Máy Arcade: <span class="text-transparent bg-clip-text bg-gradient-to-r from-talisman-gold via-phantom-mint to-phantom-cyan">Rune Typer</span>
+            Arcade Chamber: <span class="text-transparent bg-clip-text bg-gradient-to-r from-talisman-gold via-phantom-mint to-phantom-cyan">Rune Typer</span>
           </h1>
         </div>
 
@@ -59,13 +61,13 @@ const gameJsonLd = {
             href="/#terminal"
             class="px-4 py-2.5 rounded-xl bg-midnight-900 border border-white/10 hover:border-white/30 text-slate-300 text-xs font-mono transition-all flex items-center gap-1.5"
           >
-            <span>>_ Mở Terminal</span>
+            <span>>_ Open Terminal</span>
           </Link>
           <Link
             href="/projects"
             class="px-4 py-2.5 rounded-xl bg-phantom-mint text-midnight-950 font-display font-bold text-xs hover:brightness-110 shadow-glow-mint transition-all flex items-center gap-1.5"
           >
-            <span>Xem Dự Án</span>
+            <span>Explore Projects</span>
             <span>→</span>
           </Link>
         </div>
@@ -79,8 +81,8 @@ const gameJsonLd = {
         <div class="flex items-center gap-2 mb-6">
           <span class="text-2xl">📖</span>
           <div>
-            <h3 class="font-display font-bold text-lg sm:text-xl text-white">Bí Kíp Thần Chú (Spellbook Reference)</h3>
-            <p class="text-xs font-mono text-slate-400">Các câu lệnh và bùa chú được nạp sẵn vào máy Arcade để bạn luyện tay trước khi vào trận</p>
+            <h3 class="font-display font-bold text-lg sm:text-xl text-white">Spellbook & Keyword Reference</h3>
+            <p class="text-xs font-mono text-slate-400">Built-in command dictionary and code spells loaded into the arcade engine for pre-game reflex training.</p>
           </div>
         </div>
 
@@ -89,7 +91,7 @@ const gameJsonLd = {
           <div class="p-4 rounded-2xl bg-midnight-950/80 border border-white/5">
             <div class="text-xs font-mono font-bold text-phantom-mint mb-3 flex items-center gap-1.5">
               <span>🟢</span>
-              <span>Tập Sự 0 Bug (Keywords)</span>
+              <span>Apprentice Keywords</span>
             </div>
             <div class="flex flex-wrap gap-1.5">
               <span
@@ -106,7 +108,7 @@ const gameJsonLd = {
           <div class="p-4 rounded-2xl bg-midnight-950/80 border border-white/5">
             <div class="text-xs font-mono font-bold text-talisman-gold mb-3 flex items-center gap-1.5">
               <span>🟡</span>
-              <span>Ma Đạo 00:00 AM (Code Spells)</span>
+              <span>Midnight Code Spells</span>
             </div>
             <div class="flex flex-wrap gap-1.5">
               <span
@@ -123,7 +125,7 @@ const gameJsonLd = {
           <div class="p-4 rounded-2xl bg-midnight-950/80 border border-rose-500/20">
             <div class="text-xs font-mono font-bold text-rose-400 mb-3 flex items-center gap-1.5">
               <span>🔴</span>
-              <span>Boss Bug Phục Kích (3 HP)</span>
+              <span>Boss Bug Patterns (3 HP)</span>
             </div>
             <div class="space-y-2">
               <div
