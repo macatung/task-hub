@@ -89,6 +89,67 @@ Time:        3.456 s
       expect(counts.skipped).toBe(1);
       expect(counts.total).toBe(23);
     });
+
+    it('parses Pytest output with passed tests only', () => {
+      const output = `
+============================= test session starts =============================
+collected 45 items
+
+test_auth.py .............................................               [100%]
+
+============================== 45 passed in 3.12s ==============================
+`;
+      const counts = extractTestCounts(output);
+      expect(counts.passed).toBe(45);
+      expect(counts.failed).toBe(0);
+      expect(counts.skipped).toBe(0);
+      expect(counts.total).toBe(45);
+    });
+
+    it('parses Pytest output with failures before passed (order-independent)', () => {
+      const output = `
+============================= test session starts =============================
+collected 50 items
+
+test_auth.py FFFFF.............................................          [100%]
+
+========================= 5 failed, 45 passed in 3.12s =========================
+`;
+      const counts = extractTestCounts(output);
+      expect(counts.passed).toBe(45);
+      expect(counts.failed).toBe(5);
+      expect(counts.skipped).toBe(0);
+      expect(counts.total).toBe(50);
+    });
+
+    it('parses Pytest output with failed, errors, passed, and skipped', () => {
+      const output = `
+================== 2 failed, 40 passed, 3 skipped, 1 error in 4.56s ==================
+`;
+      const counts = extractTestCounts(output);
+      expect(counts.passed).toBe(40);
+      expect(counts.failed).toBe(3); // 2 failed + 1 error
+      expect(counts.skipped).toBe(3);
+      expect(counts.total).toBe(46);
+    });
+
+    it('parses Pytest output with only failures', () => {
+      const output = `
+=================================== FAILURES ===================================
+_________________________________ test_failure _________________________________
+============================== 3 failed in 0.45s ===============================
+`;
+      const counts = extractTestCounts(output);
+      expect(counts.passed).toBe(0);
+      expect(counts.failed).toBe(3);
+      expect(counts.skipped).toBe(0);
+      expect(counts.total).toBe(3);
+    });
+
+    it('detects Pytest runner when only failures exist', () => {
+      const output = `=== 3 failed in 0.45s ===`;
+      expect(detectTestRunner(output)).toBe('pytest');
+    });
   });
 
   describe('extractDurationMs', () => {

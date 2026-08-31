@@ -28,13 +28,16 @@ import {
   buildCaoTaskOrchestrationPrompt,
   buildCaoEpicOrchestrationPrompt,
   buildCaoRequirementSupervisorPrompt,
+  generateCaoFastTrackWorkflowYaml,
   generateCaoStandardWorkflowYaml,
   generateCaoEpicWorkflowYaml,
+  resolveTaskPipelineVariant,
   topologicallySortEpicTasks,
   selectCaoOrchestrationStrategy,
   type CaoWorkflowRunStatus,
   type CaoWorkflowStepStatus,
   type OrchestrationMode,
+  type TaskPipelineVariant,
   type WorkflowKind,
 } from '../services/caoBridgeService';
 import CaoWorkflowRunPanel from '../components/control-center/CaoWorkflowRunPanel.vue';
@@ -733,6 +736,14 @@ const refresh = async () => {
     syncing.value = false;
   }
 };
+
+const handleSelectSubTask = (taskId: number | string) => {
+  const allTasks = sync.tasks.value.length ? sync.tasks.value : sync.agentTasks.value;
+  const match = allTasks.find(t => t.id === taskId || t.issue_key === taskId || `#${t.id}` === taskId);
+  if (match) {
+    selectedTask.value = match;
+  }
+};
 const reopenEpicAsTodo = async () => {
   const epic = selectedTask.value;
   if (!epic || epic.issue_type !== "epic" || epic.status !== "review") return;
@@ -1217,18 +1228,23 @@ const ensureEpicParentRun = async (repository: string, context: any) => {
   ).catch(() => {});
   return parentRunId;
 };
-const initialWorkflowSteps = (kind: WorkflowKind, task: TaskItem, epicTasks: TaskItem[] = []): CaoWorkflowStepStatus[] => {
+const initialWorkflowSteps = (kind: WorkflowKind, task: TaskItem, epicTasks: TaskItem[] = [], variant?: TaskPipelineVariant): CaoWorkflowStepStatus[] => {
   if (kind === 'task') {
-    return ['implement', 'review', 'evidence', 'handoff'].map((id) => ({ id, taskId: task.id, taskKey: task.issue_key || `#${task.id}`, label: id, state: 'pending' }));
+    const effectiveVariant = variant || resolveTaskPipelineVariant(task as any);
+    const stepIds = effectiveVariant === 'fast-track' ? ['implement', 'evidence'] : ['implement', 'review', 'evidence', 'handoff'];
+    return stepIds.map((id) => ({ id, taskId: task.id, taskKey: task.issue_key || `#${task.id}`, label: id, state: 'pending' }));
   }
   const ordered = topologicallySortEpicTasks(epicTasks as any).ordered;
-  return ordered.flatMap((child, index) => ['implement', 'review', 'evidence', 'handoff'].map((stage) => ({
-    id: `child-${index + 1}-${child.id}-${stage}`,
-    taskId: child.id,
-    taskKey: child.issue_key || `#${child.id}`,
-    label: `${child.issue_key || `#${child.id}`} · ${stage}`,
-    state: 'pending' as const,
-  }))).concat([{ id: 'epic-finalize', taskId: task.id, taskKey: task.issue_key || `#${task.id}`, label: 'Epic finalize', state: 'pending' }]);
+  const stages = ['implement', 'review', 'evidence', 'handoff'] as const;
+  return ordered.flatMap((child, index) => {
+    return stages.map((stage) => ({
+      id: `child-${index + 1}-${child.id}-${stage}`,
+      taskId: child.id,
+      taskKey: child.issue_key || `#${child.id}`,
+      label: `${child.issue_key || `#${child.id}`} · ${stage}`,
+      state: 'pending' as const,
+    }));
+  }).concat([{ id: 'epic-finalize', taskId: task.id, taskKey: task.issue_key || `#${task.id}`, label: 'Epic finalize', state: 'pending' }]);
 };
 
 const workflowResultHash = (value: unknown) => {
@@ -1296,16 +1312,16 @@ const syncWorkflowEventToHub = async (event: any, status?: CaoWorkflowRunStatus)
       }, { runId: runId.value, description: `Record CAO workflow event ${event.type}` });
     }
   }
-  if (event.type === 'workflow.step.completed' && /-evidence$/.test(String(stepId)) && step?.taskId) {
+  if (event.type === 'workflow.step.completed' && (stepId === 'evidence' || /(?:^|-)evidence$/.test(String(stepId))) && step?.taskId) {
     const evidence = (step.output || {}) as Record<string, any>;
     const evidenceArgs = {
       run_id: runId.value,
       task_id: step.taskId,
       evidence_type: 'cao_workflow',
-      status: evidence.status === 'failed' ? 'failed' : 'passed',
-      command: Array.isArray(evidence.tests) ? evidence.tests.map(String).join(' && ').slice(0, 500) : undefined,
+      status: evidence.status === 'failed' || (evidence.test_fail_count && evidence.test_fail_count > 0) ? 'failed' : 'passed',
+      command: Array.isArray(evidence.tests) ? evidence.tests.map(String).join(' && ').slice(0, 500) : (typeof evidence.tests === 'string' ? evidence.tests.slice(0, 500) : undefined),
       summary: JSON.stringify(evidence).slice(0, 10000),
-      metadata: { cao_run_id: event.runId, step_id: stepId, result: evidence },
+      metadata: { cao_run_id: event.runId, step_id: stepId, result: evidence, pipeline_variant: workflowStatus.value?.pipelineVariant },
       idempotency_key: eventId,
     };
     try {
@@ -1362,22 +1378,47 @@ const handleWorkflowEvent = (event: any) => {
 const finalizeWorkflowRun = async () => {
   const currentRunId = runId.value;
   if (!currentRunId || !selectedTask.value) return;
-  const handoffStep = workflowStatus.value?.steps?.find((step) => step.id === 'epic-finalize' || /-handoff$/.test(step.id));
-  const handoffOutput = (handoffStep?.output || {}) as Record<string, any>;
-  const evidenceStep = workflowStatus.value?.steps?.find((step) => /-evidence$/.test(step.id));
+  const currentSteps = workflowStatus.value?.steps || [];
+  const isFastTrack = workflowStatus.value?.pipelineVariant === 'fast-track'
+    || (currentSteps.length === 2 && currentSteps.some((s) => s.id === 'implement') && currentSteps.some((s) => s.id === 'evidence'));
+  const implementStep = currentSteps.find((step) => step.id === 'implement' || /(?:^|-)implement$/.test(step.id));
+  const evidenceStep = currentSteps.find((step) => step.id === 'evidence' || /(?:^|-)evidence$/.test(step.id));
+  const handoffStep = currentSteps.find((step) => step.id === 'epic-finalize' || step.id === 'handoff' || /(?:^|-)handoff$/.test(step.id));
+  const implementOutput = (implementStep?.output || {}) as Record<string, any>;
   const evidenceOutput = (evidenceStep?.output || {}) as Record<string, any>;
-  const structuredPayload = handoffStep?.output
-    ? {
-        summary: String(handoffOutput.summary || `CAO workflow completed: ${selectedTask.value.title}`),
-        changedFiles: Array.isArray(handoffOutput.changed_files) ? handoffOutput.changed_files.join('\n') : String(handoffOutput.changed_files || ''),
-        tests: Array.isArray(handoffOutput.tests) ? JSON.stringify(handoffOutput.tests) : String(handoffOutput.tests || evidenceOutput.tests || 'CAO workflow evidence'),
-        testStatus: evidenceOutput.status === 'failed' ? 'skipped' as const : 'passed' as const,
-        testSummary: 'Evidence was produced by the strict CAO workflow.',
-        commitSha: String(handoffOutput.commit_sha || ''),
-        pullRequestUrl: String(handoffOutput.pull_request_url || ''),
-        blockers: String(handoffOutput.blockers || ''),
-      }
-    : null;
+  const handoffOutput = (handoffStep?.output || {}) as Record<string, any>;
+  let structuredPayload: any = null;
+  if (isFastTrack && (implementStep?.output || evidenceStep?.output)) {
+    const modifiedFiles = implementOutput.modified_files || evidenceOutput.modified_files || evidenceOutput.changed_files || [];
+    const changedFilesStr = Array.isArray(modifiedFiles) ? modifiedFiles.join('\n') : String(modifiedFiles || '');
+    const passCount = Number(evidenceOutput.test_pass_count ?? 0);
+    const failCount = Number(evidenceOutput.test_fail_count ?? 0);
+    const evidenceStatus = evidenceOutput.status === 'failed' || failCount > 0 ? 'skipped' as const : 'passed' as const;
+    const testDesc = Array.isArray(evidenceOutput.tests)
+      ? evidenceOutput.tests.join(', ')
+      : (evidenceOutput.tests || `${passCount} tests passed, ${failCount} failed`);
+    structuredPayload = {
+      summary: String(evidenceOutput.summary || implementOutput.change_summary || `CAO fast-track workflow completed: ${selectedTask.value.title}`),
+      changedFiles: changedFilesStr,
+      tests: String(testDesc),
+      testStatus: evidenceStatus,
+      testSummary: String(evidenceOutput.test_summary || `Fast-track test evidence verified (${passCount} passed, ${failCount} failed).`),
+      commitSha: String(evidenceOutput.commit_sha || implementOutput.commit_sha || ''),
+      pullRequestUrl: String(evidenceOutput.pull_request_url || ''),
+      blockers: String(evidenceOutput.blockers || ''),
+    };
+  } else if (handoffStep?.output) {
+    structuredPayload = {
+      summary: String(handoffOutput.summary || `CAO workflow completed: ${selectedTask.value.title}`),
+      changedFiles: Array.isArray(handoffOutput.changed_files) ? handoffOutput.changed_files.join('\n') : String(handoffOutput.changed_files || ''),
+      tests: Array.isArray(handoffOutput.tests) ? JSON.stringify(handoffOutput.tests) : String(handoffOutput.tests || evidenceOutput.tests || 'CAO workflow evidence'),
+      testStatus: evidenceOutput.status === 'failed' ? 'skipped' as const : 'passed' as const,
+      testSummary: 'Evidence was produced by the strict CAO workflow.',
+      commitSha: String(handoffOutput.commit_sha || ''),
+      pullRequestUrl: String(handoffOutput.pull_request_url || ''),
+      blockers: String(handoffOutput.blockers || ''),
+    };
+  }
   const payload = structuredPayload || buildAutoHandoffPayload({
     output: output.value.slice(runOutputStart.value),
     taskTitle: selectedTask.value.title,
@@ -1403,6 +1444,7 @@ const finalizeWorkflowRun = async () => {
 const launchStrictWorkflow = async () => {
   const rootTask = selectedTask.value;
   if (!rootTask || !['task', 'story', 'bug', 'epic'].includes(rootTask.issue_type || 'task')) throw new Error('Select a runnable task or Epic first.');
+  const pipelineVariant = resolveTaskPipelineVariant(rootTask as any);
   startOperation('workflow-run', 'Đang chuẩn bị Strict Workflow', 'Validate dependency graph và tạo workflow spec…');
   const prepared = await prepareWorktree(rootTask.issue_key || `task-${rootTask.id}`);
   worktree.value = prepared.result.path;
@@ -1422,11 +1464,30 @@ const launchStrictWorkflow = async () => {
     }
     inputs.epic_title = rootTask.title;
     steps = initialWorkflowSteps(kind, rootTask, generated.order.ordered as any);
-  } else {
-    yaml = generateCaoStandardWorkflowYaml({ taskKey: rootTask.issue_key || `#${rootTask.id}`, taskTitle: rootTask.title, taskDescription: rootTask.description || '', implementProvider: provider.value, reviewProvider: provider.value, evidenceProvider: provider.value, handoffProvider: provider.value });
+  } else if (pipelineVariant === 'fast-track') {
+    yaml = generateCaoFastTrackWorkflowYaml({
+      taskKey: rootTask.issue_key || `#${rootTask.id}`,
+      taskTitle: rootTask.title,
+      taskDescription: rootTask.description || '',
+      implementProvider: provider.value,
+      evidenceProvider: provider.value,
+    });
     inputs.task_title = rootTask.title;
     inputs.task_description = rootTask.description || rootTask.title;
-    steps = initialWorkflowSteps(kind, rootTask);
+    steps = initialWorkflowSteps(kind, rootTask, [], 'fast-track');
+  } else {
+    yaml = generateCaoStandardWorkflowYaml({
+      taskKey: rootTask.issue_key || `#${rootTask.id}`,
+      taskTitle: rootTask.title,
+      taskDescription: rootTask.description || '',
+      implementProvider: provider.value,
+      reviewProvider: provider.value,
+      evidenceProvider: provider.value,
+      handoffProvider: provider.value,
+    });
+    inputs.task_title = rootTask.title;
+    inputs.task_description = rootTask.description || rootTask.title;
+    steps = initialWorkflowSteps(kind, rootTask, [], 'strict');
   }
   let context: any = contextPackCache.get(rootTask.id)?.data;
   if (!context) {
@@ -1442,13 +1503,13 @@ const launchStrictWorkflow = async () => {
     run_type: 'workflow',
     context: plainContext,
     instruction: { execution_policy: executionPolicy.value, approval_mode: executionPolicy.value === 'full_access' ? 'bypass' : 'request_human_approval' },
-    metadata: { workflow: { kind, mode: 'workflow', workflow_name: kind === 'epic' ? `epic-${rootTask.id}-pipeline` : `task-${rootTask.id}-pipeline`, task_ids: kind === 'epic' ? steps.filter((step) => step.taskId && step.taskId !== rootTask.id).map((step) => step.taskId) : [rootTask.id], state: 'validating' } },
+    metadata: { workflow: { kind, mode: 'workflow', pipeline_variant: pipelineVariant, workflow_name: kind === 'epic' ? `epic-${rootTask.id}-pipeline` : `task-${rootTask.id}-pipeline`, task_ids: kind === 'epic' ? steps.filter((step) => step.taskId && step.taskId !== rootTask.id).map((step) => step.taskId) : [rootTask.id], state: 'validating' } },
   }).catch(() => ({ id: Date.now() }));
   const parentRunId = Number(started?.data?.id || started?.id || 0) || Date.now();
   runId.value = parentRunId;
   implementationRunId.value = parentRunId;
   workflowKind.value = kind;
-  workflowStatus.value = { runId: '', state: 'validating', kind, parentRunId, workflowName: kind === 'epic' ? `epic-${rootTask.id}-pipeline` : `task-${rootTask.id}-pipeline`, totalSteps: steps.length, completedSteps: [], steps };
+  workflowStatus.value = { runId: '', state: 'validating', kind, pipelineVariant, parentRunId, workflowName: kind === 'epic' ? `epic-${rootTask.id}-pipeline` : `task-${rootTask.id}-pipeline`, totalSteps: steps.length, completedSteps: [], steps };
   workflowFinalized.value = false;
   output.value = '';
   error.value = '';
@@ -1461,13 +1522,14 @@ const launchStrictWorkflow = async () => {
     kind,
     parentRunId,
     workflowName: kind === 'epic' ? `epic-${rootTask.id}-pipeline` : `task-${rootTask.id}-pipeline`,
+    pipelineVariant,
     steps,
   });
   if (!result?.ok) throw new Error(result?.error || 'CAO workflow could not start.');
   workflowStatus.value.runId = result.runId;
   workflowStatus.value.workflowName = result.workflowName || workflowStatus.value.workflowName;
-  await updateRunFor(parentRunId, 'running', `CAO strict ${kind} workflow started.`, { workflow: { kind, mode: 'workflow', cao_run_id: result.runId, step_count: steps.length, state: 'running' } });
-  finishOperation('workflow-run', 'success', 'Strict Workflow đã khởi chạy', `CAO run ${result.runId} đang thực thi theo step cố định.`);
+  await updateRunFor(parentRunId, 'running', `CAO ${pipelineVariant || 'strict'} ${kind} workflow started.`, { workflow: { kind, mode: 'workflow', cao_run_id: result.runId, step_count: steps.length, pipeline_variant: pipelineVariant, state: 'running' } });
+  finishOperation('workflow-run', 'success', `${pipelineVariant === 'fast-track' ? 'Fast-Track' : 'Strict'} Workflow đã khởi chạy`, `CAO run ${result.runId} đang thực thi theo step.`);
 };
 
 const resumeWorkflowRun = async () => {
@@ -3618,6 +3680,7 @@ onUnmounted(() => {
           v-if="workflowStatus"
           :status="workflowStatus"
           :kind="workflowKind"
+          :pipeline-variant="workflowStatus?.pipelineVariant"
           :epic-title="workflowKind === 'epic' ? selectedTask?.title : undefined"
           @resume="resumeWorkflowRun"
           @retry="retryWorkflowStep"
@@ -3625,6 +3688,13 @@ onUnmounted(() => {
         />
         <RunWorkspace
           v-model:provider="provider"
+          :workflow-status="workflowStatus"
+          :workflow-kind="workflowKind"
+          :pipeline-variant="workflowStatus?.pipelineVariant"
+          :epic-title="workflowKind === 'epic' ? selectedTask?.title : undefined"
+          @resume="resumeWorkflowRun"
+          @retry="retryWorkflowStep"
+          @select-sub-task="handleSelectSubTask"
           v-model:model="selectedModel"
           v-model:execution-policy="executionPolicy"
           :task="selectedTask"

@@ -4,6 +4,7 @@ import type { TaskItem } from "../../composables/useTaskSync";
 import DangerousCommandBanner from "../DangerousCommandBanner.vue";
 import type { SafetyInterceptEvent } from "../../utils/safetyGuardrails";
 import FlowStepper from "./FlowStepper.vue";
+import TaskProgressHero from "./TaskProgressHero.vue";
 import ConversationThread from "./ConversationThread.vue";
 import StreamCardsView from "./StreamCardsView.vue";
 import ExecutionTimeline from "./ExecutionTimeline.vue";
@@ -92,6 +93,10 @@ export interface RunWorkspaceProps {
   epicBlockedReason?: string;
   streamEvents?: ExecutionStreamEvent[];
   epicTaskGroups?: Array<{ id?: number; taskKey?: string; title: string; dependencies?: string[]; steps: any[]; status?: string }>;
+  workflowStatus?: any;
+  workflowKind?: any;
+  pipelineVariant?: any;
+  epicTitle?: string;
   workers?: Array<{ sessionId?: string; id?: string; name?: string; provider?: string; role?: string; status?: string; stepInfo?: string }>;
 }
 
@@ -126,6 +131,10 @@ const emit = defineEmits<{
   "skip-epic-task": [];
   skipReviewAndContinueEpic: [];
   "skip-review-and-continue-epic": [];
+  resume: [];
+  retry: [stepId?: string];
+  selectSubTask: [taskId: number | string];
+  "select-sub-task": [taskId: number | string];
 }>();
 
 const followUp = ref("");
@@ -141,7 +150,13 @@ const blockers = ref("");
 const activeSubTab = ref<"execution" | "conversation" | "debug">("execution");
 const humanReviewFeedback = ref("");
 const increasedReviewLimit = ref(3);
+const isChatDockCollapsed = ref(false);
 const showRunContext = ref(false);
+
+const handleSelectSubTask = (taskId: number | string) => {
+  emit('selectSubTask', taskId);
+  emit('select-sub-task', taskId);
+};
 const selectedStreamEvent = ref<ExecutionStreamEvent | null>(null);
 const selectedWorkerId = ref<string | null>(null);
 
@@ -1127,7 +1142,32 @@ const submit = () => {
     </div>
 
     <!-- Main Workspace Content / Compact stream display -->
-    <main class="cc-run-content min-h-0 flex-1 overflow-y-auto">
+    <main class="cc-run-content min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+      <!-- Task Progress Hero: Prioritized visual progress when running or executing -->
+      <TaskProgressHero
+        v-if="running || runStatus === 'running' || isEpicContext || workflowCurrentStep || (task && ['in_progress', 'running'].includes(task.status))"
+        :task="task"
+        :tasks="tasks"
+        :running="running"
+        :run-status="runStatus"
+        :workflow-status="workflowStatus"
+        :workflow-kind="workflowKind"
+        :pipeline-variant="pipelineVariant"
+        :epic-title="epicTitle || (isEpicContext ? task?.title : undefined)"
+        :epic-completed-count="epicCompletedCount"
+        :epic-child-count="epicChildCount"
+        :epic-task-groups="epicTaskGroups"
+        :agent-role="agentRole"
+        :provider="provider"
+        :model="model"
+        :token-usage="tokenUsage"
+        :phase="phase"
+        :error="error"
+        @cancel="$emit('cancel')"
+        @resume="$emit('resume')"
+        @retry="$emit('retry', $event)"
+        @select-sub-task="handleSelectSubTask"
+      />
       <!-- Compact execution context: collapses automatically once text starts streaming. -->
       <section
         class="cc-run-surface"
@@ -1506,10 +1546,51 @@ const submit = () => {
     <footer
       class="border-t border-[#141b2d] bg-[#070b14] px-5 py-3 space-y-2.5"
     >
-      <!-- Rich Input Box (Large rounded-2xl container) -->
+      <!-- Collapsed State Bar -->
       <div
+        v-if="isChatDockCollapsed"
+        class="flex items-center justify-between rounded-xl border border-[#141b2d] bg-[#0c1220] px-4 py-2 text-xs text-zinc-400 shadow-md"
+      >
+        <div class="flex items-center gap-2.5">
+          <span
+            class="h-2 w-2 rounded-full shrink-0"
+            :class="running ? 'cc-dot--active animate-ping' : 'cc-dot--muted'"
+          ></span>
+          <span class="font-mono text-[11px] text-zinc-300">
+            {{ running ? 'Đang thực thi tác vụ… Nhấn để mở rộng Chat & Chỉ thị' : 'Khung Chat & Chỉ thị đang thu gọn' }}
+          </span>
+        </div>
+        <button
+          type="button"
+          class="cc-button text-[11px] py-1 px-3 flex items-center gap-1.5 hover:text-white"
+          @click="isChatDockCollapsed = false"
+        >
+          <i class="codicon codicon-chevron-up text-xs"></i>
+          <span>Mở rộng Chat</span>
+        </button>
+      </div>
+
+      <!-- Expanded Rich Input Box (Large rounded-2xl container) -->
+      <div
+        v-else
         class="rounded-2xl border border-[#141b2d] bg-[#0c1220] p-3 shadow-lg focus-within:border-[#00f5a0]/80 focus-within:ring-1 focus-within:ring-[#00f5a0]/40 transition-all"
       >
+        <div class="flex items-center justify-between mb-1.5 pb-1 border-b border-white/5 text-[11px] text-zinc-400">
+          <span class="font-mono font-semibold text-zinc-300 flex items-center gap-1.5">
+            <i class="codicon codicon-terminal text-[#00f5a0]"></i>
+            Chỉ thị & Chat tương tác
+          </span>
+          <button
+            type="button"
+            class="hover:text-zinc-200 flex items-center gap-1 text-[10px] font-mono text-zinc-500 transition cursor-pointer"
+            title="Thu gọn khung chat để ưu tiên không gian cho tiến độ"
+            @click="isChatDockCollapsed = true"
+          >
+            <i class="codicon codicon-chevron-down text-xs"></i>
+            <span>Thu gọn khung chat để ưu tiên không gian cho tiến độ</span>
+          </button>
+        </div>
+
         <textarea
           v-model="followUp"
           rows="2"

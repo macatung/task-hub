@@ -2355,7 +2355,32 @@ async function isCaoProviderAvailable(provider: AgentRuntimeProvider, runtime?: 
   return Boolean(local);
 }
 
+function httpGetCaoDaemon<T = any>(pathname: string, timeoutMs = 3000): Promise<{ ok: boolean; status: number; data?: T; error?: string }> {
+  const port = caoServerPort();
+  return new Promise((resolve) => {
+    const req = http.get(`http://127.0.0.1:${port}${pathname}`, { timeout: timeoutMs }, (res) => {
+      let body = '';
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => {
+        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            resolve({ ok: true, status: res.statusCode, data: JSON.parse(body) });
+          } catch {
+            resolve({ ok: false, status: res.statusCode, error: 'Invalid JSON response from CAO daemon' });
+          }
+        } else {
+          resolve({ ok: false, status: res.statusCode || 500, error: `HTTP ${res.statusCode}: ${body.slice(0, 500)}` });
+        }
+      });
+    });
+    req.on('error', (err) => resolve({ ok: false, status: 0, error: err.message }));
+    req.on('timeout', () => { req.destroy(); resolve({ ok: false, status: 408, error: 'CAO daemon HTTP timeout' }); });
+  });
+}
+
 async function probeCaoSessionApi(cwd: string): Promise<boolean> {
+  const direct = await httpGetCaoDaemon('/sessions', 2500);
+  if (direct.ok) return true;
   const result = await runCaoCommand(['session', 'list', '--json'], cwd, 8_000);
   return result.ok;
 }
@@ -2861,7 +2886,57 @@ async function startCaoWorkflowProcess(run: CaoWorkflowProcess, action: 'run' | 
         try { run.child?.kill(); } catch { /* ignore */ }
         persistWorkflowRun(run, { runId: run.runId, state: 'failed', completedSteps: [], error });
         safeSend(win, 'cao-workflow-event', { type: 'workflow.step.failed', runId: run.runId, error, timestamp: new Date().toISOString() });
+        return;
       }
+
+      // Event-driven real-time step and status tracking without subprocess polling
+      const previous = run.lastStatus || { runId: run.runId, state: run.state || 'running', completedSteps: [] };
+      const currentParsed = parseCaoWorkflowRuntimeStatus(run.output, run.runId);
+      const stepChanged = currentParsed.currentStep && currentParsed.currentStep !== previous.currentStep;
+      const previousCompleted = new Set(previous.completedSteps || []);
+      const newCompleted = currentParsed.completedSteps.filter((stepId) => !previousCompleted.has(stepId));
+
+      if (newCompleted.length) {
+        for (const stepId of newCompleted) {
+          safeSend(win, 'cao-workflow-event', {
+            type: 'workflow.step.completed',
+            runId: run.runId,
+            stepId,
+            status: currentParsed,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+
+      if (stepChanged) {
+        safeSend(win, 'cao-workflow-event', {
+          type: 'workflow.step.started',
+          runId: run.runId,
+          stepId: currentParsed.currentStep,
+          status: currentParsed,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const rejectedReview = currentParsed.steps?.find((step) => /-review$/.test(String(step.id)) && String(step.output?.verdict || '').toUpperCase() === 'REJECTED');
+      if (rejectedReview && ['running', 'completed'].includes(currentParsed.state)) {
+        currentParsed.state = 'waiting_input';
+        currentParsed.currentStep = rejectedReview.id;
+        currentParsed.error = `Review rejected at ${rejectedReview.id}; workflow is waiting for feedback before evidence or handoff.`;
+        run.state = 'waiting_input';
+        try { run.child?.kill(); } catch { /* ignore */ }
+        safeSend(win, 'cao-workflow-event', {
+          type: 'workflow.waiting_input',
+          runId: run.runId,
+          stepId: currentParsed.currentStep,
+          status: currentParsed,
+          error: currentParsed.error,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      run.lastStatus = currentParsed;
+      persistWorkflowRun(run, currentParsed);
     };
     child.stdout?.on('data', append);
     child.stderr?.on('data', append);
@@ -2879,7 +2954,23 @@ async function startCaoWorkflowProcess(run: CaoWorkflowProcess, action: 'run' | 
         failCaoWorkflow(run, error);
         return;
       }
-      void pollCaoWorkflow(run.runId);
+      if (code === 0 && run.state !== 'waiting_input') {
+        const finalStatus = parseCaoWorkflowRuntimeStatus(run.output, run.runId);
+        finalStatus.state = 'completed';
+        run.state = 'completed';
+        run.lastStatus = finalStatus;
+        persistWorkflowRun(run, finalStatus);
+        safeSend(win, 'cao-workflow-event', {
+          type: 'workflow.completed',
+          runId: run.runId,
+          stepId: finalStatus.currentStep,
+          status: finalStatus,
+          timestamp: new Date().toISOString(),
+        });
+        if (run.poller) clearInterval(run.poller);
+        caoWorkflowProcesses.delete(run.runId);
+        void removeRuntimeWorkflowSpec(run);
+      }
     });
     return { ok: true, runtimeSpecPath: runtimeSpec };
   } catch (error: any) {
@@ -2890,6 +2981,10 @@ async function startCaoWorkflowProcess(run: CaoWorkflowProcess, action: 'run' | 
 async function pollCaoWorkflow(runId: string, processError?: string): Promise<CaoWorkflowRuntimeStatus | null> {
   const run = caoWorkflowProcesses.get(runId);
   if (!run) return null;
+  // If process is actively streaming, return the live in-memory status instantly with zero subprocess spawning
+  if (run.child && !run.childExited) {
+    return run.lastStatus || parseCaoWorkflowRuntimeStatus(run.output, runId);
+  }
   const result = await runCaoCommand(['workflow', 'status', runId], run.cwd, 15_000);
   if (!result.ok && run.childExited && !['failed', 'cancelled', 'waiting_input'].includes(run.state)) {
     const detail = (result.error || result.output || '').trim();
@@ -3101,41 +3196,67 @@ function parseCaoSessionStatus(raw: string): CaoSessionStatus {
   return { state, output: outputs.filter(Boolean).join('\n\n'), workers };
 }
 
+async function queryCaoSessionStatusDirect(sessionName: string): Promise<CaoSessionStatus | null> {
+  try {
+    const terminalsRes = await httpGetCaoDaemon<Array<{ id: string; name?: string; role?: string; status?: string; agent_profile?: string; provider?: string }>>(
+      `/sessions/${encodeURIComponent(sessionName)}/terminals`,
+      3000
+    );
+    if (!terminalsRes.ok || !Array.isArray(terminalsRes.data) || !terminalsRes.data.length) {
+      return null;
+    }
+    const allTerminals = terminalsRes.data;
+    const conductor = allTerminals[0];
+    let lastOutput = '';
+    if (conductor?.id) {
+      const outRes = await httpGetCaoDaemon<{ output?: string }>(`/terminals/${encodeURIComponent(conductor.id)}/output?mode=last`, 2000);
+      if (outRes.ok && outRes.data && typeof outRes.data.output === 'string') {
+        lastOutput = outRes.data.output;
+      }
+    }
+    const rawStatus = {
+      session: sessionName,
+      conductor: {
+        id: conductor?.id,
+        agent_profile: conductor?.agent_profile,
+        provider: conductor?.provider,
+        status: conductor?.status || 'running',
+        last_output: lastOutput,
+      },
+      workers: allTerminals.slice(1).map((t) => ({
+        id: t.id,
+        name: t.name || t.agent_profile,
+        role: t.role,
+        status: t.status,
+        state: t.status,
+      })),
+    };
+    return parseCaoSessionStatus(JSON.stringify(rawStatus));
+  } catch {
+    return null;
+  }
+}
+
 function pollCaoSession(sessionId: string) {
   const session = agentProcesses.get(sessionId);
   if (!session?.caoSessionName) return stopCaoSessionPoller(sessionId);
+  const caoSessionName = session.caoSessionName;
   const now = Date.now();
   if (session.caoNextPollAt && now < session.caoNextPollAt) return;
-  void runCaoCommand(['session', 'status', session.caoSessionName, '--workers', '--json'], session.cwd, 10_000).then((result) => {
+
+  const handleStatus = (status: CaoSessionStatus) => {
     const current = agentProcesses.get(sessionId);
     if (!current) return;
-    if (!result.ok) {
-      current.caoPollFailures = (current.caoPollFailures || 0) + 1;
-      current.caoNextPollAt = Date.now() + Math.min(30_000, 1_500 * current.caoPollFailures);
-      const missing = /(?:not found|no active session|unknown session|does not exist)/i.test(`${result.error || ''}\n${result.output || ''}`);
-      if (missing) {
-        current.caoState = 'stale';
-        stopCaoSessionPoller(sessionId);
-        persistSessionUpdate({ sessionId, status: 'stale', caoState: 'stale', output: current.output, caoSessionName: current.caoSessionName });
-        safeSend(win, 'agent-output', { sessionId, stream: 'event', text: '', event: { type: 'cao.session.stale', session: current.caoSessionName, error: result.error || 'Session no longer exists.' } });
-        agentProcesses.delete(sessionId);
-        return;
-      }
-      persistSessionUpdate({ sessionId, status: 'running', caoState: current.caoState || 'running', caoPollFailures: current.caoPollFailures });
-      safeSend(win, 'agent-output', { sessionId, stream: 'event', text: '', event: { type: 'cao.session.reconnecting', session: current.caoSessionName, attempt: current.caoPollFailures, error: result.error || 'Temporary CAO status timeout.' } });
-      return;
-    }
     current.caoPollFailures = 0;
     current.caoNextPollAt = undefined;
-    const status = parseCaoSessionStatus(result.output);
-    const now = Date.now();
+    const currentTime = Date.now();
     if (!isCaoTerminalState(status.state)) current.caoState = 'running';
 
     if (status.output && status.output !== current.caoLastOutput) {
       const previous = current.caoLastOutput || '';
       const delta = previous && status.output.startsWith(previous) ? status.output.slice(previous.length).trim() : status.output;
       current.caoLastOutput = status.output;
-      current.lastOutputChangeTime = now;
+      current.lastOutputChangeTime = currentTime;
       if (delta) {
         current.output = `${current.output}\n${delta}`.slice(-250000);
         appendWorkspaceAgentLog(current.cwd, sessionId, 'cao_output', delta);
@@ -3167,7 +3288,7 @@ function pollCaoSession(sessionId: string) {
     const hasReplIdlePrompt = />\s*(Ask Codex|Ask Claude|openai-codex)/i.test(cleanOutput.slice(-300)) || /gpt-[\w.-]+\s+default\s+-/i.test(cleanOutput.slice(-200));
     const isTerminalState = isCaoTerminalState(status.state);
     const isCaoSession = current.route === 'cao';
-    const silentDurationMs = now - (current.lastOutputChangeTime || now);
+    const silentDurationMs = currentTime - (current.lastOutputChangeTime || currentTime);
 
     const isTurnCompleted = isTerminalState ||
       (hasReviewVerdict && silentDurationMs > 3_000) ||
@@ -3206,10 +3327,9 @@ function pollCaoSession(sessionId: string) {
     }
 
     // Layer 3: Watchdog Ping if silent for >60 seconds without completing
-    // Layer 3: Watchdog Ping if silent for >60 seconds without completing
     if (silentDurationMs > 60_000 && (current.idlePingsCount || 0) < 3 && cleanOutput.length > 100) {
       current.idlePingsCount = (current.idlePingsCount || 0) + 1;
-      current.lastOutputChangeTime = now;
+      current.lastOutputChangeTime = currentTime;
       appendWorkspaceAgentLog(current.cwd, sessionId, 'cao_watchdog_ping', { pingCount: current.idlePingsCount });
       void runCaoCommand([
         'session', 'send', caoTargetSession,
@@ -3223,7 +3343,39 @@ function pollCaoSession(sessionId: string) {
         event: { type: 'cao.watchdog.ping', ping: current.idlePingsCount }
       });
     }
-  });
+  };
+
+  void (async () => {
+    // 1. Direct HTTP Daemon status query first (<2ms, 0 subprocesses)
+    const directStatus = await queryCaoSessionStatusDirect(caoSessionName);
+    if (directStatus) {
+      handleStatus(directStatus);
+      return;
+    }
+
+    // 2. Fallback to CLI command if direct daemon HTTP is unavailable
+    const result = await runCaoCommand(['session', 'status', caoSessionName || session.caoSessionName || '', '--workers', '--json'], session.cwd, 10_000);
+    const current = agentProcesses.get(sessionId);
+    if (!current) return;
+    if (!result.ok) {
+      current.caoPollFailures = (current.caoPollFailures || 0) + 1;
+      current.caoNextPollAt = Date.now() + Math.min(30_000, 1_500 * current.caoPollFailures);
+      const missing = /(?:not found|no active session|unknown session|does not exist)/i.test(`${result.error || ''}\n${result.output || ''}`);
+      if (missing) {
+        current.caoState = 'stale';
+        stopCaoSessionPoller(sessionId);
+        persistSessionUpdate({ sessionId, status: 'stale', caoState: 'stale', output: current.output, caoSessionName: current.caoSessionName });
+        safeSend(win, 'agent-output', { sessionId, stream: 'event', text: '', event: { type: 'cao.session.stale', session: current.caoSessionName, error: result.error || 'Session no longer exists.' } });
+        agentProcesses.delete(sessionId);
+        return;
+      }
+      persistSessionUpdate({ sessionId, status: 'running', caoState: current.caoState || 'running', caoPollFailures: current.caoPollFailures });
+      safeSend(win, 'agent-output', { sessionId, stream: 'event', text: '', event: { type: 'cao.session.reconnecting', session: current.caoSessionName, attempt: current.caoPollFailures, error: result.error || 'Temporary CAO status timeout.' } });
+      return;
+    }
+    const status = parseCaoSessionStatus(result.output);
+    handleStatus(status);
+  })();
 }
 
 async function waitForCaoSession(sessionName: string, cwd: string): Promise<CaoCommandResult | null> {
@@ -3414,11 +3566,20 @@ async function rehydrateCaoSessions() {
   // The live session registry is the source of truth. A valid empty array is
   // intentionally different from a failed list command: only the former is
   // safe to use for stale-session cleanup.
-  const liveResult = await runCaoCommand(['session', 'list', '--json'], process.cwd(), 10_000);
-  const liveNames = liveResult.ok ? parseCaoSessionNames(liveResult.output) : null;
+  let liveNames: Set<string> | null = null;
+  let liveError: string | undefined;
+  const directSessions = await httpGetCaoDaemon<any>('/sessions', 2500);
+  if (directSessions.ok && directSessions.data) {
+    liveNames = parseCaoSessionNames(JSON.stringify(directSessions.data));
+  }
+  if (!liveNames) {
+    const liveResult = await runCaoCommand(['session', 'list', '--json'], process.cwd(), 10_000);
+    liveNames = liveResult.ok ? parseCaoSessionNames(liveResult.output) : null;
+    liveError = liveResult.error;
+  }
   if (liveNames) {
-    const liveCandidates = savedCandidates.filter((session) => liveNames.has(session.caoSessionName || session.sessionId));
-    for (const stale of savedCandidates.filter((session) => !liveNames.has(session.caoSessionName || session.sessionId))) {
+    const liveCandidates = savedCandidates.filter((session) => liveNames!.has(session.caoSessionName || session.sessionId));
+    for (const stale of savedCandidates.filter((session) => !liveNames!.has(session.caoSessionName || session.sessionId))) {
       persistSessionUpdate({
         sessionId: stale.sessionId,
         status: 'stale',
@@ -3442,7 +3603,7 @@ async function rehydrateCaoSessions() {
   }
 
   appendWorkspaceAgentLog(process.cwd(), 'cao-runtime', 'cao_session_registry_unavailable', {
-    error: liveResult.error || 'Could not parse cao session list; preserving saved sessions for a later reconnect.',
+    error: liveError || 'Could not parse cao session list; preserving saved sessions for a later reconnect.',
   });
   const candidates = savedCandidates;
   for (const saved of candidates.slice(0, 12)) {
@@ -3835,8 +3996,7 @@ function createWindow() {
       return { ok: false, state: 'failed', errorCode: 'workflow_start_failed', canonicalSpecPath: specPath, runtimeSpecPath, workflowName, error: run.lastStatus?.error || run.output.trim().slice(-2000) || 'CAO workflow failed during startup.' };
     }
     run.state = 'running';
-    run.poller = setInterval(() => { void pollCaoWorkflow(workflowRunId); }, 3_000);
-    void pollCaoWorkflow(workflowRunId);
+    // Zero-redundant polling: stdout events drive workflow state changes while run.child is active.
     persistWorkflowRun(run, { runId: workflowRunId, state: 'running', completedSteps: [] });
     safeSend(win, 'cao-workflow-event', { type: 'workflow.started', runId: workflowRunId, timestamp: new Date().toISOString() });
     return { ok: true, runId: workflowRunId, state: 'running', specPath, canonicalSpecPath: specPath, runtimeSpecPath, workflowName };
@@ -3870,8 +4030,7 @@ function createWindow() {
       return { ok: false, state: 'failed', errorCode: 'workflow_resume_failed', error: run.lastStatus?.error || run.output.trim().slice(-2000) || 'CAO workflow failed during resume.' };
     }
     run.state = 'running';
-    run.poller = setInterval(() => { void pollCaoWorkflow(runId); }, 3_000);
-    void pollCaoWorkflow(runId);
+    // Zero-redundant polling: stdout events drive workflow state changes while run.child is active.
     safeSend(win, 'cao-workflow-event', { type: 'workflow.started', runId, timestamp: new Date().toISOString() });
     return { ok: true, runId, state: 'running' };
   });

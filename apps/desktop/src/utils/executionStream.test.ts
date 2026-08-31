@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eventMatchesFilter, mergeExecutionEvents, normalizeExecutionEvent } from './executionStream';
+import { eventMatchesFilter, groupExecutionStreamEvents, mergeExecutionEvents, normalizeExecutionEvent } from './executionStream';
 
 describe('normalized execution stream', () => {
   it('normalizes workflow, actor and task metadata', () => {

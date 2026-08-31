@@ -50,7 +50,7 @@ export interface CaoEpicOrchestrationOptions {
   policy?: string;
 }
 
-export type CaoProvider = 'antigravity' | 'codex' | 'claude_code';
+export type CaoProvider = 'antigravity' | 'codex' | 'claude_code' | 'ollama' | 'vllm';
 
 export function resolveCaoProviderModel(provider: CaoProvider | string, requestedModel?: string): string {
   if (requestedModel && requestedModel !== 'default') {
@@ -58,6 +58,8 @@ export function resolveCaoProviderModel(provider: CaoProvider | string, requeste
   }
   if (provider === 'antigravity') return 'gemini-3.7-flash';
   if (provider === 'claude_code') return 'claude-3-7-sonnet';
+  if (provider === 'ollama') return 'qwen2.5-coder:32b';
+  if (provider === 'vllm') return 'deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct';
   return 'gpt-5';
 }
 
@@ -68,12 +70,31 @@ export function getCaoProviderCapabilities(provider: CaoProvider | string): stri
   if (provider === 'codex') {
     return ['interactive', 'stream', 'resume', 'handoff', 'assign', 'cao_supervisor', 'sandbox_isolation'];
   }
+  if (provider === 'ollama') {
+    return ['interactive', 'stream', 'resume', 'handoff', 'assign', 'local_execution', 'offline_mode'];
+  }
+  if (provider === 'vllm') {
+    return ['interactive', 'stream', 'resume', 'handoff', 'assign', 'local_execution', 'high_throughput'];
+  }
   return ['interactive', 'stream', 'resume', 'handoff', 'assign', 'cao_supervisor'];
 }
 
 export type CaoOrchestrationStrategy = 'workflow' | 'supervisor';
 
 export type OrchestrationMode = CaoOrchestrationStrategy;
+export type TaskPipelineVariant = 'fast-track' | 'strict';
+
+export interface TaskPipelineVariantOptions {
+  risk_level?: string | null;
+  risk_tier?: string | null;
+  complexity?: string | null;
+  issue_type?: string | null;
+  labels?: string[] | null;
+  tags?: string[] | null;
+  title?: string | null;
+  description?: string | null;
+}
+
 export type WorkflowKind = 'task' | 'epic';
 export type WorkflowRunState =
   | 'validating'
@@ -110,6 +131,7 @@ export interface CaoWorkflowRunStatus {
   runId: string;
   state: WorkflowRunState;
   kind?: WorkflowKind;
+  pipelineVariant?: TaskPipelineVariant;
   parentRunId?: number;
   workflowName?: string;
   currentStep?: string;
@@ -267,7 +289,81 @@ export function selectCaoOrchestrationStrategy(
   return 'workflow';
 }
 
-export function generateCaoStandardWorkflowYaml(options: {
+/**
+ * Resolves whether a task executes via the lean 2-step Fast-Track pipeline
+ * (`implement -> evidence`) or the full 4-step Strict pipeline (`implement -> review -> evidence -> handoff`).
+ */
+export function resolveTaskPipelineVariant(task?: TaskPipelineVariantOptions | null): TaskPipelineVariant {
+  if (!task) return 'strict';
+
+  const riskTier = String(task.risk_tier || '').trim().toLowerCase();
+  const riskLevel = String(task.risk_level || '').trim().toLowerCase();
+  const complexity = String(task.complexity || '').trim().toLowerCase();
+  const issueType = String(task.issue_type || '').trim().toLowerCase();
+  const rawLabels = [...(Array.isArray(task.labels) ? task.labels : []), ...(Array.isArray(task.tags) ? task.tags : [])];
+  const labels = rawLabels.map((l) => String(l || '').trim().toLowerCase()).filter(Boolean);
+  const title = String(task.title || '').toLowerCase();
+
+  // 1. Explicit risk_tier override takes highest precedence
+  if (['fast-track', 'fast_track'].includes(riskTier)) {
+    return 'fast-track';
+  }
+  if (['strict'].includes(riskTier)) {
+    return 'strict';
+  }
+
+  // 2. Strict labels / security / critical domains
+  const strictLabels = ['strict', 'security', 'core', 'core-backend', 'database', 'migration', 'auth', 'breaking-change', 'high-risk', 'critical'];
+  if (labels.some((l) => strictLabels.some((sl) => l === sl || l.startsWith(sl) || l.includes(sl)))) {
+    return 'strict';
+  }
+  if (['critical', 'high'].includes(riskTier) || ['critical', 'high', 'medium'].includes(riskLevel)) {
+    return 'strict';
+  }
+  if (issueType === 'epic') {
+    return 'strict';
+  }
+
+  // 3. Explicit low risk tier or level
+  const fastTrackTiers = ['low', 'minor', 'trivial'];
+  if (fastTrackTiers.includes(riskTier) || fastTrackTiers.includes(riskLevel)) {
+    return 'fast-track';
+  }
+
+  // 4. Fast-track labels
+  const fastTrackLabels = ['fast-track', 'fast_track', 'quick-fix', 'minor', 'trivial', 'low-risk', 'docs', 'documentation', 'style', 'styling', 'css', 'chore', 'refactor-minor'];
+  if (labels.some((l) => fastTrackLabels.some((fl) => l === fl || l.includes(fl)))) {
+    return 'fast-track';
+  }
+
+  // 5. Complexity cues
+  if (['high', 'complex', 'critical', 'l', 'xl'].includes(complexity)) {
+    return 'strict';
+  }
+  if (['low', 'trivial', 'simple', 'xs', 's'].includes(complexity)) {
+    return 'fast-track';
+  }
+
+  // 6. Issue type cues
+  if (['doc', 'docs', 'documentation', 'style', 'styling', 'chore', 'refactor', 'refactor-minor'].includes(issueType)) {
+    return 'fast-track';
+  }
+  if (['bug', 'feature', 'story'].includes(issueType)) {
+    return 'strict';
+  }
+
+  // 7. Title heuristic analysis for minor updates (when risk is undefined)
+  const isMinorTitle = /\b(?:typo|readme|update\s+docs|docstring|fix\s+style|formatting|css\s+fix|cleanup\s+comments)\b/i.test(title);
+  const isStrictTitle = /\b(?:auth|authentication|authorization|api|database|db|migration|security|crypto|payment|payments|billing|endpoint|endpoints|api\s+endpoints?|core\s+logic|breaking)\b/i.test(title);
+  if (isMinorTitle && !isStrictTitle) {
+    return 'fast-track';
+  }
+
+  // 8. Safe default fallback
+  return 'strict';
+}
+
+export interface CaoWorkflowOptions {
   taskKey?: string;
   taskTitle: string;
   taskDescription?: string;
@@ -275,15 +371,59 @@ export function generateCaoStandardWorkflowYaml(options: {
   reviewProvider?: string;
   evidenceProvider?: string;
   handoffProvider?: string;
-}): string {
+  implementModel?: string;
+  reviewModel?: string;
+  evidenceModel?: string;
+  handoffModel?: string;
+  providerEndpoints?: Record<string, string>;
+  contextPack?: any;
+  testInstruction?: string;
+  customSteps?: CaoWorkflowStep[];
+}
+
+export function formatCaoStepProviderLines(
+  provider: string,
+  options?: {
+    model?: string;
+    endpoint?: string;
+  }
+): string[] {
+  const lines = [`    provider: ${provider}`];
+  const isLocal = provider === 'ollama' || provider === 'vllm';
+  const model = options?.model || (isLocal ? resolveCaoProviderModel(provider as CaoProvider) : undefined);
+  const endpoint = options?.endpoint || (isLocal ? (provider === 'ollama' ? 'http://127.0.0.1:11434/v1' : 'http://127.0.0.1:8000/v1') : undefined);
+
+  if (model) {
+    lines.push(`    model: ${model}`);
+  }
+
+  if (endpoint || (isLocal && model)) {
+    lines.push('    env:');
+    if (endpoint) {
+      lines.push(`      OPENAI_BASE_URL: ${endpoint}`);
+    }
+    if (model) {
+      lines.push(`      MODEL: ${model}`);
+    }
+  }
+
+  return lines;
+}
+
+export function generateCaoStandardWorkflowYaml(options: CaoWorkflowOptions): string {
   const key = options.taskKey || 'task';
   const implProvider = options.implementProvider || 'antigravity';
   const revProvider = options.reviewProvider || 'codex';
   const evProvider = options.evidenceProvider || 'antigravity';
   const hoProvider = options.handoffProvider || 'antigravity';
 
+  const implLines = formatCaoStepProviderLines(implProvider, { model: options.implementModel, endpoint: options.providerEndpoints?.[implProvider] }).join('\n');
+  const revLines = formatCaoStepProviderLines(revProvider, { model: options.reviewModel, endpoint: options.providerEndpoints?.[revProvider] }).join('\n');
+  const evLines = formatCaoStepProviderLines(evProvider, { model: options.evidenceModel, endpoint: options.providerEndpoints?.[evProvider] }).join('\n');
+  const hoLines = formatCaoStepProviderLines(hoProvider, { model: options.handoffModel, endpoint: options.providerEndpoints?.[hoProvider] }).join('\n');
+
   return `name: task-${key}-pipeline
-description: "Strict Task Hub workflow (Implement -> Review -> Evidence -> Handoff) for ${options.taskTitle.replace(/"/g, '\\"')}"
+description: ${yamlScalar(`Strict Task Hub workflow (Implement -> Review -> Evidence -> Handoff) for ${options.taskTitle}`)}
 inputs:
   task_title:
     type: string
@@ -297,7 +437,7 @@ inputs:
 
 steps:
   - id: implement
-    provider: ${implProvider}
+${implLines}
     agent: developer
     prompt: |
       Implement the solution for task: {{workflow.inputs.task_title}}
@@ -322,7 +462,7 @@ steps:
           type: string
 
   - id: review
-    provider: ${revProvider}
+${revLines}
     agent: reviewer
     prompt: |
       Perform automated code review for: {{workflow.inputs.task_title}}
@@ -350,7 +490,7 @@ steps:
           type: number
 
   - id: evidence
-    provider: ${evProvider}
+${evLines}
     agent: developer
     prompt: |
       Execute test verification and capture evidence for: {{workflow.inputs.task_title}}
@@ -374,7 +514,7 @@ steps:
           type: string
 
   - id: handoff
-    provider: ${hoProvider}
+${hoLines}
     agent: reviewer
     prompt: |
       Synthesize the final handoff summary for Task Hub:
@@ -384,6 +524,119 @@ steps:
       Test Evidence: {{steps.evidence.output.test_pass_count}} passed, {{steps.evidence.output.test_fail_count}} failed.
       Output the structured marker <TASK_HUB_HANDOFF> with summary, changed files, and verified evidence.
       You MUST call the workflow_return MCP tool exactly once with one output argument whose value matches output_schema: workflow_return({"output": {...}}). A prose response alone is invalid; do not finish until the tool call succeeds.
+`;
+}
+
+export function generateCaoFastTrackWorkflowYaml(options: CaoWorkflowOptions): string {
+  const key = options.taskKey || 'task';
+  const implProvider = options.implementProvider || 'antigravity';
+  const evProvider = options.evidenceProvider || options.implementProvider || 'antigravity';
+  let contextPackText = '';
+  if (options.contextPack) {
+    if (typeof options.contextPack === 'string') {
+      const indented = options.contextPack
+        .split('\n')
+        .map((line, i) => (i === 0 ? line : `      ${line}`))
+        .join('\n');
+      contextPackText = `\n      Context pack: ${indented}`;
+    } else {
+      contextPackText = `\n      Context pack: ${JSON.stringify(options.contextPack)}`;
+    }
+  }
+  const testCmdInstruction = options.testInstruction
+    ? `Run test suite: ${options.testInstruction}. `
+    : 'Run workspace test commands (e.g. npm test, vitest, pytest, cargo test) and verify all pass. ';
+
+  const implLines = formatCaoStepProviderLines(implProvider, { model: options.implementModel, endpoint: options.providerEndpoints?.[implProvider] }).join('\n');
+  const evLines = formatCaoStepProviderLines(evProvider, { model: options.evidenceModel, endpoint: options.providerEndpoints?.[evProvider] }).join('\n');
+
+  return `name: task-${key}-pipeline
+description: ${yamlScalar(`Fast-Track Task Hub workflow (Implement -> Evidence & Handoff) for ${options.taskTitle}`)}
+inputs:
+  task_title:
+    type: string
+    required: true
+  task_description:
+    type: string
+    required: true
+  workspace_path:
+    type: path
+    required: true
+
+steps:
+  - id: implement
+${implLines}
+    agent: developer
+    prompt: |
+      Implement the solution for fast-track task: {{workflow.inputs.task_title}}
+      Task title (literal fallback for CAO retry): ${yamlScalar(options.taskTitle)}
+      Task details (literal fallback for CAO retry): ${yamlScalar(options.taskDescription || '')}
+      Details: {{workflow.inputs.task_description}}${contextPackText}
+      Workspace: {{workflow.inputs.workspace_path}}
+      First run \`cd -- "{{workflow.inputs.workspace_path}}"\` and verify the working directory. All edits and commands must stay there.
+      Apply required modifications to the workspace with clean code architecture and list all changed files.
+      You MUST call the workflow_return MCP tool exactly once with one output argument whose value matches output_schema: workflow_return({"output": {...}}). A prose response alone is invalid; do not finish until the tool call succeeds.
+    output_schema:
+      type: object
+      required:
+        - modified_files
+        - change_summary
+      properties:
+        modified_files:
+          type: array
+          items:
+            type: string
+        change_summary:
+          type: string
+
+  - id: evidence
+${evLines}
+    agent: developer
+    prompt: |
+      Execute test verification, capture evidence, and synthesize final handoff for fast-track task: {{workflow.inputs.task_title}}
+      Task title (literal fallback for CAO retry): ${yamlScalar(options.taskTitle)}
+      Implementation Summary: {{steps.implement.output.change_summary}}
+      Modified files: {{steps.implement.output.modified_files}}
+      Workspace: {{workflow.inputs.workspace_path}}
+      First run \`cd -- "{{workflow.inputs.workspace_path}}"\` and run all tests from that directory.
+      ${testCmdInstruction}Verify that all test suites pass with zero regressions.
+      Synthesize verification evidence and emit structured handoff markers:
+      <!-- HANDOFF:START -->
+      {
+        "summary": {{steps.implement.output.change_summary}},
+        "changed_files": {{steps.implement.output.modified_files}},
+        "tests": "automated test suite verification",
+        "test_pass_count": <number>,
+        "test_fail_count": <number>,
+        "status": "passed"
+      }
+      <!-- HANDOFF:END -->
+      Also output the structured marker <TASK_HUB_HANDOFF> with summary, changed files, and verified evidence.
+      Do not delegate. You MUST call the workflow_return MCP tool exactly once with one output argument whose value matches output_schema: workflow_return({"output": {...}}). A prose response alone is invalid; do not finish until the tool call succeeds.
+    output_schema:
+      type: object
+      required:
+        - test_pass_count
+        - test_fail_count
+        - status
+        - summary
+        - changed_files
+      properties:
+        test_pass_count:
+          type: number
+        test_fail_count:
+          type: number
+        status:
+          type: string
+          enum: [passed, failed, skipped]
+        summary:
+          type: string
+        changed_files:
+          type: array
+          items:
+            type: string
+        handoff_payload:
+          type: object
 `;
 }
 
@@ -401,12 +654,15 @@ function appendWorkflowStep(
     title: string;
     description?: string | null;
     provider: string;
+    model?: string;
+    endpoint?: string;
   },
 ) {
   const inputPrefix = `task_${step.taskId}`;
+  const stepProviderLines = formatCaoStepProviderLines(step.provider, { model: step.model, endpoint: step.endpoint });
   lines.push(
     `  - id: ${step.id}-implement`,
-    `    provider: ${step.provider}`,
+    ...stepProviderLines,
     '    agent: developer',
     '    prompt: |',
     `      Implement only ${step.taskKey}: {{workflow.inputs.${inputPrefix}_title}}`,
@@ -426,7 +682,7 @@ function appendWorkflowStep(
     '        change_summary: {type: string}',
     '',
     `  - id: ${step.id}-review`,
-    `    provider: ${step.provider}`,
+    ...stepProviderLines,
     '    agent: reviewer',
     '    prompt: |',
     `      Review ${step.taskKey} for correctness and security.`,
@@ -448,7 +704,7 @@ function appendWorkflowStep(
     '        risk_score: {type: number}',
     '',
     `  - id: ${step.id}-evidence`,
-    `    provider: ${step.provider}`,
+    ...stepProviderLines,
     '    agent: developer',
     '    prompt: |',
     `      Run the relevant tests for ${step.taskKey} in the isolated workspace.`,
@@ -467,7 +723,7 @@ function appendWorkflowStep(
     '        status: {type: string, enum: [passed, failed]}',
     '',
     `  - id: ${step.id}-handoff`,
-    `    provider: ${step.provider}`,
+    ...stepProviderLines,
     '    agent: reviewer',
     '    prompt: |',
     `      Prepare the strict Task Hub handoff for ${step.taskKey}.`,
@@ -493,6 +749,8 @@ export function generateCaoEpicWorkflowYaml(options: {
   epic: { id: number; issue_key?: string | null; title: string; description?: string | null };
   childTasks: CaoEpicWorkflowTask[];
   provider?: string;
+  model?: string;
+  endpoint?: string;
 }): { yaml?: string; order: CaoEpicWorkflowOrder } {
   const order = topologicallySortEpicTasks(options.childTasks);
   if (!order.ok) return { order };
@@ -523,15 +781,18 @@ export function generateCaoEpicWorkflowYaml(options: {
       title: task.title,
       description: task.description,
       provider,
+      model: options.model,
+      endpoint: options.endpoint,
     });
   }
   const finalStepRefs = order.ordered.map((task, index) => {
     const stepId = `child-${index + 1}-${task.id}-handoff`;
     return `      ${stepId}: {{steps.${stepId}.output}}`;
   });
+  const finalizeLines = formatCaoStepProviderLines(provider, { model: options.model, endpoint: options.endpoint });
   lines.push(
     '  - id: epic-finalize',
-    `    provider: ${provider}`,
+    ...finalizeLines,
     '    agent: reviewer',
     '    prompt: |',
     `      Aggregate the verified handoffs for Epic ${epicKey}.`,

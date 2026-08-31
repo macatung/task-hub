@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import type { CaoWorkflowRunStatus, CaoWorkflowStepStatus, WorkflowKind } from '../../services/caoBridgeService';
+import { computed } from 'vue';
+import type { CaoWorkflowRunStatus, CaoWorkflowStepStatus, TaskPipelineVariant, WorkflowKind } from '../../services/caoBridgeService';
 
 const props = defineProps<{
   status: CaoWorkflowRunStatus | null;
   kind?: WorkflowKind;
+  pipelineVariant?: TaskPipelineVariant;
   epicTitle?: string;
   compact?: boolean;
 }>();
@@ -13,6 +15,15 @@ const emit = defineEmits<{
   retry: [stepId?: string];
   cancel: [];
 }>();
+
+const effectivePipelineVariant = computed<TaskPipelineVariant>(() => {
+  if (props.pipelineVariant) return props.pipelineVariant;
+  if (props.status?.pipelineVariant) return props.status.pipelineVariant;
+  if (props.status?.steps && props.status.steps.length === 2 && props.kind !== 'epic') return 'fast-track';
+  return 'strict';
+});
+
+const isFastTrack = computed(() => effectivePipelineVariant.value === 'fast-track' && props.kind !== 'epic');
 
 const stateLabel = (state?: string) => {
   const labels: Record<string, string> = {
@@ -29,6 +40,13 @@ const stepTone = (state: string) => {
   if (['running', 'waiting_input'].includes(state)) return 'text-amber-300 border-amber-500/30 bg-amber-950/20';
   return 'text-zinc-400 border-[#1b2940] bg-[#0b1220]';
 };
+
+const gridColsClass = computed(() => {
+  const stepCount = props.status?.steps?.length || 0;
+  if (stepCount <= 2 || isFastTrack.value) return 'grid-cols-2';
+  if (stepCount === 3) return 'grid-cols-3';
+  return 'grid-cols-4';
+});
 </script>
 
 <template>
@@ -36,8 +54,14 @@ const stepTone = (state: string) => {
     <header class="flex flex-wrap items-start justify-between gap-3 border-b border-[#1b2940] pb-3">
       <div>
         <div class="flex items-center gap-2">
-          <span class="rounded-full bg-cyan-950/60 px-2 py-0.5 text-[10px] font-bold tracking-wider text-cyan-300 border border-cyan-500/30">STRICT WORKFLOW</span>
+          <span
+            class="rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider border"
+            :class="isFastTrack ? 'bg-amber-950/60 text-amber-300 border-amber-500/30' : 'bg-cyan-950/60 text-cyan-300 border-cyan-500/30'"
+          >
+            {{ isFastTrack ? 'FAST-TRACK WORKFLOW' : 'STRICT WORKFLOW' }}
+          </span>
           <span v-if="kind === 'epic'" class="text-[10px] font-mono text-purple-300">EPIC</span>
+          <span v-if="isFastTrack" class="rounded bg-zinc-800/60 px-1.5 py-0.5 text-[9px] font-mono text-amber-400/80">2-STEP</span>
         </div>
         <h3 class="mt-1 text-sm font-bold text-white">{{ epicTitle || status?.workflowName || 'CAO workflow' }}</h3>
         <p class="mt-1 text-[10px] font-mono text-zinc-500">CAO run: {{ status?.runId || (status?.state === 'failed' ? 'chưa tạo — validation failed' : 'chưa tạo') }}</p>
@@ -55,7 +79,7 @@ const stepTone = (state: string) => {
       <span class="font-mono">{{ status?.completedSteps?.length || 0 }}/{{ status?.totalSteps || status?.steps?.length || 0 }}</span>
     </div>
 
-    <ol v-if="status?.steps?.length && kind !== 'epic'" class="mt-3 grid grid-cols-4 gap-2">
+    <ol v-if="status?.steps?.length && kind !== 'epic'" class="mt-3 grid gap-2" :class="gridColsClass">
       <li v-for="step in status.steps" :key="step.id" class="flex items-start gap-2 rounded-lg border px-3 py-2" :class="stepTone(step.state)">
         <span class="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border border-current text-[9px]">{{ step.state === 'completed' ? '✓' : '·' }}</span>
         <div class="min-w-0 flex-1">
@@ -67,8 +91,8 @@ const stepTone = (state: string) => {
         </div>
       </li>
     </ol>
-    <p v-if="kind === 'epic' && status?.steps?.length" class="mt-3 rounded-lg border border-cyan-500/20 bg-cyan-950/10 px-3 py-2 text-[11px] text-cyan-100">{{ status.steps.filter((step) => step.state === 'completed').length }}/{{ status.steps.length }} workflow steps complete. Mở Epic execution để xem từng task.</p>
-    <p v-else class="mt-3 rounded-lg border border-dashed border-[#1b2940] px-3 py-4 text-center text-[11px] text-zinc-500">Workflow steps sẽ xuất hiện sau khi CAO trả status.</p>
+    <p v-else-if="kind === 'epic' && status?.steps?.length" class="mt-3 rounded-lg border border-cyan-500/20 bg-cyan-950/10 px-3 py-2 text-[11px] text-cyan-100">{{ status.steps.filter((step) => step.state === 'completed').length }}/{{ status.steps.length }} workflow steps complete. Mở Epic execution để xem từng task.</p>
+    <p v-else-if="!status?.steps?.length" class="mt-3 rounded-lg border border-dashed border-[#1b2940] px-3 py-4 text-center text-[11px] text-zinc-500">Workflow steps sẽ xuất hiện sau khi CAO trả status.</p>
     <p v-if="status?.error" class="mt-3 rounded-lg border border-rose-500/30 bg-rose-950/20 px-3 py-2 text-[11px] text-rose-200">{{ status.error }}</p>
   </section>
 </template>

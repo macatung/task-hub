@@ -74,8 +74,8 @@ export function detectTestRunner(output = '', command = ''): TestRunnerType {
   if (
     combined.includes('pytest') ||
     (normOut.includes('collected ') && normOut.includes('items')) ||
-    /={3,}.*passed.*in.*={3,}/i.test(normOut) ||
-    /={3,}\s*\d+\s*passed/i.test(normOut)
+    /=+\s*(?:[\d\w\s,.]*(?:passed|failed|skipped|error|errors|warning|warnings)[\d\w\s,.]*in\s+[\d.]+s|[\d\w\s,.]*(?:passed|failed|skipped|error|errors)\s*in|\d+\s*(?:passed|failed|skipped|errors?))\s*={3,}/i.test(normOut) ||
+    /={3,}[\s\S]*?(?:passed|failed|skipped|errors?)[^=]*={3,}/i.test(normOut)
   ) {
     return 'pytest';
   }
@@ -133,13 +133,26 @@ export function extractTestCounts(output: string): {
     return { total, passed, failed, skipped };
   }
 
-  // 4. Pytest pattern: "=== 35 passed, 2 skipped, 1 failed in 2.34s ==="
-  const pytestMatch = output.match(/=+\s*(?:(\d+)\s+passed)?(?:,\s*(\d+)\s+skipped)?(?:,\s*(\d+)\s+failed)?.*in\s+([\d.]+)s\s*={3,}/i);
-  if (pytestMatch) {
-    const passed = parseInt(pytestMatch[1] || '0', 10);
-    const skipped = parseInt(pytestMatch[2] || '0', 10);
-    const failed = parseInt(pytestMatch[3] || '0', 10);
-    return { total: passed + failed + skipped, passed, failed, skipped };
+  // 4. Pytest pattern: "=== 35 passed, 2 skipped, 1 failed in 2.34s ===" or "=== 5 failed, 45 passed in 3.12s ==="
+  const pytestBannerMatch = output.match(/={3,}([\s\S]*?(?:passed|failed|skipped|errors?)[^=]*)={3,}/i);
+  if (pytestBannerMatch) {
+    const banner = pytestBannerMatch[1];
+    const pMatch = banner.match(/(\d+)\s+passed/i);
+    const fMatch = banner.match(/(\d+)\s+failed/i);
+    const sMatch = banner.match(/(\d+)\s+skipped/i);
+    const eMatch = banner.match(/(\d+)\s+errors?/i);
+    const xfMatch = banner.match(/(\d+)\s+xfailed/i);
+    const xpMatch = banner.match(/(\d+)\s+xpassed/i);
+
+    const passed = (pMatch ? parseInt(pMatch[1], 10) : 0) + (xpMatch ? parseInt(xpMatch[1], 10) : 0);
+    const skipped = (sMatch ? parseInt(sMatch[1], 10) : 0) + (xfMatch ? parseInt(xfMatch[1], 10) : 0);
+    const errors = eMatch ? parseInt(eMatch[1], 10) : 0;
+    const failed = (fMatch ? parseInt(fMatch[1], 10) : 0) + errors;
+    const total = passed + failed + skipped;
+
+    if (total > 0) {
+      return { total, passed, failed, skipped };
+    }
   }
 
   // 5. Cargo test pattern: "test result: ok. 42 passed; 0 failed; 0 ignored"

@@ -1,4 +1,4 @@
-export type Provider = 'antigravity' | 'claude_code' | 'codex';
+export type Provider = 'antigravity' | 'claude_code' | 'codex' | 'ollama' | 'vllm';
 
 export interface ModelOption {
   id: string;
@@ -12,7 +12,24 @@ export const DEFAULT_PROVIDER_MODELS: Record<Provider, string> = {
   antigravity: 'gemini-3.7-flash',
   claude_code: 'claude-3-7-sonnet',
   codex: 'gpt-5',
+  ollama: 'qwen2.5-coder:32b',
+  vllm: 'deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct',
 };
+
+export const DEFAULT_PROVIDER_ENDPOINTS: Record<Provider, string> = {
+  antigravity: '',
+  claude_code: '',
+  codex: '',
+  ollama: 'http://127.0.0.1:11434/v1',
+  vllm: 'http://127.0.0.1:8000/v1',
+};
+
+export const MODEL_OPTIONS: ModelOption[] = [
+  { id: 'deepseek-coder-v2', name: 'DeepSeek Coder V2 (Open-Weight / Local)', badges: ['Open-Weight', 'Local'], description: 'DeepSeek Coder V2 open-weights model for local and edge execution', source: 'preset' },
+  { id: 'qwen2.5-coder-32b', name: 'Qwen 2.5 Coder 32B (Ollama / vLLM)', badges: ['Open-Weight', 'Ollama', 'vLLM'], description: 'High-capability 32B open-weight coding model for Ollama or vLLM', source: 'preset' },
+  { id: 'qwen2.5-coder-7b', name: 'Qwen 2.5 Coder 7B (Lightweight Local)', badges: ['Open-Weight', 'Lightweight', 'Local'], description: 'Lightweight local coding model optimized for fast responses', source: 'preset' },
+  { id: 'llama-3.3-70b', name: 'Llama 3.3 70B Instruct (vLLM)', badges: ['Open-Weight', 'vLLM', 'High'], description: 'Meta Llama 3.3 70B Instruct model for vLLM local deployment', source: 'preset' },
+];
 
 export const PROVIDER_MODELS: Record<Provider, ModelOption[]> = {
   antigravity: [
@@ -58,6 +75,20 @@ export const PROVIDER_MODELS: Record<Provider, ModelOption[]> = {
     { id: 'gpt-oss-120b', name: 'GPT-OSS 120B (Medium)', badges: ['Open Weights', 'Medium'], description: '120B-parameter open-weights model', source: 'preset' },
     { id: 'default', name: 'CLI Default', badges: ['Default'], description: 'Default Codex CLI configuration', source: 'preset' },
   ],
+  ollama: [
+    { id: 'qwen2.5-coder:32b', name: 'Qwen 2.5 Coder 32B (Ollama / vLLM)', badges: ['Local', 'Recommended', 'Code'], description: 'Flagship open-weight coding model on Ollama', source: 'preset' },
+    { id: 'qwen2.5-coder:7b', name: 'Qwen 2.5 Coder 7B (Lightweight Local)', badges: ['Local', 'Fast'], description: 'Lightweight coding model for rapid local inference', source: 'preset' },
+    { id: 'deepseek-coder-v2', name: 'DeepSeek Coder V2 (Open-Weight / Local)', badges: ['Local', 'Open Weights'], description: 'DeepSeek Coder V2 open-weight model on Ollama', source: 'preset' },
+    { id: 'llama-3.3-70b', name: 'Llama 3.3 70B Instruct (vLLM)', badges: ['Local', 'High Reasoning'], description: 'Llama 3.3 70B model on Ollama', source: 'preset' },
+    { id: 'default', name: 'Ollama Default', badges: ['Default'], description: 'Default model configured in local Ollama instance', source: 'preset' },
+  ],
+  vllm: [
+    { id: 'deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct', name: 'DeepSeek Coder V2 (Open-Weight / Local)', badges: ['vLLM', 'Recommended'], description: 'DeepSeek Coder V2 Lite hosted on local vLLM', source: 'preset' },
+    { id: 'qwen2.5-coder-32b', name: 'Qwen 2.5 Coder 32B (Ollama / vLLM)', badges: ['vLLM', 'High'], description: 'Qwen 2.5 Coder 32B served via vLLM OpenAI-compatible endpoint', source: 'preset' },
+    { id: 'llama-3.3-70b', name: 'Llama 3.3 70B Instruct (vLLM)', badges: ['vLLM', 'Flagship'], description: 'Meta Llama 3.3 70B Instruct served via vLLM', source: 'preset' },
+    { id: 'qwen2.5-coder-7b', name: 'Qwen 2.5 Coder 7B (Lightweight Local)', badges: ['vLLM', 'Fast'], description: 'Qwen 2.5 Coder 7B lightweight served via vLLM', source: 'preset' },
+    { id: 'default', name: 'vLLM Server Default', badges: ['Default'], description: 'Default model served by local vLLM server', source: 'preset' },
+  ],
 };
 
 export const MODEL_FALLBACK_CHAINS: Record<string, string[]> = {
@@ -73,12 +104,18 @@ export const MODEL_FALLBACK_CHAINS: Record<string, string[]> = {
   'gpt-5-mini': ['gpt-5', 'gpt-4.1-mini', 'o3-mini'],
   'gpt-5.6-sol': ['gpt-5.6-terra', 'gpt-5', 'gpt-4.1', 'o3-mini'],
   'o3-mini': ['gpt-5-mini', 'gpt-4.1', 'o1'],
+  'qwen2.5-coder:32b': ['qwen2.5-coder:7b', 'deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct'],
+  'qwen2.5-coder-32b': ['qwen2.5-coder-7b', 'deepseek-coder-v2'],
+  'deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct': ['Qwen/Qwen2.5-Coder-32B-Instruct', 'qwen2.5-coder:32b'],
+  'deepseek-coder-v2': ['qwen2.5-coder-32b', 'qwen2.5-coder-7b'],
 };
 
 export const PROVIDER_FALLBACK_CHAINS: Record<Provider, Provider[]> = {
   antigravity: ['claude_code', 'codex'],
   claude_code: ['antigravity', 'codex'],
   codex: ['antigravity', 'claude_code'],
+  ollama: ['vllm', 'antigravity', 'codex'],
+  vllm: ['ollama', 'codex', 'antigravity'],
 };
 
 export const ANTIGRAVITY_LEGACY_ALIASES: Record<string, string> = {
@@ -95,3 +132,14 @@ export function resolveAntigravityModelMapping(requested?: string): string | und
   if (!requested || requested === 'default') return undefined;
   return ANTIGRAVITY_LEGACY_ALIASES[requested] || requested;
 }
+
+export function isLocalProvider(provider: Provider | string): boolean {
+  return provider === 'ollama' || provider === 'vllm';
+}
+
+export function getLocalProviderEndpoint(provider: Provider | string): string {
+  if (provider === 'ollama') return DEFAULT_PROVIDER_ENDPOINTS.ollama;
+  if (provider === 'vllm') return DEFAULT_PROVIDER_ENDPOINTS.vllm;
+  return '';
+}
+

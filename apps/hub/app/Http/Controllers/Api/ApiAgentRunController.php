@@ -50,96 +50,150 @@ class ApiAgentRunController extends Controller
         $after = max(0, $request->integer('after', 0));
         $afterLog = max(0, $request->integer('after_log', 0));
         $runId = $request->integer('run_id');
-        return response()->stream(function () use ($workspace, $after, $afterLog, $runId) {
+
+        // Pre-flight ownership validation: resolve run once if scoped
+        $targetRun = null;
+        if ($runId > 0) {
+            $targetRun = AgentRun::where('id', $runId)
+                ->where('workspace_id', $workspace->id)
+                ->first();
+            if (!$targetRun) {
+                return response()->json(['success' => false, 'message' => 'Agent run not found.'], 404);
+            }
+        }
+
+        return response()->stream(function () use ($workspace, $after, $afterLog, $runId, $targetRun) {
+            // Disable output buffering to ensure immediate chunk delivery
+            while (ob_get_level() > 0) {
+                @ob_end_flush();
+            }
+
             // Instruct EventSource client to wait 5 seconds before reconnecting
             echo "retry: 5000\n\n";
             if (function_exists('ob_flush')) @ob_flush();
             flush();
 
-            $startTime = time();
+            $startTime = microtime(true);
             $currentAfter = $after;
             $currentAfterLog = $afterLog;
+            $lastActivityTime = microtime(true);
+
+            // Adaptive polling interval parameters (in microseconds)
+            $minIntervalUs = 100_000;   // 100ms when actively receiving logs/events
+            $maxIntervalUs = 1_500_000; // 1.5s max backoff when idle
+            $currentIntervalUs = $minIntervalUs;
 
             // Stream for up to 25 seconds to minimize reconnect frequency while staying within FastCGI timeout
-            while (time() - $startTime < 25) {
+            while ((microtime(true) - $startTime) < 25.0) {
                 if (connection_aborted()) {
                     break;
                 }
 
-                $events = AgentRunEvent::query()->where('id', '>', $currentAfter)
-                    ->whereHas('agentRun', fn ($q) => $q->where('workspace_id', $workspace->id))
-                    ->when($runId, fn ($q) => $q->where('agent_run_id', $runId))
-                    ->orderBy('id')->limit(50)->get();
+                $hasNewData = false;
 
-                foreach ($events as $event) {
-                    $currentAfter = max($currentAfter, $event->id);
-                    $payload = is_array($event->payload) ? $event->payload : [];
-                    $normalized = is_array(data_get($payload, 'normalized')) ? data_get($payload, 'normalized') : [];
-                    $role = data_get($payload, 'role')
-                        ?: data_get($payload, 'sourceRole')
-                        ?: data_get($normalized, 'actor.role')
-                        ?: (preg_match('/(architect|implementer|tester|auditor|test_engineer)/i', $event->event_type, $m) ? (strtolower($m[1]) === 'test_engineer' ? 'tester' : strtolower($m[1])) : null);
-                    $stage = data_get($payload, 'stage')
-                        ?: data_get($normalized, 'stepId')
-                        ?: data_get($normalized, 'step_id')
-                        ?: (str_starts_with($event->event_type, 'stage_') ? substr($event->event_type, 6) : (str_starts_with($event->event_type, 'role_') ? preg_replace('/^role_[a-z]+_?/', '', $event->event_type) : null));
-                    $toolCalls = data_get($payload, 'tool_calls')
-                        ?: (data_get($payload, 'tool_call') ? [data_get($payload, 'tool_call')] : (data_get($payload, 'tool') ? [['name' => data_get($payload, 'tool'), 'status' => $event->status]] : null));
-                    $toolCall = data_get($payload, 'tool_call')
-                        ?: (data_get($payload, 'tool') ? ['name' => data_get($payload, 'tool'), 'status' => $event->status] : null);
-                    $logText = data_get($payload, 'log') ?: data_get($normalized, 'detail');
+                // 1. Query Events (Optimized direct index lookup when $runId is set)
+                $eventQuery = AgentRunEvent::query()->where('id', '>', $currentAfter);
+                if ($runId > 0) {
+                    $eventQuery->where('agent_run_id', $runId);
+                } else {
+                    $eventQuery->whereHas('agentRun', fn ($q) => $q->where('workspace_id', $workspace->id));
+                }
+                $events = $eventQuery->orderBy('id')->limit(50)->get();
 
-                    $eventData = [
-                        'id' => $event->id,
-                        'run_id' => $event->agent_run_id,
-                        'type' => $event->event_type,
-                        'event_type' => $event->event_type,
-                        'status' => $event->status,
-                        'role' => $role,
-                        'stage' => $stage,
-                        'tool_call' => $toolCall,
-                        'tool_calls' => $toolCalls,
-                        'log' => $logText,
-                        'payload' => $event->payload,
-                        'occurred_at' => $event->occurred_at?->toIso8601String(),
-                    ];
+                if ($events->isNotEmpty()) {
+                    $hasNewData = true;
+                    foreach ($events as $event) {
+                        $currentAfter = max($currentAfter, $event->id);
+                        $payload = is_array($event->payload) ? $event->payload : [];
+                        $normalized = is_array(data_get($payload, 'normalized')) ? data_get($payload, 'normalized') : [];
+                        $role = data_get($payload, 'role')
+                            ?: data_get($payload, 'sourceRole')
+                            ?: data_get($normalized, 'actor.role')
+                            ?: (preg_match('/(architect|implementer|tester|auditor|test_engineer)/i', $event->event_type, $m) ? (strtolower($m[1]) === 'test_engineer' ? 'tester' : strtolower($m[1])) : null);
+                        $stage = data_get($payload, 'stage')
+                            ?: data_get($normalized, 'stepId')
+                            ?: data_get($normalized, 'step_id')
+                            ?: (str_starts_with($event->event_type, 'stage_') ? substr($event->event_type, 6) : (str_starts_with($event->event_type, 'role_') ? preg_replace('/^role_[a-z]+_?/', '', $event->event_type) : null));
+                        $toolCalls = data_get($payload, 'tool_calls')
+                            ?: (data_get($payload, 'tool_call') ? [data_get($payload, 'tool_call')] : (data_get($payload, 'tool') ? [['name' => data_get($payload, 'tool'), 'status' => $event->status]] : null));
+                        $toolCall = data_get($payload, 'tool_call')
+                            ?: (data_get($payload, 'tool') ? ['name' => data_get($payload, 'tool'), 'status' => $event->status] : null);
+                        $logText = data_get($payload, 'log') ?: data_get($normalized, 'detail');
 
-                    echo 'id: ' . $event->id . "\n";
-                    echo "event: agent-run\n";
-                    echo 'data: ' . json_encode($eventData, JSON_UNESCAPED_UNICODE) . "\n\n";
+                        $eventData = [
+                            'id' => $event->id,
+                            'run_id' => $event->agent_run_id,
+                            'type' => $event->event_type,
+                            'event_type' => $event->event_type,
+                            'status' => $event->status,
+                            'role' => $role,
+                            'stage' => $stage,
+                            'tool_call' => $toolCall,
+                            'tool_calls' => $toolCalls,
+                            'log' => $logText,
+                            'payload' => $event->payload,
+                            'occurred_at' => $event->occurred_at?->toIso8601String(),
+                        ];
 
-                    echo 'id: evt-' . $event->id . "\n";
-                    echo "event: agent-run-event\n";
-                    echo 'data: ' . json_encode($eventData, JSON_UNESCAPED_UNICODE) . "\n\n";
+                        echo 'id: ' . $event->id . "\n";
+                        echo "event: agent-run\n";
+                        echo 'data: ' . json_encode($eventData, JSON_UNESCAPED_UNICODE) . "\n\n";
+
+                        echo 'id: evt-' . $event->id . "\n";
+                        echo "event: agent-run-event\n";
+                        echo 'data: ' . json_encode($eventData, JSON_UNESCAPED_UNICODE) . "\n\n";
+                    }
                 }
 
-                $logs = AgentRunLog::query()->where('id', '>', $currentAfterLog)
-                    ->whereHas('agentRun', fn ($q) => $q->where('workspace_id', $workspace->id))
-                    ->when($runId, fn ($q) => $q->where('agent_run_id', $runId))
-                    ->orderBy('id')->limit(50)->get();
+                // 2. Query Logs (Optimized direct index lookup when $runId is set)
+                $logQuery = AgentRunLog::query()->where('id', '>', $currentAfterLog);
+                if ($runId > 0) {
+                    $logQuery->where('agent_run_id', $runId);
+                } else {
+                    $logQuery->whereHas('agentRun', fn ($q) => $q->where('workspace_id', $workspace->id));
+                }
+                $logs = $logQuery->orderBy('id')->limit(50)->get();
 
-                foreach ($logs as $log) {
-                    $currentAfterLog = max($currentAfterLog, $log->id);
-                    $logRole = data_get($log, 'role')
-                        ?: (preg_match('/\[(Architect|Implementer|Test Engineer|Tester|Auditor)\]/i', $log->content, $m) ? (strtolower($m[1]) === 'test engineer' ? 'tester' : strtolower($m[1])) : null);
-                    $logData = [
-                        'id' => $log->id,
-                        'run_id' => $log->agent_run_id,
-                        'stream' => $log->stream,
-                        'content' => $log->content,
-                        'role' => $logRole,
-                        'occurred_at' => $log->occurred_at?->toIso8601String(),
-                    ];
-                    echo 'id: log-' . $log->id . "\n";
-                    echo "event: agent-log\n";
-                    echo 'data: ' . json_encode($logData, JSON_UNESCAPED_UNICODE) . "\n\n";
+                if ($logs->isNotEmpty()) {
+                    $hasNewData = true;
+                    foreach ($logs as $log) {
+                        $currentAfterLog = max($currentAfterLog, $log->id);
+                        $logRole = data_get($log, 'role')
+                            ?: (preg_match('/\[(Architect|Implementer|Test Engineer|Tester|Auditor)\]/i', $log->content, $m) ? (strtolower($m[1]) === 'test engineer' ? 'tester' : strtolower($m[1])) : null);
+                        $logData = [
+                            'id' => $log->id,
+                            'run_id' => $log->agent_run_id,
+                            'stream' => $log->stream,
+                            'content' => $log->content,
+                            'role' => $logRole,
+                            'occurred_at' => $log->occurred_at?->toIso8601String(),
+                        ];
+                        echo 'id: log-' . $log->id . "\n";
+                        echo "event: agent-log\n";
+                        echo 'data: ' . json_encode($logData, JSON_UNESCAPED_UNICODE) . "\n\n";
+                    }
                 }
 
-                echo ": keepalive\n\n";
-                if (function_exists('ob_flush')) @ob_flush();
-                flush();
+                // 3. Adaptive Backoff & Flush State
+                if ($hasNewData) {
+                    $lastActivityTime = microtime(true);
+                    $currentIntervalUs = $minIntervalUs; // Reset to 100ms
+                    if (function_exists('ob_flush')) @ob_flush();
+                    flush();
+                } else {
+                    // Exponential stepped backoff: 100ms -> 150ms -> 225ms -> ... -> 1500ms
+                    $currentIntervalUs = (int) min($maxIntervalUs, max($minIntervalUs, $currentIntervalUs * 1.5));
 
-                sleep(2);
+                    // Send keepalive comment only if idle for > 5 seconds
+                    if ((microtime(true) - $lastActivityTime) >= 5.0) {
+                        echo ": keepalive\n\n";
+                        $lastActivityTime = microtime(true);
+                        if (function_exists('ob_flush')) @ob_flush();
+                        flush();
+                    }
+                }
+
+                usleep($currentIntervalUs);
             }
         }, 200, [
             'Content-Type' => 'text/event-stream',
