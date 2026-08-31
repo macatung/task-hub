@@ -1,7 +1,7 @@
 @php
     $host = request()->getHost();
     $path = request()->path();
-    $baseDomain = config('app.base_domain', env('APP_BASE_DOMAIN', 'macatung.dev'));
+    $baseDomain = config('app.base_domain') ?: 'macatung.dev';
     
     $isTheravada = str_starts_with($host, 'theravada.') || str_starts_with($path, 'theravada');
     $isMidnight = str_starts_with($host, 'midnight.') || str_starts_with($host, 'hub.') || str_starts_with($host, 'task-hub.');

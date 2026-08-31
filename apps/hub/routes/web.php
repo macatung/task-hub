@@ -26,7 +26,7 @@ use App\Http\Controllers\Theravada\TheravadaController;
 use App\Http\Controllers\WorkspaceBillingController;
 use Illuminate\Support\Facades\Route;
 
-$baseDomain = config('app.base_domain', env('APP_BASE_DOMAIN', 'macatung.dev'));
+$baseDomain = config('app.base_domain') ?: 'macatung.dev';
 
 // Sitemaps & Robots.txt Routes
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('seo.sitemap');

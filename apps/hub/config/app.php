@@ -12,7 +12,7 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
-    'base_domain' => env('APP_BASE_DOMAIN'),
+    'base_domain' => env('APP_BASE_DOMAIN', 'macatung.dev'),
 
     'timezone' => env('APP_TIMEZONE', 'Asia/Ho_Chi_Minh'),
 

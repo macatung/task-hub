@@ -14,7 +14,7 @@ class SeoController extends Controller
      */
     public function sitemapIndex(Request $request): Response
     {
-        $baseDomain = config('app.base_domain', env('APP_BASE_DOMAIN', 'macatung.dev'));
+        $baseDomain = config('app.base_domain') ?: 'macatung.dev';
         $now = now()->toAtomString();
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
@@ -44,7 +44,7 @@ class SeoController extends Controller
     public function sitemap(Request $request): Response
     {
         $host = $request->getHost();
-        $baseDomain = config('app.base_domain', env('APP_BASE_DOMAIN', 'macatung.dev'));
+        $baseDomain = config('app.base_domain') ?: 'macatung.dev';
 
         $isTheravada = str_starts_with($host, 'theravada.') || $request->path() === 'theravada/sitemap.xml';
         $isMidnight = str_starts_with($host, 'midnight.') || str_starts_with($host, 'hub.') || str_starts_with($host, 'task-hub.') || $request->path() === 'midnight/sitemap.xml';
@@ -66,7 +66,7 @@ class SeoController extends Controller
     public function robots(Request $request): Response
     {
         $host = $request->getHost();
-        $baseDomain = config('app.base_domain', env('APP_BASE_DOMAIN', 'macatung.dev'));
+        $baseDomain = config('app.base_domain') ?: 'macatung.dev';
 
         $isTheravada = str_starts_with($host, 'theravada.');
         $isMidnight = str_starts_with($host, 'midnight.') || str_starts_with($host, 'hub.') || str_starts_with($host, 'task-hub.');
