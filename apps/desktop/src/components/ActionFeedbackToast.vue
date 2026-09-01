@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { useActionFeedback, type ActionFeedbackItem } from '../composables/useActionFeedback';
 
 const { activeFeedbacks, dismiss } = useActionFeedback();
@@ -115,7 +115,7 @@ const getTypeBadge = (type: ActionFeedbackItem['type']) => {
         <button
           @click="dismiss(item.id)"
           class="text-zinc-500 hover:text-zinc-300 p-0.5 rounded transition-colors shrink-0 cursor-pointer"
-          title="Đóng thông báo"
+          title="Close notification"
           aria-label="Close notification"
         >
           ✕
