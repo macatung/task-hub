@@ -740,7 +740,11 @@ async function taskHubRequest(taskHubUrl: string, pathName: string, options: Req
       headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.message || body.error || `Task Hub request failed (${response.status}).`);
+    if (!response.ok) {
+      const detail = body?.message ?? body?.error ?? body;
+      const rendered = typeof detail === 'string' ? detail : JSON.stringify(detail);
+      throw new Error(`Task Hub request failed (${response.status}): ${rendered || 'Unknown error'}`);
+    }
     return body;
   } catch (err: any) {
     if (err?.name === 'AbortError' || controller.signal.aborted) {

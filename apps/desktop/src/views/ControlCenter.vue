@@ -595,19 +595,34 @@ const mcp = async (name: string, args: Record<string, unknown>) => {
   } catch {
     rawArgs = { ...args };
   }
-  const response = await window.desktopApi.taskHub.mcpCall(
-    cred.taskHubUrl,
-    cred.token,
-    String(cred.projectId),
-    "tools/call",
-    { name, arguments: rawArgs },
-  );
+  // Older Hub controllers directly read context_package during validation;
+  // always send an explicit empty package when callers have no extra context.
+  if (name === 'start_agent_run' && rawArgs.context_package === undefined) {
+    rawArgs.context_package = {};
+  }
+  let response: any;
+  try {
+    response = await window.desktopApi.taskHub.mcpCall(
+      cred.taskHubUrl,
+      cred.token,
+      String(cred.projectId),
+      "tools/call",
+      { name, arguments: rawArgs },
+    );
+  } catch (error: any) {
+    const detail = typeof error === 'string' ? error : (error?.message || JSON.stringify(error));
+    throw new Error(`${name} request failed: ${detail}`);
+  }
   if (response?.error)
     throw new Error(response.error.message || "Task Hub request failed.");
   const text = response?.result?.content?.find(
     (item: any) => item.type === "text",
   )?.text;
-  return text ? JSON.parse(text) : response?.result;
+  const parsed = text ? JSON.parse(text) : response?.result;
+  if (parsed?.isError || parsed?.success === false) {
+    throw new Error(parsed?.message || parsed?.error || `${name} was rejected by Task Hub.`);
+  }
+  return parsed;
 };
 const syncCockpitAgent = async (
   status: "idle" | "working" | "waiting" | "blocked",
@@ -1388,7 +1403,9 @@ const requireSuccessfulMcp = async (name: string, args: Record<string, any>) => 
       if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 250));
     }
   }
-  throw lastError instanceof Error ? lastError : new Error(String(lastError || `${name} failed.`));
+  if (lastError instanceof Error) throw lastError;
+  const detail = typeof lastError === 'string' ? lastError : JSON.stringify(lastError);
+  throw new Error(detail || `${name} failed.`);
 };
 
 const numericRunId = (result: any) => Number(result?.data?.id || result?.run_id || result?.id || 0);
@@ -1602,6 +1619,23 @@ const finalizeWorkflowRun = async () => {
 const launchStrictWorkflow = async () => {
   const rootTask = selectedTask.value;
   if (!rootTask || !['task', 'story', 'bug', 'epic'].includes(rootTask.issue_type || 'task')) throw new Error('Select a runnable task or Epic first.');
+  // If CAO already completed this Epic while the renderer was reloading,
+  // finalize that durable run instead of launching duplicate work.
+  if (rootTask.issue_type === 'epic') {
+    const savedRuns = await Promise.resolve(window.desktopApi?.cao?.listWorkflowRuns?.()).catch(() => []);
+    const completed = Array.isArray(savedRuns)
+      ? savedRuns.find((run: any) => run.state === 'completed' && new RegExp(`^(?:epic|task)-${rootTask.id}-pipeline`).test(String(run.workflowName || '')))
+      : null;
+    if (completed?.runId) {
+      workflowKind.value = 'epic';
+      runId.value = completed.parentRunId || completed.metadata?.parentRunId || null;
+      implementationRunId.value = runId.value;
+      workflowStatus.value = { runId: completed.runId, state: 'completed', kind: 'epic', parentRunId: runId.value, workflowName: completed.workflowName, currentStep: completed.currentStep, totalSteps: completed.totalSteps, completedSteps: completed.completedSteps || [], steps: completed.steps || completed.metadata?.steps || [], error: completed.error };
+      phase.value = `Finalizing completed workflow: ${completed.runId}`;
+      await finalizeWorkflowRun();
+      return;
+    }
+  }
   const pipelineVariant = resolveTaskPipelineVariant(rootTask as any);
   startOperation('workflow-run', 'Đang chuẩn bị Strict Workflow', 'Validate dependency graph và tạo workflow spec…');
   const prepared = await prepareWorktree(rootTask.issue_key || `task-${rootTask.id}`);
@@ -3548,7 +3582,10 @@ onMounted(async () => {
   const savedWorkflowRuns = await Promise.resolve(window.desktopApi?.cao?.listWorkflowRuns?.()).catch(() => []);
   const savedRuns = Array.isArray(savedWorkflowRuns) ? savedWorkflowRuns : [];
   const recoverableWorkflow = savedRuns.find((run: any) => ['running', 'validating', 'interrupted', 'waiting_input', 'blocked'].includes(run.state))
-    || savedRuns.find((run: any) => run.state === 'completed' && !localStorage.getItem(`cao-workflow-finalized:${run.runId}`))
+    // A completed CAO run is recoverable until the Hub task state is verified
+    // as terminal. The finalize path is idempotent (per-run evidence keys), so
+    // retrying here is safer than trusting a stale local marker after a crash.
+    || savedRuns.find((run: any) => run.state === 'completed')
     || null;
   if (recoverableWorkflow?.runId) {
     runId.value = recoverableWorkflow.parentRunId || recoverableWorkflow.metadata?.parentRunId || null;
@@ -3584,6 +3621,27 @@ onMounted(async () => {
       setTimeout(() => { void finalizeWorkflowRun(); }, 500);
     }
   }
+  // Startup can race CAO daemon/bootstrap and briefly return an empty
+  // workflow registry. Re-check once after the daemon is ready so a completed
+  // Epic is never stranded in the Desktop UI.
+  setTimeout(async () => {
+    if (workflowStatus.value?.runId) return;
+    const delayedRuns = await Promise.resolve(window.desktopApi?.cao?.listWorkflowRuns?.()).catch(() => []);
+    const delayed = Array.isArray(delayedRuns) ? delayedRuns.find((run: any) => run.state === 'completed') : null;
+    if (!delayed?.runId) return;
+    workflowKind.value = delayed.kind || delayed.metadata?.kind || 'task';
+    runId.value = delayed.parentRunId || delayed.metadata?.parentRunId || null;
+    implementationRunId.value = runId.value;
+    workflowStatus.value = {
+      runId: delayed.runId, state: delayed.state, kind: workflowKind.value,
+      parentRunId: delayed.parentRunId || delayed.metadata?.parentRunId,
+      workflowName: delayed.workflowName || delayed.metadata?.workflowName,
+      currentStep: delayed.currentStep, totalSteps: delayed.totalSteps || delayed.metadata?.steps?.length,
+      completedSteps: delayed.completedSteps || [], steps: delayed.steps || delayed.metadata?.steps || [], error: delayed.error,
+    };
+    phase.value = `Finalizing completed workflow: ${delayed.runId}`;
+    setTimeout(() => { void finalizeWorkflowRun(); }, 250);
+  }, 8_000);
   // Electron main owns CAO bootstrap. Do not restart from the renderer while
   // the main process is still warming WSL; doing so creates a stop/start race
   // and produces duplicate "CAO offline" notifications.
