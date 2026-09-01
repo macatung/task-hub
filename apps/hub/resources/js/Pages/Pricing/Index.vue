@@ -2,6 +2,8 @@
 import { ref, computed } from 'vue';
 import { usePage, Head, Link } from '@inertiajs/vue3';
 import Icons from '@/Components/ui/Icons.vue';
+import MidnightNavbar from '@/Components/layout/MidnightNavbar.vue';
+import MidnightFooter from '@/Components/layout/MidnightFooter.vue';
 
 interface PlanLimit {
   history_retention_days?: number;
@@ -590,90 +592,8 @@ const pricingJsonLd = {
       <div class="absolute bottom-20 -right-40 h-[600px] w-[800px] rounded-full bg-gradient-to-tl from-talisman-gold/10 via-emerald-600/15 to-transparent blur-[150px]" />
     </div>
 
-    <!-- Sticky Navigation Header -->
-    <header class="sticky top-0 z-50 border-b border-midnight-800/80 bg-midnight-950/85 backdrop-blur-md">
-      <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <a href="/" class="flex items-center gap-3 group">
-          <div class="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-phantom-cyan/20 border border-emerald-500/40 p-1 shadow-md shadow-emerald-500/10 group-hover:border-emerald-400 group-hover:scale-105 transition-all">
-            <img src="/brand/midnight-hub-mark.svg?v=20260829" alt="Midnight Hub" class="h-full w-full object-contain drop-shadow-sm" />
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="text-xl font-bold tracking-tight text-white group-hover:text-phantom-mint transition-colors">Midnight Hub</span>
-            <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">Pricing</span>
-          </div>
-        </a>
-
-        <!-- Desktop Navigation Links -->
-        <nav class="hidden md:flex items-center gap-1.5 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-1 text-xs font-medium text-slate-300">
-          <Link href="/" class="px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition-all">Overview</Link>
-          <Link href="/tasks" class="px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition-all">Workspace</Link>
-          <Link href="/projects" class="px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition-all">Projects</Link>
-          <Link href="/desktop" class="px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition-all">Desktop</Link>
-          <Link href="/pricing" class="px-3 py-1.5 rounded-xl text-emerald-400 bg-emerald-500/10 font-bold transition-all">Pricing</Link>
-        </nav>
-
-        <!-- Right Side User / Auth Actions -->
-        <div class="hidden sm:flex items-center gap-4">
-          <a
-            href="https://github.com/macatung/task-hub"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="flex items-center gap-2 rounded-lg border border-midnight-800 bg-midnight-900/60 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-midnight-700 hover:text-white transition-all"
-          >
-            <Icons name="Github" :size="15" />
-            <span>GitHub</span>
-          </a>
-
-          <template v-if="user">
-            <a
-              href="/tasks"
-              class="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-2 text-xs font-bold text-midnight-950 shadow-lg shadow-emerald-500/25 hover:from-emerald-400 hover:to-teal-400 transition-all cursor-pointer"
-            >
-              <span>Enter Workspace</span>
-              <span>→</span>
-            </a>
-          </template>
-          <template v-else>
-            <a
-              href="/auth/github"
-              class="flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-midnight-950 shadow-lg shadow-emerald-500/25 hover:bg-emerald-400 active:scale-95 transition-all cursor-pointer"
-            >
-              <Icons name="Github" :size="15" />
-              <span>Sign in with GitHub</span>
-            </a>
-          </template>
-        </div>
-
-        <!-- Mobile Menu Hamburger Button -->
-        <button
-          @click="mobileMenuOpen = !mobileMenuOpen"
-          class="flex md:hidden items-center justify-center p-2 rounded-lg border border-midnight-800 bg-midnight-900 text-slate-300 hover:text-white"
-          aria-label="Toggle navigation menu"
-        >
-          <Icons :name="mobileMenuOpen ? 'X' : 'Menu'" :size="20" />
-        </button>
-      </div>
-
-      <!-- Mobile Dropdown Menu -->
-      <div v-if="mobileMenuOpen" class="md:hidden border-t border-midnight-800 bg-midnight-950 px-6 py-4 space-y-2">
-        <Link href="/" @click="mobileMenuOpen = false" class="block py-2 text-sm text-slate-300 hover:text-white">Overview</Link>
-        <Link href="/tasks" @click="mobileMenuOpen = false" class="block py-2 text-sm text-slate-300 hover:text-white">Workspace</Link>
-        <Link href="/projects" @click="mobileMenuOpen = false" class="block py-2 text-sm text-slate-300 hover:text-white">Projects</Link>
-        <Link href="/desktop" @click="mobileMenuOpen = false" class="block py-2 text-sm text-slate-300 hover:text-white">Desktop</Link>
-        <Link href="/pricing" @click="mobileMenuOpen = false" class="block py-2 text-sm text-emerald-400 font-bold">Pricing</Link>
-        <div class="pt-3 border-t border-midnight-800 flex flex-col gap-2">
-          <template v-if="user">
-            <Link href="/tasks" class="rounded-xl bg-emerald-500 px-4 py-2 text-center text-xs font-bold text-midnight-950">Enter Workspace</Link>
-          </template>
-          <template v-else>
-            <a href="/auth/github" class="rounded-xl bg-emerald-500 px-4 py-2 text-center text-xs font-bold text-midnight-950 flex items-center justify-center gap-2">
-              <Icons name="Github" :size="15" />
-              <span>Sign in with GitHub</span>
-            </a>
-          </template>
-        </div>
-      </div>
-    </header>
+    <!-- Reusable Midnight Navbar -->
+    <MidnightNavbar badge="Pricing" />
 
     <!-- MAIN PRICING HERO -->
     <main class="relative z-10 mx-auto max-w-7xl px-6 pt-16 pb-28">
@@ -1159,26 +1079,7 @@ const pricingJsonLd = {
       </div>
     </div>
 
-    <!-- FOOTER -->
-    <footer class="border-t border-midnight-800/80 bg-midnight-950 px-6 py-12 text-xs text-slate-500">
-      <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6">
-        <div class="flex items-center gap-3">
-          <img src="/brand/midnight-hub-mark.svg?v=20260829" alt="Midnight Hub" class="h-6 w-6 rounded-lg object-contain" />
-          <span class="font-bold text-slate-300">Midnight Hub</span>
-          <span>· Supervised AI Agent Execution Engine</span>
-        </div>
-
-        <div class="flex items-center gap-6 text-slate-400">
-          <Link href="/" class="hover:text-white transition-colors">Overview</Link>
-          <Link href="/tasks" class="hover:text-white transition-colors">Workspace</Link>
-          <Link href="/projects" class="hover:text-white transition-colors">Projects</Link>
-          <Link href="/desktop" class="hover:text-white transition-colors">Desktop</Link>
-          <Link href="/pricing" class="hover:text-white transition-colors text-emerald-400 font-semibold">Pricing</Link>
-          <a href="https://github.com/macatung/task-hub" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">GitHub</a>
-        </div>
-
-        <p>© 2026 Macatung Dev. Released under the MIT License.</p>
-      </div>
-    </footer>
+    <!-- Reusable Midnight Footer -->
+    <MidnightFooter />
   </div>
 </template>

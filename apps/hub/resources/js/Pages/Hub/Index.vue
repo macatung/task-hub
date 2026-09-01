@@ -3,6 +3,8 @@ import { ref, computed } from 'vue';
 import { usePage, Link } from '@inertiajs/vue3';
 import Icons from '@/Components/ui/Icons.vue';
 import SeoHead from '@/Components/common/SeoHead.vue';
+import MidnightNavbar from '@/Components/layout/MidnightNavbar.vue';
+import MidnightFooter from '@/Components/layout/MidnightFooter.vue';
 
 interface UserAuth {
   id: number;
@@ -172,130 +174,8 @@ const hubJsonLd = {
       <div class="absolute bottom-10 -right-40 h-[500px] w-[700px] rounded-full bg-gradient-to-tl from-emerald-600/10 via-teal-500/10 to-transparent blur-[150px]" />
     </div>
 
-    <!-- Sticky Navigation Header (Page-Based Navigation) -->
-    <header class="sticky top-0 z-50 border-b border-slate-800/80 bg-midnight-950/90 backdrop-blur-md">
-      <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
-        <!-- Logo -->
-        <Link href="/" class="flex items-center gap-3 group">
-          <div class="relative inline-flex h-9 w-9 items-center justify-center shrink-0 rounded-xl bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-cyan-500/20 border border-emerald-500/40 p-1 shadow-sm group-hover:border-emerald-400 transition-all">
-            <img src="/brand/midnight-hub-mark.svg?v=20260829" alt="Midnight Hub" class="h-full w-full object-contain" />
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="text-lg font-bold tracking-tight text-white group-hover:text-emerald-400 transition-colors font-['Space_Grotesk']">Midnight Hub</span>
-            <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400 font-mono">MDNT</span>
-          </div>
-        </Link>
-
-        <!-- Page-Based Navigation Links -->
-        <nav class="hidden lg:flex items-center gap-1.5 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-1 text-xs font-medium text-slate-300">
-          <Link
-            href="/"
-            class="px-3 py-1.5 rounded-xl transition-all"
-            :class="$page.url === '/' ? 'text-emerald-400 bg-emerald-500/10 font-bold' : 'hover:text-white hover:bg-white/5'"
-          >
-            Overview
-          </Link>
-          <Link
-            href="/tasks"
-            class="px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5"
-            :class="$page.url.startsWith('/tasks') || $page.url.startsWith('/workspace') ? 'text-emerald-400 bg-emerald-500/10 font-bold' : 'hover:text-white hover:bg-white/5'"
-          >
-            <span>Workspace</span>
-            <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-          </Link>
-          <Link
-            href="/projects"
-            class="px-3 py-1.5 rounded-xl transition-all"
-            :class="$page.url.startsWith('/projects') ? 'text-emerald-400 bg-emerald-500/10 font-bold' : 'hover:text-white hover:bg-white/5'"
-          >
-            Projects
-          </Link>
-          <Link
-            href="/desktop"
-            class="px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5"
-            :class="$page.url.startsWith('/desktop') ? 'text-emerald-400 bg-emerald-500/10 font-bold' : 'hover:text-white hover:bg-white/5'"
-          >
-            <span>Desktop</span>
-            <span class="rounded bg-emerald-500/20 px-1 py-0.2 text-[9px] font-mono text-emerald-400 font-bold">v2.0</span>
-          </Link>
-          <Link
-            href="/pricing"
-            class="px-3 py-1.5 rounded-xl transition-all"
-            :class="$page.url.startsWith('/pricing') ? 'text-emerald-400 bg-emerald-500/10 font-bold' : 'hover:text-white hover:bg-white/5'"
-          >
-            Pricing
-          </Link>
-        </nav>
-
-        <!-- Action / Auth -->
-        <div class="flex items-center gap-3">
-          <a
-            href="https://github.com/macatung/task-hub"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-700 hover:text-white transition-all shrink-0"
-          >
-            <Icons name="Github" :size="14" />
-            <span>GitHub</span>
-          </a>
-
-          <template v-if="user">
-            <Link
-              href="/tasks"
-              class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-3.5 py-1.5 text-xs font-bold text-slate-950 shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-teal-400 transition-all shrink-0"
-            >
-              <span>Workspace</span>
-              <span>→</span>
-            </Link>
-          </template>
-          <template v-else>
-            <a
-              href="/auth/github"
-              class="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-3.5 py-1.5 text-xs font-bold text-slate-950 shadow-md shadow-emerald-500/20 hover:bg-emerald-400 active:scale-95 transition-all shrink-0"
-            >
-              <Icons name="Github" :size="14" />
-              <span>Sign In</span>
-            </a>
-          </template>
-
-          <!-- Mobile Toggle Button -->
-          <button
-            type="button"
-            @click="mobileMenuOpen = !mobileMenuOpen"
-            class="inline-flex lg:hidden items-center justify-center p-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 hover:text-white shrink-0"
-            aria-label="Toggle Menu"
-          >
-            <Icons :name="mobileMenuOpen ? 'X' : 'Menu'" :size="18" />
-          </button>
-        </div>
-      </div>
-
-      <!-- Mobile Nav Drawer -->
-      <div v-if="mobileMenuOpen" class="lg:hidden border-t border-slate-800 bg-slate-950 px-6 py-4 space-y-2">
-        <Link href="/" @click="mobileMenuOpen = false" class="block py-2 text-sm text-slate-300 hover:text-white">Overview</Link>
-        <Link href="/tasks" @click="mobileMenuOpen = false" class="block py-2 text-sm text-slate-300 hover:text-white flex items-center justify-between">
-          <span>Workspace</span>
-          <span class="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-mono text-emerald-400">Live</span>
-        </Link>
-        <Link href="/projects" @click="mobileMenuOpen = false" class="block py-2 text-sm text-slate-300 hover:text-white">Projects</Link>
-        <Link href="/desktop" @click="mobileMenuOpen = false" class="block py-2 text-sm text-slate-300 hover:text-white flex items-center justify-between">
-          <span>Desktop Companion</span>
-          <span class="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-mono text-emerald-400">v2.0</span>
-        </Link>
-        <Link href="/pricing" @click="mobileMenuOpen = false" class="block py-2 text-sm text-emerald-400 font-bold">Pricing</Link>
-        <div class="pt-3 border-t border-slate-800">
-          <template v-if="user">
-            <Link href="/tasks" class="block rounded-xl bg-emerald-500 py-2 text-center text-xs font-bold text-slate-950">Enter Workspace</Link>
-          </template>
-          <template v-else>
-            <a href="/auth/github" class="flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-2 text-center text-xs font-bold text-slate-950">
-              <Icons name="Github" :size="14" />
-              <span>Sign In with GitHub</span>
-            </a>
-          </template>
-        </div>
-      </div>
-    </header>
+    <!-- Sticky Navigation Header (Page-Based Navigation via MidnightNavbar) -->
+    <MidnightNavbar />
 
     <!-- Flash Alerts -->
     <div v-if="flash.error" class="relative z-10 mx-auto max-w-5xl px-6 pt-4">
@@ -668,23 +548,7 @@ const hubJsonLd = {
       </div>
     </section>
 
-    <!-- FOOTER (Page-Based Navigation) -->
-    <footer class="border-t border-slate-800/80 bg-slate-950 px-6 py-10 text-xs text-slate-400">
-      <div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4">
-        <div class="flex items-center gap-2.5">
-          <img src="/brand/midnight-hub-mark.svg?v=20260829" alt="Midnight Hub" class="h-5 w-5 rounded-md object-contain" />
-          <span class="font-bold text-slate-200">Midnight Hub</span>
-          <span>· Supervised Vibe Coding & AI Orchestrator</span>
-        </div>
-        <div class="flex items-center gap-5 text-slate-300">
-          <Link href="/tasks" class="hover:text-emerald-400 transition-colors">Workspace</Link>
-          <Link href="/projects" class="hover:text-emerald-400 transition-colors">Projects</Link>
-          <Link href="/desktop" class="hover:text-emerald-400 transition-colors">Desktop</Link>
-          <Link href="/pricing" class="hover:text-emerald-400 transition-colors">Pricing</Link>
-          <a href="https://github.com/macatung/task-hub" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">GitHub</a>
-        </div>
-        <p>© 2026 Macatung Dev. Released under the MIT License.</p>
-      </div>
-    </footer>
+    <!-- Reusable Midnight Footer -->
+    <MidnightFooter />
   </div>
 </template>

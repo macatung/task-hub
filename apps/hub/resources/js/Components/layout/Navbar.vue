@@ -11,11 +11,6 @@ import { useTimeCycle } from '@/composables/useTimeCycle';
 
 const { activePhase } = useTimeCycle();
 const page = usePage();
-const props = withDefaults(defineProps<{ variant?: 'portfolio' | 'midnight' }>(), {
-  variant: 'portfolio',
-});
-const isMidnightVariant = props.variant === 'midnight';
-
 interface NavItem {
   label: string;
   href: string;
@@ -23,7 +18,7 @@ interface NavItem {
   iconName?: string;
 }
 
-const portfolioNavLinks: NavItem[] = [
+const navLinks: NavItem[] = [
   { label: 'Home', href: '/', iconName: 'Home' },
   { label: 'Projects', href: '/projects', iconName: 'Layers' },
   { label: 'Desktop', href: '/desktop', badge: 'NEW', iconName: 'Monitor' },
@@ -32,16 +27,6 @@ const portfolioNavLinks: NavItem[] = [
   { label: 'Dev Forge', href: '/talisman', iconName: 'Sparkles' },
   { label: 'Typing Test', href: '/game', badge: 'REPL', iconName: 'Gamepad' },
 ];
-
-const midnightNavLinks: NavItem[] = [
-  { label: 'Overview', href: '/', iconName: 'Home' },
-  { label: 'Workspace', href: '/tasks', badge: 'LIVE', iconName: 'Code' },
-  { label: 'Projects', href: '/projects', iconName: 'Layers' },
-  { label: 'Desktop', href: '/desktop', badge: 'v2.0', iconName: 'Monitor' },
-  { label: 'Pricing', href: '/pricing', iconName: 'Tag' },
-];
-
-const navLinks = computed(() => isMidnightVariant ? midnightNavLinks : portfolioNavLinks);
 
 const isScrolled = ref(false);
 const isMobileDrawerOpen = ref(false);
@@ -116,25 +101,18 @@ onUnmounted(() => {
       <Link
         href="/"
         class="flex items-center gap-3 select-none group focus:outline-none flex-shrink-0"
-        :title="isMidnightVariant ? 'Midnight Hub Home' : 'MacaTung Platform Home'"
+        title="MacaTung Platform Home"
         @click="sound.playHop(1.3)"
       >
         <!-- Animated Mini Vector Mascot Badge -->
-        <img
-          v-if="isMidnightVariant"
-          src="/brand/midnight-hub-mark.svg?v=20260829"
-          alt="Midnight Hub"
-          class="h-10 w-10 rounded-xl object-contain shadow-glow-mint transition-transform duration-150 group-hover:scale-105"
-        />
-        <MiniMascotLogo v-else size="md" :animated="true" />
+        <MiniMascotLogo size="md" :animated="true" />
 
         <div class="flex flex-col">
           <span class="font-display font-bold text-base sm:text-lg tracking-tight text-white flex items-center group-hover:text-phantom-mint transition-colors">
-            <template v-if="isMidnightVariant">Midnight Hub</template>
-            <template v-else>macatung<span class="text-phantom-mint">.dev</span></template>
+            macatung<span class="text-phantom-mint">.dev</span>
           </span>
           <span class="text-[10px] font-mono text-slate-400 -mt-0.5 tracking-wider hidden sm:inline-block">
-            {{ isMidnightVariant ? 'Autonomous agent workspace' : 'Code at midnight' }}
+            Code at midnight
           </span>
         </div>
       </Link>
