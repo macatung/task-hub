@@ -854,12 +854,15 @@ export function parseCaoWorkflowRunStatus(output: string): CaoWorkflowRunStatus 
   const runIdMatch = output.match(/run[-_ ]?(?:id)?[:= ]+([a-zA-Z0-9_-]+)/i);
   if (runIdMatch) result.runId = runIdMatch[1];
 
-  const statusLineMatch = output.match(/(?:overall\s+)?status[:=\s]+(RUNNING|COMPLETED|SUCCESS|INTERRUPTED|ABORTED|FAILED|ERROR)/i);
+  const statusLineMatch = output.match(/(?:overall\s+)?(?:status|state)[:=\s]+(RUNNING|COMPLETED|SUCCESS|INTERRUPTED|ABORTED|FAILED|ERROR|CANCELLED|WAITING_INPUT|BLOCKED)/i);
   if (statusLineMatch) {
     const raw = statusLineMatch[1].toUpperCase();
     if (raw === 'COMPLETED' || raw === 'SUCCESS') result.state = 'completed';
     else if (raw === 'INTERRUPTED' || raw === 'ABORTED') result.state = 'interrupted';
     else if (raw === 'FAILED' || raw === 'ERROR') result.state = 'failed';
+    else if (raw === 'CANCELLED') result.state = 'cancelled';
+    else if (raw === 'WAITING_INPUT') result.state = 'waiting_input';
+    else if (raw === 'BLOCKED') result.state = 'blocked';
     else result.state = 'running';
   } else if (/run\s+completed|workflow\s+completed/i.test(output)) {
     result.state = 'completed';
@@ -878,7 +881,14 @@ export function parseCaoWorkflowRunStatus(output: string): CaoWorkflowRunStatus 
     }
   }
 
-  const currentMatch = output.match(/executing step[:\s]+([a-zA-Z0-9_-]+)/i);
+  const cao25StepMatches = output.matchAll(/^\s*-\s+([a-zA-Z0-9_-]+):\s+([a-zA-Z0-9_-]+)(?:\s+\(attempts=(\d+)\))?/gim);
+  for (const match of cao25StepMatches) {
+    if (match[2]?.toLowerCase() === 'completed' && match[1] && !result.completedSteps.includes(match[1])) {
+      result.completedSteps.push(match[1]);
+    }
+  }
+
+  const currentMatch = output.match(/(?:executing step|current)[:\s]+([a-zA-Z0-9_-]+)/i);
   if (currentMatch) result.currentStep = currentMatch[1];
 
   return result;

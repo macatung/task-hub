@@ -104,7 +104,7 @@ const toggleFeatured = (project: ProjectItem) => {
 };
 
 const deleteProject = (project: ProjectItem) => {
-  if (confirm(`Bạn có chắc chắn muốn xóa dự án "${project.title}" không?`)) {
+  if (confirm(`Are you sure you want to delete project "${project.title}"?`)) {
     router.delete(`/admin/projects/${project.id}`, {
       preserveScroll: true,
     });
@@ -113,17 +113,17 @@ const deleteProject = (project: ProjectItem) => {
 </script>
 
 <template>
-  <AdminLayout title="Quản Lý Dự Án">
-    <Head title="Quản Lý Dự Án — Admin CMS" />
+  <AdminLayout title="Project Management">
+    <Head title="Project Management — Admin CMS" />
 
     <!-- Header & Create Action -->
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
       <div>
         <h1 class="text-2xl sm:text-3xl font-display font-extrabold text-white">
-          Quản Lý Dự Án (Projects CMS)
+          Projects & Grimoire CMS
         </h1>
         <p class="text-xs sm:text-sm text-slate-400 font-sans mt-0.5">
-          Thêm, sửa, cập nhật trạng thái nổi bật hoặc xóa dự án hiển thị trên Portfolio.
+          Create, edit, feature, and manage production architectures and applications.
         </p>
       </div>
 
@@ -132,7 +132,7 @@ const deleteProject = (project: ProjectItem) => {
         class="px-4 py-2.5 rounded-xl bg-phantom-mint text-midnight-950 font-mono font-bold text-xs hover:brightness-110 transition-all shadow-glow-mint flex items-center gap-1.5"
         @click="openCreateModal"
       >
-        <span>+ Thêm Dự Án Mới</span>
+        <span>+ Add New Project</span>
       </button>
     </div>
 
@@ -142,12 +142,12 @@ const deleteProject = (project: ProjectItem) => {
         <table class="w-full text-left text-xs font-sans">
           <thead class="bg-midnight-900/60 border-b border-white/5 text-slate-400 font-mono text-[11px] uppercase tracking-wider">
             <tr>
-              <th class="p-3">Thứ Tự</th>
-              <th class="p-3">Tên Dự Án</th>
-              <th class="p-3">Danh Mục</th>
-              <th class="p-3">Tags Công Nghệ</th>
-              <th class="p-3 text-center">Nổi Bật</th>
-              <th class="p-3 text-right">Thao Tác</th>
+              <th class="p-3">Order</th>
+              <th class="p-3">Project Title</th>
+              <th class="p-3">Category</th>
+              <th class="p-3">Tech Stack</th>
+              <th class="p-3 text-center">Featured</th>
+              <th class="p-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-white/5 text-slate-300">
@@ -182,7 +182,7 @@ const deleteProject = (project: ProjectItem) => {
                     : 'bg-white/5 text-slate-500 border-white/5'"
                   @click="toggleFeatured(p)"
                 >
-                  {{ p.featured ? '★ Nổi Bật' : '☆ Ẩn' }}
+                  {{ p.featured ? '★ Featured' : '☆ Hidden' }}
                 </button>
               </td>
               <td class="p-3 text-right">
@@ -192,14 +192,14 @@ const deleteProject = (project: ProjectItem) => {
                     class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-mono transition-all"
                     @click="openEditModal(p)"
                   >
-                    Sửa
+                    Edit
                   </button>
                   <button
                     type="button"
                     class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-400 text-xs font-mono transition-all border border-rose-500/20"
                     @click="deleteProject(p)"
                   >
-                    Xóa
+                    Delete
                   </button>
                 </div>
               </td>
@@ -217,7 +217,7 @@ const deleteProject = (project: ProjectItem) => {
       <div class="w-full max-w-2xl bg-midnight-900 border border-white/10 rounded-3xl p-6 sm:p-8 text-left shadow-2xl space-y-5">
         <div class="flex items-center justify-between pb-4 border-b border-white/10">
           <h2 class="text-xl font-display font-bold text-white">
-            {{ editingProject ? 'Chỉnh Sửa Dự Án' : 'Thêm Dự Án Mới' }}
+            {{ editingProject ? 'Edit Project' : 'Add New Project' }}
           </h2>
           <button
             type="button"
@@ -231,7 +231,7 @@ const deleteProject = (project: ProjectItem) => {
         <form class="space-y-4" @submit.prevent="submitProject">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Tên Dự Án *</label>
+              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Project Title *</label>
               <input
                 v-model="form.title"
                 type="text"
@@ -241,7 +241,7 @@ const deleteProject = (project: ProjectItem) => {
               />
             </div>
             <div>
-              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Slug (Tự Động Tạo Nếu Để Trống)</label>
+              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Slug (Auto-generated if empty)</label>
               <input
                 v-model="form.slug"
                 type="text"
@@ -252,19 +252,19 @@ const deleteProject = (project: ProjectItem) => {
           </div>
 
           <div>
-            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Tagline Súc Tích *</label>
+            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Concise Tagline *</label>
             <input
               v-model="form.tagline"
               type="text"
               required
               class="w-full px-3.5 py-2.5 rounded-xl bg-midnight-950 border border-white/10 text-white text-sm focus:border-phantom-mint focus:outline-none"
-              placeholder="e.g. Cổng thanh toán tự động VietQR xử lý 10,000 req/s"
+              placeholder="e.g. High-throughput automated payment gateway processing 10,000 req/s"
             />
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Danh Mục *</label>
+              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Category *</label>
               <select
                 v-model="form.category"
                 class="w-full px-3.5 py-2.5 rounded-xl bg-midnight-950 border border-white/10 text-white text-sm focus:border-phantom-mint focus:outline-none"
@@ -276,7 +276,7 @@ const deleteProject = (project: ProjectItem) => {
               </select>
             </div>
             <div>
-              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Thứ Tự Sắp Xếp (Order)</label>
+              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Display Order</label>
               <input
                 v-model.number="form.order"
                 type="number"
@@ -286,18 +286,18 @@ const deleteProject = (project: ProjectItem) => {
           </div>
 
           <div>
-            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Mô Tả Dự Án *</label>
+            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Project Description *</label>
             <textarea
               v-model="form.description"
               rows="3"
               required
               class="w-full p-3.5 rounded-xl bg-midnight-950 border border-white/10 text-white text-sm focus:border-phantom-mint focus:outline-none"
-              placeholder="Mô tả bài toán giải quyết, kiến trúc và giá trị thực tế mang lại..."
+              placeholder="Describe the problem statement, architecture highlights, and business impact..."
             />
           </div>
 
           <div>
-            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Tags Công Nghệ (Phân cách bằng dấu phẩy)</label>
+            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Technology Tags (Comma-separated)</label>
             <input
               v-model="form.tags_input"
               type="text"
@@ -308,7 +308,7 @@ const deleteProject = (project: ProjectItem) => {
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Live URL (Nếu Có)</label>
+              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Live URL (Optional)</label>
               <input
                 v-model="form.live_url"
                 type="url"
@@ -317,7 +317,7 @@ const deleteProject = (project: ProjectItem) => {
               />
             </div>
             <div>
-              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">GitHub URL (Nếu Có)</label>
+              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">GitHub URL (Optional)</label>
               <input
                 v-model="form.github_url"
                 type="url"
@@ -335,7 +335,7 @@ const deleteProject = (project: ProjectItem) => {
               class="rounded bg-midnight-950 border-white/10 text-phantom-mint focus:ring-0 w-4 h-4"
             />
             <label for="featured-checkbox" class="text-xs font-mono text-slate-300">
-              Đánh dấu là Dự Án Nổi Bật (Featured Project)
+              Mark as Featured Project
             </label>
           </div>
 
@@ -345,13 +345,13 @@ const deleteProject = (project: ProjectItem) => {
               class="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-mono"
               @click="closeModal"
             >
-              Hủy Bỏ
+              Cancel
             </button>
             <button
               type="submit"
               class="px-6 py-2.5 rounded-xl bg-phantom-mint text-midnight-950 font-mono font-bold text-xs hover:brightness-110 shadow-glow-mint"
             >
-              {{ editingProject ? 'Lưu Thay Đổi' : 'Tạo Dự Án' }}
+              {{ editingProject ? 'Save Changes' : 'Create Project' }}
             </button>
           </div>
         </form>

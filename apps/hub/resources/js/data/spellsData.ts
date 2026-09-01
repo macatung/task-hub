@@ -26,36 +26,36 @@ export const normalSpells: string[] = [
 
 export const bossSpells: { name: string; spells: string[]; hp: number }[] = [
   {
-    name: 'NullPointerException (Tà Thần Sơ Cấp)',
+    name: 'NullPointerException (Novice Daemon)',
     spells: ['optional.chaining', 'nullish.coalesce', 'guard.clause'],
     hp: 3
   },
   {
-    name: 'MemoryLeak 500MB (Quỷ Hút RAM)',
+    name: 'MemoryLeak 500MB (RAM Vampire)',
     spells: ['gc.collect()', 'removeEventListener', 'dispose.buffers'],
     hp: 3
   },
   {
-    name: 'MergeConflict 1000 Lines (Ám Khí Git)',
+    name: 'MergeConflict 1000 Lines (Git Phantom)',
     spells: ['git checkout --theirs', 'git add .', 'git commit -m "fix"'],
     hp: 3
   },
   {
-    name: '504 Gateway Timeout (Yêu Ma Sập Cổng)',
+    name: '504 Gateway Timeout (Gateway Specter)',
     spells: ['increase.timeout', 'scale.replicas', 'enable.cdn.cache'],
     hp: 3
   },
   {
-    name: 'Infinite Recursion Loop (Vòng Lặp Vô Tận)',
+    name: 'Infinite Recursion Loop (Endless Abyss)',
     spells: ['base.condition()', 'break.iteration', 'tail.optimization'],
     hp: 3
   }
 ];
 
 export const getTitleBadge = (score: number, wpm: number): string => {
-  if (score >= 3000 && wpm >= 70) return '🧙‍♂️ Thần Phím Nửa Đêm (Midnight Grand Wizard)';
-  if (score >= 2000 && wpm >= 55) return '⚡ Bậc Thầy Trảm Bug (Bug Slayer Archmage)';
-  if (score >= 1200 && wpm >= 40) return '📜 Pháp Sư Ma Đạo (Spell Weaver)';
-  if (score >= 600) return '☕ Lập Trình Viên Ca Đêm (Night Shift Coder)';
-  return '🌱 Tập Sự Trừ Tà (Apprentice Typer)';
+  if (score >= 3000 && wpm >= 70) return '🧙‍♂️ Midnight Grandmaster Typist';
+  if (score >= 2000 && wpm >= 55) return '⚡ Bug Slayer Archmage';
+  if (score >= 1200 && wpm >= 40) return '📜 Code Spell Weaver';
+  if (score >= 600) return '☕ Night Shift Engineer';
+  return '🌱 Apprentice Typer';
 };

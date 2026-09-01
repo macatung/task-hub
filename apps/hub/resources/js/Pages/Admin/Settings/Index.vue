@@ -34,17 +34,17 @@ const submitSettings = () => {
 </script>
 
 <template>
-  <AdminLayout title="Cài Đặt & Profile">
-    <Head title="Cài Đặt & Profile — Admin CMS" />
+  <AdminLayout title="Settings & Profile">
+    <Head title="Settings & Profile — Admin CMS" />
 
     <!-- Header -->
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
       <div>
         <h1 class="text-2xl sm:text-3xl font-display font-extrabold text-white">
-          Cài Đặt Hệ Thống & Profile CMS
+          System Settings & CMS Profile
         </h1>
         <p class="text-xs sm:text-sm text-slate-400 font-sans mt-0.5">
-          Tùy chỉnh thông tin thương hiệu cá nhân, đường dẫn mạng xã hội, link tải CV và mật khẩu quản trị.
+          Configure brand identity, social channels, resume link, and admin credentials.
         </p>
       </div>
     </div>
@@ -54,12 +54,12 @@ const submitSettings = () => {
       <!-- Section 1: Brand & Slogan -->
       <div class="p-6 rounded-2xl glass-panel border border-white/10 space-y-4">
         <h2 class="text-lg font-display font-bold text-white flex items-center gap-2">
-          <span>👑 Thương Hiệu & Định Vị Portfolio</span>
+          <span>👑 Brand Identity & Portfolio Slogan</span>
         </h2>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Tên Thương Hiệu (Site Name)</label>
+            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Brand Name (Site Name)</label>
             <input
               v-model="form.site_name"
               type="text"
@@ -77,7 +77,7 @@ const submitSettings = () => {
         </div>
 
         <div>
-          <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Tiêu Đề Trang (Site Title SEO)</label>
+          <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Site Title (SEO Meta Title)</label>
           <input
             v-model="form.site_title"
             type="text"
@@ -86,7 +86,7 @@ const submitSettings = () => {
         </div>
 
         <div>
-          <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Mô Tả Hero Subtitle</label>
+          <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Hero Subtitle Description</label>
           <textarea
             v-model="form.hero_subtitle"
             rows="2"
@@ -98,12 +98,12 @@ const submitSettings = () => {
       <!-- Section 2: Contact & Socials -->
       <div class="p-6 rounded-2xl glass-panel border border-white/10 space-y-4">
         <h2 class="text-lg font-display font-bold text-white flex items-center gap-2">
-          <span>📡 Kênh Liên Lạc & Mạng Xã Hội</span>
+          <span>📡 Contact Channels & Socials</span>
         </h2>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Email Nhận Lời Triệu Hồi</label>
+            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Inquiry Recipient Email</label>
             <input
               v-model="form.contact_email"
               type="email"
@@ -141,7 +141,7 @@ const submitSettings = () => {
         </div>
 
         <div>
-          <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Đường Dẫn Tải File CV (PDF / Drive URL)</label>
+          <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Resume / CV Download URL (PDF / Drive Link)</label>
           <input
             v-model="form.resume_download_url"
             type="text"
@@ -154,16 +154,16 @@ const submitSettings = () => {
       <!-- Section 3: Security & Password Shield -->
       <div class="p-6 rounded-2xl glass-panel border border-white/10 space-y-4">
         <h2 class="text-lg font-display font-bold text-white flex items-center gap-2">
-          <span>🛡️ Mật Khẩu Quản Trị Viên (Admin Password Shield)</span>
+          <span>🛡️ Administrator Password & Security Shield</span>
         </h2>
 
         <div>
-          <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Đổi Mật Khẩu Admin (Để trống nếu không đổi)</label>
+          <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Change Admin Password (Leave blank to keep current)</label>
           <input
             v-model="form.admin_password"
             type="password"
             class="w-full px-3.5 py-2.5 rounded-xl bg-midnight-950 border border-white/10 text-white text-sm focus:border-phantom-mint focus:outline-none font-mono"
-            placeholder="Nhập mật khẩu mới..."
+            placeholder="Enter new password..."
           />
         </div>
       </div>
@@ -175,8 +175,8 @@ const submitSettings = () => {
           class="px-8 py-3 rounded-2xl bg-phantom-mint text-midnight-950 font-display font-extrabold text-sm hover:brightness-110 shadow-glow-mint flex items-center gap-2"
           :disabled="form.processing"
         >
-          <span v-if="form.processing">Đang Lưu Cài Đặt...</span>
-          <span v-else>Lưu Toàn Bộ Cấu Hình CMS 💾</span>
+          <span v-if="form.processing">Saving Settings...</span>
+          <span v-else>Save All CMS Settings 💾</span>
         </button>
       </div>
     </form>

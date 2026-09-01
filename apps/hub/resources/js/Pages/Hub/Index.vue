@@ -529,7 +529,7 @@ const hubJsonLd = {
         </div>
 
         <div class="mt-16 grid gap-6 md:grid-cols-3">
-          <!-- Pillar 1: Phát Triển Nhanh Hơn -->
+          <!-- Pillar 1: Faster Velocity -->
           <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-7 hover:border-emerald-500/50 hover:bg-slate-900/60 transition-all">
             <div class="inline-flex h-12 w-12 items-center justify-center shrink-0 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 group-hover:scale-110 transition-transform">
               <Icons name="Zap" :size="24" />
@@ -554,7 +554,7 @@ const hubJsonLd = {
             </ul>
           </div>
 
-          <!-- Pillar 2: Ít Lỗi Hơn -->
+          <!-- Pillar 2: Fewer Regressions -->
           <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-7 hover:border-cyan-500/50 hover:bg-slate-900/60 transition-all">
             <div class="inline-flex h-12 w-12 items-center justify-center shrink-0 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 group-hover:scale-110 transition-transform">
               <Icons name="Shield" :size="24" />
@@ -579,7 +579,7 @@ const hubJsonLd = {
             </ul>
           </div>
 
-          <!-- Pillar 3: Đúng Chuẩn Hơn -->
+          <!-- Pillar 3: Strict Standards -->
           <div class="group rounded-2xl border border-slate-800 bg-slate-950/80 p-7 hover:border-purple-500/50 hover:bg-slate-900/60 transition-all">
             <div class="inline-flex h-12 w-12 items-center justify-center shrink-0 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 group-hover:scale-110 transition-transform">
               <Icons name="BookOpen" :size="24" />

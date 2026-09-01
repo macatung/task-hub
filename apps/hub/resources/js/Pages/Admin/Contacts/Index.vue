@@ -29,7 +29,7 @@ defineProps<{
 }>();
 
 const deleteContact = (c: ContactItem) => {
-  if (confirm(`Bạn có chắc muốn xóa lời triệu hồi từ "${c.name}" (${c.reference_id}) không?`)) {
+  if (confirm(`Are you sure you want to delete the inquiry from "${c.name}" (${c.reference_id})?`)) {
     router.delete(`/admin/contacts/${c.id}`, {
       preserveScroll: true,
     });
@@ -38,29 +38,29 @@ const deleteContact = (c: ContactItem) => {
 </script>
 
 <template>
-  <AdminLayout title="Hộp Thư Triệu Hồi">
-    <Head title="Hộp Thư Triệu Hồi — Admin CMS" />
+  <AdminLayout title="Inquiry Inbox">
+    <Head title="Inquiry Inbox — Admin CMS" />
 
     <!-- Header -->
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
       <div>
         <h1 class="text-2xl sm:text-3xl font-display font-extrabold text-white">
-          Hộp Thư Triệu Hồi (Summoning Inquiries)
+          Inquiry Inbox & Project Proposals
         </h1>
         <p class="text-xs sm:text-sm text-slate-400 font-sans mt-0.5">
-          Danh sách toàn bộ yêu cầu dự án, tin nhắn và lời mời cà phê từ khách truy cập.
+          Comprehensive log of client proposals, messages, and coffee offerings submitted via the contact terminal.
         </p>
       </div>
 
       <span class="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-phantom-mint font-mono text-xs">
-        Tổng số: {{ contacts.total }} lời triệu hồi
+        Total: {{ contacts.total }} inquiries
       </span>
     </div>
 
     <!-- Inquiries Cards / Table -->
     <div class="p-6 rounded-2xl glass-panel border border-white/10 text-left">
       <div v-if="contacts.data.length === 0" class="p-12 text-center text-slate-500 font-mono text-xs">
-        Hộp thư đang trống. Chưa có lời triệu hồi nào.
+        Inbox is currently empty. No inquiries recorded.
       </div>
 
       <div v-else class="space-y-4">
@@ -91,24 +91,24 @@ const deleteContact = (c: ContactItem) => {
             </p>
 
             <div class="text-[10px] font-mono text-slate-500">
-              Nhận lúc: {{ new Date(c.created_at).toLocaleString('vi-VN') }}
+              Received: {{ new Date(c.created_at).toLocaleString('en-US') }}
             </div>
           </div>
 
           <!-- Right: Actions -->
           <div class="flex items-center gap-2 shrink-0">
             <a
-              :href="`mailto:${c.email}?subject=Re: [macatung.dev] Lời hồi đáp triệu hồi ${c.reference_id}`"
+              :href="`mailto:${c.email}?subject=Re: [macatung.dev] Response to inquiry ${c.reference_id}`"
               class="px-3.5 py-2 rounded-xl bg-phantom-mint text-midnight-950 font-mono font-bold text-xs hover:brightness-110 shadow-glow-mint flex items-center gap-1"
             >
-              <span>Phản Hồi Email ✉️</span>
+              <span>Reply via Email ✉️</span>
             </a>
             <button
               type="button"
               class="px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-400 font-mono text-xs transition-all border border-rose-500/20"
               @click="deleteContact(c)"
             >
-              Xóa
+              Delete
             </button>
           </div>
         </div>

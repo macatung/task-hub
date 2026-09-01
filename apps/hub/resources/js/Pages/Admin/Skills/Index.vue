@@ -76,7 +76,7 @@ const submitSkill = () => {
 };
 
 const deleteSkill = (skill: SkillItem) => {
-  if (confirm(`Bạn có chắc chắn muốn xóa kỹ năng "${skill.name}" không?`)) {
+  if (confirm(`Are you sure you want to delete the skill "${skill.name}"?`)) {
     router.delete(`/admin/skills/${skill.id}`, {
       preserveScroll: true,
     });
@@ -85,17 +85,17 @@ const deleteSkill = (skill: SkillItem) => {
 </script>
 
 <template>
-  <AdminLayout title="Quản Lý Kỹ Năng">
-    <Head title="Quản Lý Kỹ Năng — Admin CMS" />
+  <AdminLayout title="Skills & Arsenal Management">
+    <Head title="Skills & Arsenal — Admin CMS" />
 
     <!-- Header & Create Action -->
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
       <div>
         <h1 class="text-2xl sm:text-3xl font-display font-extrabold text-white">
-          Quản Lý Kỹ Năng & Pháp Bảo (Skills CMS)
+          Skills & Arsenal CMS
         </h1>
         <p class="text-xs sm:text-sm text-slate-400 font-sans mt-0.5">
-          Thêm, chỉnh sửa mức độ thành thạo (%) và phân loại các kỹ năng trong Tech Arsenal.
+          Add, edit proficiency levels (%), and categorize competencies in the Tech Arsenal.
         </p>
       </div>
 
@@ -104,7 +104,7 @@ const deleteSkill = (skill: SkillItem) => {
         class="px-4 py-2.5 rounded-xl bg-phantom-mint text-midnight-950 font-mono font-bold text-xs hover:brightness-110 transition-all shadow-glow-mint flex items-center gap-1.5"
         @click="openCreateModal"
       >
-        <span>+ Thêm Kỹ Năng Mới</span>
+        <span>+ Add New Skill</span>
       </button>
     </div>
 
@@ -114,12 +114,12 @@ const deleteSkill = (skill: SkillItem) => {
         <table class="w-full text-left text-xs font-sans">
           <thead class="bg-midnight-900/60 border-b border-white/5 text-slate-400 font-mono text-[11px] uppercase tracking-wider">
             <tr>
-              <th class="p-3">Thứ Tự</th>
-              <th class="p-3">Rune & Kỹ Năng</th>
-              <th class="p-3">Phân Nhóm</th>
-              <th class="p-3">Nhãn (Tag)</th>
-              <th class="p-3">Độ Thành Thạo</th>
-              <th class="p-3 text-right">Thao Tác</th>
+              <th class="p-3">Order</th>
+              <th class="p-3">Rune & Skill</th>
+              <th class="p-3">Category</th>
+              <th class="p-3">Tag</th>
+              <th class="p-3">Proficiency</th>
+              <th class="p-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-white/5 text-slate-300">
@@ -150,14 +150,14 @@ const deleteSkill = (skill: SkillItem) => {
                     class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-mono transition-all"
                     @click="openEditModal(s)"
                   >
-                    Sửa
+                    Edit
                   </button>
                   <button
                     type="button"
                     class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-400 text-xs font-mono transition-all border border-rose-500/20"
                     @click="deleteSkill(s)"
                   >
-                    Xóa
+                    Delete
                   </button>
                 </div>
               </td>
@@ -175,7 +175,7 @@ const deleteSkill = (skill: SkillItem) => {
       <div class="w-full max-w-lg bg-midnight-900 border border-white/10 rounded-3xl p-6 sm:p-8 text-left shadow-2xl space-y-5">
         <div class="flex items-center justify-between pb-4 border-b border-white/10">
           <h2 class="text-xl font-display font-bold text-white">
-            {{ editingSkill ? 'Chỉnh Sửa Kỹ Năng' : 'Thêm Kỹ Năng Mới' }}
+            {{ editingSkill ? 'Edit Skill' : 'Add New Skill' }}
           </h2>
           <button type="button" class="p-1 rounded-lg text-slate-400 hover:text-white" @click="closeModal">
             <Icons name="X" :size="20" />
@@ -184,7 +184,7 @@ const deleteSkill = (skill: SkillItem) => {
 
         <form class="space-y-4" @submit.prevent="submitSkill">
           <div>
-            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Tên Kỹ Năng *</label>
+            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Skill Name *</label>
             <input
               v-model="form.name"
               type="text"
@@ -196,7 +196,7 @@ const deleteSkill = (skill: SkillItem) => {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Phân Nhóm *</label>
+              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Category *</label>
               <select
                 v-model="form.category"
                 class="w-full px-3.5 py-2.5 rounded-xl bg-midnight-950 border border-white/10 text-white text-sm focus:border-phantom-mint focus:outline-none"
@@ -222,7 +222,7 @@ const deleteSkill = (skill: SkillItem) => {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Nhãn / Tag *</label>
+              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Tag / Badge *</label>
               <input
                 v-model="form.tag"
                 type="text"
@@ -233,7 +233,7 @@ const deleteSkill = (skill: SkillItem) => {
             </div>
 
             <div>
-              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Thứ Tự Sắp Xếp</label>
+              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Display Order</label>
               <input
                 v-model.number="form.order"
                 type="number"
@@ -244,7 +244,7 @@ const deleteSkill = (skill: SkillItem) => {
 
           <div>
             <div class="flex justify-between items-center mb-1">
-              <label class="text-xs font-mono text-slate-300 uppercase">Độ Thành Thạo (%) *</label>
+              <label class="text-xs font-mono text-slate-300 uppercase">Proficiency (%) *</label>
               <span class="text-xs font-mono font-bold text-phantom-mint">{{ form.level }}%</span>
             </div>
             <input
@@ -258,10 +258,10 @@ const deleteSkill = (skill: SkillItem) => {
 
           <div class="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
             <button type="button" class="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-mono" @click="closeModal">
-              Hủy Bỏ
+              Cancel
             </button>
             <button type="submit" class="px-6 py-2.5 rounded-xl bg-phantom-mint text-midnight-950 font-mono font-bold text-xs hover:brightness-110 shadow-glow-mint">
-              {{ editingSkill ? 'Lưu Thay Đổi' : 'Tạo Kỹ Năng' }}
+              {{ editingSkill ? 'Save Changes' : 'Create Skill' }}
             </button>
           </div>
         </form>

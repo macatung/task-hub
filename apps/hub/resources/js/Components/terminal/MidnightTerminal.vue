@@ -94,7 +94,8 @@ const execute = (rawCmd: string): string => {
   }
 
   history.value.push(trimmed);
-  historyIndex.value = -1  logs.value.push({
+  historyIndex.value = -1;
+  logs.value.push({
     id: `log-${Date.now()}-in`,
     type: 'input',
     text: `${prompt.value} ${trimmed}`,

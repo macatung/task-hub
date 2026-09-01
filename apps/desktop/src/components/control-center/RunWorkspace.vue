@@ -149,16 +149,18 @@ const testSummary = ref("");
 const commitSha = ref("");
 const pullRequestUrl = ref("");
 const blockers = ref("");
-const activeSubTab = ref<"execution" | "conversation" | "debug">("execution");
+const activeSubTab = ref<"execution" | "conversation" | "debug">("conversation");
 const humanReviewFeedback = ref("");
 const increasedReviewLimit = ref(3);
 const isChatDockCollapsed = ref(false);
 const showRunContext = ref(false);
+const isFocusMode = ref(false);
 
 const handleSelectSubTask = (taskId: number | string) => {
   emit('selectSubTask', taskId);
   emit('select-sub-task', taskId);
 };
+
 const selectedStreamEvent = ref<ExecutionStreamEvent | null>(null);
 const selectedWorkerId = ref<string | null>(null);
 
@@ -190,6 +192,9 @@ watch(
 watch(
   () => props.running,
   (isRun, wasRun) => {
+    if (isRun) {
+      activeSubTab.value = "conversation";
+    }
     if (wasRun && !isRun) {
       thread.finalizeStreamingTurn(props.runStatus === 'failed' ? 'failed' : 'completed');
     }
@@ -204,7 +209,9 @@ const handleSendPrompt = (text: string) => {
 };
 
 watch(() => props.orchestrationMode, (mode) => {
-  if (mode === 'workflow' || mode === 'supervisor') activeSubTab.value = 'execution';
+  if ((mode === 'workflow' || mode === 'supervisor') && !props.running && !props.output?.trim() && !thread.messages.value.length) {
+    activeSubTab.value = 'execution';
+  }
 }, { immediate: true });
 
 const isStreaming = computed(
@@ -911,6 +918,16 @@ const submit = () => {
           @click="$emit('launch')"
         >
           {{ isEpic ? "Run Epic sequence" : "Launch agent" }}
+        </button>
+
+        <!-- Focus Mode / Header Minimalist Toggle -->
+        <button
+          type="button"
+          class="grid h-7 w-7 place-items-center rounded-lg text-zinc-400 hover:bg-[#11182c] hover:text-zinc-200 transition shrink-0 cursor-pointer"
+          :title="isFocusMode ? 'Mở rộng điều khiển header' : 'Thu gọn điều khiển (Focus Stream Mode)'"
+          @click="isFocusMode = !isFocusMode"
+        >
+          <i class="codicon" :class="isFocusMode ? 'codicon-layout-panel-center text-[#00f5a0]' : 'codicon-layout-panel-off'"></i>
         </button>
 
         <!-- Header Actions: fullscreen -->

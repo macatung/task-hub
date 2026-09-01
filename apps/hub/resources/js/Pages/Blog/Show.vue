@@ -102,7 +102,7 @@ const copyArticleLink = async () => {
 
 const handleNativeShare = async () => {
   const url = typeof window !== 'undefined' ? window.location.href : `https://macatung.dev/blog/${props.article.slug}`;
-  const shareTitle = `${props.article.title} | Ma Cà Tưng • Code at midnight`;
+  const shareTitle = `${props.article.title} | The Midnight Architect`;
   const shareText = props.article.excerpt || '';
 
   if (navigator.share) {
@@ -233,17 +233,17 @@ const articleJsonLd = computed(() => ({
   'dateModified': props.article.published_at,
   'author': {
     '@type': 'Person',
-    'name': 'Ma Cà Tưng',
+    'name': 'MacaTung',
     'url': 'https://macatung.dev'
   },
   'publisher': {
     '@type': 'Person',
-    'name': 'Ma Cà Tưng',
+    'name': 'MacaTung',
     'url': 'https://macatung.dev'
   },
   'keywords': props.article.tags ? props.article.tags.join(', ') : '',
   'articleSection': 'Technology & Architecture',
-  'inLanguage': 'vi'
+  'inLanguage': 'en'
 }));
 </script>
 
@@ -256,7 +256,7 @@ const articleJsonLd = computed(() => ({
     og-type="article"
     :article="{
       publishedTime: article.published_at,
-      author: 'Ma Cà Tưng',
+      author: 'MacaTung',
       section: 'Technology',
       tags: article.tags
     }"
@@ -276,9 +276,9 @@ const articleJsonLd = computed(() => ({
     <main class="relative z-10 flex-1 w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 text-left">
       <!-- Breadcrumbs -->
       <nav class="flex items-center gap-2 text-xs font-mono text-slate-400 mb-8" aria-label="Breadcrumb">
-        <Link href="/" class="hover:text-phantom-mint transition-colors">Trang Chủ</Link>
+        <Link href="/" class="hover:text-phantom-mint transition-colors">Home</Link>
         <span>/</span>
-        <Link href="/blog" class="hover:text-phantom-mint transition-colors">Góc Kiến Thức</Link>
+        <Link href="/blog" class="hover:text-phantom-mint transition-colors">Engineering Blog</Link>
         <span>/</span>
         <span class="text-slate-200 truncate max-w-xs sm:max-w-md">{{ article.title }}</span>
       </nav>
@@ -304,17 +304,17 @@ const articleJsonLd = computed(() => ({
         <div class="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-white/5 text-xs font-mono text-slate-400">
           <div class="flex flex-wrap items-center gap-3 sm:gap-4">
             <span class="flex items-center gap-1.5 text-phantom-mint font-bold">
-              ⏱ {{ article.reading_time_min }} Phút Đọc
+              ⏱ {{ article.reading_time_min }} min read
             </span>
             <span>·</span>
-            <span>👁 {{ (article.view_count || 120).toLocaleString() }} Lượt Xem</span>
+            <span>👁 {{ (article.view_count || 120).toLocaleString() }} reads</span>
             <span>·</span>
-            <span>📅 {{ new Date(article.published_at).toLocaleDateString('vi-VN') }}</span>
+            <span>📅 {{ new Date(article.published_at).toLocaleDateString('en-US') }}</span>
           </div>
 
           <!-- Reader Controls: Theme Paper/Night Mode & Font Size -->
           <div class="flex items-center gap-2.5">
-            <!-- Theme Toggle: Nền Trắng Sáng / Nền Tối -->
+            <!-- Theme Toggle: Light Paper / Dark Mode -->
             <button
               @click="toggleTheme"
               :class="[
@@ -323,9 +323,9 @@ const articleJsonLd = computed(() => ({
                   ? 'bg-white text-slate-900 border-emerald-400 shadow-glow-mint'
                   : 'bg-midnight-900 text-slate-300 border-white/10 hover:border-phantom-mint/40'
               ]"
-              :title="isPaperMode ? 'Chuyển sang nền tối' : 'Chuyển sang nền trắng giấy sáng'"
+              :title="isPaperMode ? 'Switch to dark background' : 'Switch to paper light background'"
             >
-              <span>{{ isPaperMode ? '☀️ Nền Sáng' : '🌙 Nền Tối' }}</span>
+              <span>{{ isPaperMode ? '☀️ Light' : '🌙 Dark' }}</span>
             </button>
 
             <!-- Adjust Font Size -->
@@ -333,7 +333,7 @@ const articleJsonLd = computed(() => ({
               <button
                 @click="fontSize = Math.max(15, fontSize - 1); sound.playClick()"
                 class="px-2 py-1 hover:bg-white/10 rounded-lg text-slate-300 font-bold"
-                title="Giảm cỡ chữ"
+                title="Decrease font size"
               >
                 A-
               </button>
@@ -341,7 +341,7 @@ const articleJsonLd = computed(() => ({
               <button
                 @click="fontSize = Math.min(26, fontSize + 1); sound.playClick()"
                 class="px-2 py-1 hover:bg-white/10 rounded-lg text-slate-300 font-bold"
-                title="Tăng cỡ chữ"
+                title="Increase font size"
               >
                 A+
               </button>
@@ -386,15 +386,15 @@ const articleJsonLd = computed(() => ({
         />
       </article>
 
-      <!-- Social Sharing Bar (Chia Sẻ Kiến Thức Kỹ Thuật) -->
+      <!-- Social Sharing Bar -->
       <div class="p-5 sm:p-6 rounded-3xl glass-panel border border-white/10 bg-midnight-900/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-14 shadow-xl text-left">
         <div class="space-y-1">
           <div class="flex items-center gap-2 text-phantom-mint font-display font-bold text-sm sm:text-base">
             <span>⚡</span>
-            <span>Chia Sẻ Bài Viết Đến Cộng Đồng Kỹ Thuật</span>
+            <span>Share Article with Engineering Community</span>
           </div>
           <p class="text-xs text-slate-400 font-sans">
-            Lan tỏa các kiến trúc High-load, AI Agent và Spatial Database hữu ích.
+            Broadcast distributed systems, AI agent, and spatial database architecture patterns.
           </p>
         </div>
 
@@ -402,7 +402,7 @@ const articleJsonLd = computed(() => ({
           <button
             @click="shareToFacebook"
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1877F2]/15 hover:bg-[#1877F2] text-[#4ea1ff] hover:text-white border border-[#1877F2]/40 transition-all font-sans text-xs font-semibold shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
-            title="Chia sẻ lên Facebook"
+            title="Share to Facebook"
           >
             <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
               <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
@@ -413,7 +413,7 @@ const articleJsonLd = computed(() => ({
           <button
             @click="shareToLinkedIn"
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0A66C2]/15 hover:bg-[#0A66C2] text-[#59a5f5] hover:text-white border border-[#0A66C2]/40 transition-all font-sans text-xs font-semibold shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
-            title="Chia sẻ lên LinkedIn"
+            title="Share to LinkedIn"
           >
             <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
               <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
@@ -424,7 +424,7 @@ const articleJsonLd = computed(() => ({
           <button
             @click="shareToTelegram"
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#24A1DE]/15 hover:bg-[#24A1DE] text-[#55c0f5] hover:text-white border border-[#24A1DE]/40 transition-all font-sans text-xs font-semibold shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
-            title="Gửi qua Telegram"
+            title="Share to Telegram"
           >
             <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
@@ -435,7 +435,7 @@ const articleJsonLd = computed(() => ({
           <button
             @click="shareToX"
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-midnight-950 hover:bg-black text-slate-200 hover:text-white border border-white/10 transition-all font-sans text-xs font-semibold shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
-            title="Đăng lên X"
+            title="Share to X"
           >
             <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
               <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
@@ -446,10 +446,10 @@ const articleJsonLd = computed(() => ({
           <button
             @click="copyArticleLink"
             class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-midnight-950 hover:bg-midnight-800 text-phantom-mint hover:text-white border border-phantom-mint/40 transition-all font-sans text-xs font-semibold shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
-            title="Sao chép liên kết bài viết"
+            title="Copy article link"
           >
             <span>{{ copiedLink ? '✅' : '🔗' }}</span>
-            <span>{{ copiedLink ? 'Đã Sao Chép!' : 'Chép Link' }}</span>
+            <span>{{ copiedLink ? 'Copied!' : 'Copy Link' }}</span>
           </button>
         </div>
       </div>
@@ -466,7 +466,7 @@ const articleJsonLd = computed(() => ({
               <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-talisman-gold/20 text-talisman-gold border border-talisman-gold/30">
                 {{ getRelatedProjectInfo(article.slug)!.badge }}
               </span>
-              <span class="text-xs font-mono text-slate-400">Case Study Thực Chiến Liên Quan</span>
+              <span class="text-xs font-mono text-slate-400">Related Production Case Study</span>
             </div>
             <h4 class="font-display font-bold text-white text-base sm:text-lg mt-1">
               {{ getRelatedProjectInfo(article.slug)!.title }}
@@ -482,7 +482,7 @@ const articleJsonLd = computed(() => ({
           class="px-5 py-3 rounded-2xl bg-talisman-gold text-midnight-950 font-display font-bold text-xs sm:text-sm hover:brightness-110 shadow-glow-talisman transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5"
           @click="sound.playClick()"
         >
-          <span>Xem Chi Tiết Dự Án</span>
+          <span>View Project Case Study</span>
           <span>→</span>
         </Link>
       </div>
@@ -495,8 +495,8 @@ const articleJsonLd = computed(() => ({
           </div>
           <div>
             <div class="font-display font-bold text-white text-base sm:text-lg">The Midnight Architect</div>
-            <div class="text-xs font-mono text-phantom-mint">Senior Backend / Fullstack & AI Agent Architect</div>
-            <div class="text-xs text-slate-400 mt-1">Ghi chép chuyên môn được thực thi trong những phiên code 00:00 — 05:00 AM.</div>
+            <div class="text-xs font-mono text-phantom-mint">Lead Backend / Fullstack & AI Agent Architect</div>
+            <div class="text-xs text-slate-400 mt-1">Engineering publications forged during nocturnal deep flow states (00:00 — 05:00 AM).</div>
           </div>
         </div>
         <Link

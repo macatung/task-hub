@@ -35,14 +35,14 @@ const toggleCollapse = () => {
 };
 
 const navItems = [
-  { label: 'Tổng Quan', href: '/admin', icon: 'Terminal', exact: true, badge: null },
-  { label: 'Lưu Lượng (Analytics)', href: '/admin/analytics', icon: 'Activity', exact: false, badge: 'Live' },
-  { label: 'Quản Lý Dự Án', href: '/admin/projects', icon: 'Sparkles', exact: false, badge: null },
-  { label: 'Kỹ Năng & Pháp Bảo', href: '/admin/skills', icon: 'Zap', exact: false, badge: null },
-  { label: 'Biên Niên Sử', href: '/admin/experiences', icon: 'Clock', exact: false, badge: null },
-  { label: 'Ghi Chú & Bài Viết', href: '/admin/articles', icon: 'FileText', exact: false, badge: null },
-  { label: 'Hộp Thư Triệu Hồi', href: '/admin/contacts', icon: 'Mail', exact: false, badge: null },
-  { label: 'Cài Đặt & Profile', href: '/admin/settings', icon: 'Shield', exact: false, badge: null },
+  { label: 'Overview', href: '/admin', icon: 'Terminal', exact: true, badge: null },
+  { label: 'Traffic & Analytics', href: '/admin/analytics', icon: 'Activity', exact: false, badge: 'Live' },
+  { label: 'Projects Management', href: '/admin/projects', icon: 'Sparkles', exact: false, badge: null },
+  { label: 'Skills & Arsenal', href: '/admin/skills', icon: 'Zap', exact: false, badge: null },
+  { label: 'Career Chronicles', href: '/admin/experiences', icon: 'Clock', exact: false, badge: null },
+  { label: 'Articles & Blog', href: '/admin/articles', icon: 'FileText', exact: false, badge: null },
+  { label: 'Inquiry Inbox', href: '/admin/contacts', icon: 'Mail', exact: false, badge: null },
+  { label: 'Settings & Profile', href: '/admin/settings', icon: 'Shield', exact: false, badge: null },
 ];
 
 const isCurrentRoute = (href: string, exact: boolean) => {
@@ -54,7 +54,7 @@ const isCurrentRoute = (href: string, exact: boolean) => {
 };
 
 const handleLogout = () => {
-  if (confirm('Bạn có chắc chắn muốn đăng xuất khỏi Admin CMS?')) {
+  if (confirm('Are you sure you want to log out of Admin CMS?')) {
     router.post('/admin/logout');
   }
 };
@@ -71,7 +71,7 @@ const handleLogout = () => {
         <button
           type="button"
           class="hidden md:flex p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-phantom-mint transition-all border border-white/5"
-          :title="isCollapsed ? 'Mở rộng menu' : 'Thu gọn menu'"
+          :title="isCollapsed ? 'Expand menu' : 'Collapse menu'"
           @click="toggleCollapse"
         >
           <Icons :name="isCollapsed ? 'ChevronRight' : 'ChevronLeft'" :size="18" />
@@ -104,16 +104,16 @@ const handleLogout = () => {
           target="_blank"
           class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-mono transition-all flex items-center gap-1.5 border border-white/5"
         >
-          <span>👁️ Xem Portfolio</span>
+          <span>👁️ View Site</span>
         </Link>
 
         <button
           type="button"
           class="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-400 text-xs font-mono transition-all border border-rose-500/20"
-          title="Đăng xuất khỏi Admin"
+          title="Log out of Admin"
           @click="handleLogout"
         >
-          <span>🚪 Đăng Xuất</span>
+          <span>🚪 Logout</span>
         </button>
 
         <span class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-phantom-mint/10 border border-phantom-mint/30 text-phantom-mint text-[11px] font-mono whitespace-nowrap">
@@ -146,7 +146,7 @@ const handleLogout = () => {
             v-if="!isCollapsed"
             class="text-[10px] font-mono uppercase tracking-wider text-slate-400 px-3 py-2 text-left"
           >
-            Quản Trị Hệ Thống
+            System Administration
           </div>
 
           <Link
@@ -190,7 +190,7 @@ const handleLogout = () => {
         <div class="p-3 border-t border-white/5 shrink-0">
           <!-- Expanded Card -->
           <div v-if="!isCollapsed" class="p-3.5 rounded-xl bg-midnight-950/70 border border-white/5 text-xs font-mono space-y-1.5 text-left">
-            <div class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Hạ Tầng Live</div>
+            <div class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Infrastructure Live</div>
             <div class="flex justify-between text-slate-300">
               <span>Framework:</span>
               <span class="text-phantom-mint font-semibold">Laravel 11</span>
@@ -201,8 +201,8 @@ const handleLogout = () => {
             </div>
           </div>
 
-          <!-- Collapsed Icon Indicator -->
-          <div v-else class="flex justify-center p-1" title="Hệ thống Live 100%">
+          <!-- Collapsed Status Icon -->
+          <div v-else class="flex justify-center p-1" title="System Live 100%">
             <span class="w-2.5 h-2.5 rounded-full bg-phantom-mint animate-pulse" />
           </div>
         </div>

@@ -232,6 +232,10 @@ export class DesktopHeartbeatService {
     }
   }
 
+  private ws: any = null;
+  private wsConnected = false;
+  private wsReconnectTimer: any = null;
+
   public start() {
     if (this.isRunning) return;
     this.isRunning = true;
@@ -242,6 +246,8 @@ export class DesktopHeartbeatService {
     this.timer = setInterval(() => {
       this.sendHeartbeat().catch(() => {});
     }, this.options.intervalMs);
+
+    this.startWebSocket();
   }
 
   public stop() {
@@ -250,6 +256,88 @@ export class DesktopHeartbeatService {
       clearInterval(this.timer);
       this.timer = null;
     }
+    this.stopWebSocket();
+  }
+
+  public startWebSocket(customUrl?: string) {
+    if (typeof WebSocket === 'undefined') return;
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
+
+    try {
+      const url = customUrl || `${this.options.baseUrl.replace(/^http/, 'ws').replace(/\/$/, '')}/ws/desktop-agent?client_id=${encodeURIComponent(this.options.clientId || '')}`;
+      this.ws = new WebSocket(url);
+
+      this.ws.onopen = () => {
+        this.wsConnected = true;
+        this.isOnlineStatus = true;
+        this.sendTelemetryWs();
+      };
+
+      this.ws.onmessage = (event: any) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'ping') {
+            this.ws?.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+          } else if (msg.type === 'remote_dispatch' || msg.type === 'cancel_run') {
+            this.notifyCommand(msg);
+          } else if (msg.commands && Array.isArray(msg.commands)) {
+            for (const cmd of msg.commands) {
+              this.notifyCommand(cmd);
+            }
+          }
+        } catch {
+          // ignore non-JSON messages
+        }
+      };
+
+      this.ws.onclose = () => {
+        this.wsConnected = false;
+        this.ws = null;
+        if (this.isRunning && !this.wsReconnectTimer) {
+          this.wsReconnectTimer = setTimeout(() => {
+            this.wsReconnectTimer = null;
+            if (this.isRunning) this.startWebSocket(customUrl);
+          }, 3000);
+        }
+      };
+
+      this.ws.onerror = () => {
+        this.wsConnected = false;
+      };
+    } catch {
+      this.wsConnected = false;
+    }
+  }
+
+  public stopWebSocket() {
+    if (this.wsReconnectTimer) {
+      clearTimeout(this.wsReconnectTimer);
+      this.wsReconnectTimer = null;
+    }
+    if (this.ws) {
+      try {
+        this.ws.close();
+      } catch {
+        // ignore close error
+      }
+      this.ws = null;
+      this.wsConnected = false;
+    }
+  }
+
+  public sendTelemetryWs(telemetry?: DesktopTelemetry): boolean {
+    if (!this.ws || this.ws.readyState !== 1) return false;
+    try {
+      const data = telemetry || this.getTelemetry();
+      this.ws.send(JSON.stringify({ type: 'telemetry', data, timestamp: Date.now() }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  public isWsConnected(): boolean {
+    return this.wsConnected;
   }
 
   public onCommand(callback: (cmd: DispatchCommand) => void): () => void {
@@ -284,7 +372,7 @@ export class DesktopHeartbeatService {
   }
 
   public isOnline(): boolean {
-    return this.isOnlineStatus;
+    return this.isOnlineStatus || this.wsConnected;
   }
 
   public getLastPingLatency(): number {
@@ -297,3 +385,4 @@ export class DesktopHeartbeatService {
 }
 
 export const defaultHeartbeatService = new DesktopHeartbeatService();
+

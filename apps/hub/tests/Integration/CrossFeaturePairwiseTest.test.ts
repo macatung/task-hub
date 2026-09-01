@@ -262,7 +262,7 @@ describe('Tier 3: Cross-Feature Pairwise Interactions (25 Test Cases)', () => {
     const asciiOutput = forgeState.generateAscii();
     expect(asciiOutput).toContain('Alex Midnight');
     expect(asciiOutput).toContain('Zero Merge Conflicts Forever');
-    expect(asciiOutput).toContain('BÙA 0 CONFLICT');
+    expect(asciiOutput).toContain('ZERO CONFLICT REBASE');
     expect(asciiOutput).toContain('ĐÃ KHAI QUANG');
 
     // Simulate copying to clipboard

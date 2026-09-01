@@ -403,7 +403,7 @@ describe('RuneTyperGameTest (F21_RUNE_TYPER)', () => {
 
       game.saveScore();
       expect(game.highScores.length).toBe(1);
-      expect(game.highScores[0].titleBadge).toContain('Thần Phím Nửa Đêm');
+      expect(game.highScores[0].titleBadge).toContain('Midnight Grandmaster Typist');
     });
 
     it('[T4_F21_02] Apprentice badge is awarded for entry-level score', () => {
@@ -413,7 +413,7 @@ describe('RuneTyperGameTest (F21_RUNE_TYPER)', () => {
       game.stats.wpm = 25;
 
       game.saveScore();
-      expect(game.highScores[0].titleBadge).toContain('Tập Sự Trừ Tà');
+      expect(game.highScores[0].titleBadge).toContain('Apprentice Typer');
     });
 
     it('[T4_F21_03] Combo multiplier scales x2 at 5, x3 at 10, x5 at 20', () => {

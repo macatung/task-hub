@@ -146,7 +146,7 @@ describe('TalismanForgeTest (F12, F13, F14)', () => {
     it('[T1_F12_02] Selecting preset switches active spell and default color palette', () => {
       const forge = new TalismanForgeModel();
       forge.selectPreset('bua-friday-deploy');
-      expect(forge.selectedPreset.title).toBe('BÙA DEPLOY THỨ 6');
+      expect(forge.selectedPreset.title).toBe('FRIDAY DEPLOY DIRECTIVE');
       expect(forge.colorPalette).toBe('crimson');
     });
 

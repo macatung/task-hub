@@ -98,7 +98,7 @@ const submitExperience = () => {
 };
 
 const deleteExperience = (exp: ExperienceItem) => {
-  if (confirm(`Bạn có chắc muốn xóa cột mốc "${exp.role} tại ${exp.company}" không?`)) {
+  if (confirm(`Are you sure you want to delete the milestone "${exp.role} at ${exp.company}"?`)) {
     router.delete(`/admin/experiences/${exp.id}`, {
       preserveScroll: true,
     });
@@ -107,17 +107,17 @@ const deleteExperience = (exp: ExperienceItem) => {
 </script>
 
 <template>
-  <AdminLayout title="Quản Lý Biên Niên Sử">
-    <Head title="Quản Lý Biên Niên Sử — Admin CMS" />
+  <AdminLayout title="Career Chronicles Management">
+    <Head title="Career Chronicles — Admin CMS" />
 
     <!-- Header & Create Action -->
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
       <div>
         <h1 class="text-2xl sm:text-3xl font-display font-extrabold text-white">
-          Quản Lý Biên Niên Sử (Career Chronicles CMS)
+          Career Chronicles & Milestones CMS
         </h1>
         <p class="text-xs sm:text-sm text-slate-400 font-sans mt-0.5">
-          Quản lý các cột mốc sự nghiệp, công ty, thời gian và thành tựu kỹ thuật thực chiến.
+          Manage engineering milestones, companies, tenures, and core technical achievements.
         </p>
       </div>
 
@@ -126,7 +126,7 @@ const deleteExperience = (exp: ExperienceItem) => {
         class="px-4 py-2.5 rounded-xl bg-phantom-mint text-midnight-950 font-mono font-bold text-xs hover:brightness-110 transition-all shadow-glow-mint flex items-center gap-1.5"
         @click="openCreateModal"
       >
-        <span>+ Thêm Cột Mốc Mới</span>
+        <span>+ Add New Milestone</span>
       </button>
     </div>
 
@@ -168,14 +168,14 @@ const deleteExperience = (exp: ExperienceItem) => {
             class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-mono transition-all"
             @click="openEditModal(exp)"
           >
-            Sửa
+            Edit
           </button>
           <button
             type="button"
             class="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-400 text-xs font-mono transition-all border border-rose-500/20"
             @click="deleteExperience(exp)"
           >
-            Xóa
+            Delete
           </button>
         </div>
       </div>
@@ -189,7 +189,7 @@ const deleteExperience = (exp: ExperienceItem) => {
       <div class="w-full max-w-2xl bg-midnight-900 border border-white/10 rounded-3xl p-6 sm:p-8 text-left shadow-2xl space-y-5">
         <div class="flex items-center justify-between pb-4 border-b border-white/10">
           <h2 class="text-xl font-display font-bold text-white">
-            {{ editingExp ? 'Chỉnh Sửa Cột Mốc' : 'Thêm Cột Mốc Sự Nghiệp Mới' }}
+            {{ editingExp ? 'Edit Milestone' : 'Add New Career Milestone' }}
           </h2>
           <button type="button" class="p-1 rounded-lg text-slate-400 hover:text-white" @click="closeModal">
             <Icons name="X" :size="20" />
@@ -199,7 +199,7 @@ const deleteExperience = (exp: ExperienceItem) => {
         <form class="space-y-4" @submit.prevent="submitExperience">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Vị Trí / Chức Danh *</label>
+              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Role / Title *</label>
               <input
                 v-model="form.role"
                 type="text"
@@ -209,7 +209,7 @@ const deleteExperience = (exp: ExperienceItem) => {
               />
             </div>
             <div>
-              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Tên Công Ty / Dự Án *</label>
+              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Company / Project *</label>
               <input
                 v-model="form.company"
                 type="text"
@@ -222,17 +222,17 @@ const deleteExperience = (exp: ExperienceItem) => {
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Khoảng Thời Gian *</label>
+              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Period *</label>
               <input
                 v-model="form.period"
                 type="text"
                 required
                 class="w-full px-3.5 py-2.5 rounded-xl bg-midnight-950 border border-white/10 text-white text-sm focus:border-phantom-mint focus:outline-none font-mono"
-                placeholder="2024 — Hiện Tại"
+                placeholder="2024 — Present"
               />
             </div>
             <div>
-              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Hình Thức</label>
+              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Employment Type</label>
               <input
                 v-model="form.type"
                 type="text"
@@ -241,39 +241,39 @@ const deleteExperience = (exp: ExperienceItem) => {
               />
             </div>
             <div>
-              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Địa Điểm</label>
+              <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Location</label>
               <input
                 v-model="form.location"
                 type="text"
                 class="w-full px-3.5 py-2.5 rounded-xl bg-midnight-950 border border-white/10 text-white text-sm focus:border-phantom-mint focus:outline-none"
-                placeholder="Remote / HCMC"
+                placeholder="Remote / Worldwide"
               />
             </div>
           </div>
 
           <div>
-            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Tóm Tắt Vai Trò *</label>
+            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Role Summary *</label>
             <textarea
               v-model="form.summary"
               rows="2"
               required
               class="w-full p-3.5 rounded-xl bg-midnight-950 border border-white/10 text-white text-sm focus:border-phantom-mint focus:outline-none"
-              placeholder="Tóm tắt trách nhiệm cốt lõi..."
+              placeholder="Summary of core responsibilities..."
             />
           </div>
 
           <div>
-            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Thành Tựu Cốt Lõi (Mỗi dòng 1 thành tựu)</label>
+            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Key Achievements (One per line)</label>
             <textarea
               v-model="form.achievements_input"
               rows="3"
               class="w-full p-3.5 rounded-xl bg-midnight-950 border border-white/10 text-white text-sm focus:border-phantom-mint focus:outline-none font-mono text-xs"
-              placeholder="Kiến trúc hệ thống Flash sale chịu tải 10,000+ RPS&#10;Tối ưu 100/100 Core Web Vitals"
+              placeholder="Architected high-throughput transaction engine handling 10,000+ RPS&#10;Optimized 100/100 Core Web Vitals"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Công Nghệ Sử Dụng (Phân cách bằng dấu phẩy)</label>
+            <label class="block text-xs font-mono text-slate-300 uppercase mb-1">Technologies Used (Comma-separated)</label>
             <input
               v-model="form.technologies_input"
               type="text"
@@ -284,10 +284,10 @@ const deleteExperience = (exp: ExperienceItem) => {
 
           <div class="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
             <button type="button" class="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-mono" @click="closeModal">
-              Hủy Bỏ
+              Cancel
             </button>
             <button type="submit" class="px-6 py-2.5 rounded-xl bg-phantom-mint text-midnight-950 font-mono font-bold text-xs hover:brightness-110 shadow-glow-mint">
-              {{ editingExp ? 'Lưu Thay Đổi' : 'Tạo Cột Mốc' }}
+              {{ editingExp ? 'Save Changes' : 'Create Milestone' }}
             </button>
           </div>
         </form>

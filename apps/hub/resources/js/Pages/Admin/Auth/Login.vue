@@ -40,7 +40,7 @@ const submitLogin = () => {
           macatung<span class="text-phantom-mint">.admin</span>
         </h1>
         <p class="text-xs font-mono text-slate-400 mt-1">
-          Khu Vực Quản Trị CMS & Traffic Analytics
+          CMS Administration & Traffic Analytics
         </p>
       </div>
 
@@ -48,14 +48,14 @@ const submitLogin = () => {
       <form class="space-y-4 text-left" @submit.prevent="submitLogin">
         <div>
           <label class="block text-xs font-mono text-slate-300 uppercase tracking-wider mb-2">
-            Mật Khẩu Quản Trị Viên (Admin Shield Key)
+            Administrator Key (Shield Password)
           </label>
           <input
             v-model="form.password"
             type="password"
             required
             autofocus
-            placeholder="Nhập mật khẩu admin..."
+            placeholder="Enter admin password..."
             class="w-full px-4 py-3.5 rounded-2xl bg-midnight-950 border text-white font-mono text-sm placeholder-slate-600 focus:border-phantom-mint focus:outline-none transition-colors"
             :class="form.errors.password ? 'border-rose-500/80' : 'border-white/10'"
           />
@@ -72,16 +72,16 @@ const submitLogin = () => {
             : 'bg-phantom-mint text-midnight-950 hover:brightness-110 active:scale-[0.99]'"
           :disabled="form.processing"
         >
-          <span v-if="form.processing">Đang xác thực...</span>
-          <span v-else>Mở Khóa Quản Trị CMS ⚡</span>
+          <span v-if="form.processing">Authenticating...</span>
+          <span v-else>Unlock Admin CMS ⚡</span>
         </button>
       </form>
 
       <!-- Footer Help & Default Credentials Hint -->
       <div class="pt-4 border-t border-white/5 flex flex-col items-center gap-2 text-xs font-mono text-slate-500">
-        <div>Mật khẩu mặc định: <span class="text-slate-300 font-bold">macatung@midnight2026</span></div>
+        <div>Default Password: <span class="text-slate-300 font-bold">macatung@midnight2026</span></div>
         <Link href="/" class="text-phantom-mint hover:underline">
-          ← Quay lại Trang Chủ Portfolio
+          ← Return to Portfolio Homepage
         </Link>
       </div>
     </div>

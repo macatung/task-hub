@@ -146,10 +146,10 @@ const refreshAnalytics = () => {
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
       <div>
         <h1 class="text-2xl sm:text-3xl font-display font-extrabold text-white">
-          Lưu Lượng Truy Cập (Traffic Analytics)
+          Traffic & Telemetry Analytics
         </h1>
         <p class="text-xs sm:text-sm text-slate-400 font-sans mt-0.5">
-          Theo dõi lượt truy cập thời gian thực, khung giờ Midnight và các sự kiện tương tác trên Portfolio.
+          Monitor real-time visitors, nocturnal midnight traffic ratio, and interactive portfolio engagement events.
         </p>
       </div>
 
@@ -158,7 +158,7 @@ const refreshAnalytics = () => {
         class="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-mono transition-all flex items-center gap-1.5 border border-white/5"
         @click="refreshAnalytics"
       >
-        <span>🔄 Làm Mới Dữ Liệu</span>
+        <span>🔄 Refresh Telemetry</span>
       </button>
     </div>
 
@@ -166,46 +166,46 @@ const refreshAnalytics = () => {
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div class="p-5 rounded-2xl glass-panel border border-white/10">
         <div class="flex items-center justify-between text-slate-400 mb-2">
-          <span class="text-xs font-mono uppercase tracking-wider">Tổng Lượt Xem (Views)</span>
+          <span class="text-xs font-mono uppercase tracking-wider">Total Pageviews</span>
           <Icons name="Activity" :size="16" class="text-phantom-mint" />
         </div>
         <div class="text-3xl font-display font-extrabold text-white">
-          {{ overview.total_pageviews.toLocaleString('vi-VN') }}
+          {{ overview.total_pageviews.toLocaleString('en-US') }}
         </div>
-        <span class="text-[11px] font-mono text-phantom-mint mt-1 block">Tất cả thời gian</span>
+        <span class="text-[11px] font-mono text-phantom-mint mt-1 block">All time</span>
       </div>
 
       <div class="p-5 rounded-2xl glass-panel border border-white/10">
         <div class="flex items-center justify-between text-slate-400 mb-2">
-          <span class="text-xs font-mono uppercase tracking-wider">Khách Độc Bản (Uniques)</span>
+          <span class="text-xs font-mono uppercase tracking-wider">Unique Visitors</span>
           <Icons name="User" :size="16" class="text-phantom-cyan" />
         </div>
         <div class="text-3xl font-display font-extrabold text-white">
-          {{ overview.unique_visitors.toLocaleString('vi-VN') }}
+          {{ overview.unique_visitors.toLocaleString('en-US') }}
         </div>
         <span class="text-[11px] font-mono text-phantom-cyan mt-1 block">Unique Sessions</span>
       </div>
 
       <div class="p-5 rounded-2xl glass-panel border border-white/10">
         <div class="flex items-center justify-between text-slate-400 mb-2">
-          <span class="text-xs font-mono uppercase tracking-wider">Lưu Lượng Hôm Nay</span>
+          <span class="text-xs font-mono uppercase tracking-wider">Today Pageviews</span>
           <Icons name="Zap" :size="16" class="text-amber-400" />
         </div>
         <div class="text-3xl font-display font-extrabold text-white">
-          {{ overview.today_pageviews.toLocaleString('vi-VN') }}
+          {{ overview.today_pageviews.toLocaleString('en-US') }}
         </div>
         <span class="text-[11px] font-mono text-amber-400 mt-1 block">Live Today</span>
       </div>
 
       <div class="p-5 rounded-2xl glass-panel border border-white/10">
         <div class="flex items-center justify-between text-slate-400 mb-2">
-          <span class="text-xs font-mono uppercase tracking-wider">Lưu Lượng Midnight</span>
+          <span class="text-xs font-mono uppercase tracking-wider">Midnight Ratio</span>
           <Icons name="Moon" :size="16" class="text-talisman-gold" />
         </div>
         <div class="text-3xl font-display font-extrabold text-white">
           {{ overview.midnight_ratio }}%
         </div>
-        <span class="text-[11px] font-mono text-talisman-gold mt-1 block">Khung 00:00 — 05:00 AM</span>
+        <span class="text-[11px] font-mono text-talisman-gold mt-1 block">00:00 — 05:00 AM window</span>
       </div>
     </div>
 
@@ -215,8 +215,8 @@ const refreshAnalytics = () => {
       <div class="lg:col-span-7 p-6 rounded-2xl glass-panel border border-white/10 text-left">
         <div class="flex items-center justify-between mb-4 pb-3 border-b border-white/5">
           <div>
-            <h3 class="font-display font-bold text-base text-white">Xu Hướng Lưu Lượng (7 Ngày)</h3>
-            <p class="text-xs text-slate-400 font-sans">Lượt xem (Pageviews) & Khách độc bản (Uniques)</p>
+            <h3 class="font-display font-bold text-base text-white">Traffic Trend (7 Days)</h3>
+            <p class="text-xs text-slate-400 font-sans">Pageviews & Unique Visitors</p>
           </div>
           <div class="flex items-center gap-3 text-xs font-mono">
             <span class="flex items-center gap-1 text-phantom-mint">
@@ -270,8 +270,8 @@ const refreshAnalytics = () => {
       <div class="lg:col-span-5 p-6 rounded-2xl glass-panel border border-white/10 text-left">
         <div class="flex items-center justify-between mb-4 pb-3 border-b border-white/5">
           <div>
-            <h3 class="font-display font-bold text-base text-white">Phân Bổ 24 Giờ</h3>
-            <p class="text-xs text-slate-400 font-sans">Lưu lượng truy cập theo từng giờ</p>
+            <h3 class="font-display font-bold text-base text-white">24-Hour Distribution</h3>
+            <p class="text-xs text-slate-400 font-sans">Hourly traffic distribution across the day</p>
           </div>
           <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-midnight-900 border border-talisman-gold/30 text-talisman-gold">
             🌙 00:00 - 05:00 AM
@@ -310,43 +310,43 @@ const refreshAnalytics = () => {
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
       <!-- Interaction Events Counters (6 Columns) -->
       <div class="lg:col-span-6 p-6 rounded-2xl glass-panel border border-white/10 text-left">
-        <h3 class="font-display font-bold text-base text-white mb-1">Sự Kiện Tương Tác (Event Beacon)</h3>
-        <p class="text-xs text-slate-400 font-sans mb-4">Các hành động được kích hoạt trên Portfolio</p>
+        <h3 class="font-display font-bold text-base text-white mb-1">Interactive Events (Event Beacon)</h3>
+        <p class="text-xs text-slate-400 font-sans mb-4">Core user interactions triggered across the platform</p>
 
         <div class="grid grid-cols-2 gap-3">
           <div class="p-3.5 rounded-xl bg-midnight-950/70 border border-white/5">
             <div class="flex items-center gap-2 text-xs font-mono text-slate-400">
-              <span>🧛‍♂️ Nhảy Mascot</span>
+              <span>🧛‍♂️ Mascot Hops</span>
             </div>
             <div class="text-xl font-display font-bold text-phantom-mint mt-1">
-              {{ event_counters.hop_mascot.toLocaleString('vi-VN') }}
+              {{ event_counters.hop_mascot.toLocaleString('en-US') }}
             </div>
           </div>
 
           <div class="p-3.5 rounded-xl bg-midnight-950/70 border border-white/5">
             <div class="flex items-center gap-2 text-xs font-mono text-slate-400">
-              <span>📄 Tải CV</span>
+              <span>📄 CV Downloads</span>
             </div>
             <div class="text-xl font-display font-bold text-phantom-cyan mt-1">
-              {{ event_counters.cv_download.toLocaleString('vi-VN') }}
+              {{ event_counters.cv_download.toLocaleString('en-US') }}
             </div>
           </div>
 
           <div class="p-3.5 rounded-xl bg-midnight-950/70 border border-white/5">
             <div class="flex items-center gap-2 text-xs font-mono text-slate-400">
-              <span>⌨️ Gõ Lệnh CLI</span>
+              <span>⌨️ CLI Commands</span>
             </div>
             <div class="text-xl font-display font-bold text-amber-400 mt-1">
-              {{ event_counters.cli_executed.toLocaleString('vi-VN') }}
+              {{ event_counters.cli_executed.toLocaleString('en-US') }}
             </div>
           </div>
 
           <div class="p-3.5 rounded-xl bg-midnight-950/70 border border-white/5">
             <div class="flex items-center gap-2 text-xs font-mono text-slate-400">
-              <span>📜 Khai Quang Bùa</span>
+              <span>📜 Seals Generated</span>
             </div>
             <div class="text-xl font-display font-bold text-talisman-gold mt-1">
-              {{ event_counters.talisman_blessed.toLocaleString('vi-VN') }}
+              {{ event_counters.talisman_blessed.toLocaleString('en-US') }}
             </div>
           </div>
         </div>
@@ -354,7 +354,7 @@ const refreshAnalytics = () => {
 
       <!-- Devices & Referrers (6 Columns) -->
       <div class="lg:col-span-6 p-6 rounded-2xl glass-panel border border-white/10 text-left space-y-4">
-        <h3 class="font-display font-bold text-base text-white">Thiết Bị & Nguồn Giới Thiệu</h3>
+        <h3 class="font-display font-bold text-base text-white">Devices & Referrer Sources</h3>
 
         <!-- Devices Progress -->
         <div class="space-y-2">
@@ -372,7 +372,7 @@ const refreshAnalytics = () => {
 
         <!-- Top Referrers -->
         <div class="pt-2">
-          <div class="text-xs font-mono text-slate-400 mb-2">Nguồn Truy Cập Hàng Đầu (Referrers)</div>
+          <div class="text-xs font-mono text-slate-400 mb-2">Top Referrer Sources</div>
           <div class="space-y-1.5">
             <div
               v-for="r in top_referrers"
@@ -391,8 +391,8 @@ const refreshAnalytics = () => {
     <div class="p-6 rounded-2xl glass-panel border border-white/10 text-left">
       <div class="flex items-center justify-between mb-4 pb-3 border-b border-white/5">
         <div>
-          <h3 class="font-display font-bold text-base text-white">Nhật Ký Truy Cập Gần Đây (Live Feed)</h3>
-          <p class="text-xs text-slate-400 font-sans">15 lượt xem mới nhất được ghi nhận qua Middleware</p>
+          <h3 class="font-display font-bold text-base text-white">Recent Visitor Telemetry (Live Feed)</h3>
+          <p class="text-xs text-slate-400 font-sans">Latest 15 page requests recorded via analytics middleware</p>
         </div>
       </div>
 
@@ -400,18 +400,18 @@ const refreshAnalytics = () => {
         <table class="w-full text-left text-xs font-sans">
           <thead class="bg-midnight-900/60 border-b border-white/5 text-slate-400 font-mono text-[11px] uppercase tracking-wider">
             <tr>
-              <th class="p-3">Thời Gian</th>
-              <th class="p-3">Đường Dẫn</th>
-              <th class="p-3">Thiết Bị</th>
-              <th class="p-3">Trình Duyệt</th>
-              <th class="p-3">Khung Giờ</th>
+              <th class="p-3">Timestamp</th>
+              <th class="p-3">Path</th>
+              <th class="p-3">Device</th>
+              <th class="p-3">Browser</th>
+              <th class="p-3">Time Cycle</th>
               <th class="p-3 text-right">Referrer</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-white/5 text-slate-300">
             <tr v-for="hit in recent_pageviews" :key="hit.id" class="hover:bg-white/5 transition-colors">
               <td class="p-3 font-mono text-[11px] text-slate-400 whitespace-nowrap">
-                {{ new Date(hit.created_at).toLocaleString('vi-VN') }}
+                {{ new Date(hit.created_at).toLocaleString('en-US') }}
               </td>
               <td class="p-3 font-mono font-bold text-phantom-mint">{{ hit.url }}</td>
               <td class="p-3 font-mono text-[11px] capitalize">{{ hit.device_type }}</td>
@@ -425,7 +425,7 @@ const refreshAnalytics = () => {
                 </span>
               </td>
               <td class="p-3 text-right font-mono text-[10px] text-slate-400 truncate max-w-xs">
-                {{ hit.referrer || 'Trực tiếp (Direct)' }}
+                {{ hit.referrer || 'Direct' }}
               </td>
             </tr>
           </tbody>

@@ -84,7 +84,7 @@ const progressPercent = computed(() => {
   if (props.workflowStatus?.steps?.length) {
     const total = props.workflowStatus.steps.length;
     const completed = props.workflowStatus.steps.filter(s => s.state === 'completed').length;
-    const runningStep = props.workflowStatus.steps.some(s => s.state === 'running' || s.state === 'validating');
+    const runningStep = props.workflowStatus.steps.some(s => s.state === 'running');
     const base = Math.round((completed / total) * 100);
     return runningStep ? Math.min(95, base + Math.round(50 / total)) : base;
   }
@@ -97,9 +97,9 @@ const standardSteps = computed(() => {
   if (props.workflowStatus?.steps?.length) {
     return props.workflowStatus.steps.map((s, idx) => ({
       id: s.id,
-      label: s.label || s.taskKey || `Bước ${idx + 1}`,
+      label: s.label || s.taskKey || `Step ${idx + 1}`,
       state: s.state,
-      subtitle: s.state === 'completed' ? 'Hoàn tất' : s.state === 'running' ? 'Đang thực thi' : s.state === 'failed' ? 'Lỗi' : 'Chờ xử lý',
+      subtitle: s.state === 'completed' ? 'Completed' : s.state === 'running' ? 'In Progress' : s.state === 'failed' ? 'Failed' : 'Pending',
     }));
   }
 
@@ -109,25 +109,25 @@ const standardSteps = computed(() => {
       id: 'implement',
       label: '1. Implement',
       state: cur === 'implement' && props.running ? 'running' : cur !== 'implement' ? 'completed' : 'pending',
-      subtitle: 'Sinh mã & Worktree',
+      subtitle: 'Code generation & Worktree',
     },
     {
       id: 'review',
       label: '2. Review',
       state: cur === 'review' && props.running ? 'running' : ['evidence', 'handoff'].includes(cur) ? 'completed' : 'pending',
-      subtitle: 'Kiểm định chất lượng',
+      subtitle: 'Quality verification',
     },
     {
       id: 'evidence',
       label: '3. Evidence',
       state: cur === 'evidence' && props.running ? 'running' : cur === 'handoff' ? 'completed' : 'pending',
-      subtitle: 'Kiểm thử & Bằng chứng',
+      subtitle: 'Testing & Evidence',
     },
     {
       id: 'handoff',
       label: '4. Handoff',
       state: cur === 'handoff' && props.running ? 'running' : props.runStatus === 'completed' ? 'completed' : 'pending',
-      subtitle: 'Phê duyệt & Hợp nhất',
+      subtitle: 'Approval & Merge',
     },
   ];
 });
@@ -157,6 +157,7 @@ const epicSubTasks = computed(() => {
 });
 
 const isSubTasksOpen = ref(true);
+const isMinimized = ref(true);
 
 const formatTokens = (n: number) => {
   if (!n) return '0';
@@ -168,7 +169,87 @@ const formatTokens = (n: number) => {
 
 <template>
   <div class="task-progress-hero mb-3 select-none" data-testid="task-progress-hero">
-    <div class="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-[#0a1324] via-[#070b14] to-[#04070d] p-4 sm:p-5 shadow-2xl shadow-emerald-950/20">
+    <!-- 1. COMPACT STREAMING FOCUS BAR (Minimizes header clutter during execution) -->
+    <div
+      v-if="isMinimized"
+      class="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-gradient-to-r from-[#0a1324] via-[#070b14] to-[#04070d] px-3.5 py-2 shadow-lg text-xs"
+    >
+      <div class="flex items-center gap-2 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
+        <span
+          class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-mono font-bold tracking-wider border shadow-sm shrink-0"
+          :class="isEpic ? 'bg-purple-950/80 text-purple-300 border-purple-500/40' : 'bg-emerald-950/80 text-[#00f5a0] border-emerald-500/40'"
+        >
+          <span class="h-1.5 w-1.5 rounded-full animate-ping bg-current"></span>
+          {{ isEpic ? 'EPIC RUN' : 'ACTIVE TASK' }} · {{ task?.issue_key || (task?.id ? `#${task.id}` : 'TH-01') }}
+        </span>
+
+        <span
+          v-if="task?.priority === 'high'"
+          class="rounded-full bg-rose-950/80 border border-rose-500/40 px-2 py-0.5 text-[9px] font-bold text-rose-300 tracking-wide shrink-0"
+        >
+          HIGH PRIORITY
+        </span>
+
+        <span
+          class="rounded-full bg-[#0c162d] border border-white/10 px-2 py-0.5 text-[10px] font-mono text-zinc-300 shrink-0 hidden sm:inline"
+        >
+          {{ pipelineVariant === 'fast-track' ? '⚡ 2-STEP' : '🛡️ STRICT' }}
+        </span>
+
+        <!-- Connected Step Micro-Pills -->
+        <div class="hidden md:flex items-center gap-1 min-w-0">
+          <span
+            v-for="(step, idx) in standardSteps"
+            :key="step.id"
+            class="rounded-md px-2 py-0.5 text-[10px] font-mono font-semibold border flex items-center gap-1 truncate"
+            :class="[
+              step.state === 'completed'
+                ? 'border-emerald-500/40 bg-emerald-950/30 text-emerald-300'
+                : step.state === 'running'
+                  ? 'border-[#00f5a0] bg-[#00f5a0]/15 text-[#00f5a0] ring-1 ring-[#00f5a0]/40 animate-pulse'
+                  : step.state === 'failed'
+                    ? 'border-rose-500/40 bg-rose-950/25 text-rose-300'
+                    : 'border-white/5 bg-black/20 text-zinc-500'
+            ]"
+            :title="step.subtitle"
+          >
+            <span>{{ step.state === 'completed' ? '✓' : step.state === 'running' ? '⟳' : `${idx + 1}` }}</span>
+            <span class="truncate">{{ step.label.replace(/^\d+\.\s*/, '') }}</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5 shrink-0 font-mono text-[11px]">
+        <span v-if="running" class="inline-flex items-center gap-1 text-cyan-400">
+          <i class="codicon codicon-watch"></i>
+          <span>{{ formattedTime }}</span>
+        </span>
+        <span class="font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-300 font-['Space_Grotesk'] text-sm">
+          {{ progressPercent }}%
+        </span>
+        <button
+          v-if="running"
+          type="button"
+          class="rounded-lg bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 px-2 py-1 text-[11px] font-semibold text-rose-200 transition"
+          title="Hủy tiến trình"
+          @click="emit('cancel')"
+        >
+          Hủy
+        </button>
+        <button
+          type="button"
+          class="rounded-lg border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 px-2 py-1 text-[10px] text-zinc-300 hover:text-white transition flex items-center gap-1 cursor-pointer"
+          title="Mở rộng chi tiết tiến độ"
+          @click="isMinimized = false"
+        >
+          <span>Chi tiết</span>
+          <i class="codicon codicon-chevron-down text-[10px]"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- 2. EXPANDED PROGRESS HERO CARD (Full details on user request) -->
+    <div v-else class="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-[#0a1324] via-[#070b14] to-[#04070d] p-4 sm:p-5 shadow-2xl shadow-emerald-950/20">
       <div class="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl"></div>
       <div class="pointer-events-none absolute -left-24 -bottom-24 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl"></div>
 
@@ -220,8 +301,9 @@ const formatTokens = (n: number) => {
             </div>
           </div>
 
-          <div v-if="running" class="flex items-center gap-1.5">
+          <div class="flex items-center gap-1.5">
             <button
+              v-if="running"
               type="button"
               class="inline-flex items-center justify-center gap-1 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 px-3 py-1.5 text-xs font-semibold text-rose-200 transition shadow-sm"
               title="Hủy tiến trình đang chạy"
@@ -229,6 +311,15 @@ const formatTokens = (n: number) => {
             >
               <i class="codicon codicon-stop-circle text-xs"></i>
               <span>Hủy</span>
+            </button>
+            <button
+              type="button"
+              class="rounded-xl border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 px-2.5 py-1.5 text-xs text-zinc-300 hover:text-white transition flex items-center gap-1 cursor-pointer"
+              title="Thu gọn tiến độ"
+              @click="isMinimized = true"
+            >
+              <span>Thu gọn</span>
+              <i class="codicon codicon-chevron-up text-xs"></i>
             </button>
           </div>
         </div>

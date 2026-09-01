@@ -88,6 +88,33 @@ describe('CAO Advanced Workflow vs Supervisor Hybrid Orchestration', () => {
       expect(parsed.completedSteps).toEqual(['implement', 'review']);
       expect(parsed.currentStep).toBe('evidence');
     });
+
+    it('parses CAO 2.5 status snapshots used by desktop recovery', () => {
+      const statusOutput = `
+        Run:     cao-workflow-123
+        State:   completed
+        Current: handoff
+          - implement: completed (attempts=1)
+          - review: completed (attempts=1)
+          - evidence: completed (attempts=1)
+          - handoff: completed (attempts=1)
+      `;
+      const parsed = parseCaoWorkflowRunStatus(statusOutput);
+      expect(parsed.runId).toBe('cao-workflow-123');
+      expect(parsed.state).toBe('completed');
+      expect(parsed.currentStep).toBe('handoff');
+      expect(parsed.completedSteps).toEqual(['implement', 'review', 'evidence', 'handoff']);
+    });
+
+    it('reconciles persisted running workflows with authoritative CAO status', () => {
+      expect(electronMainSource).toContain('const parsed = parseCaoWorkflowRuntimeStatus(status.output, runId)');
+      expect(electronMainSource).toContain("parsed.state === 'running' && !caoWorkflowProcesses.has(runId)");
+      expect(electronMainSource).toContain('state: reconciledState');
+      expect(electronMainSource).toContain('completedSteps: parsed.completedSteps');
+      expect(electronMainSource).toContain("const suspiciousCompleted = saved.state === 'completed'");
+      expect(electronMainSource).toContain("['workflow', 'status', run.runId]");
+      expect(electronMainSource).toContain("authoritative.error || 'CAO exited before a terminal workflow status was confirmed.'");
+    });
   });
 
   describe('Smart WAITING_USER_ANSWER evaluation', () => {
