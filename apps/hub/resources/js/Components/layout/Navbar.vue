@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import MidnightClock from '@/Components/mascot/MidnightClock.vue';
 import MiniMascotLogo from '@/Components/mascot/MiniMascotLogo.vue';
@@ -23,7 +23,7 @@ interface NavItem {
   iconName?: string;
 }
 
-const navLinks: NavItem[] = [
+const portfolioNavLinks: NavItem[] = [
   { label: 'Home', href: '/', iconName: 'Home' },
   { label: 'Projects', href: '/projects', iconName: 'Layers' },
   { label: 'Desktop', href: '/desktop', badge: 'NEW', iconName: 'Monitor' },
@@ -32,6 +32,16 @@ const navLinks: NavItem[] = [
   { label: 'Dev Forge', href: '/talisman', iconName: 'Sparkles' },
   { label: 'Typing Test', href: '/game', badge: 'REPL', iconName: 'Gamepad' },
 ];
+
+const midnightNavLinks: NavItem[] = [
+  { label: 'Overview', href: '/', iconName: 'Home' },
+  { label: 'Workspace', href: '/tasks', badge: 'LIVE', iconName: 'Code' },
+  { label: 'Projects', href: '/projects', iconName: 'Layers' },
+  { label: 'Desktop', href: '/desktop', badge: 'v2.0', iconName: 'Monitor' },
+  { label: 'Pricing', href: '/pricing', iconName: 'Tag' },
+];
+
+const navLinks = computed(() => isMidnightVariant ? midnightNavLinks : portfolioNavLinks);
 
 const isScrolled = ref(false);
 const isMobileDrawerOpen = ref(false);

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { usePage, Head } from '@inertiajs/vue3';
+import { usePage, Head, Link } from '@inertiajs/vue3';
 import Icons from '@/Components/ui/Icons.vue';
 
 interface PlanLimit {
@@ -604,12 +604,12 @@ const pricingJsonLd = {
         </a>
 
         <!-- Desktop Navigation Links -->
-        <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
-          <a href="/#features" class="hover:text-white transition-colors">Features</a>
-          <a href="/#agent-workflow" class="hover:text-white transition-colors">Agent Workflow</a>
-          <a href="/#mcp" class="hover:text-white transition-colors">MCP Protocol</a>
-          <a href="/pricing" class="text-phantom-mint font-semibold border-b-2 border-phantom-mint pb-0.5">Pricing</a>
-          <a href="/#architecture" class="hover:text-white transition-colors">Architecture</a>
+        <nav class="hidden md:flex items-center gap-1.5 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-1 text-xs font-medium text-slate-300">
+          <Link href="/" class="px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition-all">Overview</Link>
+          <Link href="/tasks" class="px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition-all">Workspace</Link>
+          <Link href="/projects" class="px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition-all">Projects</Link>
+          <Link href="/desktop" class="px-3 py-1.5 rounded-xl hover:text-white hover:bg-white/5 transition-all">Desktop</Link>
+          <Link href="/pricing" class="px-3 py-1.5 rounded-xl text-emerald-400 bg-emerald-500/10 font-bold transition-all">Pricing</Link>
         </nav>
 
         <!-- Right Side User / Auth Actions -->
@@ -655,14 +655,15 @@ const pricingJsonLd = {
       </div>
 
       <!-- Mobile Dropdown Menu -->
-      <div v-if="mobileMenuOpen" class="md:hidden border-t border-midnight-800 bg-midnight-950 px-6 py-4 space-y-3">
-        <a href="/#features" class="block text-sm text-slate-300 hover:text-white">Features</a>
-        <a href="/#agent-workflow" class="block text-sm text-slate-300 hover:text-white">Agent Workflow</a>
-        <a href="/#mcp" class="block text-sm text-slate-300 hover:text-white">MCP Protocol</a>
-        <a href="/pricing" class="block text-sm text-phantom-mint font-bold">Pricing</a>
+      <div v-if="mobileMenuOpen" class="md:hidden border-t border-midnight-800 bg-midnight-950 px-6 py-4 space-y-2">
+        <Link href="/" @click="mobileMenuOpen = false" class="block py-2 text-sm text-slate-300 hover:text-white">Overview</Link>
+        <Link href="/tasks" @click="mobileMenuOpen = false" class="block py-2 text-sm text-slate-300 hover:text-white">Workspace</Link>
+        <Link href="/projects" @click="mobileMenuOpen = false" class="block py-2 text-sm text-slate-300 hover:text-white">Projects</Link>
+        <Link href="/desktop" @click="mobileMenuOpen = false" class="block py-2 text-sm text-slate-300 hover:text-white">Desktop</Link>
+        <Link href="/pricing" @click="mobileMenuOpen = false" class="block py-2 text-sm text-emerald-400 font-bold">Pricing</Link>
         <div class="pt-3 border-t border-midnight-800 flex flex-col gap-2">
           <template v-if="user">
-            <a href="/tasks" class="rounded-xl bg-emerald-500 px-4 py-2 text-center text-xs font-bold text-midnight-950">Enter Workspace</a>
+            <Link href="/tasks" class="rounded-xl bg-emerald-500 px-4 py-2 text-center text-xs font-bold text-midnight-950">Enter Workspace</Link>
           </template>
           <template v-else>
             <a href="/auth/github" class="rounded-xl bg-emerald-500 px-4 py-2 text-center text-xs font-bold text-midnight-950 flex items-center justify-center gap-2">
@@ -1168,9 +1169,11 @@ const pricingJsonLd = {
         </div>
 
         <div class="flex items-center gap-6 text-slate-400">
-          <a href="/" class="hover:text-white transition-colors">Home</a>
-          <a href="/pricing" class="hover:text-white transition-colors text-phantom-mint font-semibold">Pricing</a>
-          <a href="/tasks" class="hover:text-white transition-colors">Workspace</a>
+          <Link href="/" class="hover:text-white transition-colors">Overview</Link>
+          <Link href="/tasks" class="hover:text-white transition-colors">Workspace</Link>
+          <Link href="/projects" class="hover:text-white transition-colors">Projects</Link>
+          <Link href="/desktop" class="hover:text-white transition-colors">Desktop</Link>
+          <Link href="/pricing" class="hover:text-white transition-colors text-emerald-400 font-semibold">Pricing</Link>
           <a href="https://github.com/macatung/task-hub" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">GitHub</a>
         </div>
 
