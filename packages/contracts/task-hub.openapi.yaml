@@ -7,6 +7,36 @@ info:
     The unversioned `/api` routes are compatibility aliases and return a
     `Deprecation: true` response header with their v1 successor.
 paths:
+  /api/v1/quota-snapshots:
+    post:
+      summary: Store a provider quota snapshot for the authenticated tenant
+      description: |
+        The tenant is derived from the authenticated desktop credential and is
+        never accepted from the payload. Repeating an idempotency_key within
+        that tenant returns the originally stored snapshot without duplicating it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuotaSnapshot'
+      responses:
+        '201':
+          description: Snapshot stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotaSnapshot'
+        '200':
+          description: Idempotent retry; the existing snapshot is returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotaSnapshot'
+        '401':
+          description: Missing or invalid desktop credential
+        '422':
+          description: Payload does not satisfy the quota snapshot contract
   /api/v1/desktop/agents/register:
     post:
       summary: Register or connect a desktop companion agent runner
@@ -178,6 +208,8 @@ paths:
         '200': { description: JSON-RPC response }
 components:
   schemas:
+    QuotaSnapshot:
+      $ref: './schemas/quota-snapshot.schema.json'
     DesktopAgentRegistration:
       type: object
       properties:

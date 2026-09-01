@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://taskhub.local/schemas/quota-snapshot.schema.json",
+  "title": "Quota Snapshot",
+  "description": "A device-scoped, point-in-time view of one provider's quota. A window with status `unknown` means the provider did not expose a reliable value; `unavailable` means collection was attempted but failed. In either state, numeric quota values and reset_at must be null.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "provider",
+    "windows",
+    "source",
+    "collected_at",
+    "device_id",
+    "idempotency_key"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "description": "Version of this payload contract. Consumers must reject unsupported versions rather than guessing their shape."
+    },
+    "provider": {
+      "type": "string",
+      "enum": ["antigravity", "claude_code", "codex"],
+      "description": "Provider account whose quota was observed. A snapshot contains exactly one provider."
+    },
+    "windows": {
+      "type": "object",
+      "description": "Quota windows reported by the provider, keyed by provider-stable window name. Object keys make each window name unique within a snapshot.",
+      "minProperties": 1,
+      "maxProperties": 32,
+      "propertyNames": {
+        "minLength": 1,
+        "maxLength": 64,
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "additionalProperties": { "$ref": "#/$defs/quota_window" }
+    },
+    "source": {
+      "type": "string",
+      "enum": ["provider_api", "provider_cli", "local_cache"],
+      "description": "Mechanism from which the snapshot was collected; local_cache identifies a previously collected offline value."
+    },
+    "collected_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 timestamp at which the represented values were collected. For local_cache this remains the original collection time, not the cache-read time."
+    },
+    "device_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "description": "Stable, non-secret identifier of the collecting device within the tenant."
+    },
+    "idempotency_key": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Client-generated UUID used to deduplicate retries of the same snapshot."
+    }
+  },
+  "$defs": {
+    "quota_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "used", "limit", "remaining", "reset_at"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["available", "unknown", "unavailable"],
+          "description": "available: reliable numeric values were collected; unknown: collection succeeded but the provider did not expose reliable values; unavailable: collection was attempted but failed."
+        },
+        "used": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1000000000000000,
+          "description": "Amount consumed in the provider-native unit; null unless status is available."
+        },
+        "limit": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "maximum": 1000000000000000,
+          "description": "Positive quota ceiling in the same unit as used and remaining; null unless status is available."
+        },
+        "remaining": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1000000000000000,
+          "description": "Provider-reported remaining quota in the same unit as used and limit; null unless status is available."
+        },
+        "reset_at": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "RFC 3339 reset time when exposed by the provider. It may be null for an available non-resetting window, and must be null for unknown or unavailable."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "available" } }, "required": ["status"] },
+          "then": {
+            "properties": {
+              "used": { "type": "number", "minimum": 0 },
+              "limit": { "type": "number", "exclusiveMinimum": 0, "maximum": 1000000000000000 },
+              "remaining": { "type": "number", "minimum": 0, "maximum": 1000000000000000 }
+            }
+          },
+          "else": {
+            "properties": {
+              "used": { "type": "null" },
+              "limit": { "type": "null" },
+              "remaining": { "type": "null" },
+              "reset_at": { "type": "null" }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
