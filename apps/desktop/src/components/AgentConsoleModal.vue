@@ -1108,10 +1108,10 @@ const refreshQuotaUsage = async () => {
   if (isSyncingQuota.value) return;
   isSyncingQuota.value = true;
   try {
-    const res = await (window as any).desktopApi?.agent?.syncQuotaUsage?.(localStorage.getItem('task_companion_hub_url') || undefined);
-    if (res) {
-      quotaUsageState.value = { ...quotaUsageState.value, ...res };
-      addTimeline('Quota synced', 'Synced latest Quota & Rate limits metrics.', 'ok');
+    const res = await (window as any).desktopApi?.agent?.syncQuotaUsage?.();
+    if (res?.quota) {
+      quotaUsageState.value = { ...quotaUsageState.value, ...res.quota };
+      addTimeline(res.sync?.ok ? 'Quota synced' : 'Quota sync unavailable', res.sync?.message || 'Quota sync finished.', res.sync?.ok ? 'ok' : 'warn');
     }
   } catch (err) {
     console.warn('Failed to refresh quota:', err);

@@ -1098,9 +1098,16 @@ class ApiAgentRunController extends Controller
 
     public function quota(Request $request)
     {
+        // Authenticated desktop requests are isolated by workspace/project. The
+        // legacy public endpoint retains its historical key for compatibility.
+        $desktopProject = $request->attributes->get('desktop_project');
+        $workspaceId = $request->attributes->get('desktop_workspace_id');
+        $quotaCacheKey = $workspaceId
+            ? 'agent_runner_latest_quota:workspace:' . $workspaceId . ':project:' . ($desktopProject?->id ?? 'all')
+            : 'agent_runner_latest_quota';
         if ($request->isMethod('post')) {
             $quota = $request->input('quota', []);
-            \Illuminate\Support\Facades\Cache::put('agent_runner_latest_quota', $quota, now()->addDays(7));
+            \Illuminate\Support\Facades\Cache::put($quotaCacheKey, $quota, now()->addDays(7));
             return response()->json([
                 'success' => true,
                 'message' => 'Quota usage synced successfully.',
@@ -1108,7 +1115,7 @@ class ApiAgentRunController extends Controller
             ]);
         }
 
-        $cachedQuota = \Illuminate\Support\Facades\Cache::get('agent_runner_latest_quota', [
+        $cachedQuota = \Illuminate\Support\Facades\Cache::get($quotaCacheKey, [
             'plan' => 'Google AI Ultra',
             'planTier' => 'Highest rate limits',
             'enableCreditOverages' => false,

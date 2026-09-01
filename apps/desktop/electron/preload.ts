@@ -80,7 +80,7 @@ contextBridge.exposeInMainWorld('desktopApi', {
     saveCustomModel: (provider: string, model: { id: string; name?: string; badges?: string[]; description?: string }) => ipcRenderer.invoke('agent-save-custom-model', safeClone({ provider, model })),
     deleteCustomModel: (provider: string, modelId: string) => ipcRenderer.invoke('agent-delete-custom-model', safeClone({ provider, modelId })),
     getQuotaUsage: () => ipcRenderer.invoke('agent-get-quota-usage'),
-    syncQuotaUsage: (taskHubUrl?: string) => ipcRenderer.invoke('agent-sync-quota-usage', safeClone({ taskHubUrl })),
+    syncQuotaUsage: () => ipcRenderer.invoke('agent-sync-quota-usage'),
     updateQuotaSettings: (settings: { enableCreditOverages?: boolean; plan?: string }) => ipcRenderer.invoke('agent-update-quota-settings', safeClone(settings)),
     listSessions: () => ipcRenderer.invoke('agent-list-sessions'),
     reconnectCaoSession: (sessionId: string) => ipcRenderer.invoke('agent-reconnect-cao-session', safeClone(sessionId)),
