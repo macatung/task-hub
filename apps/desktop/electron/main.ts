@@ -6,6 +6,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { CodexQuotaCollector, collectAntigravityQuota, type QuotaCollection } from '../src/services/quotaCollectors';
+import { pushQuotaToTaskHub, type QuotaSyncResult } from '../src/services/quotaSync';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -921,6 +923,9 @@ export type QuotaGroup = {
   usedTokens: number;
   totalLimitTokens: number;
   lastUpdated: string;
+  status?: 'available' | 'unavailable';
+  unavailableReason?: 'invalid_json' | 'invalid_usage' | 'unsupported_source';
+  source?: string;
 };
 
 export type QuotaUsageState = {
@@ -931,6 +936,7 @@ export type QuotaUsageState = {
   claudeGpt: QuotaGroup;
   codex: QuotaGroup;
   lastSyncedAt: string;
+  sync?: QuotaSyncResult;
 };
 
 function getQuotaFilePath(): string {
@@ -1047,7 +1053,7 @@ function writeQuotaState(state: QuotaUsageState): void {
   } catch { /* ignore */ }
 }
 
-function recordTokenUsageToQuota(provider: AgentProvider, tokenCount: number): QuotaUsageState {
+function recordTokenUsageToQuota(provider: AgentProvider, tokenCount: number, source?: string): QuotaUsageState {
   const quota = readQuotaState();
   const target = provider === 'antigravity' ? quota.gemini : provider === 'claude_code' ? quota.claudeGpt : quota.codex;
   if (target && tokenCount > 0) {
@@ -1057,6 +1063,9 @@ function recordTokenUsageToQuota(provider: AgentProvider, tokenCount: number): Q
     target.fiveHourRemainingPercent = Math.max(0, Math.min(100, target.fiveHourRemainingPercent - fiveHourDelta));
     target.weeklyRemainingPercent = Math.max(0, Math.min(100, target.weeklyRemainingPercent - weeklyDelta));
     target.lastUpdated = new Date().toISOString();
+    target.status = 'available';
+    if (source) target.source = source;
+    delete target.unavailableReason;
     quota.lastSyncedAt = target.lastUpdated;
     writeQuotaState(quota);
 
@@ -1069,40 +1078,33 @@ function recordTokenUsageToQuota(provider: AgentProvider, tokenCount: number): Q
   return quota;
 }
 
-function extractAndRecordTokensFromText(provider: AgentProvider, text: string): void {
-  if (!text) return;
-  const tokenMatch = text.match(/(?:total\s*tokens?|tokens?\s*used|token\s*count|total_tokens)[:\s=]+(\d[\d,]*)/i);
-  if (tokenMatch && tokenMatch[1]) {
-    const tokens = parseInt(tokenMatch[1].replace(/,/g, ''), 10);
-    if (!isNaN(tokens) && tokens > 0) {
-      recordTokenUsageToQuota(provider, tokens);
-      return;
-    }
+function applyQuotaCollection(collection: QuotaCollection): QuotaUsageState {
+  const quota = readQuotaState();
+  const target = collection.provider === 'antigravity' ? quota.gemini : collection.provider === 'claude_code' ? quota.claudeGpt : quota.codex;
+  if (collection.status === 'available') {
+    if (collection.usedTokens > 0) return recordTokenUsageToQuota(collection.provider, collection.usedTokens, collection.source);
+    target.status = 'available';
+    target.source = collection.source;
+    delete target.unavailableReason;
+  } else {
+    target.status = 'unavailable';
+    target.unavailableReason = collection.reason;
   }
-  const inOutMatch = text.match(/in\s*(\d[\d,]*)\s*,\s*out\s*(\d[\d,]*)/i);
-  if (inOutMatch && (inOutMatch[1] || inOutMatch[2])) {
-    const inTokens = parseInt((inOutMatch[1] || '0').replace(/,/g, ''), 10) || 0;
-    const outTokens = parseInt((inOutMatch[2] || '0').replace(/,/g, ''), 10) || 0;
-    const total = inTokens + outTokens;
-    if (total > 0) {
-      recordTokenUsageToQuota(provider, total);
-    }
-  }
+  target.lastUpdated = new Date().toISOString();
+  quota.lastSyncedAt = target.lastUpdated;
+  writeQuotaState(quota);
+  safeSend(win, 'agent-quota-updated', quota);
+  return quota;
 }
 
-async function syncQuotaToTaskHub(quota: QuotaUsageState, taskHubUrl?: string): Promise<boolean> {
-  const url = taskHubUrl || process.env.TASK_HUB_URL || 'https://task-hub.macatung.dev';
-  try {
-    const res = await fetch(`${url.replace(/\/$/, '')}/api/agent/quota`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quota, updated_at: new Date().toISOString() }),
-      signal: AbortSignal.timeout(3000),
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
+async function syncQuotaToTaskHub(quota: QuotaUsageState): Promise<QuotaSyncResult> {
+  // Credentials are loaded only in the Electron main process from safeStorage.
+  const result = await pushQuotaToTaskHub(quota, loadDesktopCredential());
+  quota.sync = result;
+  if (result.ok) quota.lastSyncedAt = result.attemptedAt;
+  writeQuotaState(quota);
+  safeSend(win, 'agent-quota-updated', quota);
+  return result;
 }
 
 function disableAgentGuardrails(worktree: string) {
@@ -2134,13 +2136,7 @@ function formatAgyEvent(event: any): string {
                 session.threadId = event.conversation_id;
                 persistSessionUpdate({ sessionId, threadId: event.conversation_id });
               }
-              if (event.event === 'result' && event.result?.usage?.total_tokens) {
-                const total = Number(event.result.usage.total_tokens);
-                if (total > 0) recordTokenUsageToQuota('antigravity', total);
-              } else if (event.usage?.total_tokens) {
-                const total = Number(event.usage.total_tokens);
-                if (total > 0) recordTokenUsageToQuota('antigravity', total);
-              }
+              if (event.event === 'result') applyQuotaCollection(collectAntigravityQuota(event, sessionId));
               const formattedLine = formatAgyEvent(event);
               if (formattedLine) {
                 session.output = `${session.output}${formattedLine}`.slice(-250000);
@@ -2149,7 +2145,7 @@ function formatAgyEvent(event: any): string {
             } catch {
               session.output = `${session.output}\n${line}`.slice(-250000);
               appendWorkspaceAgentLog(session.cwd, sessionId, 'stdout', line);
-              extractAndRecordTokensFromText('antigravity', line);
+              applyQuotaCollection(collectAntigravityQuota(line, sessionId));
               safeSend(win, 'agent-output', { sessionId, stream: 'stdout', text: line });
             }
           }
@@ -2245,6 +2241,7 @@ function formatAgyEvent(event: any): string {
       appendWorkspaceAgentLog(cwd, sessionId, 'session_started', { provider, model: selectedModel, kind, mode: 'exec', execution_policy: policy, route: agentEnvironment.route });
 
       let buffer = '';
+      const quotaCollector = new CodexQuotaCollector(sessionId);
       child.stdout.on('data', (chunk: Buffer) => {
         buffer += chunk.toString('utf8');
         const framed = takeJsonObjects(buffer);
@@ -2269,8 +2266,7 @@ function formatAgyEvent(event: any): string {
               const output = summarizeCommandOutput(event.item.command || '', event.item.aggregated_output || '');
               formattedLine = `\n✓ [Command completed] exit code: ${event.item.exit_code ?? 0}${output ? `\n${output}` : ''}\n`;
             } else if (event.type === 'turn.completed') {
-              const turnTokens = (event.usage?.input_tokens || 0) + (event.usage?.output_tokens || 0);
-              if (turnTokens > 0) recordTokenUsageToQuota('codex', turnTokens);
+              applyQuotaCollection(quotaCollector.collect(event));
               formattedLine = `\n✓ Turn completed · Tokens: in ${event.usage?.input_tokens || 0}, out ${event.usage?.output_tokens || 0}\n`;
             }
             if (formattedLine) {
@@ -2282,7 +2278,7 @@ function formatAgyEvent(event: any): string {
           } catch {
             session.output = `${session.output}\n${line}`.slice(-250000);
             appendWorkspaceAgentLog(session.cwd, sessionId, 'stdout', line);
-            extractAndRecordTokensFromText('codex', line);
+            applyQuotaCollection(quotaCollector.collect(line));
             safeSend(win, 'agent-output', { sessionId, stream: 'stdout', text: line });
           }
         }
@@ -2293,7 +2289,6 @@ function formatAgyEvent(event: any): string {
           if (!text.includes('Reading additional input from stdin')) {
             session.output = `${session.output}\n${text}`.slice(-250000);
             appendWorkspaceAgentLog(session.cwd, sessionId, 'stderr', text);
-            extractAndRecordTokensFromText('codex', text);
           safeSend(win, 'agent-output', { sessionId, stream: 'stderr', text });
         }
       });
@@ -2351,7 +2346,6 @@ function formatAgyEvent(event: any): string {
         session.output = `${session.output}${text}`.slice(-250000);
         appendWorkspaceAgentLog(session.cwd, sessionId, 'stdout', text);
       }
-      extractAndRecordTokensFromText(provider, text);
       safeSend(win, 'agent-output', { sessionId, stream: 'stdout', text });
     });
     pty.onExit(({ exitCode, signal }) => {
@@ -2410,10 +2404,10 @@ function formatAgyEvent(event: any): string {
     return readQuotaState();
   });
 
-  ipcMain.handle('agent-sync-quota-usage', async (_event, payload?: { taskHubUrl?: string }) => {
+  ipcMain.handle('agent-sync-quota-usage', async () => {
     const quota = readQuotaState();
-    await syncQuotaToTaskHub(quota, payload?.taskHubUrl);
-    return quota;
+    const sync = await syncQuotaToTaskHub(quota);
+    return { quota, sync };
   });
 
   ipcMain.handle('agent-update-quota-settings', (_event, payload: { enableCreditOverages?: boolean; plan?: string }) => {
@@ -2672,6 +2666,9 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   setupAutoUpdater();
+  // Sync once at startup; subsequent usage events and manual refreshes use the
+  // same credential-bound path.
+  void syncQuotaToTaskHub(readQuotaState());
   setTimeout(() => {
     void checkForUpdates();
   }, 10_000);

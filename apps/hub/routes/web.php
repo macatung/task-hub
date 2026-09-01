@@ -172,6 +172,7 @@ $registerApiRoutes = function () {
 
     // Project-scoped API consumed by the authenticated desktop companion.
     Route::middleware('desktop.project')->prefix('desktop')->group(function () {
+        Route::match(['get', 'post'], '/agent/quota', [ApiAgentRunController::class, 'quota']);
         Route::get('/bootstrap', [ApiProjectController::class, 'desktopBootstrap']);
         Route::get('/projects', [ApiProjectController::class, 'index']);
         Route::get('/tasks', [ApiTaskController::class, 'index']);
