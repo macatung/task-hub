@@ -2496,7 +2496,7 @@ const handleGlobalKey = (e: KeyboardEvent) => {
     selectedProjectId.value = 'all';
     currentView.value = 'board';
     filterHealth.value = 'all';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    workspaceScrollRef.value?.scrollTo({ top: 0, behavior: 'smooth' });
   } else if (e.key === '/') {
     e.preventDefault();
     searchInputRef.value?.focus();
@@ -2552,6 +2552,35 @@ onMounted(() => {
   }
 });
 
+// Scroll-reactive compact sticky header state
+const isHeaderCompact = ref(false);
+const isManualHeaderCompact = ref<boolean | null>(null);
+const workspaceScrollRef = ref<HTMLElement | null>(null);
+
+const effectiveHeaderCompact = computed(() => {
+  if (isManualHeaderCompact.value !== null) {
+    return isManualHeaderCompact.value;
+  }
+  return isHeaderCompact.value;
+});
+
+const handleWorkspaceScroll = (e: Event) => {
+  const el = e.target as HTMLElement;
+  if (!el) return;
+  const scrolled = el.scrollTop > 24;
+  if (isHeaderCompact.value !== scrolled) {
+    isHeaderCompact.value = scrolled;
+    if (el.scrollTop <= 10) {
+      isManualHeaderCompact.value = null;
+    }
+  }
+};
+
+const toggleHeaderCompact = () => {
+  isManualHeaderCompact.value = !effectiveHeaderCompact.value;
+  sound.playClick();
+};
+
 onUnmounted(() => {
   window.removeEventListener('keydown', handleGlobalKey);
   window.removeEventListener('click', closeAllMenus);
@@ -2573,8 +2602,9 @@ onUnmounted(() => {
     <!-- ========================================================================= -->
     <header
       :class="[
-        'h-16 shrink-0 z-40 border-b backdrop-blur-xl transition-colors w-full px-3 sm:px-6 flex items-center justify-between gap-3 relative',
-        isDarkMode ? 'bg-midnight-950/95 border-midnight-800 text-slate-100 shadow-xs' : 'bg-white/95 border-slate-200/90 text-slate-900 shadow-xs'
+        effectiveHeaderCompact ? 'h-12 px-3 sm:px-5 shadow-sm' : 'h-16 px-3 sm:px-6 shadow-xs',
+        'shrink-0 z-40 border-b backdrop-blur-xl transition-all duration-200 w-full flex items-center justify-between gap-3 relative',
+        isDarkMode ? 'bg-midnight-950/95 border-midnight-800 text-slate-100' : 'bg-white/95 border-slate-200/90 text-slate-900'
       ]"
     >
       <!-- Left: Sidebar toggle + Logo + Breadcrumb -->
@@ -2676,13 +2706,14 @@ onUnmounted(() => {
           <button
             @click.stop="isAiMenuOpen = !isAiMenuOpen"
             :class="[
-              'px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-xs shrink-0',
+              effectiveHeaderCompact ? 'px-2.5 py-1.5' : 'px-3 py-2',
+              'rounded-xl border text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-xs shrink-0',
               isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-300 hover:bg-midnight-850 hover:text-white' : 'bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100'
             ]"
             title="AI planning and settings"
           >
             <Icons name="Sparkles" :size="14" class="text-phantom-mint" aria-hidden="true" />
-            <span class="hidden sm:inline leading-none">AI Engine</span>
+            <span v-if="!effectiveHeaderCompact" class="hidden sm:inline leading-none">AI Engine</span>
             <Icons name="ChevronDown" :size="12" />
           </button>
 
@@ -2726,26 +2757,28 @@ onUnmounted(() => {
         <button
           @click="openMcpModal()"
           :class="[
-            'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0',
+            effectiveHeaderCompact ? 'px-2.5 py-1.5' : 'px-3 py-2',
+            'inline-flex items-center gap-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0',
             isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-300 hover:bg-midnight-850 hover:text-white' : 'bg-indigo-50 border-indigo-300 text-indigo-950 hover:bg-indigo-100'
           ]"
           title="Model Context Protocol (MCP) & AI Agent Integration (Antigravity 2.0, Cursor, Claude)"
         >
           <Icons name="Plug" :size="14" aria-hidden="true" class="text-cyan-400" />
-          <span class="leading-none">MCP & Agents</span>
+          <span v-if="!effectiveHeaderCompact" class="leading-none">MCP & Agents</span>
         </button>
 
         <!-- Weekly Email Report Button -->
         <button
           @click="openReportModal"
           :class="[
-            'hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0',
+            effectiveHeaderCompact ? 'px-2.5 py-1.5' : 'px-3 py-2',
+            'hidden sm:inline-flex items-center gap-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0',
             isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-300 hover:bg-midnight-850 hover:text-white' : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50'
           ]"
           title="Configure and send the weekly progress report"
         >
           <Icons name="Mail" :size="14" aria-hidden="true" />
-          <span class="leading-none">Reports</span>
+          <span v-if="!effectiveHeaderCompact" class="leading-none">Reports</span>
         </button>
 
         <!-- Notifications -->
@@ -2785,13 +2818,14 @@ onUnmounted(() => {
           <button
             @click.stop="isWorkspaceMenuOpen = !isWorkspaceMenuOpen"
             :class="[
-              'px-2.5 sm:px-3 py-2 rounded-xl border text-xs font-bold transition-all inline-flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0',
+              effectiveHeaderCompact ? 'px-2 sm:px-2.5 py-1.5' : 'px-2.5 sm:px-3 py-2',
+              'rounded-xl border text-xs font-bold transition-all inline-flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0',
               isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-300 hover:bg-midnight-850 hover:text-phantom-mint' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-emerald-700'
             ]"
             title="Workspace settings and billing"
           >
             <Icons name="Zap" :size="14" class="text-phantom-mint" />
-            <span class="hidden sm:inline leading-none">Billing</span>
+            <span v-if="!effectiveHeaderCompact" class="hidden sm:inline leading-none">Billing</span>
             <Icons name="ChevronDown" :size="12" />
           </button>
 
@@ -2848,7 +2882,10 @@ onUnmounted(() => {
         <!-- Primary Action: + Create Task (Solid Phantom Mint Button) -->
         <button
           @click="openCreateTaskModal"
-          class="px-3.5 py-2 rounded-xl bg-phantom-mint hover:bg-emerald-400 text-midnight-950 font-extrabold text-xs shadow-sm transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+          :class="[
+            effectiveHeaderCompact ? 'px-2.5 sm:px-3 py-1.5' : 'px-3.5 py-2',
+            'rounded-xl bg-phantom-mint hover:bg-emerald-400 text-midnight-950 font-extrabold text-xs shadow-sm transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shrink-0'
+          ]"
           title="Create a new task"
         >
           <Icons name="Plus" :size="16" aria-hidden="true" />
@@ -2881,7 +2918,7 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <RunnerDashboard :is-dark-mode="isDarkMode" @dispatch="handleRunnerDashboardDispatch" />
+    <RunnerDashboard :is-dark-mode="isDarkMode" :is-compact="effectiveHeaderCompact" @dispatch="handleRunnerDashboardDispatch" />
 
     <!-- ========================================================================= -->
     <!-- 2. MAIN LAYOUT (SIDEBAR + MAIN CANVAS)                                    -->
@@ -3060,240 +3097,378 @@ onUnmounted(() => {
       <!-- MAIN WORKSPACE -->
       <main :class="['min-w-0 flex-1 flex flex-col h-full overflow-hidden relative', isDarkMode ? 'bg-midnight-950' : 'bg-[#f8fafc]']">
         <!-- =================================================================== -->
-        <!-- MODERN 2-TIER PROJECT SUB-HEADER & SMART FILTER BAR (STICKY)        -->
         <!-- =================================================================== -->
-        <div :class="['p-4 sm:p-5 border-b space-y-3.5 shrink-0 shadow-xs backdrop-blur-xl transition-colors z-20', isDarkMode ? 'bg-midnight-950/90 border-midnight-800' : 'bg-white/95 border-slate-200/90']">
-          <!-- TIER 1: PROJECT BANNER & ANALYTICS METRICS -->
-          <div class="flex flex-wrap items-center justify-between gap-4">
-            <!-- Left: Project Identity -->
-            <div class="flex items-start gap-3.5 min-w-0 max-w-2xl">
+        <!-- SMART SCROLL-REACTIVE PROJECT SUB-HEADER & FILTER BAR (STICKY)      -->
+        <!-- =================================================================== -->
+        <div
+          :class="[
+            'border-b backdrop-blur-xl transition-all duration-200 z-20 shrink-0 select-none sticky top-0',
+            effectiveHeaderCompact ? 'py-2 px-3 sm:px-5 shadow-sm' : 'p-4 sm:p-5 shadow-xs space-y-3.5',
+            isDarkMode ? 'bg-midnight-950/95 border-midnight-800 text-slate-100' : 'bg-white/95 border-slate-200/90 text-slate-900'
+          ]"
+        >
+          <!-- COMPACT MODE: SINGLE ULTRA-SLEEK STICKY BAR -->
+          <div v-if="effectiveHeaderCompact" class="flex items-center justify-between gap-3 text-xs">
+            <!-- Left: Mini Identity + Task counts + Warning alert -->
+            <div class="flex items-center gap-2.5 min-w-0">
               <div
-                class="w-11 h-11 rounded-2xl inline-flex items-center justify-center shadow-xs shrink-0 border"
+                class="w-7 h-7 rounded-lg inline-flex items-center justify-center shadow-xs shrink-0 border"
                 :style="{
                   backgroundColor: activeProjectObject?.color ? `${activeProjectObject.color}20` : (isDarkMode ? '#161b22' : '#f1f5f9'),
                   borderColor: activeProjectObject?.color || (isDarkMode ? '#30363d' : '#cbd5e1')
                 }"
               >
-                <Icons name="Briefcase" :size="20" class="text-phantom-mint" />
+                <Icons name="Briefcase" :size="14" class="text-phantom-mint" />
               </div>
 
-              <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-2.5">
-                  <h1 :class="['text-xl sm:text-2xl font-bold font-display tracking-tight truncate', isDarkMode ? 'text-white' : 'text-slate-950']">
-                    {{ activeProjectObject ? activeProjectObject.title : 'All Projects & Tasks' }}
-                  </h1>
-
-                  <span v-if="activeProjectObject?.key" class="px-2.5 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 font-mono text-xs font-bold border border-emerald-500/30 shadow-xs inline-flex items-center justify-center">
-                    {{ activeProjectObject.key }}
-                  </span>
-
-                  <span v-if="activeProjectObject" class="px-2.5 py-0.5 rounded-lg font-mono text-[11px] font-bold border shadow-xs bg-cyan-500/10 text-cyan-300 border-cyan-500/30 inline-flex items-center justify-center">PROJECT</span>
-                </div>
-
-                <p :class="['text-xs sm:text-sm mt-1 line-clamp-1 font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-700']">
-                  {{ activeProjectObject?.tagline || activeProjectObject?.description || 'Manage project delivery, sprints and task backlog.' }}
-                </p>
+              <div class="flex items-center gap-2 min-w-0">
+                <span :class="['font-bold font-display truncate text-xs sm:text-sm', isDarkMode ? 'text-white' : 'text-slate-950']">
+                  {{ activeProjectObject ? activeProjectObject.title : 'All Projects & Tasks' }}
+                </span>
+                <span v-if="activeProjectObject?.key" class="hidden xs:inline-flex px-1.5 py-0.2 rounded font-mono text-[10px] font-bold border border-emerald-500/40 bg-emerald-500/10 text-emerald-400">
+                  {{ activeProjectObject.key }}
+                </span>
+                <span :class="['font-mono text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0', isDarkMode ? 'bg-midnight-900 text-slate-300 border-midnight-800' : 'bg-slate-100 text-slate-700 border-slate-300']">
+                  {{ activeProjectTasks.length }} tasks
+                </span>
+                <button
+                  v-if="activeProjectWarningCount > 0"
+                  @click="filterHealth = filterHealth === 'warning' ? 'all' : 'warning'"
+                  :class="[
+                    'px-2 py-0.5 rounded-full font-mono text-[10px] font-bold cursor-pointer transition-all inline-flex items-center gap-1 shrink-0 border',
+                    filterHealth === 'warning'
+                      ? 'bg-rose-600 text-white border-rose-600 ring-1 ring-rose-400'
+                      : (isDarkMode ? 'bg-rose-950/80 border-rose-800 text-rose-300 hover:bg-rose-900' : 'bg-rose-100 border-rose-300 text-rose-950 hover:bg-rose-200')
+                  ]"
+                  title="Filter overdue and at-risk tasks"
+                >
+                  <Icons name="AlertTriangle" :size="11" class="text-rose-400" />
+                  <span>{{ activeProjectWarningCount }} Attention</span>
+                </button>
               </div>
             </div>
 
-            <!-- Right: Project Analytics & Health Metric Pills -->
-            <div class="flex flex-wrap items-center gap-2.5 font-mono text-xs">
-              <!-- Total Tasks Pill -->
-              <div :class="['px-3.5 py-2 rounded-xl border font-bold flex items-center gap-2 shadow-xs', isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-200' : 'bg-white border-slate-300 text-slate-900 shadow-xs']">
-                <span :class="isDarkMode ? 'text-slate-400' : 'text-slate-700 font-bold'">Tasks:</span>
-                <strong class="text-phantom-mint text-sm font-black">{{ activeProjectTasks.length }}</strong>
-              </div>
-
-              <!-- Story Points Pill -->
-              <div :class="['px-3.5 py-2 rounded-xl border font-bold flex items-center gap-2 shadow-xs', isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-200' : 'bg-white border-slate-300 text-slate-900 shadow-xs']">
-                <span :class="isDarkMode ? 'text-slate-400' : 'text-slate-700 font-bold'">Points:</span>
-                <strong class="text-purple-400 text-sm font-black">{{ activeProjectStoryPoints }}</strong>
-              </div>
-
-              <!-- Progress % Pill with Mini Bar -->
-              <div :class="['px-3.5 py-2 rounded-xl border font-bold flex items-center gap-2.5 shadow-xs', isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-200' : 'bg-white border-slate-300 text-slate-900 shadow-xs']">
-                <span :class="isDarkMode ? 'text-slate-400' : 'text-slate-700 font-bold'">Progress:</span>
-                <div class="w-14 h-2.5 rounded-full bg-midnight-950 border border-midnight-800 overflow-hidden">
-                  <div class="h-full bg-phantom-mint rounded-full transition-all duration-500" :style="{ width: `${activeProjectProgressPercent}%` }"></div>
-                </div>
-                <strong class="text-phantom-mint text-xs font-black">{{ activeProjectProgressPercent }}%</strong>
-              </div>
-
-              <!-- Warning Pill (Click to filter) -->
-              <button
-                v-if="activeProjectWarningCount > 0"
-                @click="filterHealth = filterHealth === 'warning' ? 'all' : 'warning'"
-                :class="[
-                  'px-3.5 py-2 rounded-2xl border font-bold cursor-pointer transition-all inline-flex items-center gap-1.5 shadow-xs shrink-0',
-                  filterHealth === 'warning'
-                    ? 'bg-rose-600 text-white border-rose-600 ring-2 ring-rose-300 shadow-md'
-                    : (isDarkMode ? 'bg-rose-950/80 border-rose-800 text-rose-300 hover:bg-rose-900' : 'bg-rose-100 border-rose-300 text-rose-950 hover:bg-rose-200 font-bold')
-                ]"
-                title="Filter overdue and at-risk tasks"
-              >
-                <Icons name="AlertTriangle" :size="13" class="text-rose-300" />
-                <strong class="font-black leading-none">{{ activeProjectWarningCount }} Attention</strong>
-              </button>
-
-              <!-- Documents Button -->
-              <button
-                v-if="activeProjectObject?.id"
-                @click="isDocsModalOpen = true; sound.playClick();"
-                :class="[
-                  'px-3 py-2 rounded-2xl border font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-all hover:scale-105 shrink-0',
-                  isDarkMode ? 'bg-midnight-850 border-midnight-800 text-cyan-300 hover:border-cyan-500/60 hover:bg-cyan-950/30' : 'bg-cyan-50 border-cyan-200 text-cyan-900 hover:bg-cyan-100'
-                ]"
-                title="Open project documents and GitHub sync"
-              >
-                <Icons name="FileText" :size="13" class="text-cyan-400" />
-                <span class="text-xs leading-none">Docs</span>
-              </button>
-
-              <!-- Releases Button -->
-              <button
-                v-if="activeProjectObject?.id"
-                @click="isReleasesModalOpen = true; sound.playClick();"
-                :class="[
-                  'px-3 py-2 rounded-2xl border font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-all hover:scale-105 shrink-0',
-                  isDarkMode ? 'bg-midnight-850 border-midnight-800 text-emerald-300 hover:border-emerald-500/60 hover:bg-emerald-950/30' : 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100'
-                ]"
-                title="Open release history"
-              >
-                <Icons name="Rocket" :size="13" class="text-emerald-400" />
-                <span class="text-xs leading-none">Releases</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- TIER 2: SMART FILTER & QUICK ACTION BAR -->
-          <div :class="['flex flex-wrap items-center justify-between gap-3 pt-3.5 border-t text-xs', isDarkMode ? 'border-midnight-800/80' : 'border-slate-200']">
-            <div class="flex flex-wrap items-center gap-2.5 flex-1 min-w-0 font-mono">
-              <!-- Search Input with Shortcut Badge -->
-              <div class="relative min-w-[200px] max-w-xs flex-1">
+            <!-- Right: Search + Filters + Quick Add + Expand Toggle -->
+            <div class="flex items-center gap-2 font-mono shrink-0">
+              <!-- Compact Search Input -->
+              <div class="relative min-w-[130px] sm:min-w-[180px] max-w-xs">
                 <input
-                  ref="searchInputRef"
                   v-model="searchQuery"
                   type="text"
-                  placeholder="Search tasks... (Press '/')"
+                  placeholder="Search tasks..."
                   :class="[
-                    'w-full border rounded-xl pl-8 pr-8 py-2 text-xs focus:outline-none focus:border-phantom-mint/60 shadow-xs font-medium transition-colors',
-                    isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'
+                    'w-full border rounded-lg pl-7 pr-6 py-1 text-xs focus:outline-none focus:border-phantom-mint/60 shadow-xs font-medium transition-colors',
+                    isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'
                   ]"
                 />
-                <Icons name="Search" :size="13" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <span v-if="searchQuery" @click="searchQuery = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer font-bold">✕</span>
-                <span v-else class="absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.2 rounded border text-[10px] font-mono text-slate-400 border-midnight-800 font-bold">/</span>
+                <Icons name="Search" :size="12" class="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                <span v-if="searchQuery" @click="searchQuery = ''" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer text-xs font-bold">✕</span>
               </div>
 
-              <!-- Health / Progress Warning Filter -->
+              <!-- Quick Health Filter -->
               <select
                 v-model="filterHealth"
                 :class="[
-                  'border text-xs rounded-xl px-3 py-2 focus:outline-none cursor-pointer shadow-xs font-bold transition-colors',
+                  'hidden sm:inline-block border text-[11px] rounded-lg px-2 py-1 focus:outline-none cursor-pointer shadow-xs font-bold transition-colors',
                   filterHealth === 'warning' || filterHealth === 'overdue'
                     ? (isDarkMode ? 'bg-rose-950 text-rose-300 border-rose-600' : 'bg-rose-50 text-rose-900 border-rose-400')
                     : filterHealth === 'at_risk'
                     ? (isDarkMode ? 'bg-amber-950 text-amber-300 border-amber-600' : 'bg-amber-50 text-amber-900 border-amber-400')
-                    : (isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
+                    : (isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-200' : 'bg-white border-slate-300 text-slate-800')
                 ]"
               >
-                <option value="all">All progress</option>
-                <option value="warning" :disabled="activeProjectWarningCount === 0">
-                  Attention needed (Overdue + At risk) ({{ activeProjectWarningCount }})
-                </option>
-                <option value="overdue" :disabled="overdueTasksCount === 0">
-                  Overdue only ({{ overdueTasksCount }})
-                </option>
-                <option value="at_risk" :disabled="delayedTasksCount === 0">
-                  At risk only ({{ delayedTasksCount }})
-                </option>
+                <option value="all">All status</option>
+                <option value="warning" :disabled="activeProjectWarningCount === 0">Attention needed ({{ activeProjectWarningCount }})</option>
+                <option value="overdue" :disabled="overdueTasksCount === 0">Overdue ({{ overdueTasksCount }})</option>
+                <option value="at_risk" :disabled="delayedTasksCount === 0">At risk ({{ delayedTasksCount }})</option>
                 <option value="on_track">On track</option>
               </select>
 
-              <!-- Issue Type Filter -->
-              <select
-                v-model="filterIssueType"
-                :class="[
-                  'border text-xs rounded-xl px-3 py-2 focus:outline-none cursor-pointer shadow-xs font-semibold',
-                  filterIssueType !== 'all'
-                    ? (isDarkMode ? 'bg-cyan-950/80 text-cyan-300 border-cyan-700 font-bold' : 'bg-blue-50 text-blue-900 border-blue-300 font-bold')
-                    : (isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
-                ]"
-              >
-                <option value="all">All issue types</option>
-                <option value="story">Story</option>
-                <option value="task">Task</option>
-                <option value="bug">Bug</option>
-                <option value="epic">Epic</option>
-              </select>
-
-              <!-- Priority Filter -->
-              <select
-                v-model="filterPriority"
-                :class="[
-                  'border text-xs rounded-xl px-3 py-2 focus:outline-none cursor-pointer shadow-xs font-semibold',
-                  filterPriority !== 'all'
-                    ? (isDarkMode ? 'bg-amber-950/80 text-amber-300 border-amber-700 font-bold' : 'bg-amber-50 text-amber-900 border-amber-300 font-bold')
-                    : (isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
-                ]"
-              >
-                <option value="all">All priorities</option>
-                <option value="urgent">Urgent</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-
-              <!-- Epic Filter -->
-              <select
-                v-model="filterEpicId"
-                :class="[
-                  'border text-xs rounded-xl px-3 py-2 focus:outline-none cursor-pointer shadow-xs font-semibold',
-                  filterEpicId !== 'all'
-                    ? (isDarkMode ? 'bg-purple-950/80 text-purple-300 border-purple-700 font-bold' : 'bg-purple-50 text-purple-900 border-purple-300 font-bold')
-                    : (isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
-                ]"
-              >
-                <option value="all">All Epics</option>
-                <option value="none">No Epic</option>
-                <option v-for="epic in epicList" :key="epic.id" :value="epic.id">
-                  {{ epic.issue_key }} — {{ epic.title }}
-                </option>
-              </select>
-
-              <!-- Reset Filter Button -->
+              <!-- Reset Active Filters -->
               <button
                 v-if="hasActiveFilters"
                 @click="resetFilters"
-                class="px-3 py-2 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-950/50 border border-rose-800 transition-colors inline-flex items-center gap-1 cursor-pointer shadow-xs shrink-0"
+                class="px-2 py-1 rounded-lg text-[10px] font-bold text-rose-400 hover:bg-rose-950/50 border border-rose-800 transition-colors inline-flex items-center gap-1 cursor-pointer shrink-0"
                 title="Clear all active filters"
               >
-                <Icons name="X" :size="12" />
-                <span class="leading-none">Clear Filters</span>
+                <Icons name="X" :size="11" />
+                <span class="hidden md:inline">Reset</span>
+              </button>
+
+              <!-- Compact Create Task Button -->
+              <button
+                @click="openCreateTaskModal"
+                class="px-2.5 py-1 rounded-lg bg-phantom-mint hover:bg-emerald-400 text-midnight-950 font-extrabold text-xs shadow-xs transition-all inline-flex items-center justify-center gap-1 cursor-pointer active:scale-95 shrink-0"
+                title="Create a new task"
+              >
+                <Icons name="Plus" :size="14" />
+                <span class="hidden xs:inline leading-none">Task</span>
+              </button>
+
+              <!-- Toggle Expand Button -->
+              <button
+                @click="toggleHeaderCompact"
+                :class="[
+                  'p-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer inline-flex items-center justify-center shrink-0 shadow-xs',
+                  isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-400 hover:text-white hover:bg-midnight-850' : 'bg-white border-slate-300 text-slate-600 hover:text-slate-950'
+                ]"
+                title="Expand project header to full view"
+              >
+                <Icons name="ChevronDown" :size="14" />
               </button>
             </div>
-
-            <!-- Quick Add in Bar -->
-            <div class="flex items-center gap-2 font-mono">
-              <input
-                ref="quickInputRef"
-                v-model="quickInputText"
-                type="text"
-                placeholder="+ Quick add task... (Enter)"
-                @keydown.enter="handleQuickCreate(null)"
-                :class="[
-                  'min-w-[220px] sm:min-w-[260px] border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-phantom-mint/60 shadow-xs font-medium transition-colors',
-                  isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'
-                ]"
-              />
-            </div>
           </div>
+
+          <!-- EXPANDED MODE: FULL 2-TIER PROJECT BANNER & FILTER BAR -->
+          <template v-else>
+            <!-- TIER 1: PROJECT BANNER & ANALYTICS METRICS -->
+            <div class="flex flex-wrap items-center justify-between gap-4">
+              <!-- Left: Project Identity -->
+              <div class="flex items-start gap-3.5 min-w-0 max-w-2xl">
+                <div
+                  class="w-11 h-11 rounded-2xl inline-flex items-center justify-center shadow-xs shrink-0 border"
+                  :style="{
+                    backgroundColor: activeProjectObject?.color ? `${activeProjectObject.color}20` : (isDarkMode ? '#161b22' : '#f1f5f9'),
+                    borderColor: activeProjectObject?.color || (isDarkMode ? '#30363d' : '#cbd5e1')
+                  }"
+                >
+                  <Icons name="Briefcase" :size="20" class="text-phantom-mint" />
+                </div>
+
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2.5">
+                    <h1 :class="['text-xl sm:text-2xl font-bold font-display tracking-tight truncate', isDarkMode ? 'text-white' : 'text-slate-950']">
+                      {{ activeProjectObject ? activeProjectObject.title : 'All Projects & Tasks' }}
+                    </h1>
+
+                    <span v-if="activeProjectObject?.key" class="px-2.5 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 font-mono text-xs font-bold border border-emerald-500/30 shadow-xs inline-flex items-center justify-center">
+                      {{ activeProjectObject.key }}
+                    </span>
+
+                    <span v-if="activeProjectObject" class="px-2.5 py-0.5 rounded-lg font-mono text-[11px] font-bold border shadow-xs bg-cyan-500/10 text-cyan-300 border-cyan-500/30 inline-flex items-center justify-center">PROJECT</span>
+                  </div>
+
+                  <p :class="['text-xs sm:text-sm mt-1 line-clamp-1 font-mono', isDarkMode ? 'text-slate-400' : 'text-slate-700']">
+                    {{ activeProjectObject?.tagline || activeProjectObject?.description || 'Manage project delivery, sprints and task backlog.' }}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Right: Project Analytics & Health Metric Pills + Collapse button -->
+              <div class="flex flex-wrap items-center gap-2.5 font-mono text-xs">
+                <!-- Total Tasks Pill -->
+                <div :class="['px-3.5 py-2 rounded-xl border font-bold flex items-center gap-2 shadow-xs', isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-200' : 'bg-white border-slate-300 text-slate-900 shadow-xs']">
+                  <span :class="isDarkMode ? 'text-slate-400' : 'text-slate-700 font-bold'">Tasks:</span>
+                  <strong class="text-phantom-mint text-sm font-black">{{ activeProjectTasks.length }}</strong>
+                </div>
+
+                <!-- Story Points Pill -->
+                <div :class="['px-3.5 py-2 rounded-xl border font-bold flex items-center gap-2 shadow-xs', isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-200' : 'bg-white border-slate-300 text-slate-900 shadow-xs']">
+                  <span :class="isDarkMode ? 'text-slate-400' : 'text-slate-700 font-bold'">Points:</span>
+                  <strong class="text-purple-400 text-sm font-black">{{ activeProjectStoryPoints }}</strong>
+                </div>
+
+                <!-- Progress % Pill with Mini Bar -->
+                <div :class="['px-3.5 py-2 rounded-xl border font-bold flex items-center gap-2.5 shadow-xs', isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-200' : 'bg-white border-slate-300 text-slate-900 shadow-xs']">
+                  <span :class="isDarkMode ? 'text-slate-400' : 'text-slate-700 font-bold'">Progress:</span>
+                  <div class="w-14 h-2.5 rounded-full bg-midnight-950 border border-midnight-800 overflow-hidden">
+                    <div class="h-full bg-phantom-mint rounded-full transition-all duration-500" :style="{ width: `${activeProjectProgressPercent}%` }"></div>
+                  </div>
+                  <strong class="text-phantom-mint text-xs font-black">{{ activeProjectProgressPercent }}%</strong>
+                </div>
+
+                <!-- Warning Pill (Click to filter) -->
+                <button
+                  v-if="activeProjectWarningCount > 0"
+                  @click="filterHealth = filterHealth === 'warning' ? 'all' : 'warning'"
+                  :class="[
+                    'px-3.5 py-2 rounded-2xl border font-bold cursor-pointer transition-all inline-flex items-center gap-1.5 shadow-xs shrink-0',
+                    filterHealth === 'warning'
+                      ? 'bg-rose-600 text-white border-rose-600 ring-2 ring-rose-300 shadow-md'
+                      : (isDarkMode ? 'bg-rose-950/80 border-rose-800 text-rose-300 hover:bg-rose-900' : 'bg-rose-100 border-rose-300 text-rose-950 hover:bg-rose-200 font-bold')
+                  ]"
+                  title="Filter overdue and at-risk tasks"
+                >
+                  <Icons name="AlertTriangle" :size="13" class="text-rose-300" />
+                  <strong class="font-black leading-none">{{ activeProjectWarningCount }} Attention</strong>
+                </button>
+
+                <!-- Documents Button -->
+                <button
+                  v-if="activeProjectObject?.id"
+                  @click="isDocsModalOpen = true; sound.playClick();"
+                  :class="[
+                    'px-3 py-2 rounded-2xl border font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-all hover:scale-105 shrink-0',
+                    isDarkMode ? 'bg-midnight-850 border-midnight-800 text-cyan-300 hover:border-cyan-500/60 hover:bg-cyan-950/30' : 'bg-cyan-50 border-cyan-200 text-cyan-900 hover:bg-cyan-100'
+                  ]"
+                  title="Open project documents and GitHub sync"
+                >
+                  <Icons name="FileText" :size="13" class="text-cyan-400" />
+                  <span class="text-xs leading-none">Docs</span>
+                </button>
+
+                <!-- Releases Button -->
+                <button
+                  v-if="activeProjectObject?.id"
+                  @click="isReleasesModalOpen = true; sound.playClick();"
+                  :class="[
+                    'px-3 py-2 rounded-2xl border font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition-all hover:scale-105 shrink-0',
+                    isDarkMode ? 'bg-midnight-850 border-midnight-800 text-emerald-300 hover:border-emerald-500/60 hover:bg-emerald-950/30' : 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100'
+                  ]"
+                  title="Open release history"
+                >
+                  <Icons name="Rocket" :size="13" class="text-emerald-400" />
+                  <span class="text-xs leading-none">Releases</span>
+                </button>
+
+                <!-- Collapse to Compact Button -->
+                <button
+                  @click="toggleHeaderCompact"
+                  :class="[
+                    'p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer inline-flex items-center justify-center shrink-0 shadow-xs',
+                    isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-400 hover:text-white hover:bg-midnight-850' : 'bg-white border-slate-300 text-slate-600 hover:text-slate-950'
+                  ]"
+                  title="Collapse header to compact view"
+                >
+                  <Icons name="ChevronUp" :size="15" />
+                </button>
+              </div>
+            </div>
+
+            <!-- TIER 2: SMART FILTER & QUICK ACTION BAR -->
+            <div :class="['flex flex-wrap items-center justify-between gap-3 pt-3.5 border-t text-xs', isDarkMode ? 'border-midnight-800/80' : 'border-slate-200']">
+              <div class="flex flex-wrap items-center gap-2.5 flex-1 min-w-0 font-mono">
+                <!-- Search Input with Shortcut Badge -->
+                <div class="relative min-w-[200px] max-w-xs flex-1">
+                  <input
+                    ref="searchInputRef"
+                    v-model="searchQuery"
+                    type="text"
+                    placeholder="Search tasks... (Press '/')"
+                    :class="[
+                      'w-full border rounded-xl pl-8 pr-8 py-2 text-xs focus:outline-none focus:border-phantom-mint/60 shadow-xs font-medium transition-colors',
+                      isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'
+                    ]"
+                  />
+                  <Icons name="Search" :size="13" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <span v-if="searchQuery" @click="searchQuery = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer font-bold">✕</span>
+                  <span v-else class="absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.2 rounded border text-[10px] font-mono text-slate-400 border-midnight-800 font-bold">/</span>
+                </div>
+
+                <!-- Health / Progress Warning Filter -->
+                <select
+                  v-model="filterHealth"
+                  :class="[
+                    'border text-xs rounded-xl px-3 py-2 focus:outline-none cursor-pointer shadow-xs font-bold transition-colors',
+                    filterHealth === 'warning' || filterHealth === 'overdue'
+                      ? (isDarkMode ? 'bg-rose-950 text-rose-300 border-rose-600' : 'bg-rose-50 text-rose-900 border-rose-400')
+                      : filterHealth === 'at_risk'
+                      ? (isDarkMode ? 'bg-amber-950 text-amber-300 border-amber-600' : 'bg-amber-50 text-amber-900 border-amber-400')
+                      : (isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
+                  ]"
+                >
+                  <option value="all">All progress</option>
+                  <option value="warning" :disabled="activeProjectWarningCount === 0">
+                    Attention needed (Overdue + At risk) ({{ activeProjectWarningCount }})
+                  </option>
+                  <option value="overdue" :disabled="overdueTasksCount === 0">
+                    Overdue only ({{ overdueTasksCount }})
+                  </option>
+                  <option value="at_risk" :disabled="delayedTasksCount === 0">
+                    At risk only ({{ delayedTasksCount }})
+                  </option>
+                  <option value="on_track">On track</option>
+                </select>
+
+                <!-- Issue Type Filter -->
+                <select
+                  v-model="filterIssueType"
+                  :class="[
+                    'border text-xs rounded-xl px-3 py-2 focus:outline-none cursor-pointer shadow-xs font-semibold',
+                    filterIssueType !== 'all'
+                      ? (isDarkMode ? 'bg-cyan-950/80 text-cyan-300 border-cyan-700 font-bold' : 'bg-blue-50 text-blue-900 border-blue-300 font-bold')
+                      : (isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
+                  ]"
+                >
+                  <option value="all">All issue types</option>
+                  <option value="story">Story</option>
+                  <option value="task">Task</option>
+                  <option value="bug">Bug</option>
+                  <option value="epic">Epic</option>
+                </select>
+
+                <!-- Priority Filter -->
+                <select
+                  v-model="filterPriority"
+                  :class="[
+                    'border text-xs rounded-xl px-3 py-2 focus:outline-none cursor-pointer shadow-xs font-semibold',
+                    filterPriority !== 'all'
+                      ? (isDarkMode ? 'bg-amber-950/80 text-amber-300 border-amber-700 font-bold' : 'bg-amber-50 text-amber-900 border-amber-300 font-bold')
+                      : (isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
+                  ]"
+                >
+                  <option value="all">All priorities</option>
+                  <option value="urgent">Urgent</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+
+                <!-- Epic Filter -->
+                <select
+                  v-model="filterEpicId"
+                  :class="[
+                    'border text-xs rounded-xl px-3 py-2 focus:outline-none cursor-pointer shadow-xs font-semibold',
+                    filterEpicId !== 'all'
+                      ? (isDarkMode ? 'bg-purple-950/80 text-purple-300 border-purple-700 font-bold' : 'bg-purple-50 text-purple-900 border-purple-300 font-bold')
+                      : (isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900')
+                  ]"
+                >
+                  <option value="all">All Epics</option>
+                  <option value="none">No Epic</option>
+                  <option v-for="epic in epicList" :key="epic.id" :value="epic.id">
+                    {{ epic.issue_key }} — {{ epic.title }}
+                  </option>
+                </select>
+
+                <!-- Reset Filter Button -->
+                <button
+                  v-if="hasActiveFilters"
+                  @click="resetFilters"
+                  class="px-3 py-2 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-950/50 border border-rose-800 transition-colors inline-flex items-center gap-1 cursor-pointer shadow-xs shrink-0"
+                  title="Clear all active filters"
+                >
+                  <Icons name="X" :size="12" />
+                  <span class="leading-none">Clear Filters</span>
+                </button>
+              </div>
+
+              <!-- Quick Add in Bar -->
+              <div class="flex items-center gap-2 font-mono">
+                <input
+                  ref="quickInputRef"
+                  v-model="quickInputText"
+                  type="text"
+                  placeholder="+ Quick add task... (Enter)"
+                  @keydown.enter="handleQuickCreate(null)"
+                  :class="[
+                    'min-w-[220px] sm:min-w-[260px] border rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-phantom-mint/60 shadow-xs font-medium transition-colors',
+                    isDarkMode ? 'bg-midnight-950 border-midnight-800 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'
+                  ]"
+                />
+              </div>
+            </div>
+          </template>
         </div>
 
         <!-- ===================================================================== -->
         <!-- SCROLLABLE WORKSPACE CANVAS (KANBAN / BACKLOG / ROADMAP / COMMAND)    -->
         <!-- ===================================================================== -->
-        <div class="flex-1 overflow-y-auto overflow-x-auto min-h-0 custom-scrollbar">
+        <div
+          ref="workspaceScrollRef"
+          @scroll="handleWorkspaceScroll"
+          class="flex-1 overflow-y-auto min-h-0 custom-scrollbar relative"
+        >
         <!-- ===================================================================== -->
         <!-- PERSONAL DAILY COMMAND CENTER                                         -->
         <!-- ===================================================================== -->
@@ -3343,7 +3518,7 @@ onUnmounted(() => {
         <!-- ===================================================================== -->
         <!-- VIEW 1: CLEAN KANBAN BOARD (HIGH CONTRAST & CARD ELEVATION)          -->
         <!-- ===================================================================== -->
-        <div v-if="currentView === 'board'" class="flex-1 p-4 sm:p-6 overflow-x-auto overflow-y-auto">
+        <div v-if="currentView === 'board'" class="flex-1 p-4 sm:p-6 overflow-x-auto">
           <!-- Overdue / Delayed Warning Alert Banner -->
           <div
             v-if="warningTasksCount > 0"
@@ -3839,7 +4014,7 @@ onUnmounted(() => {
         <!-- ===================================================================== -->
         <!-- VIEW 2: BACKLOG SPRINT PLANNING (COLLAPSIBLE + MULTI-BAR PROGRESS)   -->
         <!-- ===================================================================== -->
-        <div v-else-if="currentView === 'backlog'" class="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6">
+        <div v-else-if="currentView === 'backlog'" class="flex-1 p-4 sm:p-6 space-y-6">
           <div :class="['flex flex-wrap items-center justify-between gap-3 pb-3 border-b', isDarkMode ? 'border-midnight-800' : 'border-slate-200']">
             <div>
               <h2 :class="['text-base sm:text-lg font-bold font-display', isDarkMode ? 'text-white' : 'text-slate-950']">
@@ -4057,7 +4232,7 @@ onUnmounted(() => {
         <!-- ===================================================================== -->
         <!-- VIEW 3: ROADMAP & TIMELINE                                            -->
         <!-- ===================================================================== -->
-        <div v-else-if="currentView === 'roadmap'" class="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6">
+        <div v-else-if="currentView === 'roadmap'" class="flex-1 p-4 sm:p-6 space-y-6">
           <div :class="['sticky top-0 z-10 -mx-4 -mt-4 border-b px-4 pt-4 pb-3 sm:-mx-6 sm:px-6 backdrop-blur-xl', isDarkMode ? 'border-midnight-800 bg-midnight-950/95' : 'border-slate-200 bg-slate-50/95']">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div>

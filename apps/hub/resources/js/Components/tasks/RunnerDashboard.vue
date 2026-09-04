@@ -3,8 +3,10 @@ import ConnectedAgentsRegistry, { type DesktopAgentItem } from '@/Components/tas
 
 const props = withDefaults(defineProps<{
   isDarkMode?: boolean;
+  isCompact?: boolean;
 }>(), {
   isDarkMode: true,
+  isCompact: false,
 });
 
 const emit = defineEmits<{
@@ -17,5 +19,5 @@ const handleDispatch = (runner: DesktopAgentItem) => {
 </script>
 
 <template>
-  <ConnectedAgentsRegistry :is-dark-mode="isDarkMode" @dispatch="handleDispatch" />
+  <ConnectedAgentsRegistry :is-dark-mode="isDarkMode" :is-compact="isCompact" @dispatch="handleDispatch" />
 </template>

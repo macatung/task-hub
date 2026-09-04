@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import axios from 'axios';
 import Icons from '@/Components/ui/Icons.vue';
 import StatusBadge from '@/Components/ui/StatusBadge.vue';
@@ -37,8 +37,16 @@ export interface DesktopAgentItem {
 
 const props = withDefaults(defineProps<{
   isDarkMode?: boolean;
+  isCompact?: boolean;
 }>(), {
   isDarkMode: true,
+  isCompact: false,
+});
+
+watch(() => props.isCompact, (compact) => {
+  if (compact) {
+    isExpanded.value = false;
+  }
 });
 
 const emit = defineEmits<{
@@ -197,15 +205,16 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-    class="connected-agents-registry mx-3 sm:mx-6 mt-2.5 rounded-2xl border transition-all duration-200 overflow-hidden shadow-xs backdrop-blur-md"
+    class="connected-agents-registry mx-3 sm:mx-6 border transition-all duration-200 overflow-hidden shadow-xs backdrop-blur-md"
     :class="[
+      isCompact ? 'mt-1 rounded-xl' : 'mt-2.5 rounded-2xl',
       isDarkMode
         ? 'border-midnight-800/80 bg-midnight-900/90 text-slate-100 shadow-midnight-950/40'
         : 'border-slate-200/90 bg-white/90 text-slate-900 shadow-slate-200/40'
     ]"
   >
     <!-- Top Registry Bar -->
-    <div class="px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
+    <div :class="[isCompact ? 'px-3 py-1.5' : 'px-4 py-2.5', 'flex flex-wrap items-center justify-between gap-3']">
       <!-- Left: Glowing Live Beacon & Registry Title -->
       <div class="flex items-center gap-3 min-w-0">
         <!-- Glowing Beacon -->
