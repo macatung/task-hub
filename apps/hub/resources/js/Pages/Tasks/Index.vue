@@ -2552,32 +2552,25 @@ onMounted(() => {
   }
 });
 
-// Scroll-reactive compact sticky header state
-const isHeaderCompact = ref(false);
-const isManualHeaderCompact = ref<boolean | null>(null);
+// Compact sticky header state (defaults to sleek compact layout)
+const isManualHeaderExpanded = ref(false);
 const workspaceScrollRef = ref<HTMLElement | null>(null);
 
 const effectiveHeaderCompact = computed(() => {
-  if (isManualHeaderCompact.value !== null) {
-    return isManualHeaderCompact.value;
-  }
-  return isHeaderCompact.value;
+  return !isManualHeaderExpanded.value;
 });
 
 const handleWorkspaceScroll = (e: Event) => {
   const el = e.target as HTMLElement;
   if (!el) return;
-  const scrolled = el.scrollTop > 24;
-  if (isHeaderCompact.value !== scrolled) {
-    isHeaderCompact.value = scrolled;
-    if (el.scrollTop <= 10) {
-      isManualHeaderCompact.value = null;
-    }
+  // If user scrolls down while expanded, auto-collapse back to compact to maximize workspace
+  if (el.scrollTop > 40 && isManualHeaderExpanded.value) {
+    isManualHeaderExpanded.value = false;
   }
 };
 
 const toggleHeaderCompact = () => {
-  isManualHeaderCompact.value = !effectiveHeaderCompact.value;
+  isManualHeaderExpanded.value = !isManualHeaderExpanded.value;
   sound.playClick();
 };
 
@@ -2602,22 +2595,21 @@ onUnmounted(() => {
     <!-- ========================================================================= -->
     <header
       :class="[
-        effectiveHeaderCompact ? 'h-12 px-3 sm:px-5 shadow-sm' : 'h-16 px-3 sm:px-6 shadow-xs',
-        'shrink-0 z-40 border-b backdrop-blur-xl transition-all duration-200 w-full flex items-center justify-between gap-3 relative',
+        'h-12 px-3 sm:px-5 shadow-xs shrink-0 z-40 border-b backdrop-blur-xl transition-all duration-200 w-full flex items-center justify-between gap-2.5 relative',
         isDarkMode ? 'bg-midnight-950/95 border-midnight-800 text-slate-100' : 'bg-white/95 border-slate-200/90 text-slate-900'
       ]"
     >
       <!-- Left: Sidebar toggle + Logo + Breadcrumb -->
-      <div class="flex items-center gap-3 min-w-0">
+      <div class="flex items-center gap-2.5 min-w-0">
         <button
           @click="isSidebarOpen = !isSidebarOpen"
           :class="[
-            'h-9 w-9 rounded-xl border transition-all cursor-pointer inline-flex items-center justify-center shrink-0 shadow-xs',
+            'h-8.5 w-8.5 rounded-xl border transition-all cursor-pointer inline-flex items-center justify-center shrink-0 shadow-xs',
             isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-300 hover:text-white hover:bg-midnight-850' : 'bg-white border-slate-200 text-slate-700 hover:text-slate-950 hover:bg-slate-100'
           ]"
           title="Toggle project navigation"
         >
-          <Icons :name="isSidebarOpen ? 'PanelLeftClose' : 'PanelLeftOpen'" :size="16" />
+          <Icons :name="isSidebarOpen ? 'PanelLeftClose' : 'PanelLeftOpen'" :size="15" />
         </button>
 
         <WorkspaceBrand :dark="isDarkMode" />
@@ -2625,12 +2617,12 @@ onUnmounted(() => {
         <!-- Dynamic Breadcrumbs -->
         <div class="hidden lg:flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-midnight-800 text-xs min-w-0 font-mono">
           <span class="text-slate-500">/</span>
-          <div class="flex items-center gap-1.5 font-bold truncate">
+          <div class="flex items-center gap-1.5 font-bold truncate max-w-[140px] sm:max-w-[200px]">
             <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: activeProjectObject?.color || '#00f5a0' }"></span>
             <span :class="['truncate', isDarkMode ? 'text-slate-200' : 'text-slate-800']">
               {{ activeProjectObject ? activeProjectObject.title : 'All Projects' }}
             </span>
-            <span v-if="activeProjectObject?.key" class="font-mono text-[10px] px-1.5 py-0.2 rounded font-bold border border-emerald-500/40 bg-emerald-500/10 text-emerald-400">
+            <span v-if="activeProjectObject?.key" class="font-mono text-[10px] px-1.5 py-0.2 rounded font-bold border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 shrink-0">
               {{ activeProjectObject.key }}
             </span>
           </div>
@@ -2646,21 +2638,21 @@ onUnmounted(() => {
       <!-- Center Tabs: Board | Backlog | Roadmap with dynamic counts -->
       <div
         :class="[
-          'hidden md:flex items-center p-1 rounded-xl border font-bold text-xs gap-1 shadow-xs font-mono',
+          'hidden md:flex items-center p-0.5 sm:p-1 rounded-xl border font-bold text-xs gap-1 shadow-xs font-mono',
           isDarkMode ? 'bg-midnight-900 border-midnight-800' : 'bg-slate-100/90 border-slate-200/80'
         ]"
       >
         <button
           @click="currentView = 'board'; sound.playClick();"
           :class="[
-            'px-3 py-1.5 rounded-lg transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 shrink-0',
+            'px-2.5 sm:px-3 py-1 rounded-lg transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 shrink-0',
             currentView === 'board'
               ? (isDarkMode ? 'bg-midnight-850 text-white border border-midnight-700 font-bold shadow-xs' : 'bg-white text-slate-950 border border-slate-300 font-bold shadow-xs')
               : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-midnight-850/50 border border-transparent' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60 border border-transparent')
           ]"
         >
           <span v-if="currentView === 'board'" class="w-1.5 h-1.5 rounded-full bg-phantom-mint inline-block shrink-0"></span>
-          <Icons name="LayoutGrid" :size="14" aria-hidden="true" />
+          <Icons name="LayoutGrid" :size="13" aria-hidden="true" />
           <span class="leading-none">Task Board</span>
           <span :class="['px-1.5 py-0.2 rounded-md font-mono text-[10px] font-bold inline-flex items-center justify-center', currentView === 'board' ? 'bg-midnight-950 text-phantom-mint' : (isDarkMode ? 'bg-midnight-950 text-slate-400' : 'bg-slate-200 text-slate-700')]">
             {{ filteredBoardTasks.length }}
@@ -2670,14 +2662,14 @@ onUnmounted(() => {
         <button
           @click="currentView = 'backlog'; sound.playClick();"
           :class="[
-            'px-3 py-1.5 rounded-lg transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 shrink-0',
+            'px-2.5 sm:px-3 py-1 rounded-lg transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 shrink-0',
             currentView === 'backlog'
               ? (isDarkMode ? 'bg-midnight-850 text-white border border-midnight-700 font-bold shadow-xs' : 'bg-white text-slate-950 border border-slate-300 font-bold shadow-xs')
               : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-midnight-850/50 border border-transparent' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60 border border-transparent')
           ]"
         >
           <span v-if="currentView === 'backlog'" class="w-1.5 h-1.5 rounded-full bg-phantom-mint inline-block shrink-0"></span>
-          <Icons name="Layers" :size="14" aria-hidden="true" />
+          <Icons name="Layers" :size="13" aria-hidden="true" />
           <span class="leading-none">Sprint Backlog</span>
           <span :class="['px-1.5 py-0.2 rounded-md font-mono text-[10px] font-bold inline-flex items-center justify-center', currentView === 'backlog' ? 'bg-midnight-950 text-phantom-mint' : (isDarkMode ? 'bg-midnight-950 text-slate-400' : 'bg-slate-200 text-slate-700')]">
             {{ sprintList.length }}
@@ -2687,14 +2679,14 @@ onUnmounted(() => {
         <button
           @click="currentView = 'roadmap'; sound.playClick();"
           :class="[
-            'px-3 py-1.5 rounded-lg transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 shrink-0',
+            'px-2.5 sm:px-3 py-1 rounded-lg transition-all cursor-pointer inline-flex items-center justify-center gap-1.5 shrink-0',
             currentView === 'roadmap'
               ? (isDarkMode ? 'bg-midnight-850 text-white border border-midnight-700 font-bold shadow-xs' : 'bg-white text-slate-950 border border-slate-300 font-bold shadow-xs')
               : (isDarkMode ? 'text-slate-400 hover:text-white hover:bg-midnight-850/50 border border-transparent' : 'text-slate-700 hover:text-slate-950 hover:bg-white/60 border border-transparent')
           ]"
         >
           <span v-if="currentView === 'roadmap'" class="w-1.5 h-1.5 rounded-full bg-phantom-mint inline-block shrink-0"></span>
-          <Icons name="GitBranch" :size="14" aria-hidden="true" />
+          <Icons name="GitBranch" :size="13" aria-hidden="true" />
           <span class="leading-none">Roadmap</span>
         </button>
       </div>
@@ -2706,15 +2698,14 @@ onUnmounted(() => {
           <button
             @click.stop="isAiMenuOpen = !isAiMenuOpen"
             :class="[
-              effectiveHeaderCompact ? 'px-2.5 py-1.5' : 'px-3 py-2',
-              'rounded-xl border text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-xs shrink-0',
+              'px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-xs shrink-0',
               isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-300 hover:bg-midnight-850 hover:text-white' : 'bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100'
             ]"
             title="AI planning and settings"
           >
-            <Icons name="Sparkles" :size="14" class="text-phantom-mint" aria-hidden="true" />
-            <span v-if="!effectiveHeaderCompact" class="hidden sm:inline leading-none">AI Engine</span>
-            <Icons name="ChevronDown" :size="12" />
+            <Icons name="Sparkles" :size="13" class="text-phantom-mint" aria-hidden="true" />
+            <span class="hidden sm:inline leading-none">AI Engine</span>
+            <Icons name="ChevronDown" :size="11" />
           </button>
 
           <!-- Dropdown Menu -->
@@ -2757,35 +2748,33 @@ onUnmounted(() => {
         <button
           @click="openMcpModal()"
           :class="[
-            effectiveHeaderCompact ? 'px-2.5 py-1.5' : 'px-3 py-2',
-            'inline-flex items-center gap-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0',
+            'px-2.5 py-1.5 inline-flex items-center gap-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0',
             isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-300 hover:bg-midnight-850 hover:text-white' : 'bg-indigo-50 border-indigo-300 text-indigo-950 hover:bg-indigo-100'
           ]"
           title="Model Context Protocol (MCP) & AI Agent Integration (Antigravity 2.0, Cursor, Claude)"
         >
-          <Icons name="Plug" :size="14" aria-hidden="true" class="text-cyan-400" />
-          <span v-if="!effectiveHeaderCompact" class="leading-none">MCP & Agents</span>
+          <Icons name="Plug" :size="13" aria-hidden="true" class="text-cyan-400" />
+          <span class="hidden md:inline leading-none">MCP & Agents</span>
         </button>
 
         <!-- Weekly Email Report Button -->
         <button
           @click="openReportModal"
           :class="[
-            effectiveHeaderCompact ? 'px-2.5 py-1.5' : 'px-3 py-2',
-            'hidden sm:inline-flex items-center gap-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0',
+            'px-2.5 py-1.5 hidden lg:inline-flex items-center gap-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs shrink-0',
             isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-300 hover:bg-midnight-850 hover:text-white' : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50'
           ]"
           title="Configure and send the weekly progress report"
         >
-          <Icons name="Mail" :size="14" aria-hidden="true" />
-          <span v-if="!effectiveHeaderCompact" class="leading-none">Reports</span>
+          <Icons name="Mail" :size="13" aria-hidden="true" />
+          <span class="leading-none">Reports</span>
         </button>
 
         <!-- Notifications -->
         <button
           @click.stop="toggleNotifications"
           :class="[
-            'relative h-9 w-9 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs inline-flex items-center justify-center shrink-0',
+            'relative h-8.5 w-8.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs inline-flex items-center justify-center shrink-0',
             isNotificationsOpen
               ? (isDarkMode ? 'bg-midnight-850 border-midnight-700 text-phantom-mint' : 'bg-blue-50 border-blue-300 text-blue-800')
               : (isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-300 hover:bg-midnight-850 hover:text-white' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50')
@@ -2793,7 +2782,7 @@ onUnmounted(() => {
           title="Open notifications"
           aria-label="Open notifications"
         >
-          <Icons name="Bell" :size="15" aria-hidden="true" />
+          <Icons name="Bell" :size="14" aria-hidden="true" />
           <span v-if="unreadNotificationCount" class="absolute -right-1 -top-1 min-w-4 h-4 px-1 rounded-full bg-phantom-mint text-midnight-950 text-[9px] leading-4 font-black border border-midnight-950 inline-flex items-center justify-center">
             {{ unreadNotificationCount > 9 ? '9+' : unreadNotificationCount }}
           </span>
@@ -2803,14 +2792,14 @@ onUnmounted(() => {
         <button
           @click="toggleTheme"
           :class="[
-            'h-9 w-9 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs inline-flex items-center justify-center shrink-0',
+            'h-8.5 w-8.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-xs inline-flex items-center justify-center shrink-0',
             isDarkMode
               ? 'bg-midnight-900 border-midnight-800 text-slate-300 hover:bg-midnight-850 hover:text-white'
               : 'bg-white border-slate-300 text-slate-800 hover:bg-slate-50'
           ]"
           :title="isDarkMode ? 'Switch to light theme' : 'Switch to dark theme'"
         >
-          <Icons :name="isDarkMode ? 'Sun' : 'Moon'" :size="15" aria-hidden="true" />
+          <Icons :name="isDarkMode ? 'Sun' : 'Moon'" :size="14" aria-hidden="true" />
         </button>
 
         <!-- Workspace & Billing Navigation -->
@@ -2818,15 +2807,14 @@ onUnmounted(() => {
           <button
             @click.stop="isWorkspaceMenuOpen = !isWorkspaceMenuOpen"
             :class="[
-              effectiveHeaderCompact ? 'px-2 sm:px-2.5 py-1.5' : 'px-2.5 sm:px-3 py-2',
-              'rounded-xl border text-xs font-bold transition-all inline-flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0',
+              'px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all inline-flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0',
               isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-300 hover:bg-midnight-850 hover:text-phantom-mint' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-emerald-700'
             ]"
             title="Workspace settings and billing"
           >
-            <Icons name="Zap" :size="14" class="text-phantom-mint" />
-            <span v-if="!effectiveHeaderCompact" class="hidden sm:inline leading-none">Billing</span>
-            <Icons name="ChevronDown" :size="12" />
+            <Icons name="Zap" :size="13" class="text-phantom-mint" />
+            <span class="hidden sm:inline leading-none">Billing</span>
+            <Icons name="ChevronDown" :size="11" />
           </button>
 
           <!-- Workspace / Billing Menu -->
@@ -2882,43 +2870,38 @@ onUnmounted(() => {
         <!-- Primary Action: + Create Task (Solid Phantom Mint Button) -->
         <button
           @click="openCreateTaskModal"
-          :class="[
-            effectiveHeaderCompact ? 'px-2.5 sm:px-3 py-1.5' : 'px-3.5 py-2',
-            'rounded-xl bg-phantom-mint hover:bg-emerald-400 text-midnight-950 font-extrabold text-xs shadow-sm transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shrink-0'
-          ]"
+          class="px-3 py-1.5 rounded-xl bg-phantom-mint hover:bg-emerald-400 text-midnight-950 font-extrabold text-xs shadow-sm transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
           title="Create a new task"
         >
-          <Icons name="Plus" :size="16" aria-hidden="true" />
+          <Icons name="Plus" :size="14" aria-hidden="true" />
           <span class="leading-none">Create Task</span>
         </button>
 
         <!-- User Profile & Action Controls -->
         <template v-if="props.auth?.user">
-          <div class="flex items-center gap-2 pl-2 border-l border-midnight-800">
-            <span class="hidden xl:inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[10px] font-bold" :class="isDarkMode ? 'border-midnight-800 bg-midnight-900 text-slate-300' : 'border-slate-300 text-slate-700'">
-              <img v-if="props.auth.user.github_avatar_url" :src="props.auth.user.github_avatar_url" class="h-4 w-4 rounded-full" alt="GitHub avatar" />
+          <div class="flex items-center gap-1.5 pl-2 border-l border-slate-200 dark:border-midnight-800">
+            <span class="hidden xl:inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-[10px] font-bold" :class="isDarkMode ? 'border-midnight-800 bg-midnight-900 text-slate-300' : 'border-slate-300 text-slate-700'">
+              <img v-if="props.auth.user.github_avatar_url" :src="props.auth.user.github_avatar_url" class="h-3.5 w-3.5 rounded-full" alt="GitHub avatar" />
               @{{ props.auth.user.github_login || props.auth.user.name }}
             </span>
-            <button @click="logoutGithub" class="rounded-xl border px-2.5 py-2 text-[10px] font-bold cursor-pointer" :class="isDarkMode ? 'border-midnight-800 bg-midnight-900 text-slate-300 hover:bg-midnight-850 hover:text-white' : 'border-slate-300 text-slate-700 hover:bg-slate-100'">Sign out</button>
+            <button @click="logoutGithub" class="rounded-xl border px-2.5 py-1.5 text-[10px] font-bold cursor-pointer" :class="isDarkMode ? 'border-midnight-800 bg-midnight-900 text-slate-300 hover:bg-midnight-850 hover:text-white' : 'border-slate-300 text-slate-700 hover:bg-slate-100'">Sign out</button>
           </div>
         </template>
-        <a v-else href="/auth/github" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-100">Sign in with GitHub</a>
+        <a v-else href="/auth/github" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 hover:bg-slate-100">Sign in with GitHub</a>
 
         <!-- Lock Button -->
         <button
           @click="lockWorkspace"
           :class="[
-            'h-9 w-9 rounded-xl border text-xs transition-colors cursor-pointer shadow-xs inline-flex items-center justify-center shrink-0',
+            'h-8.5 w-8.5 rounded-xl border text-xs transition-colors cursor-pointer shadow-xs inline-flex items-center justify-center shrink-0',
             isDarkMode ? 'bg-midnight-900 border-midnight-800 text-slate-400 hover:text-rose-400 hover:bg-midnight-850' : 'bg-white border-slate-200 text-slate-600 hover:text-rose-600 hover:bg-red-50'
           ]"
           title="Lock workspace (PIN: 301095)"
         >
-          <Icons name="Lock" :size="14" />
+          <Icons name="Lock" :size="13" />
         </button>
       </div>
     </header>
-
-    <RunnerDashboard :is-dark-mode="isDarkMode" :is-compact="effectiveHeaderCompact" @dispatch="handleRunnerDashboardDispatch" />
 
     <!-- ========================================================================= -->
     <!-- 2. MAIN LAYOUT (SIDEBAR + MAIN CANVAS)                                    -->
@@ -2928,7 +2911,7 @@ onUnmounted(() => {
       <aside
         v-if="isSidebarOpen"
         :class="[
-          'fixed md:relative left-0 top-16 md:top-auto bottom-0 md:bottom-auto z-30 w-[min(88vw,20rem)] md:w-72 border-r flex flex-col justify-between shrink-0 h-full select-none transition-colors shadow-xl md:shadow-none overflow-hidden',
+          'fixed md:relative left-0 top-12 md:top-auto bottom-0 md:bottom-auto z-30 w-[min(88vw,20rem)] md:w-72 border-r flex flex-col justify-between shrink-0 h-full select-none transition-colors shadow-xl md:shadow-none overflow-hidden',
           isDarkMode ? 'bg-midnight-900 border-midnight-800/80' : 'bg-white border-slate-200/90'
         ]"
       >
@@ -3090,7 +3073,7 @@ onUnmounted(() => {
 
       <div
         v-if="isSidebarOpen"
-        class="fixed inset-0 top-16 z-20 bg-midnight-950/40 md:hidden backdrop-blur-xs"
+        class="fixed inset-0 top-12 z-20 bg-midnight-950/40 md:hidden backdrop-blur-xs"
         @click="isSidebarOpen = false"
       ></div>
 
