@@ -730,7 +730,7 @@ class ApiAgentRunController extends Controller
                     'blockers' => $validated['blockers'] ?? null,
                     'auto_review' => $validated['review'] ?? null,
                     'stage_executions' => $validated['stage_executions'] ?? null,
-                    'context_packages' => $validated['context_packages'] ?? ($validated['context_package'] ? [$validated['context_package']] : null),
+                    'context_packages' => $validated['context_packages'] ?? (!empty($validated['context_package']) ? [$validated['context_package']] : null),
                     'idempotency_key' => $idempotencyKey,
                     'submitted_at' => now()->toIso8601String(),
                     'auto_approved' => $autoApproved,

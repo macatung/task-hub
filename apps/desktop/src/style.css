@@ -13,10 +13,42 @@
   --color-midnight-700: #1a233d;
   --color-midnight-600: #253254;
 
+  --color-linear-canvas: #09090b;
+  --color-linear-sidebar: #0c0d12;
+  --color-linear-surface: #14151c;
+  --color-linear-hover: #1c1d27;
+  --color-linear-border: #232430;
+  --color-linear-border-active: #323444;
+
   --color-phantom-mint: #00f5a0;
   --color-cyber-cyan: #00f5d4;
   --color-alchemist-purple: #9d4edd;
   --color-phantom-blood: #ff0054;
+}
+
+/* Linear / Things 3 Sleek Checkbox */
+.linear-checkbox {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 9999px;
+  border: 1.5px solid #3f3f46;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  background: transparent;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.linear-checkbox:hover {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+  transform: scale(1.06);
+}
+.linear-checkbox.is-checked {
+  background: #10b981;
+  border-color: #10b981;
+  color: #09090b;
 }
 
 /* Deep Midnight Obsidian baseline */

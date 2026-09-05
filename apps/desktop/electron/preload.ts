@@ -20,6 +20,12 @@ contextBridge.exposeInMainWorld('desktopApi', {
   minimize: () => ipcRenderer.send('window-minimize'),
   toggleMaximize: () => ipcRenderer.invoke('window-toggle-maximize'),
   maximize: () => ipcRenderer.invoke('window-toggle-maximize'),
+  isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  onMaximizedState: (callback: (maximized: boolean) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: boolean) => callback(state);
+    ipcRenderer.on('window-maximized-state', listener);
+    return () => ipcRenderer.removeListener('window-maximized-state', listener);
+  },
   setAlwaysOnTop: (alwaysOnTop: boolean) => ipcRenderer.send('window-set-always-on-top', safeClone(alwaysOnTop)),
   moveWindow: (dx: number, dy: number) => ipcRenderer.send('window-move-by', safeClone({ dx, dy })),
   resizeWindow: (width: number, height: number) => ipcRenderer.send('window-resize', safeClone({ width, height })),
@@ -30,6 +36,7 @@ contextBridge.exposeInMainWorld('desktopApi', {
     ipcRenderer.on('tray-action', (_event, action) => callback(action));
   },
   openExternal: (url: string) => ipcRenderer.invoke('open-external', safeClone(url)),
+  showNotification: (title: string, body: string) => ipcRenderer.invoke('app-show-notification', safeClone({ title, body })),
   updater: {
     getState: () => ipcRenderer.invoke('updater-get-state'),
     check: () => ipcRenderer.invoke('updater-check'),

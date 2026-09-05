@@ -1111,7 +1111,7 @@ const refreshQuotaUsage = async () => {
     const res = await (window as any).desktopApi?.agent?.syncQuotaUsage?.();
     if (res?.quota) {
       quotaUsageState.value = { ...quotaUsageState.value, ...res.quota };
-      addTimeline(res.sync?.ok ? 'Quota synced' : 'Quota sync unavailable', res.sync?.message || 'Quota sync finished.', res.sync?.ok ? 'ok' : 'warn');
+      addTimeline(res.sync?.ok ? 'Quota synced' : 'Quota sync unavailable', res.sync?.message || 'Quota sync finished.', res.sync?.ok ? 'ok' : 'warning');
     }
   } catch (err) {
     console.warn('Failed to refresh quota:', err);

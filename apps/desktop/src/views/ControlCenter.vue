@@ -600,6 +600,13 @@ const mcp = async (name: string, args: Record<string, unknown>) => {
   if (name === 'start_agent_run' && rawArgs.context_package === undefined) {
     rawArgs.context_package = {};
   }
+  if (
+    (name === 'complete_agent_handoff' || name === 'complete_auto_approved_handoff') &&
+    rawArgs.context_packages === undefined
+  ) {
+    rawArgs.context_packages = [];
+    rawArgs.context_package = null;
+  }
   let response: any;
   try {
     response = await window.desktopApi.taskHub.mcpCall(
@@ -1014,6 +1021,11 @@ const retryEpicChildTask = async (customPrompt?: string) => {
   }
   runStatus.value = "idle";
   error.value = "";
+  if (workflowKind.value === 'epic' && workflowStatus.value?.state === 'completed') {
+    phase.value = `Retrying Epic handoff for ${selectedTask.value?.issue_key || 'task'}`;
+    await finalizeWorkflowRun();
+    return;
+  }
   phase.value = `Retrying ${selectedTask.value?.issue_key || 'task'} in Epic sequence`;
   notify({
     type: "info",
@@ -1025,6 +1037,12 @@ const retryEpicChildTask = async (customPrompt?: string) => {
 const skipEpicChildTask = async () => {
   const sequence = epicSequence.value;
   if (!sequence || !selectedTask.value) {
+    if (workflowKind.value === 'epic') {
+      runStatus.value = "idle";
+      error.value = "";
+      phase.value = "Ready";
+      workflowStatus.value = null;
+    }
     if (selectedTask.value) {
       notify({
         type: "warning",
@@ -1060,7 +1078,16 @@ const skipEpicChildTask = async () => {
 };
 const skipReviewAndContinueEpic = async () => {
   const sequence = epicSequence.value;
-  if (!sequence) return;
+  if (!sequence) {
+    if (workflowKind.value === 'epic') {
+      error.value = "";
+      runStatus.value = "running";
+      phase.value = "Retrying Epic handoff";
+      await finalizeWorkflowRun();
+      return;
+    }
+    return;
+  }
   error.value = "";
   sequence.finalizing = false;
   sequence.waitingForApproval = false;
@@ -1478,6 +1505,8 @@ const autoCompleteStrictEpicChildren = async (epic: TaskItem, caoRunId: string) 
         iterations: 1,
         feedback: 'Approved by the independent CAO review stage.',
       },
+      context_packages: [],
+      context_package: null,
     });
     child.status = 'done';
   }
@@ -1630,7 +1659,7 @@ const launchStrictWorkflow = async () => {
       workflowKind.value = 'epic';
       runId.value = completed.parentRunId || completed.metadata?.parentRunId || null;
       implementationRunId.value = runId.value;
-      workflowStatus.value = { runId: completed.runId, state: 'completed', kind: 'epic', parentRunId: runId.value, workflowName: completed.workflowName, currentStep: completed.currentStep, totalSteps: completed.totalSteps, completedSteps: completed.completedSteps || [], steps: completed.steps || completed.metadata?.steps || [], error: completed.error };
+      workflowStatus.value = { runId: completed.runId, state: 'completed', kind: 'epic', parentRunId: runId.value || undefined, workflowName: completed.workflowName, currentStep: completed.currentStep, totalSteps: completed.totalSteps, completedSteps: completed.completedSteps || [], steps: completed.steps || completed.metadata?.steps || [], error: completed.error };
       phase.value = `Finalizing completed workflow: ${completed.runId}`;
       await finalizeWorkflowRun();
       return;
@@ -2563,6 +2592,8 @@ const handoff = async (payload: any, autoApprove = false) => {
       commit_sha: payload.commitSha || undefined,
       pull_request_url: payload.pullRequestUrl || undefined,
       blockers: payload.blockers || undefined,
+      context_packages: payload.contextPackages || [],
+      context_package: null,
       review:
         autoReviewStatus.value !== "idle"
           ? {
@@ -3970,8 +4001,8 @@ onUnmounted(() => {
           :auto-review-max-iterations="activeReviewMaxIterations"
           :auto-review-feedback="autoReviewFeedback"
           :reviewer-provider="reviewerProvider"
-          :is-epic-blocked="Boolean(epicSequence && (phase === 'Epic sequence blocked' || runStatus === 'failed' || error))"
-          :epic-blocked-reason="error || toolMessage"
+          :is-epic-blocked="Boolean((epicSequence || workflowKind === 'epic') && (phase === 'Epic sequence blocked' || phase === 'Workflow handoff failed' || runStatus === 'failed' || error))"
+          :epic-blocked-reason="error || toolMessage || (phase === 'Workflow handoff failed' ? 'Lượt chạy hoàn tất nhưng quá trình bàn giao handoff lên Hub gặp lỗi.' : '')"
           @choose-workspace="chooseWorkspace"
           @launch="launch"
           @cancel="cancel"

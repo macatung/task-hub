@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             PlanSeeder::class,
             ContentAndAnalyticsSeeder::class,
             TheravadaContentSeeder::class,
+            RoadmapFeatureSeeder::class,
         ]);
     }
 }

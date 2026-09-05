@@ -1,5 +1,6 @@
 import { ref, onMounted } from 'vue';
 import { defaultHeartbeatService, defaultRemoteDispatchService } from '../services';
+import { DEFAULT_ROADMAP_PROJECTS, getDefaultRoadmapTasks } from './defaultRoadmapSeed';
 
 export interface ProjectItem {
   id: number;
@@ -55,6 +56,18 @@ export interface TaskItem {
     depends_on?: TaskDependencyTarget | null;
   }>;
   notes?: string | null;
+}
+
+export interface CreateTaskOptions {
+  title: string;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  project_id?: number | null;
+  epic_id?: number | null;
+  due_date?: string | null;
+  description?: string | null;
+  category?: string;
+  estimated_pomodoros?: number;
+  status?: 'todo' | 'in_progress' | 'review' | 'done';
 }
 
 export interface DailyDispatchData {
@@ -154,7 +167,7 @@ export function getTaskMemoryCacheSnapshot(projectId: string): TaskMemoryCacheEn
 export function useTaskSync() {
   const tasks = ref<TaskItem[]>([]);
   const agentTasks = ref<TaskItem[]>([]);
-  const projects = ref<ProjectItem[]>([]);
+  const projects = ref<ProjectItem[]>([...DEFAULT_ROADMAP_PROJECTS]);
   const activeTask = ref<TaskItem | null>(null);
   const isLoading = ref(false);
   const isOnline = ref(false);
@@ -213,15 +226,28 @@ export function useTaskSync() {
       const saved = storage?.getItem(cacheKey());
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
+        if (Array.isArray(parsed) && parsed.length > 0) {
           tasks.value = parsed;
           const filtered = parsed.filter((task: TaskItem) => task.status !== 'done' || needsDependencyReview(task, parsed));
           agentTasks.value = filtered;
           memoryTaskCache.set(key, { tasks: parsed, agentTasks: filtered, fetchedAt: Date.now() });
+          return;
         }
       }
     } catch (e) {
       console.warn('Local task cache error:', e);
+    }
+
+    // Default Seed Fallback: Populate initial Roadmap features if cache is empty
+    if (tasks.value.length === 0) {
+      const defaultTasks = getDefaultRoadmapTasks();
+      tasks.value = defaultTasks;
+      const filtered = defaultTasks.filter((task: TaskItem) => task.status !== 'done' || needsDependencyReview(task, defaultTasks));
+      agentTasks.value = filtered;
+      memoryTaskCache.set(key, { tasks: defaultTasks, agentTasks: filtered, fetchedAt: Date.now() });
+    }
+    if (projects.value.length === 0) {
+      projects.value = [...DEFAULT_ROADMAP_PROJECTS];
     }
   };
 
@@ -403,7 +429,12 @@ export function useTaskSync() {
 
   const fetchProjects = async () => {
     if (!credential.value) await loadCredential();
-    if (!credential.value) return false;
+    if (!credential.value) {
+      if (projects.value.length === 0) {
+        projects.value = [...DEFAULT_ROADMAP_PROJECTS];
+      }
+      return false;
+    }
     try {
       const response = await fetchWithTimeout(projectsUrl(), { headers: authHeaders() });
       const json = await response.json();
@@ -415,6 +446,9 @@ export function useTaskSync() {
     } catch (e) {
       isOnline.value = false;
       connectionError.value = e instanceof Error ? e.message : 'Unable to load Task Hub projects.';
+      if (projects.value.length === 0) {
+        projects.value = [...DEFAULT_ROADMAP_PROJECTS];
+      }
       return false;
     }
   };
@@ -425,8 +459,10 @@ export function useTaskSync() {
     } catch {}
     credential.value = null;
     void syncHeartbeatService(null);
-    tasks.value = [];
-    agentTasks.value = [];
+    const defaultTasks = getDefaultRoadmapTasks();
+    tasks.value = defaultTasks;
+    projects.value = [...DEFAULT_ROADMAP_PROJECTS];
+    agentTasks.value = defaultTasks.filter(task => task.status !== 'done' || needsDependencyReview(task, defaultTasks));
     isOnline.value = false;
   };
 
@@ -511,51 +547,110 @@ export function useTaskSync() {
   };
 
   // Create task
-  const createTask = async (title: string, priority = 'high', projectId?: number, category = 'backend', estimatedPomodoros = 2) => {
-    if (!title.trim()) return null;
+  const createTask = async (
+    titleOrPayload: string | CreateTaskOptions,
+    legacyPriority = 'medium',
+    legacyProjectId?: number,
+    legacyCategory = 'general',
+    legacyEstimatedPomodoros = 2
+  ): Promise<TaskItem | null> => {
+    const isObj = typeof titleOrPayload === 'object' && titleOrPayload !== null;
+    const rawTitle = isObj ? titleOrPayload.title : titleOrPayload;
+    if (!rawTitle || typeof rawTitle !== 'string' || !rawTitle.trim()) {
+      return null;
+    }
 
-    if (!credential.value) return null;
-    const selectedProjectId = projectId || projects.value[0]?.id;
-    if (!selectedProjectId) return null;
+    const title = rawTitle.trim();
+    const priority = (isObj ? titleOrPayload.priority : legacyPriority) || 'medium';
+    const rawProjectId = isObj ? titleOrPayload.project_id : legacyProjectId;
+
+    // Resolve project_id: prioritize explicit project, then current project, then first available project
+    let selectedProjectId: number | null = rawProjectId || null;
+    if (!selectedProjectId && projects.value.length > 0) {
+      selectedProjectId = projects.value[0]?.id || null;
+    }
+    if (!selectedProjectId && credential.value?.projectId && Number(credential.value.projectId) > 0) {
+      selectedProjectId = Number(credential.value.projectId);
+    }
+    if (!selectedProjectId) {
+      selectedProjectId = 1;
+    }
+
+    const dueDate = (isObj && titleOrPayload.due_date !== undefined)
+      ? titleOrPayload.due_date
+      : new Date().toISOString().split('T')[0];
+
+    const description = isObj ? (titleOrPayload.description || null) : null;
+    const category = (isObj && titleOrPayload.category) ? titleOrPayload.category : legacyCategory || 'general';
+    const estimatedPomodoros = (isObj && titleOrPayload.estimated_pomodoros) ? titleOrPayload.estimated_pomodoros : legacyEstimatedPomodoros || 2;
+    const status = (isObj && titleOrPayload.status) ? titleOrPayload.status : 'todo';
+    const epicId = (isObj && titleOrPayload.epic_id !== undefined) ? titleOrPayload.epic_id : null;
+    const epicObj = epicId ? tasks.value.find(t => t.id === epicId) : null;
+
     const newTask: TaskItem = {
       id: Date.now(),
       project_id: selectedProjectId,
-      title: title.trim(),
-      description: null,
-      status: 'todo',
+      epic_id: epicId,
+      epic: epicObj ? { id: epicObj.id, title: epicObj.title, issue_key: epicObj.issue_key } : null,
+      title,
+      description,
+      status: status as any,
       priority: priority as any,
       category,
       estimated_pomodoros: estimatedPomodoros,
       completed_pomodoros: 0,
-      due_date: new Date().toISOString().split('T')[0],
+      due_date: dueDate,
       completed_at: null,
     };
 
+    // Optimistic UI: Add to local state and cache immediately
     tasks.value.unshift(newTask);
     saveLocalCache();
 
-    const operation: PendingSyncOperation = {
-      id: crypto.randomUUID(), method: 'POST', path: '', body: { ...newTask }, temporaryTaskId: newTask.id,
-    };
-    try {
-      const res = await fetchWithTimeout(apiUrl(), {
+    // If online with credential, sync to Task Hub backend
+    if (credential.value && selectedProjectId) {
+      const operation: PendingSyncOperation = {
+        id: crypto.randomUUID(),
         method: 'POST',
-        headers: { ...authHeaders(), 'X-Idempotency-Key': operation.id },
-        body: JSON.stringify(newTask),
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success) {
-          const idx = tasks.value.findIndex(t => t.id === newTask.id);
-          if (idx !== -1) tasks.value[idx] = json.data;
-          saveLocalCache();
+        path: '',
+        body: {
+          title: newTask.title,
+          project_id: selectedProjectId,
+          epic_id: newTask.epic_id,
+          priority: newTask.priority,
+          status: newTask.status,
+          category: newTask.category,
+          estimated_pomodoros: newTask.estimated_pomodoros,
+          due_date: newTask.due_date,
+          description: newTask.description,
+        },
+        temporaryTaskId: newTask.id,
+      };
+
+      try {
+        const res = await fetchWithTimeout(apiUrl(), {
+          method: 'POST',
+          headers: { ...authHeaders(), 'X-Idempotency-Key': operation.id },
+          body: JSON.stringify(operation.body),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            const idx = tasks.value.findIndex(t => t.id === newTask.id);
+            if (idx !== -1) {
+              tasks.value[idx] = { ...tasks.value[idx], ...json.data };
+              saveLocalCache();
+            }
+            return tasks.value[idx] || json.data;
+          }
+        } else {
+          console.warn('Task creation API returned HTTP', res.status);
+          enqueueSync(operation);
         }
-      } else {
+      } catch (e) {
+        console.warn('Failed to sync created task to API, queued for retry:', e);
         enqueueSync(operation);
       }
-    } catch (e) {
-      console.warn('Failed to sync created task to API:', e);
-      enqueueSync(operation);
     }
 
     return newTask;
@@ -594,6 +689,72 @@ export function useTaskSync() {
         body: { status: newStatus },
       });
       throw e;
+    }
+  };
+
+  // Update any task fields
+  const updateTask = async (taskId: number, updates: Partial<TaskItem>) => {
+    const idx = tasks.value.findIndex((t) => t.id === taskId);
+    if (idx !== -1) {
+      tasks.value[idx] = { ...tasks.value[idx], ...updates };
+      if (updates.status === 'done') {
+        tasks.value[idx].completed_at = new Date().toISOString();
+      } else if (updates.status) {
+        tasks.value[idx].completed_at = null;
+      }
+      saveLocalCache();
+    }
+
+    try {
+      if (!credential.value) return;
+      const response = await fetchWithTimeout(`${apiUrl()}/${taskId}`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify(updates),
+      });
+      const json = await response.json().catch(() => null);
+      if (response.ok && json?.success && json?.data) {
+        const updated = json.data as TaskItem;
+        const replace = (items: TaskItem[]) => {
+          const index = items.findIndex((candidate) => candidate.id === taskId);
+          if (index !== -1) items[index] = { ...items[index], ...updated };
+        };
+        replace(tasks.value);
+        replace(agentTasks.value);
+        saveLocalCache();
+        return updated;
+      }
+    } catch (e) {
+      console.warn('Failed to sync task update, enqueued for retry:', e);
+      enqueueSync({
+        id: crypto.randomUUID(),
+        method: 'PATCH',
+        path: `/${taskId}`,
+        body: updates as Record<string, unknown>,
+      });
+    }
+  };
+
+  // Delete task
+  const deleteTask = async (taskId: number) => {
+    tasks.value = tasks.value.filter((t) => t.id !== taskId);
+    agentTasks.value = agentTasks.value.filter((t) => t.id !== taskId);
+    saveLocalCache();
+
+    try {
+      if (!credential.value) return;
+      await fetchWithTimeout(`${apiUrl()}/${taskId}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+    } catch (e) {
+      console.warn('Failed to sync task deletion:', e);
+      enqueueSync({
+        id: crypto.randomUUID(),
+        method: 'POST',
+        path: `/${taskId}/delete`,
+        body: { id: taskId },
+      });
     }
   };
 
@@ -648,6 +809,8 @@ export function useTaskSync() {
     fetchProjects,
     fetchAgentTasks,
     createTask,
+    updateTask,
+    deleteTask,
     updateTaskStatus,
     toggleTaskComplete,
     incrementPomodoro,
